@@ -1,0 +1,79 @@
+# name: test/sql/tier1_synthetic/s3_controlled_overlap.test
+# description: S3 - Controlled overlap should have Jaccard = 3/7 = 0.4286
+# group: [tier1_synthetic]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/synthetic/ground_truth.csv');
+
+# Verify test data loaded correctly
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'OVLP-%';
+----
+9
+
+# Product A has 5 components: 3 shared + 2 unique
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM bom_items
+WHERE parent_id = 'OVLP-PROD-A';
+----
+5
+
+# Product B has 5 components: 3 shared + 2 unique
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM bom_items
+WHERE parent_id = 'OVLP-PROD-B';
+----
+5
+
+# Verify exactly 3 shared components
+query I
+SELECT COUNT(*)
+FROM (
+    SELECT child_id FROM bom_items WHERE parent_id = 'OVLP-PROD-A'
+    INTERSECT
+    SELECT child_id FROM bom_items WHERE parent_id = 'OVLP-PROD-B'
+);
+----
+3
+
+# Verify 7 total unique components
+query I
+SELECT COUNT(*)
+FROM (
+    SELECT child_id FROM bom_items WHERE parent_id = 'OVLP-PROD-A'
+    UNION
+    SELECT child_id FROM bom_items WHERE parent_id = 'OVLP-PROD-B'
+);
+----
+7
+
+# Calculate Jaccard similarity using jaccard_similarity function
+# Jaccard = 3/7 = 0.428571...
+query R
+SELECT ROUND(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'OVLP-PROD-A'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'OVLP-PROD-B')
+), 4);
+----
+0.4286
+
+# Verify ground truth matches (within tolerance)
+query R
+SELECT ROUND(expected_similarity, 4) FROM ground_truth
+WHERE material_a = 'OVLP-PROD-A' AND material_b = 'OVLP-PROD-B';
+----
+0.4286

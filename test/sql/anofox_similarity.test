@@ -1,0 +1,98 @@
+# name: test/sql/anofox_similarity.test
+# description: test anofox_similarity extension
+# group: [sql]
+
+# Before we load the extension, this will fail
+statement error
+SELECT anofox_similarity('Sam');
+----
+Catalog Error: Scalar Function with name anofox_similarity does not exist!
+
+# Require statement will ensure this test is run with this extension loaded
+require anofox_similarity
+
+# Confirm the extension works
+query I
+SELECT anofox_similarity('Sam');
+----
+AnofoxSimilarity Sam 🐥
+
+query I
+SELECT anofox_similarity_openssl_version('Michael') ILIKE 'AnofoxSimilarity Michael, my linked OpenSSL version is OpenSSL%';
+----
+true
+
+# ============================================================================
+# jaccard_similarity tests
+# ============================================================================
+
+# Basic overlap test: {A,B,C} ∩ {B,C,D} = {B,C}, union = {A,B,C,D}
+# Jaccard = 2/4 = 0.5
+query R
+SELECT jaccard_similarity(['A','B','C'], ['B','C','D']);
+----
+0.5
+
+# Identical lists should return 1.0
+query R
+SELECT jaccard_similarity(['A','B','C'], ['A','B','C']);
+----
+1.0
+
+# Disjoint lists should return 0.0
+query R
+SELECT jaccard_similarity(['A','B'], ['C','D']);
+----
+0.0
+
+# Empty lists should return 0.0
+query R
+SELECT jaccard_similarity([], []);
+----
+0.0
+
+# One empty, one non-empty: intersection=0, union=2
+query R
+SELECT jaccard_similarity(['A','B'], []);
+----
+0.0
+
+# With duplicates - should be treated as sets (deduplicated)
+# {A,B} ∩ {B,C} = {B}, union = {A,B,C}
+# Jaccard = 1/3 = 0.3333...
+query R
+SELECT ROUND(jaccard_similarity(['A','A','B'], ['B','B','C']), 4);
+----
+0.3333
+
+# Test with INTEGER lists
+query R
+SELECT jaccard_similarity([1,2,3], [2,3,4]);
+----
+0.5
+
+# NULL handling - if either input is NULL, result is NULL
+query R
+SELECT jaccard_similarity(NULL, ['A','B']);
+----
+NULL
+
+query R
+SELECT jaccard_similarity(['A','B'], NULL);
+----
+NULL
+
+# Single element overlap
+query R
+SELECT jaccard_similarity(['X'], ['X']);
+----
+1.0
+
+# Larger lists test
+# {1,2,3,4,5} ∩ {3,4,5,6,7} = {3,4,5} = 3 elements
+# union = {1,2,3,4,5,6,7} = 7 elements
+# Jaccard = 3/7 ≈ 0.4286
+query R
+SELECT ROUND(jaccard_similarity([1,2,3,4,5], [3,4,5,6,7]), 4);
+----
+0.4286
