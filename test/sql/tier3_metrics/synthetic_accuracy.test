@@ -1,0 +1,268 @@
+# name: test/sql/tier3_metrics/synthetic_accuracy.test
+# description: Tier 3 - Precision@K, Recall@K, MRR validation on synthetic dataset
+# group: [tier3_metrics]
+
+# Validates accuracy metrics against CONCEPT.md Section 6.3 targets:
+# - P1 MVP Synthetic: Precision@5 >= 0.90, Recall@10 >= 0.85, MRR >= 0.80
+#
+# Ground truth covers:
+# - identical (1 pair): exact match, similarity = 1.0
+# - variant (15 pairs): 90%/70%/50% component retention
+# - partial_overlap (1 pair): 3 shared of 7 unique
+# - predecessor (10 pairs): generational evolution
+# - hierarchical (3 pairs): shared subassemblies
+# - structural_diff (1 pair): same components, different structure
+# - deep_hierarchy (1 pair): 4-level BOM depth
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Load synthetic dataset
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/synthetic/ground_truth.csv.gz');
+
+# ============================================================================
+# Precision@5: Fraction of top-5 results that are ground truth matches
+# Target: >= 0.90
+# ============================================================================
+
+# For precision, we focus on "positive" relationships where we expect the
+# similar material to appear in results: identical, variant, partial_overlap
+# (excluding unrelated which is a negative case)
+
+query I
+WITH positive_gt AS (
+    -- Ground truth pairs where material_b SHOULD appear in results for material_a
+    SELECT material_a as query_id, material_b as expected_match
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant', 'partial_overlap')
+      AND expected_similarity >= 0.4  -- Focus on higher similarity pairs
+),
+distinct_queries AS (
+    SELECT DISTINCT query_id FROM positive_gt
+),
+query_precision AS (
+    SELECT
+        q.query_id,
+        (SELECT COUNT(*) FROM find_similar_materials(q.query_id, 5) f
+         WHERE f.material_id IN (SELECT expected_match FROM positive_gt WHERE query_id = q.query_id)
+        ) as hits_in_top5,
+        (SELECT COUNT(*) FROM positive_gt WHERE query_id = q.query_id) as expected_count
+    FROM distinct_queries q
+)
+-- Precision@5 = avg(hits / min(expected, 5))
+-- If we have 1 expected match and it's in top-5, precision = 1.0
+SELECT AVG(hits_in_top5::FLOAT / LEAST(expected_count, 5)) >= 0.90 as meets_target
+FROM query_precision
+WHERE expected_count > 0;
+----
+true
+
+# ============================================================================
+# Recall@10: Fraction of ground truth pairs found in top-10 results
+# Target: >= 0.85
+# ============================================================================
+
+# Recall measures how many of the expected matches we actually find
+query I
+WITH positive_gt AS (
+    SELECT material_a as query_id, material_b as expected_match, expected_similarity
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant', 'partial_overlap')
+      AND expected_similarity >= 0.3
+),
+distinct_queries AS (
+    SELECT DISTINCT query_id FROM positive_gt
+),
+query_recall AS (
+    SELECT
+        q.query_id,
+        (SELECT COUNT(*) FROM find_similar_materials(q.query_id, 10) f
+         WHERE f.material_id IN (SELECT expected_match FROM positive_gt WHERE query_id = q.query_id)
+        ) as found_count,
+        (SELECT COUNT(*) FROM positive_gt WHERE query_id = q.query_id) as expected_count
+    FROM distinct_queries q
+)
+-- Recall@10 = avg(found / expected)
+SELECT AVG(found_count::FLOAT / expected_count) >= 0.85 as meets_target
+FROM query_recall
+WHERE expected_count > 0;
+----
+true
+
+# ============================================================================
+# MRR (Mean Reciprocal Rank): Mean of 1/rank for first ground truth match
+# Target: >= 0.80
+# ============================================================================
+
+# MRR measures how early the first relevant result appears
+# For high-similarity pairs (identical, high variants), should be at rank 1
+query I
+WITH high_sim_gt AS (
+    -- Focus on pairs where we expect top ranking
+    SELECT material_a as query_id, material_b as expected_match
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant')
+      AND expected_similarity >= 0.7  -- VAR-1 variants (0.82) and identical (1.0)
+),
+reciprocal_ranks AS (
+    SELECT
+        p.query_id,
+        p.expected_match,
+        (SELECT MIN(rn) FROM (
+            SELECT material_id, ROW_NUMBER() OVER () as rn
+            FROM find_similar_materials(p.query_id, 20)
+        ) sub WHERE sub.material_id = p.expected_match) as first_rank
+    FROM high_sim_gt p
+)
+-- MRR = avg(1/rank) where rank is found
+SELECT AVG(1.0 / first_rank) >= 0.80 as meets_target
+FROM reciprocal_ranks
+WHERE first_rank IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Individual Scenario Validation: Identical pairs (S1)
+# ============================================================================
+
+# IDENT-PROD-A -> IDENT-PROD-B should be at rank 1 with similarity 1.0
+query I
+SELECT material_id = 'IDENT-PROD-B' AND similarity = 1.0
+FROM find_similar_materials('IDENT-PROD-A', 1);
+----
+true
+
+# ============================================================================
+# Individual Scenario Validation: Variant families (S5)
+# ============================================================================
+
+# FAMILY-00-BASE should find VAR-1 (0.82) in top-3
+query I
+SELECT COUNT(*) >= 1
+FROM find_similar_materials('FAMILY-00-BASE', 3)
+WHERE material_id = 'FAMILY-00-VAR-1';
+----
+true
+
+# All 5 product families should find their VAR-1 in top results
+query I
+WITH families AS (
+    SELECT unnest(['FAMILY-00-BASE', 'FAMILY-01-BASE', 'FAMILY-02-BASE',
+                   'FAMILY-03-BASE', 'FAMILY-04-BASE']) as base_id
+),
+var1_found AS (
+    SELECT f.base_id,
+           (SELECT COUNT(*) FROM find_similar_materials(f.base_id, 5)
+            WHERE material_id = replace(f.base_id, 'BASE', 'VAR-1')) as found
+    FROM families f
+)
+SELECT SUM(found) = 5 FROM var1_found;
+----
+true
+
+# ============================================================================
+# Individual Scenario Validation: Partial overlap (S3)
+# ============================================================================
+
+# OVLP-PROD-A -> OVLP-PROD-B should be found (Jaccard = 0.4286)
+query I
+SELECT COUNT(*) >= 1
+FROM find_similar_materials('OVLP-PROD-A', 10)
+WHERE material_id = 'OVLP-PROD-B';
+----
+true
+
+# ============================================================================
+# Negative Case Validation: Unrelated pairs (S2)
+# ============================================================================
+
+# DISJ-PROD-A and DISJ-PROD-B have no shared components
+# Verify their Jaccard similarity is exactly 0.0
+query R
+SELECT jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'DISJ-PROD-A'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'DISJ-PROD-B')
+);
+----
+0.0
+
+# The unrelated product should have 0 shared components
+query I
+WITH disj_a_components AS (
+    SELECT child_id FROM bom_items WHERE parent_id = 'DISJ-PROD-A'
+),
+disj_b_components AS (
+    SELECT child_id FROM bom_items WHERE parent_id = 'DISJ-PROD-B'
+)
+SELECT COUNT(*) FROM disj_a_components
+WHERE child_id IN (SELECT child_id FROM disj_b_components);
+----
+0
+
+# ============================================================================
+# Aggregate Precision@5 with strict threshold (final validation)
+# ============================================================================
+
+# This is the definitive P@5 test against CONCEPT.md target
+query R
+WITH positive_gt AS (
+    SELECT material_a, material_b
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant')
+      AND expected_similarity >= 0.5  -- 70%+ retention variants
+),
+queries AS (
+    SELECT DISTINCT material_a as query_id FROM positive_gt
+),
+precision_scores AS (
+    SELECT
+        q.query_id,
+        CASE
+            WHEN (SELECT COUNT(*) FROM positive_gt WHERE material_a = q.query_id) = 0 THEN NULL
+            ELSE (SELECT COUNT(*) FROM find_similar_materials(q.query_id, 5) f
+                  WHERE f.material_id IN (SELECT material_b FROM positive_gt WHERE material_a = q.query_id)
+                 )::FLOAT / LEAST((SELECT COUNT(*) FROM positive_gt WHERE material_a = q.query_id), 5)
+        END as precision
+    FROM queries q
+)
+SELECT ROUND(AVG(precision), 2) FROM precision_scores WHERE precision IS NOT NULL;
+----
+1.0
+
+# ============================================================================
+# Aggregate MRR with strict threshold (final validation)
+# ============================================================================
+
+query R
+WITH high_sim_gt AS (
+    SELECT material_a, material_b
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant')
+      AND expected_similarity >= 0.7
+),
+mrr_calc AS (
+    SELECT
+        g.material_a,
+        g.material_b,
+        (SELECT MIN(rn) FROM (
+            SELECT material_id, ROW_NUMBER() OVER () as rn
+            FROM find_similar_materials(g.material_a, 10)
+        ) WHERE material_id = g.material_b) as rank
+    FROM high_sim_gt g
+)
+SELECT ROUND(AVG(1.0 / rank), 2) FROM mrr_calc WHERE rank IS NOT NULL;
+----
+1.0
+

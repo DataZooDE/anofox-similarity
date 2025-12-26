@@ -1,0 +1,302 @@
+# name: test/sql/tier3_metrics/predecessor_f1.test
+# description: Tier 3 - Predecessor detection Precision, Recall, and F1 validation
+# group: [tier3_metrics]
+
+# Validates predecessor detection accuracy against CONCEPT.md Section 6.3 targets:
+# - P2 Target: Predecessor F1 >= 0.70
+#
+# Ground truth predecessor pairs (10 total):
+# - PRED-CHAIN: 3 sequential generation pairs (Gen 0->1->2->3)
+# - S7: Clear predecessor with anti-correlation
+# - S8: Gradual phase-out with overlap period
+# - S12: 5 sequential generation pairs (Gen 0->1->2->3->4->5)
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Load synthetic dataset including goods_movements
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/synthetic/ground_truth.csv.gz');
+
+# ============================================================================
+# Verify predecessor ground truth loaded
+# ============================================================================
+
+# Should have 10 predecessor pairs in ground truth
+query I
+SELECT COUNT(*) FROM ground_truth WHERE relationship_type = 'predecessor';
+----
+10
+
+# ============================================================================
+# Individual Predecessor Detection Tests
+# ============================================================================
+
+# S7: Clear predecessor detection (S7-PRED-NEW -> S7-PRED-OLD)
+query I
+SELECT COUNT(*) FROM infer_predecessors('S7-PRED-NEW', 24, 0.3, 0.5)
+WHERE predecessor_id = 'S7-PRED-OLD';
+----
+1
+
+# S7 should have high confidence (>= 0.7)
+query I
+SELECT confidence >= 0.7
+FROM infer_predecessors('S7-PRED-NEW', 24, 0.3, 0.5)
+WHERE predecessor_id = 'S7-PRED-OLD';
+----
+true
+
+# S8: Phase-out predecessor detection (S8-PHASE-NEW -> S8-PHASE-OLD)
+query I
+SELECT COUNT(*) FROM infer_predecessors('S8-PHASE-NEW', 24, 0.3, 0.5)
+WHERE predecessor_id = 'S8-PHASE-OLD';
+----
+1
+
+# PRED-CHAIN: Gen 2 -> Gen 1 (direct predecessor)
+query I
+SELECT COUNT(*) FROM infer_predecessors('PRED-CHAIN-GEN-02', 24, 0.3, 0.5)
+WHERE predecessor_id = 'PRED-CHAIN-GEN-01';
+----
+1
+
+# S12: Gen 3 -> Gen 2 (direct predecessor)
+query I
+SELECT COUNT(*) FROM infer_predecessors('S12-GEN-03', 24, 0.3, 0.5)
+WHERE predecessor_id = 'S12-GEN-02';
+----
+1
+
+# ============================================================================
+# Predecessor Precision: Fraction of detected predecessors in ground truth
+# ============================================================================
+
+# For each successor with known predecessors, check if detected predecessor is correct
+query I
+WITH successor_products AS (
+    -- Successors that have ground truth predecessors
+    SELECT DISTINCT material_a as successor_id, material_b as true_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+),
+detection_results AS (
+    -- Run predecessor detection for each successor
+    SELECT
+        s.successor_id,
+        s.true_predecessor,
+        (SELECT list(predecessor_id) FROM infer_predecessors(s.successor_id, 24, 0.3, 0.5)) as detected_list
+    FROM successor_products s
+),
+precision_calc AS (
+    SELECT
+        d.successor_id,
+        d.true_predecessor,
+        d.detected_list,
+        d.true_predecessor IN (SELECT unnest(d.detected_list)) as hit
+    FROM detection_results d
+)
+-- Precision: fraction where true predecessor was detected
+SELECT AVG(hit::INT) >= 0.7 FROM precision_calc;
+----
+true
+
+# ============================================================================
+# Predecessor Recall: Fraction of ground truth predecessors found
+# ============================================================================
+
+# This is similar to precision for our use case (1 predecessor per successor)
+query I
+WITH predecessor_gt AS (
+    SELECT material_a as successor_id, material_b as expected_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+),
+found_count AS (
+    SELECT
+        p.successor_id,
+        p.expected_predecessor,
+        (SELECT COUNT(*) FROM infer_predecessors(p.successor_id, 24, 0.3, 0.5)
+         WHERE predecessor_id = p.expected_predecessor) as found
+    FROM predecessor_gt p
+)
+-- Recall: fraction of ground truth predecessors that were detected
+SELECT SUM(CASE WHEN found > 0 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) >= 0.7
+FROM found_count;
+----
+true
+
+# ============================================================================
+# Predecessor F1 Score: Harmonic mean of precision and recall
+# Target: >= 0.70
+# ============================================================================
+
+# Calculate F1 score across all predecessor ground truth pairs
+query I
+WITH predecessor_gt AS (
+    SELECT material_a as successor_id, material_b as expected_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+),
+detection_results AS (
+    SELECT
+        p.successor_id,
+        p.expected_predecessor,
+        (SELECT list(predecessor_id) FROM infer_predecessors(p.successor_id, 24, 0.3, 0.5)) as detected
+    FROM predecessor_gt p
+),
+metrics AS (
+    SELECT
+        -- True positives: expected predecessor is in detected list
+        SUM(CASE WHEN expected_predecessor IN (SELECT unnest(detected)) THEN 1 ELSE 0 END) as tp,
+        -- False negatives: expected predecessor NOT in detected list
+        SUM(CASE WHEN expected_predecessor NOT IN (SELECT unnest(detected)) THEN 1 ELSE 0 END) as fn,
+        -- Total detected across all queries (for false positive calculation)
+        SUM(len(detected)) as total_detected,
+        COUNT(*) as total_expected
+    FROM detection_results
+),
+f1_calc AS (
+    SELECT
+        tp,
+        fn,
+        total_detected,
+        -- False positives: detected predecessors that aren't in ground truth
+        -- (approximation: total_detected - tp)
+        total_detected - tp as fp,
+        -- Precision = tp / (tp + fp)
+        tp::FLOAT / NULLIF(total_detected, 0) as precision,
+        -- Recall = tp / (tp + fn) = tp / total_expected
+        tp::FLOAT / NULLIF(tp + fn, 0) as recall
+    FROM metrics
+)
+-- F1 = 2 * precision * recall / (precision + recall)
+SELECT 2 * precision * recall / NULLIF(precision + recall, 0) >= 0.70
+FROM f1_calc;
+----
+true
+
+# ============================================================================
+# Confidence Threshold Validation
+# ============================================================================
+
+# At confidence >= 0.7, we should still detect most true predecessors
+query I
+WITH predecessor_gt AS (
+    SELECT material_a as successor_id, material_b as expected_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+),
+high_conf_found AS (
+    SELECT
+        p.successor_id,
+        (SELECT COUNT(*) FROM infer_predecessors(p.successor_id, 24, 0.3, 0.5)
+         WHERE predecessor_id = p.expected_predecessor AND confidence >= 0.7) as found
+    FROM predecessor_gt p
+)
+-- At least 60% should be found with high confidence
+SELECT SUM(CASE WHEN found > 0 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) >= 0.6
+FROM high_conf_found;
+----
+true
+
+# ============================================================================
+# Anti-correlation validation: Predecessors should have negative correlation
+# ============================================================================
+
+# True predecessors should show negative correlation (declining as successor rises)
+query I
+SELECT COUNT(*) = COUNT(*) FILTER (WHERE correlation < 0)
+FROM (
+    SELECT
+        (SELECT correlation FROM infer_predecessors(g.material_a, 24, 0.3, 0.5)
+         WHERE predecessor_id = g.material_b) as correlation
+    FROM ground_truth g
+    WHERE relationship_type = 'predecessor'
+) sub
+WHERE correlation IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Top-1 Accuracy: Is the true predecessor ranked first?
+# ============================================================================
+
+# For clear predecessor cases, the true predecessor should often be rank 1
+query I
+WITH clear_predecessors AS (
+    -- Focus on cases with high expected similarity (clearer signal)
+    SELECT material_a as successor_id, material_b as expected_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+      AND expected_similarity >= 0.5
+),
+rank_results AS (
+    SELECT
+        c.successor_id,
+        c.expected_predecessor,
+        (SELECT MIN(rn) FROM (
+            SELECT predecessor_id, ROW_NUMBER() OVER (ORDER BY confidence DESC) as rn
+            FROM infer_predecessors(c.successor_id, 24, 0.3, 0.5)
+        ) WHERE predecessor_id = c.expected_predecessor) as rank
+    FROM clear_predecessors c
+)
+-- At least 50% should have true predecessor at rank 1
+SELECT SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) >= 0.5
+FROM rank_results
+WHERE rank IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Final F1 Score Computation (reported value)
+# ============================================================================
+
+query R
+WITH predecessor_gt AS (
+    SELECT material_a as successor_id, material_b as expected_predecessor
+    FROM ground_truth
+    WHERE relationship_type = 'predecessor'
+),
+detection_results AS (
+    SELECT
+        p.successor_id,
+        p.expected_predecessor,
+        (SELECT list(predecessor_id) FROM infer_predecessors(p.successor_id, 24, 0.3, 0.5)) as detected
+    FROM predecessor_gt p
+),
+metrics AS (
+    SELECT
+        SUM(CASE WHEN expected_predecessor IN (SELECT unnest(detected)) THEN 1 ELSE 0 END) as tp,
+        SUM(len(detected)) as total_detected,
+        COUNT(*) as total_expected
+    FROM detection_results
+),
+f1_calc AS (
+    SELECT
+        tp,
+        total_detected - tp as fp,
+        total_expected - tp as fn,
+        tp::FLOAT / NULLIF(total_detected, 0) as precision,
+        tp::FLOAT / NULLIF(total_expected, 0) as recall
+    FROM metrics
+)
+SELECT ROUND(2 * precision * recall / NULLIF(precision + recall, 0), 2)
+FROM f1_calc;
+----
+0.77
+

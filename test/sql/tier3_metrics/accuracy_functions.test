@@ -1,0 +1,233 @@
+# name: test/sql/tier3_metrics/accuracy_functions.test
+# description: Tier 3 - Accuracy metric computation patterns and helpers
+# group: [tier3_metrics]
+
+# This test file establishes metric computation patterns for validating
+# similarity search accuracy against ground truth datasets.
+#
+# Metrics computed:
+# - Precision@K: Fraction of top-K results that are in ground truth
+# - Recall@K: Fraction of ground truth pairs found in top-K results
+# - MRR (Mean Reciprocal Rank): Mean of 1/rank for first ground truth match
+#
+# Target accuracy (CONCEPT.md Section 6.3):
+# - P1 MVP Synthetic: P@5 >= 0.90, R@10 >= 0.85, MRR >= 0.80
+# - P1 MVP Figshare: P@5 >= 0.60, R@10 >= 0.50, MRR >= 0.45
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Load synthetic ground truth for testing metric computation
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/synthetic/ground_truth.csv.gz');
+
+# ============================================================================
+# Verify ground truth dataset loaded correctly
+# ============================================================================
+
+# Should have 33 ground truth pairs
+query I
+SELECT COUNT(*) FROM ground_truth;
+----
+33
+
+# Should have various relationship types
+query I
+SELECT COUNT(DISTINCT relationship_type) >= 5 FROM ground_truth;
+----
+true
+
+# Relationship types include: identical, unrelated, partial_overlap, variant, predecessor,
+# hierarchical, structural_diff, deep_hierarchy
+query I
+SELECT COUNT(*) FROM ground_truth
+WHERE relationship_type IN ('identical', 'unrelated', 'partial_overlap', 'variant', 'predecessor',
+                           'hierarchical', 'structural_diff', 'deep_hierarchy');
+----
+33
+
+# ============================================================================
+# Pattern 1: Single-Query Precision@K Calculation
+# ============================================================================
+
+# For IDENT-PROD-A, the ground truth says IDENT-PROD-B should match (identical)
+# Precision@5 for this query: if IDENT-PROD-B is in top-5, precision = 1/1 = 1.0
+query I
+WITH top5 AS (
+    SELECT material_id FROM find_similar_materials('IDENT-PROD-A', 5)
+),
+expected AS (
+    SELECT material_b FROM ground_truth
+    WHERE material_a = 'IDENT-PROD-A'
+      AND relationship_type IN ('identical', 'variant', 'partial_overlap')
+),
+hits AS (
+    SELECT COUNT(*) as hit_count
+    FROM expected WHERE material_b IN (SELECT material_id FROM top5)
+)
+SELECT hit_count >= 1 FROM hits;
+----
+true
+
+# ============================================================================
+# Pattern 2: Single-Query Recall@K Calculation
+# ============================================================================
+
+# For FAMILY-00-BASE, ground truth has 3 variants (VAR-1, VAR-2, VAR-3)
+# Recall@10: fraction of these 3 found in top-10 results
+query I
+WITH top10 AS (
+    SELECT material_id FROM find_similar_materials('FAMILY-00-BASE', 10)
+),
+expected AS (
+    SELECT material_b FROM ground_truth
+    WHERE material_a = 'FAMILY-00-BASE'
+      AND relationship_type = 'variant'
+),
+recall_calc AS (
+    SELECT
+        COUNT(*) FILTER (WHERE material_b IN (SELECT material_id FROM top10)) as found,
+        COUNT(*) as total
+    FROM expected
+)
+-- At least VAR-1 (similarity 0.82) should be in top-10
+SELECT found >= 1 FROM recall_calc;
+----
+true
+
+# ============================================================================
+# Pattern 3: Reciprocal Rank Calculation
+# ============================================================================
+
+# For IDENT-PROD-A -> IDENT-PROD-B (identical, similarity 1.0)
+# The reciprocal rank should be 1.0 (found at rank 1)
+query I
+WITH ranked AS (
+    SELECT material_id, ROW_NUMBER() OVER () as rank
+    FROM find_similar_materials('IDENT-PROD-A', 10)
+),
+first_match AS (
+    SELECT MIN(rank) as first_rank
+    FROM ranked
+    WHERE material_id IN (
+        SELECT material_b FROM ground_truth
+        WHERE material_a = 'IDENT-PROD-A'
+          AND relationship_type = 'identical'
+    )
+)
+SELECT 1.0 / first_rank >= 0.5 FROM first_match;
+----
+true
+
+# ============================================================================
+# Pattern 4: Aggregate Precision@K across multiple queries
+# ============================================================================
+
+# Compute average Precision@5 for all queries with "positive" ground truth
+# (identical, variant, partial_overlap - relationships where we expect matches)
+query I
+WITH positive_pairs AS (
+    SELECT DISTINCT material_a as query_id, material_b as expected_id
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant', 'partial_overlap')
+      AND expected_similarity >= 0.3
+),
+queries AS (
+    SELECT DISTINCT query_id FROM positive_pairs
+),
+query_results AS (
+    SELECT
+        q.query_id,
+        (SELECT list(material_id) FROM find_similar_materials(q.query_id, 5)) as top5
+    FROM queries q
+),
+precision_per_query AS (
+    SELECT
+        r.query_id,
+        COUNT(*) FILTER (WHERE p.expected_id IN (SELECT unnest(r.top5))) as hits,
+        COUNT(*) as expected_count
+    FROM query_results r
+    JOIN positive_pairs p ON r.query_id = p.query_id
+    GROUP BY r.query_id
+)
+-- Average precision should be reasonable (at least some queries find matches)
+SELECT AVG(hits::FLOAT / GREATEST(expected_count, 1)) >= 0.3 FROM precision_per_query;
+----
+true
+
+# ============================================================================
+# Pattern 5: MRR across multiple queries
+# ============================================================================
+
+# Mean Reciprocal Rank for identical and high-similarity variant pairs
+query I
+WITH high_sim_pairs AS (
+    SELECT material_a as query_id, material_b as expected_id
+    FROM ground_truth
+    WHERE relationship_type IN ('identical', 'variant')
+      AND expected_similarity >= 0.7
+),
+ranks AS (
+    SELECT
+        p.query_id,
+        p.expected_id,
+        (SELECT MIN(rn) FROM (
+            SELECT material_id, ROW_NUMBER() OVER () as rn
+            FROM find_similar_materials(p.query_id, 20)
+        ) WHERE material_id = p.expected_id) as rank
+    FROM high_sim_pairs p
+),
+reciprocal_ranks AS (
+    SELECT 1.0 / rank as rr
+    FROM ranks
+    WHERE rank IS NOT NULL
+)
+-- MRR should be reasonable for high-similarity pairs
+SELECT AVG(rr) >= 0.3 FROM reciprocal_ranks;
+----
+true
+
+# ============================================================================
+# Pattern 6: Verify unrelated pairs have zero similarity
+# ============================================================================
+
+# For unrelated pairs (DISJ-PROD-A -> DISJ-PROD-B), Jaccard = 0.0
+# Note: With zero similarity, ordering in top-K is non-deterministic,
+# so we verify the Jaccard value directly instead of position in results
+query R
+SELECT jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'DISJ-PROD-A'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'DISJ-PROD-B')
+);
+----
+0.0
+
+# ============================================================================
+# Pattern 7: Results are ordered by similarity (descending)
+# ============================================================================
+
+query I
+WITH results AS (
+    SELECT similarity, ROW_NUMBER() OVER () as rn
+    FROM find_similar_materials('FAMILY-00-BASE', 10)
+),
+ordering_check AS (
+    SELECT COUNT(*) as violations
+    FROM results r1, results r2
+    WHERE r1.rn < r2.rn AND r1.similarity < r2.similarity
+)
+SELECT violations = 0 FROM ordering_check;
+----
+true
+
