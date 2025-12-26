@@ -1,0 +1,189 @@
+# name: test/sql/tier1_edge_cases/type_coercion.test
+# description: Test type coercion for component IDs (VARCHAR vs INTEGER)
+# group: [tier1_edge_cases]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Test case 1: VARCHAR component IDs (standard case)
+statement ok
+CREATE TABLE varchar_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO varchar_bom VALUES
+    ('PROD-A', 'COMP-001'),
+    ('PROD-A', 'COMP-002'),
+    ('PROD-B', 'COMP-001'),
+    ('PROD-B', 'COMP-003');
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM varchar_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM varchar_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 2: INTEGER component IDs (numeric case)
+statement ok
+CREATE TABLE int_bom (
+    parent_id VARCHAR,
+    child_id INTEGER
+);
+
+statement ok
+INSERT INTO int_bom VALUES
+    ('PROD-A', 1),
+    ('PROD-A', 2),
+    ('PROD-B', 1),
+    ('PROD-B', 3);
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM int_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM int_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 3: BIGINT component IDs (large numeric case)
+statement ok
+CREATE TABLE bigint_bom (
+    parent_id VARCHAR,
+    child_id BIGINT
+);
+
+statement ok
+INSERT INTO bigint_bom VALUES
+    ('PROD-A', 9223372036854775801),
+    ('PROD-A', 9223372036854775802),
+    ('PROD-B', 9223372036854775801),
+    ('PROD-B', 9223372036854775803);
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM bigint_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM bigint_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 4: Mixed numeric strings that look like numbers
+statement ok
+CREATE TABLE mixed_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO mixed_bom VALUES
+    ('PROD-A', '001'),
+    ('PROD-A', '002'),
+    ('PROD-B', '1'),
+    ('PROD-B', '003');
+
+# '001' and '1' should be treated as different strings
+query R
+WITH
+    comp_a AS (SELECT child_id FROM mixed_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM mixed_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.0
+
+# Test case 5: Case sensitivity for VARCHAR
+statement ok
+CREATE TABLE case_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO case_bom VALUES
+    ('PROD-A', 'COMP-A'),
+    ('PROD-A', 'COMP-B'),
+    ('PROD-B', 'comp-a'),
+    ('PROD-B', 'COMP-B');
+
+# 'COMP-A' and 'comp-a' should be different (case sensitive)
+query R
+WITH
+    comp_a AS (SELECT child_id FROM case_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM case_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 6: UUID component IDs
+statement ok
+CREATE TABLE uuid_bom (
+    parent_id VARCHAR,
+    child_id UUID
+);
+
+statement ok
+INSERT INTO uuid_bom VALUES
+    ('PROD-A', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
+    ('PROD-A', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22'),
+    ('PROD-B', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
+    ('PROD-B', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33');
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM uuid_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM uuid_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 7: Quantity as DECIMAL vs FLOAT
+statement ok
+CREATE TABLE quantity_test (
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    quantity_decimal DECIMAL(18,6),
+    quantity_float FLOAT
+);
+
+statement ok
+INSERT INTO quantity_test VALUES
+    ('PROD-A', 'COMP-1', 1.234567, 1.234567),
+    ('PROD-A', 'COMP-2', 2.000000, 2.0);
+
+# Verify quantities stored correctly
+query TRTR
+SELECT parent_id, child_id, quantity_decimal, ROUND(quantity_float, 6)
+FROM quantity_test
+ORDER BY child_id;
+----
+PROD-A	COMP-1	1.234567	1.234567
+PROD-A	COMP-2	2.000000	2.0

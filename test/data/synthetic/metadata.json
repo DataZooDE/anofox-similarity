@@ -1,0 +1,14 @@
+{
+  "seed": 42,
+  "n_materials": 187,
+  "n_bom_items": 288,
+  "n_ground_truth": 24,
+  "scenarios": [
+    "S1-identical",
+    "S2-disjoint",
+    "S3-overlap",
+    "S4-variants",
+    "S5-hierarchical",
+    "S6-predecessor"
+  ]
+}

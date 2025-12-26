@@ -1,0 +1,96 @@
+# name: test/sql/tier1_edge_cases/null_handling.test
+# description: Test NULL value handling in similarity calculations
+# group: [tier1_edge_cases]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Create test tables with potential NULL values
+statement ok
+CREATE TABLE test_materials (
+    material_id VARCHAR PRIMARY KEY,
+    description VARCHAR,
+    material_group VARCHAR
+);
+
+statement ok
+CREATE TABLE test_bom_items (
+    bom_id VARCHAR,
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    quantity FLOAT
+);
+
+# Insert materials with some NULL fields
+statement ok
+INSERT INTO test_materials VALUES
+    ('PROD-A', 'Product A', 'GROUP-1'),
+    ('PROD-B', 'Product B', NULL),
+    ('COMP-1', NULL, 'GROUP-1'),
+    ('COMP-2', 'Component 2', 'GROUP-2');
+
+# Insert BOM items
+statement ok
+INSERT INTO test_bom_items VALUES
+    ('BOM-A', 'PROD-A', 'COMP-1', 1.0),
+    ('BOM-A', 'PROD-A', 'COMP-2', 2.0),
+    ('BOM-B', 'PROD-B', 'COMP-1', 1.5);
+
+# Verify NULL descriptions don't affect component counting
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM test_bom_items
+WHERE parent_id = 'PROD-A';
+----
+2
+
+# Verify NULL material_group doesn't prevent material lookup
+query IT
+SELECT material_id, description
+FROM test_materials
+WHERE material_id = 'PROD-B';
+----
+PROD-B	Product B
+
+# Verify Jaccard calculation works with products that have NULL metadata
+query R
+WITH
+    comp_a AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4) AS jaccard_similarity;
+----
+0.5
+
+# Test handling of NULL child_id (should be excluded)
+statement ok
+INSERT INTO test_bom_items VALUES ('BOM-A', 'PROD-A', NULL, 1.0);
+
+# NULL components should not affect count when filtered
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM test_bom_items
+WHERE parent_id = 'PROD-A' AND child_id IS NOT NULL;
+----
+2
+
+# Verify division by zero protection (empty union)
+query R
+WITH
+    empty_a AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'NONEXISTENT-A'),
+    empty_b AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'NONEXISTENT-B'),
+    intersection_set AS (SELECT child_id FROM empty_a INTERSECT SELECT child_id FROM empty_b),
+    union_set AS (SELECT child_id FROM empty_a UNION SELECT child_id FROM empty_b)
+SELECT
+    COALESCE(
+        (SELECT COUNT(*) FROM intersection_set)::FLOAT /
+        NULLIF((SELECT COUNT(*) FROM union_set), 0),
+        0.0
+    ) AS jaccard_similarity;
+----
+0.0
