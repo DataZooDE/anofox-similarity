@@ -20,6 +20,10 @@ set(EXTENSION_SOURCES
     src/core/error_handling.cpp
     src/modules/jaccard_similarity.cpp
     src/modules/similarity_search.cpp
+    src/modules/wl_kernel.cpp
+    src/modules/predecessor_inference.cpp
+    src/modules/sap_transformations.cpp
+    src/modules/vss_integration.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
