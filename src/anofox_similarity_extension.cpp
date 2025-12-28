@@ -686,41 +686,18 @@ static void RegisterSAPTransformations(Connection &conn) {
 
 	CheckQueryResult(result, "create sap_to_materials macro");
 
+	// sap_to_materials_with_desc: Simplified wrapper calling base sap_to_materials
+	// Consolidation: Eliminates ~30 lines of duplicated mara_parsed CTE logic
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO sap_to_materials_with_desc(
 			mara_table,
 			makt_table,
 			language := 'E'
 		) AS TABLE
-		SELECT * FROM (
-			WITH
-				-- Parse ersda date (handles YYYYMMDD string format)
-				mara_parsed AS (
-					SELECT
-						TRIM(matnr) AS material_id,
-						mtart AS material_type,
-						matkl AS material_group,
-						TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE AS created_date,
-						lvorm
-					FROM query_table(mara_table)
-				),
-				-- Get descriptions from MAKT
-				makt_filtered AS (
-					SELECT
-						TRIM(matnr) AS matnr,
-						maktx
-					FROM query_table(makt_table)
-					WHERE spras = language
-				)
-			SELECT
-				m.material_id,
-				m.material_type,
-				m.material_group,
-				COALESCE(t.maktx, '') AS description,
-				m.created_date
-			FROM mara_parsed m
-			LEFT JOIN makt_filtered t ON m.material_id = t.matnr
-			WHERE m.lvorm IS NULL OR m.lvorm = '' OR m.lvorm = ' '
+		SELECT * FROM sap_to_materials(
+			mara_table := mara_table,
+			makt_table := makt_table,
+			language := language
 		)
 	)");
 
