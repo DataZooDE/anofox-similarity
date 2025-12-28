@@ -137,16 +137,33 @@ namespace {
 
 	// WL kernel parameters
 	constexpr double WL_WEIGHT_DECAY_OFFSET = 2.0;  // Controls iteration weight
+
+	// Error handling failure modes for explicit control
+	enum class FailureMode {
+		REQUIRED,     // Throw on error (critical infrastructure)
+		OPTIONAL,     // Continue on error (optional features)
+		BEST_EFFORT   // Silently ignore errors (experimental features)
+	};
 }
 
-// Helper function for consistent error handling
+// Standardized error handling with explicit failure mode control
 template<typename T>
 static void CheckQueryResult(const unique_ptr<T> &result,
-                             const std::string &operation) {
+                             const std::string &operation,
+                             FailureMode mode = FailureMode::REQUIRED) {
 	if (result->HasError()) {
-		throw InvalidInputException("Failed to %s: %s",
-		                           operation.c_str(),
-		                           result->GetError().c_str());
+		switch (mode) {
+			case FailureMode::REQUIRED:
+				throw InvalidInputException("Failed to %s: %s",
+				                           operation.c_str(),
+				                           result->GetError().c_str());
+			case FailureMode::OPTIONAL:
+				// Continue on error - optional feature not available
+				break;
+			case FailureMode::BEST_EFFORT:
+				// Silently continue - experimental feature
+				break;
+		}
 	}
 }
 
@@ -170,8 +187,9 @@ static void InitializeVSSIntegration(Connection &conn) {
 	auto vss_result = conn.Query("INSTALL vss; LOAD vss;");
 	CheckQueryResult(vss_result, "load VSS extension");
 
+	// HNSW persistence is experimental - continue if unavailable
 	vss_result = conn.Query("SET hnsw_enable_experimental_persistence = true;");
-	// Note: Persistence is optional, continue if it fails
+	CheckQueryResult(vss_result, "enable HNSW persistence", FailureMode::OPTIONAL);
 }
 
 // Phase 3: Create embedding tables and tracking
@@ -200,21 +218,24 @@ static void CreateEmbeddingTables(Connection &conn) {
 
 // Phase 3b: Create HNSW indexes
 static void CreateHNSWIndexes(Connection &conn) {
+	// HNSW indexes are performance optimizations - continue if creation fails
 	auto idx_result = conn.Query(R"(
 		CREATE INDEX IF NOT EXISTS jaccard_idx ON material_embeddings
 		USING HNSW(jaccard_embedding) WITH (metric = 'l2sq')
 	)");
-	// Continue even if index creation fails (may already exist)
+	CheckQueryResult(idx_result, "create jaccard HNSW index", FailureMode::OPTIONAL);
 
 	idx_result = conn.Query(R"(
 		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
 		USING HNSW(wl_embedding) WITH (metric = 'cosine')
 	)");
+	CheckQueryResult(idx_result, "create WL HNSW index", FailureMode::OPTIONAL);
 
 	idx_result = conn.Query(R"(
 		CREATE INDEX IF NOT EXISTS combined_idx ON material_embeddings
 		USING HNSW(combined_embedding) WITH (metric = 'cosine')
 	)");
+	CheckQueryResult(idx_result, "create combined HNSW index", FailureMode::OPTIONAL);
 }
 
 // Phase 4a: Register similarity search macros
@@ -875,9 +896,8 @@ static void CreateIncrementalUpdateTriggers(Connection &conn) {
 		WHERE material_id IN (SELECT material_id FROM material_components)
 		RETURNING material_id
 	)");
-	if (result->HasError()) {
-		// Triggers and lazy refresh macros are optional - continue if they fail
-	}
+	// Triggers and refresh macros are optional - continue if they fail
+	CheckQueryResult(result, "create refresh_dirty_embeddings macro", FailureMode::OPTIONAL);
 }
 
 static void LoadInternal(ExtensionLoader &loader) {
