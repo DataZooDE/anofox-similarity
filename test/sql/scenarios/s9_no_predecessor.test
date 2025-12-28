@@ -1,0 +1,49 @@
+# name: test/sql/scenarios/s9_no_predecessor.test
+# description: S9 - No predecessor (genuinely new product)
+# tier: tier1
+# group: [scenarios]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
+
+# ============================================================================
+# S9: No predecessor (genuinely new product)
+# ============================================================================
+
+# Verify S9 material exists
+query I
+SELECT COUNT(*) FROM materials WHERE material_id = 'S9-BRAND-NEW';
+----
+1
+
+# Verify S9-BRAND-NEW has BOM
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S9-BRAND-NEW';
+----
+8
+
+# S9-BRAND-NEW has unique components not shared with any other material
+# Should return 0 predecessors because no similar materials exist
+query I
+SELECT COUNT(*) FROM infer_predecessors('S9-BRAND-NEW', min_confidence := 0.1, min_similarity := 0.0);
+----
+0
+
+# Verify no similar materials found (Jaccard similarity = 0 with all others)
+query I
+SELECT COUNT(*) FROM find_similar_materials('S9-BRAND-NEW', 10, min_similarity := 0.1);
+----
+0
+

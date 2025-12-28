@@ -1,0 +1,16 @@
+[project]
+name = "scripts"
+version = "0.1.0"
+description = "Test data generation and preparation scripts for anofox-similarity"
+authors = [
+    { name = "Joachim Rosskopf", email = "jr@data-zoo.de" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"

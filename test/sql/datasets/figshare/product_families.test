@@ -1,0 +1,156 @@
+# name: test/sql/datasets/figshare/product_families.test
+# tier: tier2
+# description: Tier 2 - Figshare product family ranking and clustering tests
+# group: [datasets, figshare]
+
+# Figshare Consumer Electronics BOM Dataset
+# Source: https://figshare.com/articles/dataset/Material_composition_of_consumer_electronics/11306792
+# License: CC0 (Public Domain)
+#
+# Key insight: All electronics share 5 core materials (Aluminum, Copper, PCB, Plastic, Steel),
+# so absolute similarity thresholds are less meaningful than relative rankings.
+# These tests verify that same-category products rank HIGHER than cross-category products.
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Load Figshare dataset
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/figshare/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/figshare/bom_items.csv.gz');
+
+# ============================================================================
+# Dataset validation
+# ============================================================================
+
+# Verify product count
+query I
+SELECT COUNT(*) FROM materials WHERE material_type = 'FERT';
+----
+156
+
+# Verify material type components
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'MAT-%';
+----
+11
+
+# ============================================================================
+# Ranking tests: Same-category should rank higher than cross-category
+# ============================================================================
+
+# For iPhone: other smartphones should have higher average similarity than non-smartphones
+query I
+WITH top_matches AS (
+    SELECT f.material_id, f.similarity, m.material_group
+    FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 50) f
+    JOIN materials m ON f.material_id = m.material_id
+),
+category_avgs AS (
+    SELECT
+        AVG(CASE WHEN material_group = 'SMARTPHONE' THEN similarity END) as same_cat_avg,
+        AVG(CASE WHEN material_group != 'SMARTPHONE' THEN similarity END) as other_cat_avg
+    FROM top_matches
+)
+SELECT same_cat_avg > other_cat_avg FROM category_avgs;
+----
+true
+
+# For a laptop: other laptops should rank higher than smartphones
+query I
+WITH laptop AS (
+    SELECT material_id FROM materials
+    WHERE material_group = 'LAPTOP' AND material_type = 'FERT'
+    LIMIT 1
+),
+top_matches AS (
+    SELECT f.material_id, f.similarity, m.material_group
+    FROM find_similar_materials((SELECT material_id FROM laptop), 50) f
+    JOIN materials m ON f.material_id = m.material_id
+),
+category_avgs AS (
+    SELECT
+        AVG(CASE WHEN material_group = 'LAPTOP' THEN similarity END) as same_cat_avg,
+        AVG(CASE WHEN material_group = 'SMARTPHONE' THEN similarity END) as phone_avg
+    FROM top_matches
+)
+SELECT same_cat_avg >= phone_avg FROM category_avgs;
+----
+true
+
+# ============================================================================
+# Family clustering: Products from same manufacturer family should cluster
+# ============================================================================
+
+# Motorola phones should appear in top results for each other
+# At least 1 other Motorola smartphone should be in top 20
+# MOTOROLA-MOTO_E-XT1527-2015 is expected to appear as a similar match
+query I
+SELECT COUNT(*) >= 1 FROM find_similar_materials('MOTOROLA-ROKR-RIZR-Z6-2007', 20)
+WHERE material_id = 'MOTOROLA-MOTO_E-XT1527-2015';
+----
+true
+
+# LG products should cluster together
+# At least 2 other LG products should be in top 20
+query I
+SELECT COUNT(*) >= 2 FROM find_similar_materials('LG-VX-3200-2004', 20)
+WHERE material_id LIKE 'LG%';
+----
+true
+
+# ============================================================================
+# Perfect match tests: Products with identical material sets
+# ============================================================================
+
+# iPhones have identical material type sets, so Jaccard should be 1.0
+query R
+SELECT jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'IPHONE-1ST-GENERATION-A1203-2007'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'IPHONE-3G-A1241-2008')
+);
+----
+1.0
+
+# Samsung Blu-ray players should also have high similarity (same material types)
+query I
+SELECT CASE WHEN jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'SAMSUNG-BD-P1000-2006'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'SAMSUNG-BD-P1400-2007')
+) >= 0.8 THEN 1 ELSE 0 END;
+----
+1
+
+# ============================================================================
+# Top-K results validation
+# ============================================================================
+
+# find_similar_materials should return results ordered by similarity (descending)
+query I
+WITH results AS (
+    SELECT similarity, ROW_NUMBER() OVER () as rn
+    FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 10)
+),
+ordering_check AS (
+    SELECT COUNT(*) as violations
+    FROM results r1, results r2
+    WHERE r1.rn < r2.rn AND r1.similarity < r2.similarity
+)
+SELECT violations = 0 FROM ordering_check;
+----
+true
+
+# Top result should have similarity >= 0.8 (high baseline due to shared materials)
+query I
+SELECT similarity >= 0.8
+FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 1);
+----
+true
+

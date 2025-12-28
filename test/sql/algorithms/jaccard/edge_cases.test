@@ -1,0 +1,402 @@
+# name: test/sql/algorithms/jaccard/edge_cases.test
+# description: Edge cases for Jaccard similarity: empty sets, NULL handling, type coercion
+# tier: tier1
+# group: [algorithms, jaccard]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Empty Sets Tests
+# ============================================================================
+
+# Create test tables
+statement ok
+CREATE TABLE test_materials (
+    material_id VARCHAR PRIMARY KEY,
+    description VARCHAR
+);
+
+statement ok
+CREATE TABLE test_bom_items (
+    bom_id VARCHAR,
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    quantity FLOAT
+);
+
+# Insert materials - some with BOMs, some without
+statement ok
+INSERT INTO test_materials VALUES
+    ('PROD-WITH-BOM', 'Product with BOM'),
+    ('PROD-NO-BOM', 'Product without BOM'),
+    ('PROD-SINGLE', 'Product with single component'),
+    ('COMP-1', 'Component 1'),
+    ('COMP-2', 'Component 2'),
+    ('COMP-3', 'Component 3');
+
+# Insert BOM items
+statement ok
+INSERT INTO test_bom_items VALUES
+    ('BOM-WITH', 'PROD-WITH-BOM', 'COMP-1', 1.0),
+    ('BOM-WITH', 'PROD-WITH-BOM', 'COMP-2', 2.0),
+    ('BOM-SINGLE', 'PROD-SINGLE', 'COMP-1', 1.0);
+
+# Test: Product with no BOM should have 0 components
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM test_bom_items
+WHERE parent_id = 'PROD-NO-BOM';
+----
+0
+
+# Test: Jaccard with one empty set should be 0
+query R
+WITH
+    comp_with AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-WITH-BOM'),
+    comp_empty AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-NO-BOM'),
+    intersection_set AS (SELECT child_id FROM comp_with INTERSECT SELECT child_id FROM comp_empty),
+    union_set AS (SELECT child_id FROM comp_with UNION SELECT child_id FROM comp_empty)
+SELECT
+    COALESCE(
+        (SELECT COUNT(*) FROM intersection_set)::FLOAT /
+        NULLIF((SELECT COUNT(*) FROM union_set), 0),
+        0.0
+    ) AS jaccard_similarity;
+----
+0.0
+
+# Test: Both empty sets should return 0 (not undefined)
+query R
+WITH
+    comp_a AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'NONEXISTENT-A'),
+    comp_b AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'NONEXISTENT-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    COALESCE(
+        (SELECT COUNT(*) FROM intersection_set)::FLOAT /
+        NULLIF((SELECT COUNT(*) FROM union_set), 0),
+        0.0
+    ) AS jaccard_similarity;
+----
+0.0
+
+# Test: Single component vs itself should be 1.0
+query R
+WITH
+    comp_single AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-SINGLE'),
+    intersection_set AS (SELECT child_id FROM comp_single INTERSECT SELECT child_id FROM comp_single),
+    union_set AS (SELECT child_id FROM comp_single UNION SELECT child_id FROM comp_single)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4) AS jaccard_similarity;
+----
+1.0
+
+# Test: Single component overlap with multi-component
+# PROD-SINGLE has {COMP-1}, PROD-WITH-BOM has {COMP-1, COMP-2}
+# Jaccard = 1/2 = 0.5
+query R
+WITH
+    comp_single AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-SINGLE'),
+    comp_with AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-WITH-BOM'),
+    intersection_set AS (SELECT child_id FROM comp_single INTERSECT SELECT child_id FROM comp_with),
+    union_set AS (SELECT child_id FROM comp_single UNION SELECT child_id FROM comp_with)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4) AS jaccard_similarity;
+----
+0.5
+
+# Test: Product compared to itself
+query R
+WITH
+    comp_with AS (SELECT child_id FROM test_bom_items WHERE parent_id = 'PROD-WITH-BOM'),
+    intersection_set AS (SELECT child_id FROM comp_with INTERSECT SELECT child_id FROM comp_with),
+    union_set AS (SELECT child_id FROM comp_with UNION SELECT child_id FROM comp_with)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4) AS jaccard_similarity;
+----
+1.0
+
+# ============================================================================
+# NULL Handling Tests
+# ============================================================================
+
+# Create test tables with potential NULL values
+statement ok
+CREATE TABLE test_materials_null (
+    material_id VARCHAR PRIMARY KEY,
+    description VARCHAR,
+    material_group VARCHAR
+);
+
+statement ok
+CREATE TABLE test_bom_items_null (
+    bom_id VARCHAR,
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    quantity FLOAT
+);
+
+# Insert materials with some NULL fields
+statement ok
+INSERT INTO test_materials_null VALUES
+    ('PROD-A', 'Product A', 'GROUP-1'),
+    ('PROD-B', 'Product B', NULL),
+    ('COMP-1', NULL, 'GROUP-1'),
+    ('COMP-2', 'Component 2', 'GROUP-2');
+
+# Insert BOM items
+statement ok
+INSERT INTO test_bom_items_null VALUES
+    ('BOM-A', 'PROD-A', 'COMP-1', 1.0),
+    ('BOM-A', 'PROD-A', 'COMP-2', 2.0),
+    ('BOM-B', 'PROD-B', 'COMP-1', 1.5);
+
+# Verify NULL descriptions don't affect component counting
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM test_bom_items_null
+WHERE parent_id = 'PROD-A';
+----
+2
+
+# Verify NULL material_group doesn't prevent material lookup
+query IT
+SELECT material_id, description
+FROM test_materials_null
+WHERE material_id = 'PROD-B';
+----
+PROD-B	Product B
+
+# Verify Jaccard calculation works with products that have NULL metadata
+query R
+WITH
+    comp_a AS (SELECT child_id FROM test_bom_items_null WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM test_bom_items_null WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4) AS jaccard_similarity;
+----
+0.5
+
+# Test handling of NULL child_id (should be excluded)
+statement ok
+INSERT INTO test_bom_items_null VALUES ('BOM-A', 'PROD-A', NULL, 1.0);
+
+# NULL components should not affect count when filtered
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM test_bom_items_null
+WHERE parent_id = 'PROD-A' AND child_id IS NOT NULL;
+----
+2
+
+# Verify division by zero protection (empty union)
+query R
+WITH
+    empty_a AS (SELECT child_id FROM test_bom_items_null WHERE parent_id = 'NONEXISTENT-A'),
+    empty_b AS (SELECT child_id FROM test_bom_items_null WHERE parent_id = 'NONEXISTENT-B'),
+    intersection_set AS (SELECT child_id FROM empty_a INTERSECT SELECT child_id FROM empty_b),
+    union_set AS (SELECT child_id FROM empty_a UNION SELECT child_id FROM empty_b)
+SELECT
+    COALESCE(
+        (SELECT COUNT(*) FROM intersection_set)::FLOAT /
+        NULLIF((SELECT COUNT(*) FROM union_set), 0),
+        0.0
+    ) AS jaccard_similarity;
+----
+0.0
+
+# ============================================================================
+# Type Coercion Tests
+# ============================================================================
+
+# Test case 1: VARCHAR component IDs (standard case)
+statement ok
+CREATE TABLE varchar_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO varchar_bom VALUES
+    ('PROD-A', 'COMP-001'),
+    ('PROD-A', 'COMP-002'),
+    ('PROD-B', 'COMP-001'),
+    ('PROD-B', 'COMP-003');
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM varchar_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM varchar_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 2: INTEGER component IDs (numeric case)
+statement ok
+CREATE TABLE int_bom (
+    parent_id VARCHAR,
+    child_id INTEGER
+);
+
+statement ok
+INSERT INTO int_bom VALUES
+    ('PROD-A', 1),
+    ('PROD-A', 2),
+    ('PROD-B', 1),
+    ('PROD-B', 3);
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM int_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM int_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 3: BIGINT component IDs (large numeric case)
+statement ok
+CREATE TABLE bigint_bom (
+    parent_id VARCHAR,
+    child_id BIGINT
+);
+
+statement ok
+INSERT INTO bigint_bom VALUES
+    ('PROD-A', 9223372036854775801),
+    ('PROD-A', 9223372036854775802),
+    ('PROD-B', 9223372036854775801),
+    ('PROD-B', 9223372036854775803);
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM bigint_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM bigint_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 4: Mixed numeric strings that look like numbers
+statement ok
+CREATE TABLE mixed_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO mixed_bom VALUES
+    ('PROD-A', '001'),
+    ('PROD-A', '002'),
+    ('PROD-B', '1'),
+    ('PROD-B', '003');
+
+# '001' and '1' should be treated as different strings
+query R
+WITH
+    comp_a AS (SELECT child_id FROM mixed_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM mixed_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.0
+
+# Test case 5: Case sensitivity for VARCHAR
+statement ok
+CREATE TABLE case_bom (
+    parent_id VARCHAR,
+    child_id VARCHAR
+);
+
+statement ok
+INSERT INTO case_bom VALUES
+    ('PROD-A', 'COMP-A'),
+    ('PROD-A', 'COMP-B'),
+    ('PROD-B', 'comp-a'),
+    ('PROD-B', 'COMP-B');
+
+# 'COMP-A' and 'comp-a' should be different (case sensitive)
+query R
+WITH
+    comp_a AS (SELECT child_id FROM case_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM case_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 6: UUID component IDs
+statement ok
+CREATE TABLE uuid_bom (
+    parent_id VARCHAR,
+    child_id UUID
+);
+
+statement ok
+INSERT INTO uuid_bom VALUES
+    ('PROD-A', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
+    ('PROD-A', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22'),
+    ('PROD-B', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
+    ('PROD-B', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33');
+
+query R
+WITH
+    comp_a AS (SELECT child_id FROM uuid_bom WHERE parent_id = 'PROD-A'),
+    comp_b AS (SELECT child_id FROM uuid_bom WHERE parent_id = 'PROD-B'),
+    intersection_set AS (SELECT child_id FROM comp_a INTERSECT SELECT child_id FROM comp_b),
+    union_set AS (SELECT child_id FROM comp_a UNION SELECT child_id FROM comp_b)
+SELECT
+    ROUND((SELECT COUNT(*) FROM intersection_set)::FLOAT /
+          NULLIF((SELECT COUNT(*) FROM union_set), 0), 4);
+----
+0.3333
+
+# Test case 7: Quantity as DECIMAL vs FLOAT
+statement ok
+CREATE TABLE quantity_test (
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    quantity_decimal DECIMAL(18,6),
+    quantity_float FLOAT
+);
+
+statement ok
+INSERT INTO quantity_test VALUES
+    ('PROD-A', 'COMP-1', 1.234567, 1.234567),
+    ('PROD-A', 'COMP-2', 2.000000, 2.0);
+
+# Verify quantities stored correctly
+query TRTR
+SELECT parent_id, child_id, quantity_decimal, ROUND(quantity_float, 6)
+FROM quantity_test
+ORDER BY child_id;
+----
+PROD-A	COMP-1	1.234567	1.234567
+PROD-A	COMP-2	2.000000	2.0
+

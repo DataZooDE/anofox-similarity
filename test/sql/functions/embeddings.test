@@ -1,0 +1,353 @@
+# name: test/sql/functions/embeddings.test
+# description: Tests for embedding generation and refresh macros
+# tier: tier1
+# group: [functions]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Create test BOM and embedding tables
+# ============================================================================
+
+statement ok
+CREATE TEMP TABLE test_bom AS
+SELECT * FROM (VALUES
+    ('MAT-001', 'COMP-A'),
+    ('MAT-001', 'COMP-B'),
+    ('MAT-001', 'COMP-C'),
+    ('MAT-002', 'COMP-A'),
+    ('MAT-002', 'COMP-B'),
+    ('MAT-002', 'COMP-D'),
+    ('MAT-003', 'COMP-X'),
+    ('MAT-003', 'COMP-Y'),
+    ('MAT-003', 'COMP-Z'),
+    ('MAT-003', 'COMP-W')
+) AS t(parent_id, child_id);
+
+# ============================================================================
+# compute_jaccard_embeddings() Tests
+# ============================================================================
+
+# Test 1: compute_jaccard_embeddings returns non-empty result
+query I
+SELECT COUNT(*) > 0 FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+----
+true
+
+# Test 2: Should have correct output columns (material_id, seed, minhash_value, num_components)
+query I
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id IS NOT NULL
+  AND seed IS NOT NULL
+  AND minhash_value IS NOT NULL
+  AND num_components IS NOT NULL;
+----
+384
+
+# Test 3: Should generate 128 seeds per material (3 materials × 128 seeds = 384)
+query I
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+----
+384
+
+# Test 4: Each material should have 128 seeds (min-hash dimension)
+query I
+SELECT COUNT(DISTINCT seed) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id = 'MAT-001';
+----
+128
+
+# Test 5: Seed values should range from 0 to 127 (128 total seeds)
+query I
+SELECT COUNT(DISTINCT seed) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE seed >= 0 AND seed < 128;
+----
+128
+
+# Test 6: All minhash values should be positive floats
+query I
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE minhash_value > 0.0;
+----
+384
+
+# Test 7: Material component counts should match BOM
+# MAT-001: 3 components (A, B, C)
+query I
+SELECT MAX(num_components) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id = 'MAT-001';
+----
+3
+
+# Test 8: MAT-003 has 4 components (X, Y, Z, W)
+query I
+SELECT MAX(num_components) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id = 'MAT-003';
+----
+4
+
+# Test 9: Min-hash computation should be deterministic (same input = same output)
+statement ok
+CREATE TEMP TABLE embeddings_v1 AS
+SELECT * FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+
+statement ok
+CREATE TEMP TABLE embeddings_v2 AS
+SELECT * FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+
+query I
+SELECT COUNT(*) FROM (
+    SELECT * FROM embeddings_v1
+    EXCEPT
+    SELECT * FROM embeddings_v2
+);
+----
+0
+
+# Test 10: Different materials should (typically) have different min-hash values
+# (with 128 seeds and overlapping components, some similarity expected)
+query I
+SELECT COUNT(DISTINCT material_id) FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+----
+3
+
+# Test 11: All three materials should be represented
+query I
+SELECT COUNT(*) FROM (
+    SELECT DISTINCT material_id FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+) WHERE material_id IN ('MAT-001', 'MAT-002', 'MAT-003');
+----
+3
+
+# ============================================================================
+# BOM Table Parameter Tests
+# ============================================================================
+
+# Test 12: Default parameter (no explicit table name) - currently requires parameter
+query I
+SELECT COUNT(*) > 0 FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+----
+true
+
+# Test 13: Non-existent BOM table should produce error
+statement error
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'nonexistent_table');
+----
+Catalog Error
+
+# ============================================================================
+# Edge Cases - Small BOMs
+# ============================================================================
+
+# Test 14: Material with single component should work
+statement ok
+CREATE TEMP TABLE single_comp_bom AS
+SELECT * FROM (VALUES
+    ('SINGLE', 'COMP-ONLY')
+) AS t(parent_id, child_id);
+
+query I
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'single_comp_bom');
+----
+128
+
+# Test 15: Single component should be reflected in num_components
+query I
+SELECT MAX(num_components) FROM compute_jaccard_embeddings(bom_table := 'single_comp_bom')
+WHERE material_id = 'SINGLE';
+----
+1
+
+# ============================================================================
+# Embedding Array Construction Tests
+# ============================================================================
+
+# Test 16: Embeddings can be aggregated into arrays
+statement ok
+CREATE TEMP TABLE embedding_arrays AS
+SELECT
+    material_id,
+    array_agg(minhash_value ORDER BY seed)::FLOAT[128] AS embedding,
+    MAX(num_components) AS num_components
+FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+GROUP BY material_id;
+
+# Test 17: Should have one row per material
+query I
+SELECT COUNT(*) FROM embedding_arrays;
+----
+3
+
+# Test 18: Each embedding should be FLOAT[128]
+query I
+SELECT COUNT(*) FROM embedding_arrays
+WHERE array_length(embedding, 1) = 128;
+----
+3
+
+# Test 19: All embeddings should be non-NULL
+query I
+SELECT COUNT(*) FROM embedding_arrays
+WHERE embedding IS NOT NULL;
+----
+3
+
+# ============================================================================
+# Jaccard Similarity Approximation Tests
+# ============================================================================
+
+# Test 20: Materials with overlapping components should have similar embeddings
+# MAT-001: {A, B, C}
+# MAT-002: {A, B, D}
+# Jaccard = 2/4 = 0.5
+# Min-hash should approximate this similarity
+
+statement ok
+CREATE TEMP TABLE mat1_embeddings AS
+SELECT minhash_value FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id = 'MAT-001'
+ORDER BY seed;
+
+statement ok
+CREATE TEMP TABLE mat2_embeddings AS
+SELECT minhash_value FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+WHERE material_id = 'MAT-002'
+ORDER BY seed;
+
+# Test 21: Can use embeddings in similarity calculations
+query I
+SELECT COUNT(*) FROM mat1_embeddings WHERE minhash_value IS NOT NULL;
+----
+128
+
+# Test 22: Different material pairs should exist
+query I
+SELECT COUNT(DISTINCT material_id) FROM embedding_arrays;
+----
+3
+
+# ============================================================================
+# refresh_dirty_embeddings() Tests
+# ============================================================================
+
+# Setup dirty tracking table if not already present
+statement ok
+CREATE TABLE IF NOT EXISTS test_dirty_tracking (
+    material_id VARCHAR PRIMARY KEY,
+    reason VARCHAR,
+    marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+# Setup test material embeddings table
+statement ok
+CREATE TABLE IF NOT EXISTS test_material_embeddings (
+    material_id VARCHAR PRIMARY KEY,
+    jaccard_embedding FLOAT[128],
+    num_components INTEGER,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+# Test 23: Mark some materials as dirty
+statement ok
+INSERT INTO test_dirty_tracking (material_id, reason)
+VALUES ('MAT-001', 'test_update'), ('MAT-002', 'test_insert')
+ON CONFLICT (material_id) DO UPDATE SET reason = EXCLUDED.reason;
+
+# Test 24: Verify materials are marked dirty
+query I
+SELECT COUNT(*) FROM test_dirty_tracking;
+----
+2
+
+# Test 25: refresh_dirty_embeddings should process dirty materials
+# Note: This is a conceptual test - actual refresh implementation
+# depends on trigger configuration and real tables
+query I
+SELECT COUNT(*) FROM test_dirty_tracking WHERE material_id IN ('MAT-001', 'MAT-002');
+----
+2
+
+# ============================================================================
+# Integration with Similarity Functions
+# ============================================================================
+
+# Test 26: Generated embeddings can be used for similarity approximation
+statement ok
+CREATE TEMP TABLE similarity_test AS
+SELECT
+    e.material_id,
+    e.embedding,
+    e.num_components
+FROM embedding_arrays e;
+
+# Test 27: Can count embeddings by material
+query I
+SELECT COUNT(*) FROM similarity_test;
+----
+3
+
+# Test 28: Return type is correct (FLOAT[128])
+query I
+SELECT COUNT(*) FROM similarity_test
+WHERE array_length(embedding, 1) = 128;
+----
+3
+
+# ============================================================================
+# Performance Characteristics Tests
+# ============================================================================
+
+# Test 29: Embedding generation should handle multiple materials
+# (Already tested above with 3 materials)
+query I
+SELECT COUNT(DISTINCT material_id) FROM compute_jaccard_embeddings(bom_table := 'test_bom');
+----
+3
+
+# Test 30: Determinism means caching is possible
+# Two calls with same input should give same output
+query I
+SELECT (
+    SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+) = (
+    SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'test_bom')
+);
+----
+true
+
+# ============================================================================
+# Cleanup
+# ============================================================================
+
+statement ok
+DROP TABLE test_bom;
+
+statement ok
+DROP TABLE single_comp_bom;
+
+statement ok
+DROP TABLE embeddings_v1;
+
+statement ok
+DROP TABLE embeddings_v2;
+
+statement ok
+DROP TABLE embedding_arrays;
+
+statement ok
+DROP TABLE mat1_embeddings;
+
+statement ok
+DROP TABLE mat2_embeddings;
+
+statement ok
+DROP TABLE test_dirty_tracking;
+
+statement ok
+DROP TABLE test_material_embeddings;
+
+statement ok
+DROP TABLE similarity_test;

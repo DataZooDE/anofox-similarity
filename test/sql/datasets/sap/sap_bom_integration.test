@@ -1,0 +1,195 @@
+# name: test/sql/datasets/sap/sap_bom_integration.test
+# tier: tier3
+# description: Tests for SAP BOM transformation macros
+# group: [datasets, sap]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Synthetic SAP data for CI testing (no external files needed)
+# ============================================================================
+
+# Create minimal synthetic MARA (material master)
+statement ok
+CREATE TABLE test_mara AS SELECT * FROM (VALUES
+    ('000000000000000001', 'FERT', 'GRP01', '20200115', NULL),
+    ('000000000000000002', 'HALB', 'GRP02', '20210301', NULL),
+    ('000000000000000003', 'ROH', 'GRP01', '20190520', NULL),
+    ('000000000000000004', 'FERT', 'GRP03', '20220101', 'X')
+) AS t(matnr, mtart, matkl, ersda, lvorm);
+
+# Create minimal synthetic MAKT (descriptions)
+statement ok
+CREATE TABLE test_makt AS SELECT * FROM (VALUES
+    ('000000000000000001', 'E', 'Finished Product A'),
+    ('000000000000000002', 'E', 'Semi-Finished Assembly'),
+    ('000000000000000003', 'E', 'Raw Material Steel'),
+    ('000000000000000001', 'D', 'Fertigprodukt A')
+) AS t(matnr, spras, maktx);
+
+# Create minimal synthetic MAST (BOM assignment)
+statement ok
+CREATE TABLE test_mast AS SELECT * FROM (VALUES
+    ('000000000000000001', 'WRK1', '2', '00000001', '01'),
+    ('000000000000000002', 'WRK1', '2', '00000002', '01')
+) AS t(matnr, werks, stlan, stlnr, stlal);
+
+# Create minimal synthetic STKO (BOM header with date versioning)
+statement ok
+CREATE TABLE test_stko AS SELECT * FROM (VALUES
+    ('M', '00000001', '01', '2020-01-01'::DATE, NULL),
+    ('M', '00000001', '01', '2023-01-01'::DATE, NULL),
+    ('M', '00000002', '01', '2021-01-01'::DATE, NULL)
+) AS t(stlty, stlnr, stlal, datuv, lkenz);
+
+# Create minimal synthetic STPO (BOM items)
+statement ok
+CREATE TABLE test_stpo AS SELECT * FROM (VALUES
+    ('00000001', '0001', '0010', '000000000000000002', NULL, 2.0, 'EA', NULL, '2020-01-01'::DATE),
+    ('00000001', '0002', '0020', '000000000000000003', NULL, 5.0, 'KG', NULL, '2020-01-01'::DATE),
+    ('00000002', '0001', '0010', '000000000000000003', NULL, 1.5, 'KG', NULL, '2021-01-01'::DATE)
+) AS t(stlnr, stlkn, posnr, idnrk, rekrs, menge, meins, lkenz, datuv);
+
+# ============================================================================
+# sap_to_materials tests
+# ============================================================================
+
+# Basic transformation should produce materials
+query I
+SELECT COUNT(*) > 0 FROM sap_to_materials(mara_table := 'test_mara');
+----
+true
+
+# Should have correct columns
+query TTTTT rowsort
+SELECT material_id, material_type, material_group, created_date IS NOT NULL, description IS NULL
+FROM sap_to_materials(mara_table := 'test_mara')
+WHERE material_id = '000000000000000001';
+----
+000000000000000001	FERT	GRP01	true	true
+
+# With MAKT should have descriptions (use sap_to_materials_with_desc)
+query TT
+SELECT material_id, description
+FROM sap_to_materials_with_desc(mara_table := 'test_mara', makt_table := 'test_makt', language := 'E')
+WHERE material_id = '000000000000000001';
+----
+000000000000000001	Finished Product A
+
+# Should exclude deleted materials (lvorm = 'X')
+query I
+SELECT COUNT(*) FROM sap_to_materials(mara_table := 'test_mara')
+WHERE material_id = '000000000000000004';
+----
+0
+
+# Language filter should work (use sap_to_materials_with_desc)
+query TT
+SELECT material_id, description
+FROM sap_to_materials_with_desc(mara_table := 'test_mara', makt_table := 'test_makt', language := 'D')
+WHERE material_id = '000000000000000001';
+----
+000000000000000001	Fertigprodukt A
+
+# ============================================================================
+# sap_to_bom_items tests
+# ============================================================================
+
+# Basic BOM extraction
+query I
+SELECT COUNT(*) > 0 FROM sap_to_bom_items(
+    mast_table := 'test_mast',
+    stko_table := 'test_stko',
+    stpo_table := 'test_stpo'
+);
+----
+true
+
+# Should have correct columns
+query TTTRI
+SELECT bom_id, parent_id, child_id, quantity, position
+FROM sap_to_bom_items(
+    mast_table := 'test_mast',
+    stko_table := 'test_stko',
+    stpo_table := 'test_stpo',
+    reference_date := '2024-01-01'::DATE
+)
+WHERE bom_id = '00000001'
+ORDER BY position;
+----
+00000001	000000000000000001	000000000000000002	2.0	10
+00000001	000000000000000001	000000000000000003	5.0	20
+
+# Date versioning: reference_date = 2022-01-01 should use 2020-01-01 BOM version
+query I
+SELECT COUNT(*) FROM sap_to_bom_items(
+    mast_table := 'test_mast',
+    stko_table := 'test_stko',
+    stpo_table := 'test_stpo',
+    reference_date := '2022-01-01'::DATE
+)
+WHERE bom_id = '00000001';
+----
+2
+
+# ============================================================================
+# Integration with anofox-similarity functions
+# ============================================================================
+
+# Create canonical tables from SAP macros
+statement ok
+CREATE TABLE materials AS SELECT * FROM sap_to_materials(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+);
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM sap_to_bom_items(
+    mast_table := 'test_mast',
+    stko_table := 'test_stko',
+    stpo_table := 'test_stpo',
+    reference_date := '2024-01-01'::DATE
+);
+
+# Jaccard similarity should work with SAP-derived component lists
+query I
+WITH components AS (
+    SELECT parent_id, list(child_id) as comp_list
+    FROM bom_items
+    GROUP BY parent_id
+)
+SELECT jaccard_similarity(
+    (SELECT comp_list FROM components WHERE parent_id = '000000000000000001'),
+    (SELECT comp_list FROM components WHERE parent_id = '000000000000000002')
+) IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Cleanup synthetic data
+# ============================================================================
+
+statement ok
+DROP TABLE test_mara;
+
+statement ok
+DROP TABLE test_makt;
+
+statement ok
+DROP TABLE test_mast;
+
+statement ok
+DROP TABLE test_stko;
+
+statement ok
+DROP TABLE test_stpo;
+
+statement ok
+DROP TABLE materials;
+
+statement ok
+DROP TABLE bom_items;

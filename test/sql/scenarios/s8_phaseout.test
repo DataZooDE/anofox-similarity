@@ -1,0 +1,57 @@
+# name: test/sql/scenarios/s8_phaseout.test
+# description: S8 - Gradual phase-out with extended overlap
+# tier: tier1
+# group: [scenarios]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
+
+# ============================================================================
+# S8: Gradual phase-out with extended overlap
+# ============================================================================
+
+# Verify S8 materials exist
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'S8-PHASE-%';
+----
+2
+
+# Verify S8-PHASE-OLD and S8-PHASE-NEW have similar BOMs
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S8-PHASE-OLD';
+----
+10
+
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S8-PHASE-NEW';
+----
+10
+
+# S8-PHASE-OLD should be detected as predecessor of S8-PHASE-NEW
+query I
+SELECT COUNT(*) FROM infer_predecessors('S8-PHASE-NEW', min_confidence := 0.4, min_similarity := 0.4)
+WHERE predecessor_id = 'S8-PHASE-OLD';
+----
+1
+
+# S8 should have longer overlap period (more overlapping weeks)
+# This distinguishes it from S7 which has a sharper transition
+query I
+SELECT CASE WHEN overlapping_weeks >= 30 THEN 1 ELSE 0 END
+FROM infer_predecessors('S8-PHASE-NEW', min_confidence := 0.3, min_similarity := 0.4)
+WHERE predecessor_id = 'S8-PHASE-OLD';
+----
+1
+

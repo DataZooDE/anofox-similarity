@@ -1,0 +1,74 @@
+# name: test/sql/scenarios/s7_anticorrelation.test
+# description: S7 - Clear predecessor with anti-correlation
+# tier: tier1
+# group: [scenarios]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
+
+# ============================================================================
+# S7: Clear predecessor with anti-correlation
+# ============================================================================
+
+# Verify S7 materials exist
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'S7-PRED-%';
+----
+2
+
+# Verify S7-PRED-OLD and S7-PRED-NEW have similar BOMs
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S7-PRED-OLD';
+----
+12
+
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S7-PRED-NEW';
+----
+12
+
+# Verify they share components (8 out of 12 = 0.6667 similarity)
+query R
+SELECT ROUND(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'S7-PRED-OLD'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'S7-PRED-NEW')
+), 4);
+----
+0.6667
+
+# Verify S7-PRED-OLD should be detected as predecessor of S7-PRED-NEW
+# High anti-correlation, good similarity, proper temporal succession
+query I
+SELECT COUNT(*) FROM infer_predecessors('S7-PRED-NEW', min_confidence := 0.5, min_similarity := 0.5)
+WHERE predecessor_id = 'S7-PRED-OLD';
+----
+1
+
+# Verify high confidence for S7 predecessor detection
+query I
+SELECT CASE WHEN confidence > 0.7 THEN 1 ELSE 0 END
+FROM infer_predecessors('S7-PRED-NEW', min_confidence := 0.3, min_similarity := 0.5)
+WHERE predecessor_id = 'S7-PRED-OLD';
+----
+1
+
+# Verify strong anti-correlation (negative correlation)
+query I
+SELECT CASE WHEN correlation < -0.8 THEN 1 ELSE 0 END
+FROM infer_predecessors('S7-PRED-NEW', min_confidence := 0.3, min_similarity := 0.5)
+WHERE predecessor_id = 'S7-PRED-OLD';
+----
+1
+

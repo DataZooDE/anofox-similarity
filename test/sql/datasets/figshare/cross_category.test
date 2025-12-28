@@ -1,0 +1,177 @@
+# name: test/sql/datasets/figshare/cross_category.test
+# tier: tier2
+# description: Tier 2 - Material discriminator and cross-category tests
+# group: [tier2_figshare]
+
+# Tests the 2 discriminating materials in the Figshare dataset:
+# 1. CRT-glass: Only present in CRT monitors and CRT TVs
+# 2. Li-ion battery: Present in portable devices, absent in displays/VCRs
+#
+# These are the only materials that meaningfully distinguish product categories.
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load Figshare dataset
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/figshare/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/figshare/bom_items.csv.gz');
+
+# ============================================================================
+# CRT-Glass Discriminator Tests
+# ============================================================================
+
+# CRT devices should have CRT-glass component
+query I
+SELECT COUNT(*) FROM bom_items b
+JOIN materials m ON b.parent_id = m.material_id
+WHERE m.material_group LIKE 'CRT%' AND b.child_id = 'MAT-CRT-GLASS';
+----
+7
+
+# Non-CRT devices should NOT have CRT-glass
+query I
+SELECT COUNT(*) FROM bom_items b
+JOIN materials m ON b.parent_id = m.material_id
+WHERE m.material_group NOT LIKE 'CRT%'
+  AND m.material_type = 'FERT'
+  AND b.child_id = 'MAT-CRT-GLASS';
+----
+0
+
+# CRT vs Smartphone should differ due to CRT-glass (CRT has it, smartphone doesn't)
+# CRT devices have CRT-glass
+query I
+SELECT COUNT(*) > 0 FROM bom_items b
+JOIN materials m ON b.parent_id = m.material_id
+WHERE m.material_group LIKE 'CRT%' AND b.child_id = 'MAT-CRT-GLASS';
+----
+true
+
+# Smartphones do NOT have CRT-glass
+query I
+SELECT COUNT(*) = 0 FROM bom_items
+WHERE parent_id = 'IPHONE-1ST-GENERATION-A1203-2007' AND child_id = 'MAT-CRT-GLASS';
+----
+true
+
+# ============================================================================
+# Battery Discriminator Tests
+# ============================================================================
+
+# All smartphones should have Li-ion batteries
+query I
+WITH smartphone_count AS (
+    SELECT COUNT(*) as cnt FROM materials
+    WHERE material_group = 'SMARTPHONE' AND material_type = 'FERT'
+),
+smartphones_with_battery AS (
+    SELECT COUNT(DISTINCT b.parent_id) as cnt FROM bom_items b
+    JOIN materials m ON b.parent_id = m.material_id
+    WHERE m.material_group = 'SMARTPHONE' AND b.child_id = 'MAT-LI-ION-BATTERY'
+)
+SELECT (SELECT cnt FROM smartphones_with_battery) = (SELECT cnt FROM smartphone_count);
+----
+true
+
+# Fitness trackers should have batteries (portable devices)
+query I
+SELECT COUNT(*) > 0 FROM bom_items b
+JOIN materials m ON b.parent_id = m.material_id
+WHERE m.material_group LIKE 'FITNESS%' AND b.child_id = 'MAT-LI-ION-BATTERY';
+----
+true
+
+# VCRs should NOT have Li-ion batteries (stationary, older tech)
+query I
+SELECT COUNT(*) FROM bom_items b
+JOIN materials m ON b.parent_id = m.material_id
+WHERE m.material_group = 'VCR' AND b.child_id = 'MAT-LI-ION-BATTERY';
+----
+0
+
+# ============================================================================
+# Universal Material Tests (present in all categories)
+# ============================================================================
+
+# PCB should be present in all product categories
+query I
+WITH categories_with_pcb AS (
+    SELECT DISTINCT m.material_group
+    FROM bom_items b
+    JOIN materials m ON b.parent_id = m.material_id
+    WHERE b.child_id = 'MAT-PCB' AND m.material_type = 'FERT'
+),
+all_categories AS (
+    SELECT DISTINCT material_group FROM materials WHERE material_type = 'FERT'
+)
+SELECT COUNT(*) FROM all_categories WHERE material_group IN (SELECT material_group FROM categories_with_pcb);
+----
+23
+
+# Plastic should be present in all products
+query I
+SELECT COUNT(*) FROM bom_items WHERE child_id = 'MAT-PLASTIC';
+----
+156
+
+# ============================================================================
+# Cross-Category Similarity: CRT vs Modern Display
+# ============================================================================
+
+# CRT monitor vs LCD monitor should have lower similarity due to glass type difference
+query I
+WITH crt AS (
+    SELECT material_id FROM materials
+    WHERE material_group LIKE 'CRT-MONITOR%' AND material_type = 'FERT' LIMIT 1
+),
+lcd AS (
+    SELECT material_id FROM materials
+    WHERE material_group = 'LCD-MONITOR' AND material_type = 'FERT' LIMIT 1
+),
+smartphone AS (
+    SELECT material_id FROM materials
+    WHERE material_group = 'SMARTPHONE' AND material_type = 'FERT' LIMIT 1
+),
+crt_lcd_sim AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT material_id FROM crt)),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT material_id FROM lcd))
+    ) as sim
+),
+lcd_phone_sim AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT material_id FROM lcd)),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT material_id FROM smartphone))
+    ) as sim
+)
+-- LCD should be more similar to smartphone than to CRT (both modern, flat-panel)
+SELECT (SELECT sim FROM lcd_phone_sim) >= (SELECT sim FROM crt_lcd_sim);
+----
+true
+
+# ============================================================================
+# Category Count Validation
+# ============================================================================
+
+# Verify we have 23 distinct product categories
+query I
+SELECT COUNT(DISTINCT material_group) FROM materials WHERE material_type = 'FERT';
+----
+23
+
+# Each category should have products
+query I
+WITH category_counts AS (
+    SELECT material_group, COUNT(*) as cnt
+    FROM materials WHERE material_type = 'FERT'
+    GROUP BY material_group
+)
+SELECT MIN(cnt) >= 1 FROM category_counts;
+----
+true
+

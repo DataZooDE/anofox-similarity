@@ -1,0 +1,139 @@
+# name: test/sql/functions/find_similar_materials.test
+# description: Tests for find_similar_materials() table function
+# tier: tier1
+# group: [functions]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+# ============================================================================
+# Basic functionality tests
+# ============================================================================
+
+# Find materials similar to IDENT-PROD-A (should find IDENT-PROD-B with similarity 1.0)
+query TRRI
+SELECT material_id, ROUND(similarity, 4), shared_components, total_components
+FROM find_similar_materials('IDENT-PROD-A', 5, method := 'jaccard', min_similarity := 0.0)
+WHERE material_id = 'IDENT-PROD-B';
+----
+IDENT-PROD-B	1.0	5	5
+
+# Find materials similar to OVLP-PROD-A (should find OVLP-PROD-B with Jaccard = 3/7)
+query TRRI
+SELECT material_id, ROUND(similarity, 4), shared_components, total_components
+FROM find_similar_materials('OVLP-PROD-A', 5, method := 'jaccard', min_similarity := 0.0)
+WHERE material_id = 'OVLP-PROD-B';
+----
+OVLP-PROD-B	0.4286	3	7
+
+# Find materials similar to DISJ-PROD-A (DISJ-PROD-B should have similarity 0.0)
+# Note: Using subquery wrapper to work around optimizer filter-pushdown issue
+query TR
+SELECT material_id, similarity FROM (
+    SELECT material_id, ROUND(similarity, 4) AS similarity
+    FROM find_similar_materials('DISJ-PROD-A', 100, method := 'jaccard', min_similarity := 0.0)
+) WHERE material_id = 'DISJ-PROD-B';
+----
+DISJ-PROD-B	0.0
+
+# ============================================================================
+# Filtering tests
+# ============================================================================
+
+# min_similarity filter: only return results >= 0.5
+query I
+SELECT COUNT(*)
+FROM find_similar_materials('FAMILY-00-BASE', 10, method := 'jaccard', min_similarity := 0.5)
+WHERE similarity < 0.5;
+----
+0
+
+# k limit: should return at most k results
+query I
+SELECT COUNT(*)
+FROM find_similar_materials('FAMILY-00-BASE', 3, method := 'jaccard', min_similarity := 0.0);
+----
+3
+
+# ============================================================================
+# Self-exclusion test
+# ============================================================================
+
+# Query material should NOT appear in results
+query I
+SELECT COUNT(*)
+FROM find_similar_materials('IDENT-PROD-A', 100, method := 'jaccard', min_similarity := 0.0)
+WHERE material_id = 'IDENT-PROD-A';
+----
+0
+
+# ============================================================================
+# Ordering test
+# ============================================================================
+
+# Results should be ordered by similarity descending
+query I
+WITH results AS (
+    SELECT similarity, ROW_NUMBER() OVER () as rn
+    FROM find_similar_materials('FAMILY-00-BASE', 10, method := 'jaccard', min_similarity := 0.0)
+)
+SELECT CASE
+    WHEN (SELECT COUNT(*) FROM results r1, results r2 WHERE r1.rn < r2.rn AND r1.similarity < r2.similarity) = 0
+    THEN 1
+    ELSE 0
+END AS correctly_ordered;
+----
+1
+
+# ============================================================================
+# Variant cluster test (S4 scenario)
+# ============================================================================
+
+# BASE should be most similar to VAR-1 (90% retention), then VAR-2 (70%), then VAR-3 (50%)
+query TR rowsort
+SELECT material_id, ROUND(similarity, 4)
+FROM find_similar_materials('FAMILY-00-BASE', 3, method := 'jaccard', min_similarity := 0.0)
+WHERE material_id LIKE 'FAMILY-00-VAR-%'
+ORDER BY similarity DESC;
+----
+FAMILY-00-VAR-1	0.8182
+FAMILY-00-VAR-2	0.5385
+FAMILY-00-VAR-3	0.3333
+
+# ============================================================================
+# Error case tests
+# ============================================================================
+
+# Non-existent BOM table should produce catalog error
+statement error
+SELECT * FROM find_similar_materials('IDENT-PROD-A', 5, bom_table := 'nonexistent_table');
+----
+Catalog Error
+
+# ============================================================================
+# Boundary tests
+# ============================================================================
+
+# k=1 should return exactly 1 result
+query I
+SELECT COUNT(*)
+FROM find_similar_materials('FAMILY-00-BASE', 1, method := 'jaccard', min_similarity := 0.0);
+----
+1
+
+# Non-existent material should return empty results (not error)
+query I
+SELECT COUNT(*)
+FROM find_similar_materials('NONEXISTENT-MATERIAL-XYZ', 5, method := 'jaccard', min_similarity := 0.0);
+----
+0
+

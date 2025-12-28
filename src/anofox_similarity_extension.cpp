@@ -478,12 +478,12 @@ static void RegisterSimilarityMacros(Connection &conn) {
 			-- VSS detection: Check if embeddings exist for query material
 			vss_available AS (
 				SELECT
-					COUNT(*) > 0 AS can_use_vss,
 					jaccard_embedding AS query_embedding,
 					num_components AS query_num_components
 				FROM material_embeddings
 				WHERE material_id = query_material_id
 					AND jaccard_embedding IS NOT NULL
+				LIMIT 1
 			),
 			-- VSS k-NN search path: Fast approximate search using HNSW indexes
 			vss_results AS (
@@ -495,7 +495,7 @@ static void RegisterSimilarityMacros(Connection &conn) {
 					NULL::BIGINT AS shared_components,
 					NULL::BIGINT AS total_components
 				FROM material_embeddings me, vss_available va
-				WHERE va.can_use_vss = TRUE
+				WHERE 1 = 1  -- vss_available provides embedding data
 					AND method = 'jaccard'
 					AND me.material_id != query_material_id
 					AND me.jaccard_embedding IS NOT NULL
@@ -517,18 +517,18 @@ static void RegisterSimilarityMacros(Connection &conn) {
 					len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT AS total_components
 				FROM material_components mc, query_mat qm, vss_available va
 				WHERE mc.material_id != query_material_id
-					AND (va.can_use_vss = FALSE OR method != 'jaccard')  -- Mutual exclusion with VSS path
+					AND (NOT EXISTS (SELECT 1 FROM vss_available) OR method != 'jaccard')  -- Mutual exclusion with VSS path
 			),
 			-- Combined results: Union of VSS and brute-force paths (only one executes)
 			combined AS (
 				SELECT * FROM vss_results
-				WHERE EXISTS (SELECT 1 FROM vss_available WHERE can_use_vss = TRUE)
+				WHERE EXISTS (SELECT 1 FROM vss_available)
 					AND method = 'jaccard'
 
 				UNION ALL
 
 				SELECT * FROM brute_force_results
-				WHERE NOT EXISTS (SELECT 1 FROM vss_available WHERE can_use_vss = TRUE)
+				WHERE NOT EXISTS (SELECT 1 FROM vss_available)
 					OR method != 'jaccard'
 			)
 		SELECT material_id, similarity, shared_components, total_components

@@ -1,0 +1,101 @@
+# name: test/sql/functions/jaccard_similarity.test
+# description: Tests for jaccard_similarity() scalar function
+# tier: tier1
+# group: [functions]
+
+require anofox_similarity
+
+# ============================================================================
+# jaccard_similarity tests
+# ============================================================================
+
+# Basic overlap test: {A,B,C} ∩ {B,C,D} = {B,C}, union = {A,B,C,D}
+# Jaccard = 2/4 = 0.5
+query R
+SELECT jaccard_similarity(['A','B','C'], ['B','C','D']);
+----
+0.5
+
+# Identical lists should return 1.0
+query R
+SELECT jaccard_similarity(['A','B','C'], ['A','B','C']);
+----
+1.0
+
+# Disjoint lists should return 0.0
+query R
+SELECT jaccard_similarity(['A','B'], ['C','D']);
+----
+0.0
+
+# Empty lists should return 0.0
+query R
+SELECT jaccard_similarity([], []);
+----
+0.0
+
+# One empty, one non-empty: intersection=0, union=2
+query R
+SELECT jaccard_similarity(['A','B'], []);
+----
+0.0
+
+# With duplicates - should be treated as sets (deduplicated)
+# {A,B} ∩ {B,C} = {B}, union = {A,B,C}
+# Jaccard = 1/3 = 0.3333...
+query R
+SELECT ROUND(jaccard_similarity(['A','A','B'], ['B','B','C']), 4);
+----
+0.3333
+
+# Test with INTEGER lists
+query R
+SELECT jaccard_similarity([1,2,3], [2,3,4]);
+----
+0.5
+
+# NULL handling - if either input is NULL, result is NULL
+query R
+SELECT jaccard_similarity(NULL, ['A','B']);
+----
+NULL
+
+query R
+SELECT jaccard_similarity(['A','B'], NULL);
+----
+NULL
+
+# Single element overlap
+query R
+SELECT jaccard_similarity(['X'], ['X']);
+----
+1.0
+
+# Larger lists test
+# {1,2,3,4,5} ∩ {3,4,5,6,7} = {3,4,5} = 3 elements
+# union = {1,2,3,4,5,6,7} = 7 elements
+# Jaccard = 3/7 ≈ 0.4286
+query R
+SELECT ROUND(jaccard_similarity([1,2,3,4,5], [3,4,5,6,7]), 4);
+----
+0.4286
+
+# ============================================================================
+# Edge case: Both NULL
+# ============================================================================
+
+query R
+SELECT jaccard_similarity(NULL, NULL);
+----
+NULL
+
+# ============================================================================
+# Edge case: Nested lists (if supported)
+# ============================================================================
+
+# Lists of lists should work (comparing by value)
+query R
+SELECT jaccard_similarity([[1,2], [3,4]], [[1,2], [5,6]]);
+----
+0.3333333333333333
+

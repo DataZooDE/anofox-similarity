@@ -1,0 +1,73 @@
+# name: test/sql/scenarios/s1_identical_boms.test
+# tier: tier1
+# description: S1 - Identical BOMs should have Jaccard similarity of 1.0
+# group: [scenarios]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/synthetic/ground_truth.csv.gz');
+
+# Verify test data loaded correctly
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'IDENT-%';
+----
+7
+
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id LIKE 'IDENT-%';
+----
+10
+
+# Verify identical products share all components
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM bom_items
+WHERE parent_id = 'IDENT-PROD-A';
+----
+5
+
+query I
+SELECT COUNT(DISTINCT child_id)
+FROM bom_items
+WHERE parent_id = 'IDENT-PROD-B';
+----
+5
+
+# Verify the component sets are identical
+query I
+SELECT COUNT(*)
+FROM (
+    SELECT child_id FROM bom_items WHERE parent_id = 'IDENT-PROD-A'
+    INTERSECT
+    SELECT child_id FROM bom_items WHERE parent_id = 'IDENT-PROD-B'
+);
+----
+5
+
+# Calculate Jaccard similarity using jaccard_similarity function
+# For identical sets: Jaccard = 5/5 = 1.0
+query R
+SELECT ROUND(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'IDENT-PROD-A'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'IDENT-PROD-B')
+), 4);
+----
+1.0
+
+# Verify ground truth matches
+query R
+SELECT expected_similarity FROM ground_truth
+WHERE material_a = 'IDENT-PROD-A' AND material_b = 'IDENT-PROD-B';
+----
+1.0

@@ -1,0 +1,17 @@
+# name: test/sql/extension/anofox_similarity.test
+# description: Basic extension loading and availability test
+# tier: tier1
+# group: [extension]
+
+require anofox_similarity
+
+# Verify extension loads successfully
+statement ok
+SELECT 1;
+
+# Verify extension functions are available
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN ('jaccard_similarity', 'find_similar_materials', 'cold_start_analogs', 'infer_predecessors');
+----
+4

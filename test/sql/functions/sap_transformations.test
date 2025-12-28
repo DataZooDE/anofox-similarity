@@ -1,0 +1,200 @@
+# name: test/sql/functions/sap_transformations.test
+# description: Tests for SAP transformation macros (sap_to_materials)
+# tier: tier1
+# group: [functions]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Create minimal synthetic SAP tables for unit testing
+# ============================================================================
+
+# MARA: Material Master
+statement ok
+CREATE TABLE test_mara AS SELECT * FROM (VALUES
+    ('0000001', 'FERT', 'GRP01', '20200115', NULL),
+    ('0000002', 'HALB', 'GRP02', '20210301', NULL),
+    ('0000003', 'ROH', 'GRP01', '20190520', NULL),
+    ('0000004', 'FERT', 'GRP03', '20220101', 'X'),
+    ('0000005', 'FERT', 'GRP01', '20230601', NULL)
+) AS t(matnr, mtart, matkl, ersda, lvorm);
+
+# MAKT: Material Descriptions
+statement ok
+CREATE TABLE test_makt AS SELECT * FROM (VALUES
+    ('0000001', 'E', 'English Product A'),
+    ('0000001', 'D', 'German Product A'),
+    ('0000002', 'E', 'Assembly Component'),
+    ('0000003', 'E', 'Steel Material'),
+    ('0000005', 'E', 'New Product')
+) AS t(matnr, spras, maktx);
+
+# ============================================================================
+# sap_to_materials_with_desc() Tests
+# ============================================================================
+
+# Test 1: sap_to_materials_with_desc returns non-empty result
+query I
+SELECT COUNT(*) > 0 FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+);
+----
+true
+
+# Test 2: Should have correct output columns
+query I
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_id = '0000001'
+  AND material_type = 'FERT'
+  AND material_group = 'GRP01'
+  AND created_date IS NOT NULL;
+----
+1
+
+# Test 3: Should have descriptions
+query T
+SELECT description FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_id = '0000001';
+----
+English Product A
+
+# Test 4: Should exclude deleted materials (lvorm = 'X')
+query I
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_id = '0000004';
+----
+0
+
+# Test 5: Non-deleted materials should be included (4 out of 5)
+query I
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_id IN ('0000001', '0000002', '0000003', '0000005');
+----
+4
+
+# Test 6: Language filtering works - German descriptions
+query T
+SELECT description FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'D'
+)
+WHERE material_id = '0000001';
+----
+German Product A
+
+# Test 7: Material types should match input
+query T rowsort
+SELECT material_type FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_type IN ('FERT', 'HALB', 'ROH')
+ORDER BY material_type;
+----
+FERT
+FERT
+HALB
+ROH
+
+# Test 8: created_date should be parsed as DATE from YYYYMMDD format
+query I
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'test_makt',
+    language := 'E'
+)
+WHERE material_id = '0000001'
+  AND created_date = '2020-01-15'::DATE;
+----
+1
+
+# Test 9: Non-existent MARA table should produce error
+statement error
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'nonexistent_table',
+    makt_table := 'test_makt',
+    language := 'E'
+);
+----
+Catalog Error
+
+# Test 10: Non-existent MAKT table should produce error
+statement error
+SELECT COUNT(*) FROM sap_to_materials_with_desc(
+    mara_table := 'test_mara',
+    makt_table := 'nonexistent_table',
+    language := 'E'
+);
+----
+Catalog Error
+
+# Test 11: Different languages produce different descriptions
+query I
+SELECT COUNT(DISTINCT description) FROM (
+    SELECT description FROM sap_to_materials_with_desc(
+        mara_table := 'test_mara',
+        makt_table := 'test_makt',
+        language := 'E'
+    )
+    WHERE material_id = '0000001'
+    UNION ALL
+    SELECT description FROM sap_to_materials_with_desc(
+        mara_table := 'test_mara',
+        makt_table := 'test_makt',
+        language := 'D'
+    )
+    WHERE material_id = '0000001'
+);
+----
+2
+
+# Test 12: Results are consistent across multiple calls
+query I
+SELECT (
+    SELECT COUNT(*) FROM sap_to_materials_with_desc(
+        mara_table := 'test_mara',
+        makt_table := 'test_makt',
+        language := 'E'
+    )
+) = (
+    SELECT COUNT(*) FROM sap_to_materials_with_desc(
+        mara_table := 'test_mara',
+        makt_table := 'test_makt',
+        language := 'E'
+    )
+);
+----
+true
+
+# ============================================================================
+# Cleanup
+# ============================================================================
+
+statement ok
+DROP TABLE test_mara;
+
+statement ok
+DROP TABLE test_makt;

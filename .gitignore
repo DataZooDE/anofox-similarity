@@ -6,3 +6,6 @@ duckdb_unittest_tempdir/
 testext
 test/python/__pycache__/
 .Rhistory
+
+# Private SAP test data (not shareable)
+test/data/sap/*.parquet

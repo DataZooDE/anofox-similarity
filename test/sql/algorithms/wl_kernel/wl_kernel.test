@@ -1,0 +1,305 @@
+# name: test/sql/algorithms/wl_kernel/wl_kernel.test
+# description: Weisfeiler-Lehman graph kernel tests for structural similarity
+# tier: tier1
+# group: [algorithms, wl_kernel]
+
+# This test file validates the Weisfeiler-Lehman (WL) kernel implementation.
+# WL kernel captures structural graph similarity via recursive neighborhood hashing.
+#
+# Key scenarios:
+# - S10: Same ultimate leaf components, different structure
+#   - S10-PROD-LINEAR: 2-level hierarchy (root -> subassembly -> leaves + direct leaves)
+#   - S10-PROD-STAR: Flat structure (root -> all leaves directly)
+#   - Both use same 6 leaf components but arranged differently
+# - S11: Deep hierarchy (4-level BOM) - WL captures depth
+#
+# The WL kernel captures:
+# - Component overlap (like Jaccard)
+# - Structural arrangement (depth, parent-child relationships)
+# - Neighborhood patterns at multiple levels
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+# ============================================================================
+# Basic Function Tests
+# ============================================================================
+
+# Test 1: wl_kernel_similarity function exists and returns a value
+query I
+SELECT wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B') IS NOT NULL;
+----
+true
+
+# Test 2: Self-similarity should always be 1.0
+query R
+SELECT ROUND(wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-A'), 2);
+----
+1.0
+
+query R
+SELECT ROUND(wl_kernel_similarity('S10-PROD-LINEAR', 'S10-PROD-LINEAR'), 2);
+----
+1.0
+
+# Test 3: Identical structures should have similarity = 1.0
+query R
+SELECT ROUND(wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B'), 2);
+----
+1.0
+
+# Test 4: Disjoint products should have similarity = 0.0
+query R
+SELECT ROUND(wl_kernel_similarity('DISJ-PROD-A', 'DISJ-PROD-B'), 2);
+----
+0.0
+
+# Test 5: WL values are bounded [0, 1]
+query I
+SELECT wl_kernel_similarity('IDENT-PROD-A', 'FAMILY-00-BASE') >= 0.0
+   AND wl_kernel_similarity('IDENT-PROD-A', 'FAMILY-00-BASE') <= 1.0;
+----
+true
+
+# ============================================================================
+# S10: Same Components, Different Structure
+# ============================================================================
+
+# Verify S10 data: Both products should exist
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'S10-PROD-%';
+----
+2
+
+# Verify S10-PROD-LINEAR has a sub-assembly
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S10-PROD-LINEAR' AND child_id = 'S10-SUBASM-LINEAR';
+----
+1
+
+# Verify S10-PROD-STAR has direct leaves (no sub-assembly)
+query I
+SELECT COUNT(*) FROM bom_items
+WHERE parent_id = 'S10-PROD-STAR'
+  AND child_id LIKE 'S10-LEAF-%';
+----
+6
+
+# Jaccard on direct children should be LOW (different structure)
+# LINEAR has 1 sub-assembly + 3 leaves as direct children
+# STAR has 6 leaves as direct children
+# Intersection at direct level is only the 3 shared leaves
+query I
+WITH
+    linear_children AS (SELECT child_id FROM bom_items WHERE parent_id = 'S10-PROD-LINEAR'),
+    star_children AS (SELECT child_id FROM bom_items WHERE parent_id = 'S10-PROD-STAR')
+SELECT CASE
+    WHEN jaccard_similarity(
+        (SELECT list(child_id) FROM linear_children),
+        (SELECT list(child_id) FROM star_children)
+    ) < 0.6
+    THEN 1 ELSE 0
+END AS structural_difference;
+----
+1
+
+# WL captures structural differences (S10 scenario)
+# S10-PROD-LINEAR and S10-PROD-STAR use the same leaf components but have
+# different structures:
+# - LINEAR: root -> subassembly -> leaves (2-level for some components)
+# - STAR: root -> all leaves directly (1-level, flat)
+#
+# WL should detect this structural difference
+
+# Both have some WL similarity (shared components at various levels)
+query I
+SELECT wl_kernel_similarity('S10-PROD-LINEAR', 'S10-PROD-STAR') > 0;
+----
+true
+
+# But WL similarity should be less than 1.0 due to structural difference
+query I
+SELECT wl_kernel_similarity('S10-PROD-LINEAR', 'S10-PROD-STAR') < 1.0;
+----
+true
+
+# WL captures more than just direct children
+# For S10 products, direct-children Jaccard is ~0.43 (different direct children)
+# but they share the same ultimate leaf components
+query I
+SELECT wl_kernel_similarity('S10-PROD-LINEAR', 'S10-PROD-STAR') > 0.1;
+----
+true
+
+# WL captures structural info - hierarchical vs flat structure matters
+query I
+SELECT wl_kernel_similarity('S10-PROD-LINEAR', 'S10-PROD-STAR') < 0.9;
+----
+true
+
+# ============================================================================
+# S11: Deep Hierarchy Test
+# ============================================================================
+
+# Verify S11 has deep hierarchy (4 levels)
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id LIKE 'S11-L1-%';
+----
+4
+
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id LIKE 'S11-L2-%';
+----
+8
+
+# S11-PROD-DEEP-A and S11-PROD-DEEP-B have different structures
+# PROD-A uses both major assemblies (L1-00 and L1-01)
+# PROD-B uses one major assembly (L1-00) + direct leaves
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S11-PROD-DEEP-A';
+----
+2
+
+query I
+SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S11-PROD-DEEP-B';
+----
+3
+
+# Verify products share one major assembly
+query I
+SELECT COUNT(*) FROM bom_items b1
+INNER JOIN bom_items b2 ON b1.child_id = b2.child_id
+WHERE b1.parent_id = 'S11-PROD-DEEP-A'
+  AND b2.parent_id = 'S11-PROD-DEEP-B'
+  AND b1.child_id LIKE 'S11-L1-%';
+----
+1
+
+# WL handles deep hierarchy (S11)
+# S11-DEEP-ROOT has a 4-level deep BOM hierarchy
+# WL should capture hierarchical depth through graph structure
+query I
+SELECT COUNT(*) > 0 FROM bom_items WHERE parent_id LIKE 'S11%';
+----
+true
+
+# WL self-similarity should be 1.0 for deep products
+query I
+WITH deep_products AS (
+    SELECT DISTINCT parent_id FROM bom_items WHERE parent_id LIKE 'S11%'
+    LIMIT 1
+)
+SELECT wl_kernel_similarity(parent_id, parent_id) = 1.0 FROM deep_products;
+----
+true
+
+# ============================================================================
+# Parameter Tests
+# ============================================================================
+
+# WL with custom iterations parameter
+# More iterations should capture larger neighborhood structure
+# Default iterations = 3, but we can specify more
+query I
+SELECT wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-1', iterations := 3) IS NOT NULL;
+----
+true
+
+query I
+SELECT wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-1', iterations := 5) IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Variant Family Tests
+# ============================================================================
+
+# Variant families show gradient in WL similarity
+# FAMILY-00-BASE variants should show decreasing WL similarity
+# VAR-1 (90% retention) > VAR-2 (70%) > VAR-3 (50%)
+query I
+WITH variant_sims AS (
+    SELECT
+        wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-1') as var1,
+        wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-2') as var2,
+        wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-3') as var3
+)
+SELECT var1 >= var2 AND var2 >= var3 FROM variant_sims;
+----
+true
+
+# ============================================================================
+# Integration with find_similar_materials
+# ============================================================================
+
+# find_similar_materials with method='wl_kernel'
+# The method parameter should be respected
+query I
+SELECT COUNT(*) FROM find_similar_materials('IDENT-PROD-A', 5, method := 'wl_kernel');
+----
+5
+
+# Results should be ordered by similarity (descending)
+query I
+WITH results AS (
+    SELECT similarity, ROW_NUMBER() OVER () as rn
+    FROM find_similar_materials('IDENT-PROD-A', 10, method := 'wl_kernel')
+),
+ordering_check AS (
+    SELECT COUNT(*) as violations
+    FROM results r1, results r2
+    WHERE r1.rn < r2.rn AND r1.similarity < r2.similarity
+)
+SELECT violations = 0 FROM ordering_check;
+----
+true
+
+# Top result for IDENT-PROD-A should be IDENT-PROD-B with similarity 1.0
+query I
+SELECT material_id = 'IDENT-PROD-B' AND ROUND(similarity, 2) = 1.0
+FROM find_similar_materials('IDENT-PROD-A', 1, method := 'wl_kernel');
+----
+true
+
+# Default method (jaccard) should still work
+query I
+SELECT material_id = 'IDENT-PROD-B' AND ROUND(similarity, 2) = 1.0
+FROM find_similar_materials('IDENT-PROD-A', 1);
+----
+true
+
+# ============================================================================
+# Error Case Tests
+# ============================================================================
+
+# Non-existent BOM table should produce catalog error
+statement error
+SELECT wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B', bom_table := 'nonexistent_table');
+----
+Catalog Error
+
+# ============================================================================
+# Boundary Tests
+# ============================================================================
+
+# Non-existent materials should return NULL or 0.0 (no BOM data)
+query I
+SELECT wl_kernel_similarity('NONEXISTENT-A', 'NONEXISTENT-B') IS NULL
+    OR wl_kernel_similarity('NONEXISTENT-A', 'NONEXISTENT-B') = 0.0;
+----
+true
+
+query I
+SELECT wl_kernel_similarity('NON-EXISTENT-A', 'NON-EXISTENT-B') IS NULL
+    OR wl_kernel_similarity('NON-EXISTENT-A', 'NON-EXISTENT-B') = 0.0;
+----
+true

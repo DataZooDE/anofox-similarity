@@ -1,0 +1,227 @@
+# name: test/sql/datasets/figshare/material_distribution.test
+# tier: tier2
+# description: Tier 2 - Statistical distribution validation for Figshare dataset
+# group: [tier2_figshare]
+
+# Validates the statistical properties of the Figshare dataset:
+# - All products share core materials (Aluminum, Copper, PCB, Plastic, Steel)
+# - Same-category products have high similarity (>= 0.7 for most pairs)
+# - Category composition patterns are consistent
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load Figshare dataset
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/figshare/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/figshare/bom_items.csv.gz');
+
+# ============================================================================
+# Core Material Distribution Tests
+# ============================================================================
+
+# Most products should have at least 4 of the 5 core materials (Aluminum, Copper, PCB, Plastic, Steel)
+# Actual: 87.8% of products have 4+ core materials
+query I
+WITH core_materials AS (
+    SELECT unnest(['MAT-ALUMINUM', 'MAT-COPPER', 'MAT-PCB', 'MAT-PLASTIC', 'MAT-STEEL']) as mat_id
+),
+products_with_cores AS (
+    SELECT b.parent_id, COUNT(DISTINCT b.child_id) as core_count
+    FROM bom_items b
+    WHERE b.child_id IN (SELECT mat_id FROM core_materials)
+    GROUP BY b.parent_id
+)
+SELECT COUNT(*) * 100.0 / (SELECT COUNT(*) FROM materials WHERE material_type = 'FERT') >= 85
+FROM products_with_cores WHERE core_count >= 4;
+----
+true
+
+# Each core material should appear in at least 100 products
+query I
+WITH core_materials AS (
+    SELECT unnest(['MAT-ALUMINUM', 'MAT-COPPER', 'MAT-PCB', 'MAT-PLASTIC', 'MAT-STEEL']) as mat_id
+),
+material_counts AS (
+    SELECT child_id, COUNT(DISTINCT parent_id) as product_count
+    FROM bom_items
+    WHERE child_id IN (SELECT mat_id FROM core_materials)
+    GROUP BY child_id
+)
+SELECT MIN(product_count) >= 100 FROM material_counts;
+----
+true
+
+# ============================================================================
+# Same-Category Similarity Distribution
+# ============================================================================
+
+# Most same-category pairs should have Jaccard >= 0.7
+# Actual: 73% of sampled pairs have Jaccard >= 0.7
+query I
+WITH category_pairs AS (
+    SELECT m1.material_id as a, m2.material_id as b, m1.material_group as cat
+    FROM materials m1, materials m2
+    WHERE m1.material_group = m2.material_group
+      AND m1.material_type = 'FERT' AND m2.material_type = 'FERT'
+      AND m1.material_id < m2.material_id
+    LIMIT 100
+),
+sims AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = b)
+    ) as sim FROM category_pairs
+)
+SELECT COUNT(*) * 100.0 / (SELECT COUNT(*) FROM sims) >= 70
+FROM sims WHERE sim >= 0.7;
+----
+true
+
+# Average same-category similarity should be >= 0.75
+# Actual: 0.79 average for sampled pairs
+query I
+WITH category_pairs AS (
+    SELECT m1.material_id as a, m2.material_id as b
+    FROM materials m1, materials m2
+    WHERE m1.material_group = m2.material_group
+      AND m1.material_type = 'FERT' AND m2.material_type = 'FERT'
+      AND m1.material_id < m2.material_id
+    LIMIT 100
+),
+sims AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = b)
+    ) as sim FROM category_pairs
+)
+SELECT AVG(sim) >= 0.75 FROM sims;
+----
+true
+
+# ============================================================================
+# Cross-Category Similarity Distribution
+# ============================================================================
+
+# Cross-category pairs should have lower average similarity than same-category
+query I
+WITH same_cat_pairs AS (
+    SELECT m1.material_id as a, m2.material_id as b
+    FROM materials m1, materials m2
+    WHERE m1.material_group = m2.material_group
+      AND m1.material_type = 'FERT' AND m2.material_type = 'FERT'
+      AND m1.material_id < m2.material_id
+    LIMIT 50
+),
+cross_cat_pairs AS (
+    SELECT m1.material_id as a, m2.material_id as b
+    FROM materials m1, materials m2
+    WHERE m1.material_group != m2.material_group
+      AND m1.material_type = 'FERT' AND m2.material_type = 'FERT'
+      AND m1.material_id < m2.material_id
+    LIMIT 50
+),
+same_sims AS (
+    SELECT AVG(jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = b)
+    )) as avg_sim FROM same_cat_pairs
+),
+cross_sims AS (
+    SELECT AVG(jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = b)
+    )) as avg_sim FROM cross_cat_pairs
+)
+SELECT (SELECT avg_sim FROM same_sims) > (SELECT avg_sim FROM cross_sims);
+----
+true
+
+# ============================================================================
+# Material Type Coverage Tests
+# ============================================================================
+
+# All 11 material types should be represented in the dataset
+query I
+SELECT COUNT(DISTINCT child_id) FROM bom_items WHERE child_id LIKE 'MAT-%';
+----
+11
+
+# Each material type should have at least 1 BOM entry
+query I
+WITH mat_types AS (
+    SELECT DISTINCT material_id FROM materials WHERE material_id LIKE 'MAT-%'
+),
+mat_usage AS (
+    SELECT child_id, COUNT(*) as usage FROM bom_items
+    WHERE child_id LIKE 'MAT-%'
+    GROUP BY child_id
+)
+SELECT COUNT(*) FROM mat_types t
+LEFT JOIN mat_usage u ON t.material_id = u.child_id
+WHERE u.usage IS NULL OR u.usage = 0;
+----
+0
+
+# ============================================================================
+# Category Balance Tests
+# ============================================================================
+
+# Should have products across 23 categories
+query I
+SELECT COUNT(DISTINCT material_group) FROM materials WHERE material_type = 'FERT';
+----
+23
+
+# Each category should have at least 2 products for meaningful comparisons
+query I
+WITH category_counts AS (
+    SELECT material_group, COUNT(*) as cnt
+    FROM materials WHERE material_type = 'FERT'
+    GROUP BY material_group
+)
+SELECT COUNT(*) FROM category_counts WHERE cnt < 2;
+----
+0
+
+# ============================================================================
+# BOM Completeness Tests
+# ============================================================================
+
+# Every product should have at least 3 material types
+query I
+WITH product_material_counts AS (
+    SELECT parent_id, COUNT(DISTINCT child_id) as mat_count
+    FROM bom_items
+    GROUP BY parent_id
+)
+SELECT MIN(mat_count) >= 3 FROM product_material_counts;
+----
+true
+
+# No product should have more than 11 material types (max in dataset)
+query I
+WITH product_material_counts AS (
+    SELECT parent_id, COUNT(DISTINCT child_id) as mat_count
+    FROM bom_items
+    GROUP BY parent_id
+)
+SELECT MAX(mat_count) <= 11 FROM product_material_counts;
+----
+true
+
+# Average materials per product should be between 5 and 8
+query I
+WITH product_material_counts AS (
+    SELECT parent_id, COUNT(DISTINCT child_id) as mat_count
+    FROM bom_items
+    GROUP BY parent_id
+)
+SELECT AVG(mat_count) BETWEEN 5 AND 8 FROM product_material_counts;
+----
+true
+

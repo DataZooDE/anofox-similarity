@@ -1,14 +1,21 @@
 {
   "seed": 42,
-  "n_materials": 187,
-  "n_bom_items": 288,
-  "n_ground_truth": 24,
+  "n_materials": 284,
+  "n_bom_items": 426,
+  "n_ground_truth": 33,
+  "n_goods_movements": 3991,
   "scenarios": [
     "S1-identical",
     "S2-disjoint",
     "S3-overlap",
     "S4-variants",
     "S5-hierarchical",
-    "S6-predecessor"
+    "S6-predecessor",
+    "S7-anticorrelation",
+    "S8-phaseout",
+    "S9-no-predecessor",
+    "S10-wl-structure",
+    "S11-deep-hierarchy",
+    "S12-transitive-chain"
   ]
 }

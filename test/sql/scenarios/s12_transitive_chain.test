@@ -1,0 +1,70 @@
+# name: test/sql/scenarios/s12_transitive_chain.test
+# description: S12 - Transitive predecessor chain (6 generations)
+# tier: tier1
+# group: [scenarios]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# Load synthetic test data
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/synthetic/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
+
+# ============================================================================
+# S12: Transitive predecessor chain (6 generations)
+# ============================================================================
+
+# Verify S12 generation chain exists
+query I
+SELECT COUNT(*) FROM materials WHERE material_id LIKE 'S12-GEN-%';
+----
+6
+
+# S12-GEN-01 should detect S12-GEN-00 as its predecessor
+query I
+SELECT COUNT(*) FROM infer_predecessors('S12-GEN-01', min_confidence := 0.3, min_similarity := 0.4)
+WHERE predecessor_id = 'S12-GEN-00';
+----
+1
+
+# S12-GEN-02 should detect S12-GEN-01 as its direct predecessor
+query I
+SELECT COUNT(*) FROM infer_predecessors('S12-GEN-02', min_confidence := 0.3, min_similarity := 0.4)
+WHERE predecessor_id = 'S12-GEN-01';
+----
+1
+
+# S12-GEN-03 should detect S12-GEN-02 as its direct predecessor
+query I
+SELECT COUNT(*) FROM infer_predecessors('S12-GEN-03', min_confidence := 0.3, min_similarity := 0.4)
+WHERE predecessor_id = 'S12-GEN-02';
+----
+1
+
+# Later generations should not have distant ancestors as high-confidence predecessors
+# S12-GEN-00 should NOT be a high-confidence predecessor of S12-GEN-03
+# (transitive relationship, not direct)
+query I
+SELECT CASE WHEN COUNT(*) = 0 OR MIN(confidence) < 0.5 THEN 1 ELSE 0 END
+FROM infer_predecessors('S12-GEN-03', min_confidence := 0.3, min_similarity := 0.3)
+WHERE predecessor_id = 'S12-GEN-00';
+----
+1
+
+# Verify each generation shares components with its predecessor
+query R
+SELECT ROUND(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'S12-GEN-00'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'S12-GEN-01')
+), 4);
+----
+0.7
+
