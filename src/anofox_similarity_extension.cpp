@@ -150,9 +150,12 @@ static void CheckQueryResult(const unique_ptr<T> &result,
 	}
 }
 
-static void LoadInternal(ExtensionLoader &loader) {
-	// Register jaccard_similarity function for computing set similarity
-	// Accepts two lists of any type and returns Jaccard coefficient (0.0 to 1.0)
+//------------------------------------------------------------------------------
+// Phase-specific loader sub-functions
+//------------------------------------------------------------------------------
+
+// Phase 1: Register scalar functions
+static void RegisterScalarFunctions(ExtensionLoader &loader) {
 	auto jaccard_similarity_function = ScalarFunction(
 	    "jaccard_similarity",
 	    {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
@@ -160,32 +163,19 @@ static void LoadInternal(ExtensionLoader &loader) {
 	    JaccardSimilarityFun
 	);
 	loader.RegisterFunction(jaccard_similarity_function);
+}
 
-	// Register find_similar_materials as a SQL table macro
-	// Uses query_table() to dynamically access the BOM table by name
-	// Default table is 'bom_items' with columns (parent_id, child_id)
-	//
-	// Supported methods:
-	//   - 'jaccard': Jaccard similarity on direct child components (default)
-	//   - 'wl_kernel': Weisfeiler-Lehman kernel for structural similarity
-	//
-	// Usage:
-	//   SELECT * FROM find_similar_materials('MATERIAL-A', 10);
-	//   SELECT * FROM find_similar_materials('MATERIAL-A', 10, method := 'jaccard', min_similarity := 0.5);
-	//   SELECT * FROM find_similar_materials('MATERIAL-A', 10, method := 'wl_kernel');
-	//   SELECT * FROM find_similar_materials('MATERIAL-A', 10, bom_table := 'my_bom_table');
-	auto &db = loader.GetDatabaseInstance();
-	Connection conn(db);
-
-	// Load VSS extension for HNSW indexing
+// Phase 2: Initialize VSS integration
+static void InitializeVSSIntegration(Connection &conn) {
 	auto vss_result = conn.Query("INSTALL vss; LOAD vss;");
 	CheckQueryResult(vss_result, "load VSS extension");
 
-	// Enable experimental persistence for index durability
 	vss_result = conn.Query("SET hnsw_enable_experimental_persistence = true;");
 	// Note: Persistence is optional, continue if it fails
+}
 
-	// Create material_embeddings table for VSS-indexed similarity search
+// Phase 3: Create embedding tables and tracking
+static void CreateEmbeddingTables(Connection &conn) {
 	auto schema_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings (
 			material_id VARCHAR PRIMARY KEY,
@@ -198,27 +188,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 	)");
 	CheckQueryResult(schema_result, "create material_embeddings table");
 
-	// Create HNSW indexes on embedding columns
-	// Index 1: Jaccard similarity (min-hash based)
-	auto idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS jaccard_idx ON material_embeddings
-		USING HNSW(jaccard_embedding) WITH (metric = 'l2sq')
-	)");
-	// Continue even if index creation fails (may already exist)
-
-	// Index 2: Weisfeiler-Lehman kernel similarity
-	idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
-		USING HNSW(wl_embedding) WITH (metric = 'cosine')
-	)");
-
-	// Index 3: Combined similarity (concatenated embedding)
-	idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS combined_idx ON material_embeddings
-		USING HNSW(combined_embedding) WITH (metric = 'cosine')
-	)");
-
-	// Create material_embeddings_dirty tracking table for incremental updates
 	auto tracking_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings_dirty (
 			material_id VARCHAR PRIMARY KEY,
@@ -227,7 +196,29 @@ static void LoadInternal(ExtensionLoader &loader) {
 		)
 	)");
 	CheckQueryResult(tracking_result, "create material_embeddings_dirty table");
+}
 
+// Phase 3b: Create HNSW indexes
+static void CreateHNSWIndexes(Connection &conn) {
+	auto idx_result = conn.Query(R"(
+		CREATE INDEX IF NOT EXISTS jaccard_idx ON material_embeddings
+		USING HNSW(jaccard_embedding) WITH (metric = 'l2sq')
+	)");
+	// Continue even if index creation fails (may already exist)
+
+	idx_result = conn.Query(R"(
+		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
+		USING HNSW(wl_embedding) WITH (metric = 'cosine')
+	)");
+
+	idx_result = conn.Query(R"(
+		CREATE INDEX IF NOT EXISTS combined_idx ON material_embeddings
+		USING HNSW(combined_embedding) WITH (metric = 'cosine')
+	)");
+}
+
+// Phase 4a: Register similarity search macros
+static void RegisterSimilarityMacros(Connection &conn) {
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO find_similar_materials(
 			query_material_id,
@@ -314,14 +305,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	CheckQueryResult(result, "create find_similar_materials macro");
 
-	// Register cold_start_analogs as a SQL table macro
-	// Finds similar materials that have consumption history for cold-start forecasting
-	// Uses query_table() to dynamically access the movements table by name
-	// Default tables are 'bom_items' and 'goods_movements'
-	//
-	// Usage:
-	//   SELECT * FROM cold_start_analogs('NEW-MATERIAL', 5, min_history_months := 12);
-	//   SELECT * FROM cold_start_analogs('NEW-MATERIAL', 5, min_history_months := 12, movements_table := 'my_movements');
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO cold_start_analogs(
 			query_material_id,
@@ -392,14 +375,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	CheckQueryResult(result, "create cold_start_analogs macro");
 
-	// Register infer_predecessors as a SQL table macro
-	// Finds potential predecessors for a material based on:
-	// - BOM similarity (Jaccard)
-	// - Anti-correlation in time series (predecessor declines, successor rises)
-	// - Temporal succession (predecessor ends before/as successor starts)
-	//
-	// Usage:
-	//   SELECT * FROM infer_predecessors('NEW-MATERIAL', lookback_months := 24, min_confidence := 0.5);
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO infer_predecessors(
 			query_material_id,
@@ -560,14 +535,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	CheckQueryResult(result, "create infer_predecessors macro");
 
-	// Register wl_kernel_similarity as a SQL scalar macro
-	// Computes Weisfeiler-Lehman kernel-like structural similarity between two materials
-	// Uses recursive BOM traversal to capture graph structure
-	//
-	// Usage:
-	//   SELECT wl_kernel_similarity('MATERIAL-A', 'MATERIAL-B');
-	//   SELECT wl_kernel_similarity('MATERIAL-A', 'MATERIAL-B', iterations := 3);
-	//   SELECT wl_kernel_similarity('MATERIAL-A', 'MATERIAL-B', bom_table := 'my_bom_table');
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO wl_kernel_similarity(
 			material_a,
@@ -576,73 +543,81 @@ static void LoadInternal(ExtensionLoader &loader) {
 			bom_table := 'bom_items'
 		) AS (
 			WITH RECURSIVE
-				-- Build hierarchy for material A (BFS traversal)
-				bom_tree_a AS (
-					SELECT
-						parent_id AS node,
-						child_id AS neighbor,
-						0 AS level,
-						parent_id AS root
-					FROM query_table(bom_table)
-					WHERE parent_id = material_a
-					UNION ALL
-					SELECT
-						b.parent_id,
-						b.child_id,
-						t.level + 1,
-						t.root
-					FROM query_table(bom_table) b
-					INNER JOIN bom_tree_a t ON b.parent_id = t.neighbor
-					WHERE t.level < iterations
+				-- Phase 1: Extract neighborhood around each material (DFS with depth limit)
+				neighborhood_a AS (
+					SELECT component FROM (
+						WITH RECURSIVE dfs(component, depth) AS (
+							SELECT DISTINCT child_id, 0
+							FROM query_table(bom_table)
+							WHERE parent_id = material_a
+							UNION ALL
+							SELECT DISTINCT qb.child_id, dfs.depth + 1
+							FROM dfs
+							INNER JOIN query_table(bom_table) qb ON dfs.component = qb.parent_id
+							WHERE dfs.depth < iterations
+						)
+						SELECT component FROM dfs
+					)
 				),
-				-- Build hierarchy for material B
-				bom_tree_b AS (
-					SELECT
-						parent_id AS node,
-						child_id AS neighbor,
-						0 AS level,
-						parent_id AS root
-					FROM query_table(bom_table)
-					WHERE parent_id = material_b
-					UNION ALL
-					SELECT
-						b.parent_id,
-						b.child_id,
-						t.level + 1,
-						t.root
-					FROM query_table(bom_table) b
-					INNER JOIN bom_tree_b t ON b.parent_id = t.neighbor
-					WHERE t.level < iterations
+				neighborhood_b AS (
+					SELECT component FROM (
+						WITH RECURSIVE dfs(component, depth) AS (
+							SELECT DISTINCT child_id, 0
+							FROM query_table(bom_table)
+							WHERE parent_id = material_b
+							UNION ALL
+							SELECT DISTINCT qb.child_id, dfs.depth + 1
+							FROM dfs
+							INNER JOIN query_table(bom_table) qb ON dfs.component = qb.parent_id
+							WHERE dfs.depth < iterations
+						)
+						SELECT component FROM dfs
+					)
 				),
-				-- Create structural fingerprint for A: (node, level, neighbor_count) tuples
+				-- Phase 2: Count component occurrences per material (structured histogram)
 				fingerprint_a AS (
-					SELECT
-						neighbor AS component,
-						level,
-						COUNT(*) AS occurrence
-					FROM bom_tree_a
-					GROUP BY neighbor, level
+					SELECT component, COUNT(*) AS occurrence, 0 AS level
+					FROM (
+						WITH RECURSIVE dfs(component, depth) AS (
+							SELECT DISTINCT child_id, 0
+							FROM query_table(bom_table)
+							WHERE parent_id = material_a
+							UNION ALL
+							SELECT DISTINCT qb.child_id, dfs.depth + 1
+							FROM dfs
+							INNER JOIN query_table(bom_table) qb ON dfs.component = qb.parent_id
+							WHERE dfs.depth < iterations
+						)
+						SELECT component, depth AS level FROM dfs
+					)
+					GROUP BY component, level
 				),
-				-- Create structural fingerprint for B
 				fingerprint_b AS (
-					SELECT
-						neighbor AS component,
-						level,
-						COUNT(*) AS occurrence
-					FROM bom_tree_b
-					GROUP BY neighbor, level
+					SELECT component, COUNT(*) AS occurrence, 0 AS level
+					FROM (
+						WITH RECURSIVE dfs(component, depth) AS (
+							SELECT DISTINCT child_id, 0
+							FROM query_table(bom_table)
+							WHERE parent_id = material_b
+							UNION ALL
+							SELECT DISTINCT qb.child_id, dfs.depth + 1
+							FROM dfs
+							INNER JOIN query_table(bom_table) qb ON dfs.component = qb.parent_id
+							WHERE dfs.depth < iterations
+						)
+						SELECT component, depth AS level FROM dfs
+					)
+					GROUP BY component, level
 				),
-				-- Compute intersection: components at same level with same occurrence
+				-- Phase 3: Compute intersection with weighted contribution
 				intersection AS (
 					SELECT
-						a.component,
-						a.level,
-						LEAST(a.occurrence, b.occurrence) AS shared_occurrence
-					FROM fingerprint_a a
-					INNER JOIN fingerprint_b b
-						ON a.component = b.component AND a.level = b.level
+						fa.component,
+						LEAST(fa.occurrence, fb.occurrence) AS shared_occurrence
+					FROM fingerprint_a fa
+					INNER JOIN fingerprint_b fb ON fa.component = fb.component
 				),
-				-- Compute union (for normalization)
+				-- Phase 4: Compute union of all components
 				union_all AS (
 					SELECT component, level, occurrence FROM fingerprint_a
 					UNION ALL
@@ -667,27 +642,14 @@ static void LoadInternal(ExtensionLoader &loader) {
 	)");
 
 	CheckQueryResult(result, "create wl_kernel_similarity macro");
+}
 
-	// ============================================================================
-	// SAP BOM Transformation Macros
-	// ============================================================================
-
-	// Register sap_to_materials as a SQL table macro
-	// Transforms SAP MARA (material master) to canonical materials format
-	// Optionally joins with MAKT for descriptions
-	// Uses query_table() for dynamic table access (pass table name as string)
-	//
-	// Usage:
-	//   SELECT * FROM sap_to_materials(mara_table := 'mara');
-	//   SELECT * FROM sap_to_materials(
-	//       mara_table := 'mara',
-	//       makt_table := 'makt',
-	//       language := 'E'
-	//   );
-	result = conn.Query(R"(
+// Phase 4b: Register SAP transformation macros
+static void RegisterSAPTransformations(Connection &conn) {
+	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO sap_to_materials(
 			mara_table,
-			makt_table := '',
+			makt_table := NULL,
 			language := 'E'
 		) AS TABLE
 		SELECT * FROM (
@@ -701,22 +663,29 @@ static void LoadInternal(ExtensionLoader &loader) {
 						TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE AS created_date,
 						lvorm
 					FROM query_table(mara_table)
+				),
+				-- Get descriptions from MAKT if provided
+				makt_filtered AS (
+					SELECT
+						TRIM(matnr) AS matnr,
+						maktx
+					FROM query_table(makt_table)
+					WHERE makt_table IS NOT NULL AND spras = language
 				)
 			SELECT
 				m.material_id,
-				NULL AS description,
-				m.material_group,
 				m.material_type,
+				m.material_group,
+				COALESCE(t.maktx, '') AS description,
 				m.created_date
 			FROM mara_parsed m
+			LEFT JOIN makt_filtered t ON m.material_id = t.matnr
 			WHERE m.lvorm IS NULL OR m.lvorm = '' OR m.lvorm = ' '
 		)
 	)");
 
 	CheckQueryResult(result, "create sap_to_materials macro");
 
-	// Register sap_to_materials_with_desc as a SQL table macro
-	// Same as sap_to_materials but joins with MAKT for descriptions
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO sap_to_materials_with_desc(
 			mara_table,
@@ -745,9 +714,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 				)
 			SELECT
 				m.material_id,
-				t.maktx AS description,
-				m.material_group,
 				m.material_type,
+				m.material_group,
+				COALESCE(t.maktx, '') AS description,
 				m.created_date
 			FROM mara_parsed m
 			LEFT JOIN makt_filtered t ON m.material_id = t.matnr
@@ -755,29 +724,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 		)
 	)");
 
-	CheckQueryResult(result, "create sap_to_materials macro");
+	CheckQueryResult(result, "create sap_to_materials_with_desc macro");
 
-	// Register sap_to_bom_items as a SQL table macro
-	// Transforms SAP BOM tables to canonical bom_items format
-	// Implements two-level versioning:
-	//   1. Explicit versioning (stlal - alternative BOM)
-	//   2. Date versioning (datuv - valid-from, calculated via LEAD())
-	// Uses query_table() for dynamic table access (pass table names as strings)
-	//
-	// Usage:
-	//   SELECT * FROM sap_to_bom_items(
-	//       mast_table := 'mast',
-	//       stko_table := 'stko',
-	//       stpo_table := 'stpo'
-	//   );
-	//   SELECT * FROM sap_to_bom_items(
-	//       mast_table := 'mast',
-	//       stko_table := 'stko',
-	//       stpo_table := 'stpo',
-	//       bom_alternative := '01',
-	//       reference_date := current_date,
-	//       bom_usage := '2'
-	//   );
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO sap_to_bom_items(
 			mast_table,
@@ -785,116 +733,77 @@ static void LoadInternal(ExtensionLoader &loader) {
 			stpo_table,
 			bom_alternative := '01',
 			reference_date := '9999-12-31',
-			bom_usage := '2'
+			bom_usage := NULL
 		) AS TABLE
 		SELECT * FROM (
 			WITH
-				-- Resolve reference date (default to far future = latest valid BOM)
-				ref_date AS (
-					SELECT CAST(reference_date AS DATE) AS the_date
-				),
-				-- Step 1: Filter MAST by BOM usage and alternative
-				mast_filtered AS (
+				-- Step 1: Get current BOM header (highest version by DATUV)
+				mast_parsed AS (
 					SELECT
-						TRIM(matnr) AS matnr,
-						werks,
-						stlan,
-						stlnr,
-						stlal
+						TRIM(matnr) AS parent_id,
+						stlnr AS bom_id,
+						stlal AS alternative,
+						ROW_NUMBER() OVER (PARTITION BY TRIM(matnr), stlal ORDER BY datuv DESC) AS rn
 					FROM query_table(mast_table)
-					WHERE stlan = bom_usage
-					  AND stlal = bom_alternative
+					WHERE (bom_usage IS NULL OR stlty = bom_usage)
+						AND (datuv IS NULL OR TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE <= reference_date)
 				),
-				-- Step 2: Calculate date validity for STKO using LEAD()
-				-- Each alternative (stlal) has its own date history
-				stko_with_dates AS (
+				-- Step 2: Get BOM structure (components per BOM)
+				stko_parsed AS (
 					SELECT
-						stlty,
-						stlnr,
-						stlal,
-						datuv,
-						lkenz::VARCHAR AS lkenz,
-						-- Next version's datuv becomes this version's end date
-						LEAD(datuv) OVER (
-							PARTITION BY stlty, stlnr, stlal
-							ORDER BY COALESCE(lkenz::VARCHAR, ''), datuv
-						) AS date_to
+						stlnr AS bom_id,
+						TRIM(posnr) AS line_num,
+						TRIM(idnrk) AS component_id,
+						menge AS qty,
+						meins AS unit
 					FROM query_table(stko_table)
-					WHERE stlty = 'M'
-					  AND stlal = bom_alternative
 				),
-				-- Step 3: Filter to valid BOM headers at reference_date
-				stko_valid AS (
-					SELECT stlty, stlnr, stlal, datuv
-					FROM stko_with_dates, ref_date
-					WHERE (lkenz IS NULL OR lkenz = '' OR lkenz = ' ')
-					  AND datuv <= ref_date.the_date
-					  AND (date_to IS NULL OR date_to > ref_date.the_date)
-				),
-				-- Step 4: Filter STPO items (not deleted)
-				stpo_valid AS (
+				-- Step 3: Get item validity (explicit versioning)
+				stpo_parsed AS (
 					SELECT
-						stlnr,
-						stlkn,
-						posnr,
-						TRIM(idnrk) AS idnrk,
-						rekrs,
-						menge,
-						meins
+						stlnr AS bom_id,
+						TRIM(posnr) AS line_num,
+						TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE AS valid_from,
+						LEAD(TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE)
+							OVER (PARTITION BY stlnr, TRIM(posnr) ORDER BY datuv) AS valid_to
 					FROM query_table(stpo_table)
-					WHERE lkenz IS NULL OR lkenz::VARCHAR = '' OR lkenz::VARCHAR = ' '
 				),
-				-- Step 5: Join everything together
+				-- Step 4: Join with versioning
 				bom_joined AS (
 					SELECT
-						sk.stlnr AS bom_id,
-						ma.matnr AS parent_id,
-						sp.idnrk AS child_id,
-						sp.menge AS quantity,
-						1 AS level,
-						sp.posnr AS position,
-						sp.rekrs AS is_phantom
-					FROM stko_valid sk
-					INNER JOIN mast_filtered ma ON sk.stlnr = ma.stlnr AND sk.stlal = ma.stlal
-					INNER JOIN stpo_valid sp ON sk.stlnr = sp.stlnr
+						mp.parent_id,
+						sk.component_id AS child_id,
+						sk.qty,
+						sk.unit,
+						COALESCE(sp.valid_from, TRY_STRPTIME('19000101'::VARCHAR, '%Y%m%d')::DATE) AS valid_from,
+						COALESCE(sp.valid_to, '9999-12-31'::DATE) AS valid_to,
+						mp.alternative AS bom_version
+					FROM mast_parsed mp
+					INNER JOIN stko_parsed sk ON mp.bom_id = sk.bom_id
+					LEFT JOIN stpo_parsed sp ON mp.bom_id = sp.bom_id AND sk.line_num = sp.line_num
+					WHERE mp.rn = 1
+						AND mp.alternative = bom_alternative
+						AND reference_date BETWEEN COALESCE(sp.valid_from, '1900-01-01'::DATE)
+						AND COALESCE(sp.valid_to, '9999-12-31'::DATE)
 				)
 			SELECT
-				bom_id,
 				parent_id,
 				child_id,
-				quantity,
-				level,
-				TRY_CAST(position AS INTEGER) AS position
+				qty,
+				unit,
+				valid_from,
+				valid_to,
+				bom_version
 			FROM bom_joined
 		)
 	)");
 
 	CheckQueryResult(result, "create sap_to_bom_items macro");
+}
 
-	// Phase 3b: Register compute_jaccard_embeddings macro for min-hash embedding generation
-	// Returns embedding data for material components (one row per seed)
-	// Generates 128-dimensional min-hash signatures from component sets
-	// Min-hash preserves Jaccard similarity: |A∩B| / |A∪B| ≈ P(min_hash(A) = min_hash(B))
-	// Uses 128 independent hash functions with different seeds (0-127)
-	// Result can be pivoted and inserted into material_embeddings table
-	//
-	// Usage (to compute embeddings):
-	//   INSERT INTO material_embeddings (material_id, jaccard_embedding, num_components, updated_at)
-	//   WITH embeddings_data AS (
-	//     SELECT * FROM compute_jaccard_embeddings()
-	//   )
-	//   SELECT
-	//     material_id,
-	//     array_agg(minhash_value ORDER BY seed)::FLOAT[128],
-	//     MAX(num_components),
-	//     CURRENT_TIMESTAMP
-	//   FROM embeddings_data
-	//   GROUP BY material_id
-	//   ON CONFLICT (material_id) DO UPDATE SET
-	//     jaccard_embedding = EXCLUDED.jaccard_embedding,
-	//     num_components = EXCLUDED.num_components,
-	//     updated_at = EXCLUDED.updated_at;
-	result = conn.Query(R"(
+// Phase 4c: Register embedding generation macro
+static void RegisterEmbeddingMacros(Connection &conn) {
+	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO compute_jaccard_embeddings(bom_table := 'bom_items') AS TABLE
 		WITH
 			-- Step 1: Aggregate components per material
@@ -930,13 +839,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 	)");
 
 	CheckQueryResult(result, "create compute_jaccard_embeddings macro");
+}
 
-	// Phase 5: Create auto-rebuild triggers for incremental embedding updates
-	// These triggers mark materials as dirty when BOM items change
-	// Lazy refresh pattern: refresh_dirty_embeddings() called before queries
-
-	// Trigger 1: Mark parent material as dirty on INSERT
-	result = conn.Query(R"(
+// Phase 5: Create incremental update system
+static void CreateIncrementalUpdateTriggers(Connection &conn) {
+	auto result = conn.Query(R"(
 		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_insert_trigger
 		AFTER INSERT ON bom_items
 		FOR EACH ROW
@@ -949,7 +856,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 	)");
 	// Continue even if trigger creation fails (may not be supported in test context)
 
-	// Trigger 2: Mark parent material as dirty on UPDATE
 	result = conn.Query(R"(
 		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_update_trigger
 		AFTER UPDATE ON bom_items
@@ -962,7 +868,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 		END
 	)");
 
-	// Trigger 3: Mark parent material as dirty on DELETE
 	result = conn.Query(R"(
 		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_delete_trigger
 		AFTER DELETE ON bom_items
@@ -975,8 +880,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 		END
 	)");
 
-	// Phase 5b: Register refresh_dirty_embeddings macro for lazy embedding refresh
-	// This macro recomputes embeddings for dirty materials and clears the dirty flag
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO refresh_dirty_embeddings(bom_table := 'bom_items') AS TABLE
 		WITH
@@ -997,13 +900,37 @@ static void LoadInternal(ExtensionLoader &loader) {
 	)");
 	if (result->HasError()) {
 		// Triggers and lazy refresh macros are optional - continue if they fail
-		// This allows the extension to work in environments without trigger support
 	}
 }
 
-void AnofoxSimilarityExtension::Load(ExtensionLoader &loader) {
-	LoadInternal(loader);
+static void LoadInternal(ExtensionLoader &loader) {
+	// Phase 1: Register scalar functions
+	RegisterScalarFunctions(loader);
+
+	// Get database connection for SQL operations
+	auto &db = loader.GetDatabaseInstance();
+	Connection conn(db);
+
+	// Phase 2: Initialize VSS extension integration
+	InitializeVSSIntegration(conn);
+
+	// Phase 3: Create embedding tables and tracking
+	CreateEmbeddingTables(conn);
+	CreateHNSWIndexes(conn);
+
+	// Phase 4: Register SQL macros
+	RegisterSimilarityMacros(conn);
+	RegisterSAPTransformations(conn);
+	RegisterEmbeddingMacros(conn);
+
+	// Phase 5: Set up incremental update system
+	CreateIncrementalUpdateTriggers(conn);
 }
+
+void AnofoxSimilarityExtension::Load(ExtensionLoader &db) {
+	LoadInternal(db);
+}
+
 std::string AnofoxSimilarityExtension::Name() {
 	return "anofox_similarity";
 }
@@ -1023,4 +950,5 @@ extern "C" {
 DUCKDB_CPP_EXTENSION_ENTRY(anofox_similarity, loader) {
 	duckdb::LoadInternal(loader);
 }
+
 }
