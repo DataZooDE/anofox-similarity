@@ -1,7 +1,7 @@
-# name: test/sql/indexing/vss_indexed_search.test
+# name: test/sql/functions/embeddings/hnsw_search.test
 # tier: tier1
-# description: Test VSS-indexed k-NN search vs brute-force baseline
-# group: [sql]
+# description: Test HNSW-indexed k-NN search vs brute-force baseline
+# group: [functions]
 
 require anofox_similarity
 

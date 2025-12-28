@@ -1,7 +1,7 @@
-# name: test/sql/indexing/vss_sap_integration.test
+# name: test/sql/functions/embeddings/sap_integration.test
 # tier: tier1
-# description: Test VSS-based similarity search with real SAP data
-# group: [sql]
+# description: Test embedding integration with SAP ERP data
+# group: [functions]
 
 require anofox_similarity
 

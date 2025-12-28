@@ -1,7 +1,7 @@
-# name: test/sql/indexing/vss_incremental_update.test
+# name: test/sql/functions/embeddings/refresh.test
 # tier: tier1
-# description: Test incremental embedding updates via triggers and dirty tracking
-# group: [sql]
+# description: Test incremental embedding refresh via dirty tracking
+# group: [functions]
 
 require anofox_similarity
 

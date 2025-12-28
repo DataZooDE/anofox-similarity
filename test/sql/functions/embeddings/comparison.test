@@ -1,7 +1,7 @@
-# TDD Test: VSS Indexed Similarity vs Pairwise (Brute-Force) Comparison
-#
-# This test validates that VSS-indexed k-NN search produces equivalent results
-# to pairwise similarity comparison, with measurable performance improvements.
+# name: test/sql/functions/embeddings/comparison.test
+# tier: tier1
+# description: Test method comparison (Jaccard vs WL similarity)
+# group: [functions]
 
 require anofox_similarity
 

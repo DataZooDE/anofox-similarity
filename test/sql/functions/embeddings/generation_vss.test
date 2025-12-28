@@ -1,7 +1,7 @@
-# name: test/sql/indexing/vss_embedding_generation.test
+# name: test/sql/functions/embeddings/generation_vss.test
 # tier: tier1
-# description: Test min-hash embedding generation and population
-# group: [sql]
+# description: Test min-hash embedding generation and VSS population
+# group: [functions]
 
 require anofox_similarity
 

@@ -1,5 +1,5 @@
-# name: test/sql/functions/embeddings.test
-# description: Tests for embedding generation and refresh macros
+# name: test/sql/functions/embeddings/compute.test
+# description: Tests for compute_jaccard_embeddings macro
 # tier: tier1
 # group: [functions]
 
