@@ -28,6 +28,9 @@ void CheckQueryResult(const unique_ptr<T> &result,
 template void CheckQueryResult<QueryResult>(const unique_ptr<QueryResult>&,
                                             const std::string&,
                                             FailureMode);
+template void CheckQueryResult<MaterializedQueryResult>(const unique_ptr<MaterializedQueryResult>&,
+                                                        const std::string&,
+                                                        FailureMode);
 
 } // namespace anofox
 } // namespace duckdb

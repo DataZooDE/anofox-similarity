@@ -18,6 +18,7 @@ set(EXTENSION_SOURCES
     src/anofox_similarity_extension.cpp
     src/core/constants.cpp
     src/core/error_handling.cpp
+    src/modules/jaccard_similarity.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})

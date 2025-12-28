@@ -1,4 +1,7 @@
 #include "anofox_similarity_extension.hpp"
+#include "core/constants.hpp"
+#include "core/error_handling.hpp"
+#include "modules/jaccard_similarity.hpp"
 #include "duckdb.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/types/value.hpp"
@@ -1099,7 +1102,8 @@ static void CreateIncrementalUpdateTriggers(Connection &conn) {
 
 static void LoadInternal(ExtensionLoader &loader) {
 	// Phase 1: Register scalar functions
-	RegisterScalarFunctions(loader);
+	// Use modular Jaccard similarity registration
+	anofox::RegisterJaccardFunctions(loader);
 
 	// Get database connection for SQL operations
 	auto &db = loader.GetDatabaseInstance();
@@ -1115,7 +1119,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Phase 4: Register SQL macros
 	RegisterSimilarityMacros(conn);
 	RegisterSAPTransformations(conn);
-	RegisterEmbeddingMacros(conn);
+	// Use modular Jaccard embedding registration
+	anofox::RegisterJaccardEmbeddingMacro(conn);
 
 	// Phase 5: Set up incremental update system
 	CreateIncrementalUpdateTriggers(conn);
