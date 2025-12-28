@@ -40,10 +40,10 @@ CREATE TABLE test_mast AS SELECT * FROM (VALUES
 # Create minimal synthetic STKO (BOM header with date versioning)
 statement ok
 CREATE TABLE test_stko AS SELECT * FROM (VALUES
-    ('M', '00000001', '01', '2020-01-01'::DATE, NULL),
-    ('M', '00000001', '01', '2023-01-01'::DATE, NULL),
-    ('M', '00000002', '01', '2021-01-01'::DATE, NULL)
-) AS t(stlty, stlnr, stlal, datuv, lkenz);
+    ('M', '00000001', '01', '2020-01-01'::DATE, NULL, '1'),
+    ('M', '00000001', '01', '2023-01-01'::DATE, NULL, '1'),
+    ('M', '00000002', '01', '2021-01-01'::DATE, NULL, '1')
+) AS t(stlty, stlnr, stlal, datuv, lkenz, bom_usage);
 
 # Create minimal synthetic STPO (BOM items)
 statement ok
@@ -64,12 +64,12 @@ SELECT COUNT(*) > 0 FROM sap_to_materials(mara_table := 'test_mara');
 true
 
 # Should have correct columns
-query TTTTT rowsort
+query TTTII rowsort
 SELECT material_id, material_type, material_group, created_date IS NOT NULL, description IS NULL
 FROM sap_to_materials(mara_table := 'test_mara')
 WHERE material_id = '000000000000000001';
 ----
-000000000000000001	FERT	GRP01	true	true
+000000000000000001	FERT	GRP01	1	0
 
 # With MAKT should have descriptions (use sap_to_materials_with_desc)
 query TT
@@ -109,8 +109,8 @@ SELECT COUNT(*) > 0 FROM sap_to_bom_items(
 true
 
 # Should have correct columns
-query TTTRI
-SELECT bom_id, parent_id, child_id, quantity, position
+query TTTTR
+SELECT bom_id, parent_id, child_id, qty, unit
 FROM sap_to_bom_items(
     mast_table := 'test_mast',
     stko_table := 'test_stko',
@@ -118,10 +118,10 @@ FROM sap_to_bom_items(
     reference_date := '2024-01-01'::DATE
 )
 WHERE bom_id = '00000001'
-ORDER BY position;
+ORDER BY child_id;
 ----
-00000001	000000000000000001	000000000000000002	2.0	10
-00000001	000000000000000001	000000000000000003	5.0	20
+00000001	000000000000000001	000000000000000002	2.0	EA
+00000001	000000000000000001	000000000000000003	5.0	KG
 
 # Date versioning: reference_date = 2022-01-01 should use 2020-01-01 BOM version
 query I

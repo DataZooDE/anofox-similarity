@@ -66,23 +66,22 @@ void RegisterSimilaritySearchMacros(Connection &conn) {
 						ELSE
 							jaccard_similarity(qm.query_components, mc.components)
 					END AS similarity,
-					len(list_intersect(qm.query_components, mc.components))::BIGINT AS shared_components,
-					len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT AS total_components
-				FROM material_components mc, query_mat qm
+					CASE
+						WHEN method = 'wl_kernel' THEN NULL::BIGINT
+						ELSE len(list_intersect(qm.query_components, mc.components))::BIGINT
+					END AS shared_components,
+					CASE
+						WHEN method = 'wl_kernel' THEN NULL::BIGINT
+						ELSE len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT
+					END AS total_components
+				FROM material_components mc
+				LEFT JOIN query_mat qm ON method != 'wl_kernel'  -- Only join when needed for Jaccard
 				WHERE mc.material_id != query_material_id
-					AND (NOT EXISTS (SELECT 1 FROM vss_available) OR method != 'jaccard')  -- Mutual exclusion with VSS path
 			),
-			-- Combined results: Union of VSS and brute-force paths (only one executes)
+			-- Combined results: Always use brute-force for now
+			-- Note: VSS is disabled due to min-hash distance metric issues with L2 distance
 			combined AS (
-				SELECT * FROM vss_results
-				WHERE EXISTS (SELECT 1 FROM vss_available)
-					AND method = 'jaccard'
-
-				UNION ALL
-
 				SELECT * FROM brute_force_results
-				WHERE NOT EXISTS (SELECT 1 FROM vss_available)
-					OR method != 'jaccard'
 			)
 		SELECT material_id, similarity, shared_components, total_components
 		FROM combined

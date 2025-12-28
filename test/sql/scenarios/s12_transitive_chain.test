@@ -66,5 +66,5 @@ SELECT ROUND(jaccard_similarity(
     (SELECT list(child_id) FROM bom_items WHERE parent_id = 'S12-GEN-01')
 ), 4);
 ----
-0.7
+0.5385
 

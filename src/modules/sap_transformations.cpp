@@ -60,55 +60,46 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 		) AS TABLE
 		SELECT * FROM (
 			WITH
-				-- Step 1: Get current BOM header (highest version by DATUV)
-				mast_parsed AS (
+				-- Step 1: Get current BOM header with validity (JOIN MAST + STKO)
+				mast_stko_parsed AS (
 					SELECT
-						TRIM(matnr) AS parent_id,
-						stlnr AS bom_id,
-						stlal AS alternative,
-						ROW_NUMBER() OVER (PARTITION BY TRIM(matnr), stlal ORDER BY datuv DESC) AS rn
-					FROM query_table(mast_table)
-					WHERE (datuv IS NULL OR TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE <= reference_date)
+						TRIM(m.matnr) AS parent_id,
+						s.stlnr AS bom_id,
+						s.stlal AS alternative,
+						s.datuv AS header_datuv,
+						ROW_NUMBER() OVER (PARTITION BY TRIM(m.matnr), s.stlal ORDER BY s.datuv DESC) AS rn
+					FROM query_table(mast_table) m
+					JOIN query_table(stko_table) s ON m.stlnr = s.stlnr
+					WHERE (s.datuv IS NULL OR CAST(s.datuv AS DATE) <= CAST(reference_date AS DATE))
 				),
-				-- Step 2: Get BOM structure (components per BOM)
-				stko_parsed AS (
+				-- Step 2: Get BOM components (FROM STPO, not STKO)
+				stpo_components AS (
 					SELECT
 						stlnr AS bom_id,
-						TRIM(posnr) AS line_num,
+						TRIM(stlkn) AS line_num,
 						TRIM(idnrk) AS component_id,
 						menge AS qty,
 						meins AS unit
-					FROM query_table(stko_table)
-				),
-				-- Step 3: Get item validity (explicit versioning)
-				stpo_parsed AS (
-					SELECT
-						stlnr AS bom_id,
-						TRIM(posnr) AS line_num,
-						TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE AS valid_from,
-						LEAD(TRY_STRPTIME(datuv::VARCHAR, '%Y%m%d')::DATE)
-							OVER (PARTITION BY stlnr, TRIM(posnr) ORDER BY datuv) AS valid_to
 					FROM query_table(stpo_table)
 				),
-				-- Step 4: Join with versioning
+				-- Step 3: Join components with BOM header
 				bom_joined AS (
 					SELECT
+						mp.bom_id,
 						mp.parent_id,
-						sk.component_id AS child_id,
-						sk.qty,
-						sk.unit,
-						COALESCE(sp.valid_from, TRY_STRPTIME('19000101'::VARCHAR, '%Y%m%d')::DATE) AS valid_from,
-						COALESCE(sp.valid_to, '9999-12-31'::DATE) AS valid_to,
+						sc.component_id AS child_id,
+						sc.qty,
+						sc.unit,
+						TRY_STRPTIME('19000101'::VARCHAR, '%Y%m%d')::DATE AS valid_from,
+						'9999-12-31'::DATE AS valid_to,
 						mp.alternative AS bom_version
-					FROM mast_parsed mp
-					INNER JOIN stko_parsed sk ON mp.bom_id = sk.bom_id
-					LEFT JOIN stpo_parsed sp ON mp.bom_id = sp.bom_id AND sk.line_num = sp.line_num
+					FROM mast_stko_parsed mp
+					INNER JOIN stpo_components sc ON mp.bom_id = sc.bom_id
 					WHERE mp.rn = 1
 						AND mp.alternative = bom_alternative
-						AND reference_date BETWEEN COALESCE(sp.valid_from, '1900-01-01'::DATE)
-						AND COALESCE(sp.valid_to, '9999-12-31'::DATE)
 				)
 			SELECT
+				bom_id,
 				parent_id,
 				child_id,
 				qty,

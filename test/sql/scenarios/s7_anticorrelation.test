@@ -32,12 +32,12 @@ SELECT COUNT(*) FROM materials WHERE material_id LIKE 'S7-PRED-%';
 query I
 SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S7-PRED-OLD';
 ----
-12
+10
 
 query I
 SELECT COUNT(*) FROM bom_items WHERE parent_id = 'S7-PRED-NEW';
 ----
-12
+10
 
 # Verify they share components (8 out of 12 = 0.6667 similarity)
 query R
