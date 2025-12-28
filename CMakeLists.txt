@@ -19,6 +19,7 @@ set(EXTENSION_SOURCES
     src/core/constants.cpp
     src/core/error_handling.cpp
     src/modules/jaccard_similarity.cpp
+    src/modules/similarity_search.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
