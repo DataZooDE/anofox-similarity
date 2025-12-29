@@ -48,6 +48,33 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 
 	CheckQueryResult(result, "create sap_to_materials_with_desc macro");
 
+	// extract_material_descriptions: Extract and combine material descriptions from MAKT
+	result = conn.Query(R"(
+		CREATE OR REPLACE MACRO extract_material_descriptions(
+			makt_table := 'sap_makt',
+			language := 'EN'
+		) AS TABLE
+		WITH descriptions AS (
+			SELECT
+				TRIM(matnr) AS material_id,
+				TRIM(maktx) AS description,
+				TRIM(maktg) AS short_text,
+				spras AS language
+			FROM query_table(makt_table)
+			WHERE spras = language
+		),
+		combined_text AS (
+			SELECT
+				material_id,
+				CONCAT_WS(' ', description, short_text) AS full_text
+			FROM descriptions
+			WHERE description IS NOT NULL OR short_text IS NOT NULL
+		)
+		SELECT * FROM combined_text
+	)");
+
+	CheckQueryResult(result, "create extract_material_descriptions macro");
+
 	// sap_to_bom_items: Extract BOMs from MAST/STKO/STPO tables
 	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO sap_to_bom_items(

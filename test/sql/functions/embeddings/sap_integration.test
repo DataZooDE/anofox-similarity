@@ -20,7 +20,7 @@ query I
 SELECT COUNT(*) FROM information_schema.columns
 WHERE table_name = 'material_embeddings';
 ----
-6
+8
 
 # ============================================================================
 # Test 2: Verify Material Embeddings Tables Exist

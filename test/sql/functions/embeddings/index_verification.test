@@ -68,14 +68,14 @@ LIMIT 1;
 TEST-MAT-001
 
 # ============================================================================
-# Test 7: Verify jaccard_embedding has array data type
+# Test 7: Verify jaccard_embedding is FLOAT[128] type
 # ============================================================================
 
 query I
 SELECT COUNT(*) FROM information_schema.columns
 WHERE table_name = 'material_embeddings'
 AND column_name = 'jaccard_embedding'
-AND data_type LIKE 'DOUBLE%';
+AND data_type = 'FLOAT[128]';
 ----
 1
 
@@ -122,7 +122,7 @@ query I
 SELECT EXISTS(
     SELECT 1 FROM duckdb_functions()
     WHERE function_name = 'find_similar_materials'
-    AND function_type = 'table'
+    AND function_type = 'table_macro'
 );
 ----
 true

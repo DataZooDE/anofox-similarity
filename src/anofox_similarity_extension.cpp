@@ -7,6 +7,8 @@
 #include "modules/predecessor_inference.hpp"
 #include "modules/sap_transformations.hpp"
 #include "modules/vss_integration.hpp"
+#include "modules/textual_embeddings.hpp"
+#include "modules/multimodal_fusion.hpp"
 #include "duckdb.hpp"
 #include "duckdb/main/connection.hpp"
 
@@ -55,6 +57,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Phase 1: Register scalar functions (Jaccard similarity)
 	anofox::RegisterJaccardFunctions(loader);
 
+	// Phase 1b: Register textual embedding functions
+	anofox::RegisterTextualEmbeddingFunctions(loader);
+
 	// Phase 2: Initialize VSS extension integration
 	anofox::InitializeVSSIntegration(conn);
 
@@ -62,12 +67,18 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::CreateEmbeddingTables(conn);
 	anofox::CreateHNSWIndexes(conn);
 
+	// Phase 3b: Register multi-modal fusion functions
+	anofox::RegisterMultimodalFusionFunctions(loader);
+
 	// Phase 4: Register similarity search macros
 	anofox::RegisterSimilaritySearchMacros(conn);
 	anofox::RegisterWLKernelMacro(conn);
 	anofox::RegisterPredecessorInferenceMacro(conn);
 	anofox::RegisterSAPTransformationMacros(conn);
 	anofox::RegisterEmbeddingMacros(conn);
+	anofox::RegisterTextualEmbeddingMacro(conn);
+	anofox::RegisterEmbedTextLambda(conn);
+	anofox::RegisterFusionMacro(conn);
 
 	// Phase 5: Set up incremental update system
 	anofox::CreateIncrementalUpdateTriggers(conn);

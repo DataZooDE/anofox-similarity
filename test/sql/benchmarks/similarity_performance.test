@@ -17,7 +17,7 @@ WITH material_ids AS (
 ),
 random_components AS (
     SELECT DISTINCT
-        material_id,
+        material_id AS parent_id,
         'COMP-' || LPAD((HASH(material_id) % 50)::VARCHAR, 3, '0') AS child_id
     FROM material_ids
     CROSS JOIN generate_series(1, 8) AS comp_count(n)
@@ -29,14 +29,14 @@ SELECT * FROM random_components;
 # ============================================================================
 
 statement ok
-SELECT COUNT(DISTINCT material_id) > 0 FROM perf_materials_100;
+SELECT COUNT(DISTINCT parent_id) > 0 FROM perf_materials_100;
 
 # ============================================================================
 # Test 3: Verify dataset size
 # ============================================================================
 
 query I
-SELECT COUNT(DISTINCT material_id) FROM perf_materials_100;
+SELECT COUNT(DISTINCT parent_id) FROM perf_materials_100;
 ----
 100
 
@@ -46,8 +46,8 @@ SELECT COUNT(DISTINCT material_id) FROM perf_materials_100;
 
 statement ok
 SELECT COUNT(*) > 0 FROM find_similar_materials(
-    query_material_id := 'MAT-00001',
-    k := 5,
+    'MAT-00001',
+    5,
     method := 'jaccard',
     bom_table := 'perf_materials_100'
 );
@@ -165,7 +165,7 @@ WITH material_ids AS (
 ),
 random_components AS (
     SELECT
-        material_id,
+        material_id AS parent_id,
         'COMP-' || LPAD((HASH(material_id) % 200)::VARCHAR, 4, '0') AS child_id
     FROM material_ids
     CROSS JOIN generate_series(1, 6) AS comp_count(n)

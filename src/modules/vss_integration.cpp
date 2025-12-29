@@ -15,12 +15,15 @@ void InitializeVSSIntegration(Connection &conn) {
 }
 
 void CreateEmbeddingTables(Connection &conn) {
+	// Create main embeddings table with Phase 3 schema (structural + textual + transactional)
 	auto schema_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings (
 			material_id VARCHAR PRIMARY KEY,
 			jaccard_embedding FLOAT[128],
-			wl_embedding FLOAT[256],
-			combined_embedding FLOAT[384],
+			structural_embedding FLOAT[256],
+			textual_embedding FLOAT[384],
+			transactional_embedding FLOAT[128],
+			combined_embedding FLOAT[768],
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			num_components INTEGER
 		)
@@ -35,27 +38,69 @@ void CreateEmbeddingTables(Connection &conn) {
 		)
 	)");
 	CheckQueryResult(tracking_result, "create material_embeddings_dirty table");
+
+	// Schema migration: Handle old schema with wl_embedding
+	// Check if old column exists and migrate
+	auto migration_check = conn.Query(R"(
+		SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_name = 'material_embeddings' AND column_name = 'wl_embedding'
+	)");
+
+	if (migration_check->GetValue(0, 0).GetValue<int64_t>() > 0) {
+		// Old schema exists - copy data from wl_embedding to structural_embedding
+		auto migration_result = conn.Query(R"(
+			UPDATE material_embeddings
+			SET structural_embedding = wl_embedding
+			WHERE wl_embedding IS NOT NULL AND structural_embedding IS NULL
+		)");
+		CheckQueryResult(migration_result, "migrate wl_embedding to structural_embedding", FailureMode::OPTIONAL);
+
+		// Drop old columns if migration succeeded
+		auto drop_result = conn.Query(R"(
+			ALTER TABLE material_embeddings
+			DROP COLUMN IF EXISTS wl_embedding
+		)");
+		CheckQueryResult(drop_result, "drop old wl_embedding column", FailureMode::OPTIONAL);
+	}
 }
 
 void CreateHNSWIndexes(Connection &conn) {
 	// HNSW indexes are performance optimizations - continue if creation fails
+
+	// Jaccard embedding index (128-D, L2 distance)
 	auto idx_result = conn.Query(R"(
 		CREATE INDEX IF NOT EXISTS jaccard_idx ON material_embeddings
 		USING HNSW(jaccard_embedding) WITH (metric = 'l2sq')
 	)");
 	CheckQueryResult(idx_result, "create jaccard HNSW index", FailureMode::OPTIONAL);
 
+	// Structural embedding index (256-D, L2-squared distance)
 	idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
-		USING HNSW(wl_embedding) WITH (metric = 'cosine')
+		CREATE INDEX IF NOT EXISTS hnsw_structural_idx ON material_embeddings
+		USING HNSW(structural_embedding) WITH (metric = 'l2sq')
 	)");
-	CheckQueryResult(idx_result, "create WL HNSW index", FailureMode::OPTIONAL);
+	CheckQueryResult(idx_result, "create structural HNSW index", FailureMode::OPTIONAL);
 
+	// Textual embedding index (384-D, cosine distance)
 	idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS combined_idx ON material_embeddings
+		CREATE INDEX IF NOT EXISTS hnsw_textual_idx ON material_embeddings
+		USING HNSW(textual_embedding) WITH (metric = 'cosine')
+	)");
+	CheckQueryResult(idx_result, "create textual HNSW index", FailureMode::OPTIONAL);
+
+	// Combined embedding index (768-D, cosine distance)
+	idx_result = conn.Query(R"(
+		CREATE INDEX IF NOT EXISTS hnsw_combined_idx ON material_embeddings
 		USING HNSW(combined_embedding) WITH (metric = 'cosine')
 	)");
 	CheckQueryResult(idx_result, "create combined HNSW index", FailureMode::OPTIONAL);
+
+	// Legacy wl_idx for backward compatibility (if old schema exists)
+	idx_result = conn.Query(R"(
+		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
+		USING HNSW(structural_embedding) WITH (metric = 'cosine')
+	)");
+	CheckQueryResult(idx_result, "create WL legacy HNSW index", FailureMode::OPTIONAL);
 }
 
 void RegisterEmbeddingMacros(Connection &conn) {
