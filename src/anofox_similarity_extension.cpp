@@ -8,6 +8,7 @@
 #include "modules/sap_transformations.hpp"
 #include "modules/vss_integration.hpp"
 #include "modules/textual_embeddings.hpp"
+#include "modules/transactional_embeddings.hpp"
 #include "modules/multimodal_fusion.hpp"
 #include "duckdb.hpp"
 #include "duckdb/main/connection.hpp"
@@ -79,6 +80,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterTextualEmbeddingMacro(conn);
 	anofox::RegisterEmbedTextLambda(conn);
 	anofox::RegisterFusionMacro(conn);
+
+	// Phase 4b: Register transactional embedding macros (soft dependency on anofox-forecast)
+	anofox::RegisterCheckAnofoxForecastMacro(conn);
+	anofox::RegisterTransactionalEmbeddingMacro(conn);
 
 	// Phase 5: Set up incremental update system
 	anofox::CreateIncrementalUpdateTriggers(conn);

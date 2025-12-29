@@ -28,6 +28,7 @@ set(EXTENSION_SOURCES
     src/modules/vss_integration.cpp
     src/modules/textual_embeddings.cpp
     src/modules/multimodal_fusion.cpp
+    src/modules/transactional_embeddings.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
