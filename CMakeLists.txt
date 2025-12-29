@@ -3,10 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 # Set extension name here
 set(TARGET_NAME anofox_similarity)
 
-# Extension version
-set(EXT_VERSION_ANOFOX_SIMILARITY "0.1.0")
-add_compile_definitions(EXT_VERSION_ANOFOX_SIMILARITY="${EXT_VERSION_ANOFOX_SIMILARITY}")
-
 project(${TARGET_NAME})
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
