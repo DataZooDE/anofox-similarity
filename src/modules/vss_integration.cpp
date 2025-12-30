@@ -30,6 +30,36 @@ void CreateEmbeddingTables(Connection &conn) {
 	)");
 	CheckQueryResult(schema_result, "create material_embeddings table");
 
+	// Create statistics table for transactional embedding normalization (Phase 2A)
+	auto stats_result = conn.Query(R"(
+		CREATE TABLE IF NOT EXISTS transactional_embedding_statistics (
+			feature_name VARCHAR PRIMARY KEY,
+			feature_index INTEGER,
+			feature_category VARCHAR,
+			mean_value DOUBLE,
+			std_value DOUBLE,
+			min_value DOUBLE,
+			max_value DOUBLE,
+			num_samples INTEGER,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			version INTEGER DEFAULT 1
+		)
+	)");
+	CheckQueryResult(stats_result, "create transactional_embedding_statistics table");
+
+	// Create feature mapping table for transactional embeddings (Phase 2A)
+	auto mapping_result = conn.Query(R"(
+		CREATE TABLE IF NOT EXISTS transactional_feature_mapping (
+			feature_index INTEGER PRIMARY KEY,
+			feature_name VARCHAR,
+			category VARCHAR,
+			description VARCHAR,
+			is_advanced BOOLEAN DEFAULT FALSE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	)");
+	CheckQueryResult(mapping_result, "create transactional_feature_mapping table");
+
 	auto tracking_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings_dirty (
 			material_id VARCHAR PRIMARY KEY,
@@ -140,6 +170,171 @@ void RegisterEmbeddingMacros(Connection &conn) {
 	)");
 
 	CheckQueryResult(result, "create compute_jaccard_embeddings macro");
+
+	// Phase 2A: Check if transactional embedding statistics are fresh
+	result = conn.Query(R"(
+		CREATE OR REPLACE MACRO check_statistics_freshness() AS TABLE
+		SELECT
+			COALESCE(COUNT(*), 0) AS stat_count,
+			COALESCE(MAX(num_samples), 0) AS max_samples,
+			COALESCE(MAX(version), 0) AS current_version,
+			COALESCE(MAX(updated_at), CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '8 days') AS last_updated,
+			(COALESCE(COUNT(*), 0) >= 30  -- At least 30 statistics present
+			 AND COALESCE(MAX(updated_at), CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '8 days') > CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '7 days') AS is_fresh
+		FROM transactional_embedding_statistics
+	)");
+	CheckQueryResult(result, "create check_statistics_freshness macro");
+
+	// Phase 2A: Recompute transactional embedding statistics from current data
+	result = conn.Query(R"(
+		CREATE OR REPLACE MACRO recompute_embedding_statistics() AS TABLE
+		WITH all_features AS (
+			SELECT
+				material_id,
+				anofox_fcst_ts_features(
+					LIST(quantity ORDER BY movement_date),
+					LIST(movement_date ORDER BY movement_date)
+				) AS features
+			FROM goods_movements
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			  AND quantity IS NOT NULL
+			  AND quantity > 0
+			GROUP BY material_id
+			HAVING COUNT(*) >= 3
+		),
+		feature_stats AS (
+			SELECT
+				'mean' AS feature_name, 0 AS feature_index, 'consumption' AS feature_category,
+				AVG(features.mean) AS mean_value, STDDEV_POP(features.mean) AS std_value,
+				MIN(features.mean) AS min_value, MAX(features.mean) AS max_value,
+				COUNT(*) AS num_samples
+			FROM all_features
+			UNION ALL
+			SELECT 'median', 1, 'consumption', AVG(features.median), STDDEV_POP(features.median),
+				MIN(features.median), MAX(features.median), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'variance', 2, 'consumption', AVG(features.variance), STDDEV_POP(features.variance),
+				MIN(features.variance), MAX(features.variance), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'standard_deviation', 3, 'consumption', AVG(features.standard_deviation), STDDEV_POP(features.standard_deviation),
+				MIN(features.standard_deviation), MAX(features.standard_deviation), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'linear_trend__slope', 4, 'consumption', AVG(features.linear_trend__slope), STDDEV_POP(features.linear_trend__slope),
+				MIN(features.linear_trend__slope), MAX(features.linear_trend__slope), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'linear_trend__intercept', 5, 'consumption', AVG(features.linear_trend__intercept), STDDEV_POP(features.linear_trend__intercept),
+				MIN(features.linear_trend__intercept), MAX(features.linear_trend__intercept), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'sum_values', 6, 'consumption', AVG(features.sum_values), STDDEV_POP(features.sum_values),
+				MIN(features.sum_values), MAX(features.sum_values), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'length', 7, 'consumption', AVG(features.length), STDDEV_POP(features.length),
+				MIN(features.length), MAX(features.length), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'first_location_of_maximum', 8, 'consumption', AVG(features.first_location_of_maximum), STDDEV_POP(features.first_location_of_maximum),
+				MIN(features.first_location_of_maximum), MAX(features.first_location_of_maximum), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'last_location_of_maximum', 9, 'consumption', AVG(features.last_location_of_maximum), STDDEV_POP(features.last_location_of_maximum),
+				MIN(features.last_location_of_maximum), MAX(features.last_location_of_maximum), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'coefficient_variation', 10, 'volatility', AVG(features.coefficient_variation), STDDEV_POP(features.coefficient_variation),
+				MIN(features.coefficient_variation), MAX(features.coefficient_variation), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'skewness', 11, 'volatility', AVG(features.skewness), STDDEV_POP(features.skewness),
+				MIN(features.skewness), MAX(features.skewness), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'kurtosis', 12, 'volatility', AVG(features.kurtosis), STDDEV_POP(features.kurtosis),
+				MIN(features.kurtosis), MAX(features.kurtosis), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'range_count', 13, 'volatility', AVG(features.range_count), STDDEV_POP(features.range_count),
+				MIN(features.range_count), MAX(features.range_count), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'ratio_beyond_r_sigma__r_1', 14, 'volatility', AVG(features.ratio_beyond_r_sigma__r_1), STDDEV_POP(features.ratio_beyond_r_sigma__r_1),
+				MIN(features.ratio_beyond_r_sigma__r_1), MAX(features.ratio_beyond_r_sigma__r_1), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'approximate_entropy', 15, 'volatility', AVG(features.approximate_entropy), STDDEV_POP(features.approximate_entropy),
+				MIN(features.approximate_entropy), MAX(features.approximate_entropy), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'sample_entropy', 16, 'volatility', AVG(features.sample_entropy), STDDEV_POP(features.sample_entropy),
+				MIN(features.sample_entropy), MAX(features.sample_entropy), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'benford_correlation', 17, 'volatility', AVG(features.benford_correlation), STDDEV_POP(features.benford_correlation),
+				MIN(features.benford_correlation), MAX(features.benford_correlation), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_real__coeff_0', 18, 'frequency', AVG(features.fft_coefficient__attr_real__coeff_0), STDDEV_POP(features.fft_coefficient__attr_real__coeff_0),
+				MIN(features.fft_coefficient__attr_real__coeff_0), MAX(features.fft_coefficient__attr_real__coeff_0), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_imag__coeff_0', 19, 'frequency', AVG(features.fft_coefficient__attr_imag__coeff_0), STDDEV_POP(features.fft_coefficient__attr_imag__coeff_0),
+				MIN(features.fft_coefficient__attr_imag__coeff_0), MAX(features.fft_coefficient__attr_imag__coeff_0), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_real__coeff_1', 20, 'frequency', AVG(features.fft_coefficient__attr_real__coeff_1), STDDEV_POP(features.fft_coefficient__attr_real__coeff_1),
+				MIN(features.fft_coefficient__attr_real__coeff_1), MAX(features.fft_coefficient__attr_real__coeff_1), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_imag__coeff_1', 21, 'frequency', AVG(features.fft_coefficient__attr_imag__coeff_1), STDDEV_POP(features.fft_coefficient__attr_imag__coeff_1),
+				MIN(features.fft_coefficient__attr_imag__coeff_1), MAX(features.fft_coefficient__attr_imag__coeff_1), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_real__coeff_2', 22, 'frequency', AVG(features.fft_coefficient__attr_real__coeff_2), STDDEV_POP(features.fft_coefficient__attr_real__coeff_2),
+				MIN(features.fft_coefficient__attr_real__coeff_2), MAX(features.fft_coefficient__attr_real__coeff_2), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_coefficient__attr_imag__coeff_2', 23, 'frequency', AVG(features.fft_coefficient__attr_imag__coeff_2), STDDEV_POP(features.fft_coefficient__attr_imag__coeff_2),
+				MIN(features.fft_coefficient__attr_imag__coeff_2), MAX(features.fft_coefficient__attr_imag__coeff_2), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_aggregated__aggtype_mean', 24, 'frequency', AVG(features.fft_aggregated__aggtype_mean), STDDEV_POP(features.fft_aggregated__aggtype_mean),
+				MIN(features.fft_aggregated__aggtype_mean), MAX(features.fft_aggregated__aggtype_mean), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'fft_aggregated__aggtype_variance', 25, 'frequency', AVG(features.fft_aggregated__aggtype_variance), STDDEV_POP(features.fft_aggregated__aggtype_variance),
+				MIN(features.fft_aggregated__aggtype_variance), MAX(features.fft_aggregated__aggtype_variance), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'autocorrelation__lag_1', 26, 'temporal', AVG(features.autocorrelation__lag_1), STDDEV_POP(features.autocorrelation__lag_1),
+				MIN(features.autocorrelation__lag_1), MAX(features.autocorrelation__lag_1), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'autocorrelation__lag_7', 27, 'temporal', AVG(features.autocorrelation__lag_7), STDDEV_POP(features.autocorrelation__lag_7),
+				MIN(features.autocorrelation__lag_7), MAX(features.autocorrelation__lag_7), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'autocorrelation__lag_14', 28, 'temporal', AVG(features.autocorrelation__lag_14), STDDEV_POP(features.autocorrelation__lag_14),
+				MIN(features.autocorrelation__lag_14), MAX(features.autocorrelation__lag_14), COUNT(*)
+			FROM all_features
+			UNION ALL
+			SELECT 'autocorrelation__lag_28', 29, 'temporal', AVG(features.autocorrelation__lag_28), STDDEV_POP(features.autocorrelation__lag_28),
+				MIN(features.autocorrelation__lag_28), MAX(features.autocorrelation__lag_28), COUNT(*)
+			FROM all_features
+		)
+		INSERT OR REPLACE INTO transactional_embedding_statistics
+		SELECT
+			feature_name, feature_index, feature_category, mean_value, std_value,
+			min_value, max_value, num_samples, CURRENT_TIMESTAMP,
+			COALESCE((SELECT MAX(version) FROM transactional_embedding_statistics), 0) + 1
+		FROM feature_stats
+		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
+	)");
+	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::OPTIONAL);
 }
 
 void CreateIncrementalUpdateTriggers(Connection &conn) {
