@@ -41,7 +41,9 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			material_column := 'material_id',
 			date_column := 'movement_date',
 			quantity_column := 'quantity',
-			time_window_days := 365
+			time_window_days := 365,
+			batch_size := NULL,
+			batch_offset := 0
 		) AS TABLE
 
 		WITH dependency_check AS (
@@ -61,18 +63,31 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				END AS valid
 			FROM dependency_check
 		),
-		material_timeseries AS (
-			-- Aggregate movements per material into time series arrays
-			SELECT
-				material_id,
-				LIST(quantity ORDER BY movement_date) AS values_array,
-				LIST(movement_date ORDER BY movement_date) AS dates_array,
-				COUNT(*) AS num_observations
+		all_materials AS (
+			-- Phase 2D: Batch processing support
+			-- Get distinct materials (optionally filtered by batch size and offset)
+			SELECT DISTINCT material_id
 			FROM query_table(movements_table)
 			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
 				AND quantity IS NOT NULL
 				AND quantity > 0
-			GROUP BY material_id
+			ORDER BY material_id
+			LIMIT CASE WHEN batch_size IS NOT NULL THEN batch_size ELSE NULL END
+			OFFSET CASE WHEN batch_size IS NOT NULL THEN batch_offset ELSE 0 END
+		),
+		material_timeseries AS (
+			-- Aggregate movements per material into time series arrays
+			SELECT
+				gm.material_id,
+				LIST(gm.quantity ORDER BY gm.movement_date) AS values_array,
+				LIST(gm.movement_date ORDER BY gm.movement_date) AS dates_array,
+				COUNT(*) AS num_observations
+			FROM query_table(movements_table) gm
+			INNER JOIN all_materials am ON gm.material_id = am.material_id
+			WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
+				AND gm.quantity IS NOT NULL
+				AND gm.quantity > 0
+			GROUP BY gm.material_id
 			HAVING COUNT(*) >= 3  -- Minimum requirement for meaningful statistics
 		),
 		feature_extraction AS (
@@ -103,8 +118,9 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		phase2c_features AS (
 			-- Phase 2C: Compute domain-specific features from goods_movements
 			-- These are optional and only computed if goods_movements table exists
+			-- Phase 2D: Apply batch filtering via all_materials
 			SELECT
-				material_id,
+				gm.material_id,
 				COUNT(*) AS total_moves,
 				COUNT(*) FILTER (WHERE movement_type = '261')::FLOAT / NULLIF(COUNT(*), 0) AS receipt_ratio,
 				COUNT(*) FILTER (WHERE movement_type = '262')::FLOAT / NULLIF(COUNT(*), 0) AS reversal_ratio,
@@ -139,11 +155,12 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				-- Lifecycle features from anofox-forecast (computed later via LEFT JOIN)
 				NULL::FLOAT AS trend_strength,
 				NULL::FLOAT AS growth_indicator
-			FROM query_table(movements_table)
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-			  AND quantity IS NOT NULL
-			  AND quantity > 0
-			GROUP BY material_id
+			FROM query_table(movements_table) gm
+			INNER JOIN all_materials am ON gm.material_id = am.material_id
+			WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
+			  AND gm.quantity IS NOT NULL
+			  AND gm.quantity > 0
+			GROUP BY gm.material_id
 			HAVING COUNT(*) >= 3
 		),
 		normalized_features AS (
