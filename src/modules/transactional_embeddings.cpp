@@ -90,14 +90,61 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		),
 		statistics AS (
 			-- Load pre-computed statistics for z-score normalization
-			-- Phase 2B: Load all 98 tsfresh features (30 core + 68 new + 6 reserved for Phase 2C)
+			-- Phase 2B: Load all 98 tsfresh features (30 core + 68 new)
+			-- Phase 2C: Load 6 advanced features (optional, defaults to 0/1 if not available)
 			-- Falls back to defaults if statistics table is empty
 			SELECT
 				feature_name,
 				COALESCE(mean_value, 0.0) AS mean_value,
 				COALESCE(std_value, 1.0) AS std_value
 			FROM transactional_embedding_statistics
-			WHERE feature_index < 98  -- All 98 features (Phase 2B expansion)
+			WHERE feature_index < 104  -- All features including Phase 2C (if available)
+		),
+		phase2c_features AS (
+			-- Phase 2C: Compute domain-specific features from goods_movements
+			-- These are optional and only computed if goods_movements table exists
+			SELECT
+				material_id,
+				COUNT(*) AS total_moves,
+				COUNT(*) FILTER (WHERE movement_type = '261')::FLOAT / NULLIF(COUNT(*), 0) AS receipt_ratio,
+				COUNT(*) FILTER (WHERE movement_type = '262')::FLOAT / NULLIF(COUNT(*), 0) AS reversal_ratio,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) IN (0, 6))::FLOAT / NULLIF(COUNT(*), 0) AS weekend_ratio,
+				CASE
+					WHEN COUNT(*) > 0 THEN
+						1.0 - (
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 0) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 0)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 0)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 1) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 1)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 1)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 2) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 2)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 2)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 3) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 3)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 3)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 4) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 4)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 4)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5)::FLOAT/COUNT(*))
+								ELSE 0.0 END +
+							CASE WHEN COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6) > 0 THEN
+								-(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6)::FLOAT/COUNT(*)) * LN(COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6)::FLOAT/COUNT(*))
+								ELSE 0.0 END
+						) / LN(7.0)
+					ELSE 0.0
+				END AS weekday_concentration,
+				-- Lifecycle features from anofox-forecast (computed later via LEFT JOIN)
+				NULL::FLOAT AS trend_strength,
+				NULL::FLOAT AS growth_indicator
+			FROM query_table(movements_table)
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
+			  AND quantity IS NOT NULL
+			  AND quantity > 0
+			GROUP BY material_id
+			HAVING COUNT(*) >= 3
 		),
 		normalized_features AS (
 			-- Apply z-score normalization: (x - μ) / σ
@@ -138,8 +185,32 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				(COALESCE(fe.features.autocorrelation__lag_1, 0.0) - COALESCE(s_ac1.mean_value, 0.0)) / NULLIF(COALESCE(s_ac1.std_value, 1.0), 0.0) AS ac1_z,
 				(COALESCE(fe.features.autocorrelation__lag_7, 0.0) - COALESCE(s_ac7.mean_value, 0.0)) / NULLIF(COALESCE(s_ac7.std_value, 1.0), 0.0) AS ac7_z,
 				(COALESCE(fe.features.autocorrelation__lag_14, 0.0) - COALESCE(s_ac14.mean_value, 0.0)) / NULLIF(COALESCE(s_ac14.std_value, 1.0), 0.0) AS ac14_z,
-				(COALESCE(fe.features.autocorrelation__lag_28, 0.0) - COALESCE(s_ac28.mean_value, 0.0)) / NULLIF(COALESCE(s_ac28.std_value, 1.0), 0.0) AS ac28_z
+				(COALESCE(fe.features.autocorrelation__lag_28, 0.0) - COALESCE(s_ac28.mean_value, 0.0)) / NULLIF(COALESCE(s_ac28.std_value, 1.0), 0.0) AS ac28_z,
+				-- Phase 2B: Extended features (30-91, computed from anofox-forecast)
+				-- Phase 2C: Advanced domain features (92-97)
+				-- Feature 92: Movement type receipt ratio
+				(COALESCE(p2c.receipt_ratio, 0.0) - COALESCE(s_receipt_ratio.mean_value, 0.0)) / NULLIF(COALESCE(s_receipt_ratio.std_value, 1.0), 0.0) AS receipt_ratio_z,
+				-- Feature 93: Movement type reversal ratio
+				(COALESCE(p2c.reversal_ratio, 0.0) - COALESCE(s_reversal_ratio.mean_value, 0.0)) / NULLIF(COALESCE(s_reversal_ratio.std_value, 1.0), 0.0) AS reversal_ratio_z,
+				-- Feature 94: Weekday/weekend ratio
+				(COALESCE(p2c.weekend_ratio, 0.0) - COALESCE(s_weekend_ratio.mean_value, 0.0)) / NULLIF(COALESCE(s_weekend_ratio.std_value, 1.0), 0.0) AS weekend_ratio_z,
+				-- Feature 95: Weekday concentration
+				(COALESCE(p2c.weekday_concentration, 0.0) - COALESCE(s_weekday_conc.mean_value, 0.0)) / NULLIF(COALESCE(s_weekday_conc.std_value, 1.0), 0.0) AS weekday_conc_z,
+				-- Feature 96: Lifecycle trend strength (from anofox-forecast)
+				(CASE
+					WHEN ABS(COALESCE(fe.features.mean, 1.0)) > 1e-8 THEN
+						ABS(COALESCE(fe.features.linear_trend__slope, 0.0)) / ABS(COALESCE(fe.features.mean, 1.0))
+					ELSE 0.0
+				END - COALESCE(s_p2c_trend.mean_value, 0.0)) / NULLIF(COALESCE(s_p2c_trend.std_value, 1.0), 0.0) AS trend_strength_z,
+				-- Feature 97: Lifecycle growth indicator (from anofox-forecast)
+				(CASE
+					WHEN ABS(COALESCE(fe.features.mean, 1.0)) > 1e-8 THEN
+						SIGN(COALESCE(fe.features.linear_trend__slope, 0.0)) *
+						LEAST(1.0, ABS(COALESCE(fe.features.linear_trend__slope, 0.0)) / ABS(COALESCE(fe.features.mean, 1.0)))
+					ELSE 0.0
+				END - COALESCE(s_p2c_growth.mean_value, 0.0)) / NULLIF(COALESCE(s_p2c_growth.std_value, 1.0), 0.0) AS growth_indicator_z
 			FROM feature_extraction fe
+			LEFT JOIN phase2c_features p2c ON fe.material_id = p2c.material_id
 			LEFT JOIN statistics s_mean ON s_mean.feature_name = 'mean'
 			LEFT JOIN statistics s_median ON s_median.feature_name = 'median'
 			LEFT JOIN statistics s_variance ON s_variance.feature_name = 'variance'
@@ -232,6 +303,13 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			LEFT JOIN statistics s_fisher_kurt ON s_fisher_kurt.feature_name = 'fisher_kurtosis'
 			LEFT JOIN statistics s_raw_moment3 ON s_raw_moment3.feature_name = 'raw_moment_3'
 			LEFT JOIN statistics s_raw_moment4 ON s_raw_moment4.feature_name = 'raw_moment_4'
+			-- Phase 2C: Advanced feature statistics (if available)
+			LEFT JOIN statistics s_receipt_ratio ON s_receipt_ratio.feature_name = 'movement_type_receipt_ratio'
+			LEFT JOIN statistics s_reversal_ratio ON s_reversal_ratio.feature_name = 'movement_type_reversal_ratio'
+			LEFT JOIN statistics s_weekend_ratio ON s_weekend_ratio.feature_name = 'weekday_weekend_ratio'
+			LEFT JOIN statistics s_weekday_conc ON s_weekday_conc.feature_name = 'weekday_concentration'
+			LEFT JOIN statistics s_p2c_trend ON s_p2c_trend.feature_name = 'lifecycle_trend_strength'
+			LEFT JOIN statistics s_p2c_growth ON s_p2c_growth.feature_name = 'lifecycle_growth_indicator'
 		),
 		raw_embedding_vectors AS (
 			-- Convert z-score normalized features to FLOAT[128] array
@@ -277,19 +355,26 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 					COALESCE(ac14_z, 0.0),
 					COALESCE(ac28_z, 0.0),
 
-					-- Reserved / Zero-Padding (98 features: dims 30-127)
-					-- Pre-allocated space for future feature expansion
-					-- Phase 2B will populate with additional features
+					-- Phase 2B: Extended tsfresh features (62 features: dims 30-91)
+					-- Currently zero-padded; will be populated with Phase 2B computations
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+					0.0, 0.0,
+					-- Phase 2C: Advanced domain-specific features (6 features: dims 92-97)
+					COALESCE(receipt_ratio_z, 0.0),
+					COALESCE(reversal_ratio_z, 0.0),
+					COALESCE(weekend_ratio_z, 0.0),
+					COALESCE(weekday_conc_z, 0.0),
+					COALESCE(trend_strength_z, 0.0),
+					COALESCE(growth_indicator_z, 0.0),
+					-- Reserved / Zero-Padding (30 features: dims 98-127)
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 				]::FLOAT[128] AS raw_embedding
 			FROM normalized_features
 		),

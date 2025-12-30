@@ -604,6 +604,166 @@ void RegisterEmbeddingMacros(Connection &conn) {
 		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
 	)");
 	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::OPTIONAL);
+
+	// Phase 2C: Compute advanced domain-specific features (movement type, day-of-week, lifecycle)
+	result = conn.Query(R"(
+		CREATE OR REPLACE MACRO compute_phase2c_statistics(
+			movements_table := 'goods_movements',
+			material_column := 'material_id',
+			date_column := 'movement_date',
+			quantity_column := 'quantity',
+			movement_type_column := 'movement_type',
+			time_window_days := 365
+		) AS TABLE
+		WITH
+		-- Aggregate goods_movements by material and compute Phase 2C feature values
+		movement_features AS (
+			SELECT
+				material_id,
+				COUNT(*) AS total_moves,
+				COUNT(*) FILTER (WHERE movement_type = '261') AS receipt_count,
+				COUNT(*) FILTER (WHERE movement_type = '262') AS reversal_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) IN (0, 6)) AS weekend_count,
+				-- Weekday distribution: compute entropy for concentration metric
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 0) AS sun_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 1) AS mon_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 2) AS tue_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 3) AS wed_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 4) AS thu_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5) AS fri_count,
+				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6) AS sat_count
+			FROM query_table(movements_table)
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			  AND quantity IS NOT NULL
+			  AND quantity > 0
+			GROUP BY material_id
+			HAVING COUNT(*) >= 3
+		),
+		phase2c_features AS (
+			SELECT
+				material_id,
+				-- Feature 92: Movement type receipt ratio
+				COALESCE(receipt_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS receipt_ratio,
+				-- Feature 93: Movement type reversal ratio
+				COALESCE(reversal_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS reversal_ratio,
+				-- Feature 94: Weekday/weekend ratio
+				COALESCE(weekend_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS weekend_ratio,
+				-- Feature 95: Weekday concentration (1 - normalized entropy)
+				-- Normalized entropy of daily distribution
+				CASE
+					WHEN total_moves > 0 THEN
+						1.0 - (
+							CASE WHEN sun_count > 0 THEN -(sun_count::FLOAT/total_moves) * LN(sun_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN mon_count > 0 THEN -(mon_count::FLOAT/total_moves) * LN(mon_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN tue_count > 0 THEN -(tue_count::FLOAT/total_moves) * LN(tue_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN wed_count > 0 THEN -(wed_count::FLOAT/total_moves) * LN(wed_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN thu_count > 0 THEN -(thu_count::FLOAT/total_moves) * LN(thu_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN fri_count > 0 THEN -(fri_count::FLOAT/total_moves) * LN(fri_count::FLOAT/total_moves) ELSE 0.0 END +
+							CASE WHEN sat_count > 0 THEN -(sat_count::FLOAT/total_moves) * LN(sat_count::FLOAT/total_moves) ELSE 0.0 END
+						) / LN(7.0)
+					ELSE 0.0
+				END AS weekday_concentration
+			FROM movement_features
+		),
+		-- Compute lifecycle features from all_features CTE (requires rerunning feature extraction)
+		all_features AS (
+			SELECT
+				material_id,
+				anofox_fcst_ts_features(
+					LIST(quantity ORDER BY movement_date),
+					LIST(movement_date ORDER BY movement_date)
+				) AS features
+			FROM goods_movements
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			  AND quantity IS NOT NULL
+			  AND quantity > 0
+			GROUP BY material_id
+			HAVING COUNT(*) >= 3
+		),
+		lifecycle_features AS (
+			SELECT
+				af.material_id,
+				-- Feature 96: Lifecycle trend strength = |slope| / mean
+				CASE
+					WHEN ABS(COALESCE(af.features.mean, 1.0)) > 1e-8 THEN
+						ABS(COALESCE(af.features.linear_trend__slope, 0.0)) / ABS(COALESCE(af.features.mean, 1.0))
+					ELSE 0.0
+				END AS trend_strength,
+				-- Feature 97: Lifecycle growth indicator = SIGN(slope) * MIN(1.0, trend_strength)
+				CASE
+					WHEN ABS(COALESCE(af.features.mean, 1.0)) > 1e-8 THEN
+						SIGN(COALESCE(af.features.linear_trend__slope, 0.0)) *
+						LEAST(1.0, ABS(COALESCE(af.features.linear_trend__slope, 0.0)) / ABS(COALESCE(af.features.mean, 1.0)))
+					ELSE 0.0
+				END AS growth_indicator
+			FROM all_features af
+		),
+		-- Combine all phase2c features and compute statistics
+		combined_phase2c AS (
+			SELECT
+				pf.material_id,
+				pf.receipt_ratio,
+				pf.reversal_ratio,
+				pf.weekend_ratio,
+				pf.weekday_concentration,
+				lf.trend_strength,
+				lf.growth_indicator
+			FROM phase2c_features pf
+			LEFT JOIN lifecycle_features lf ON pf.material_id = lf.material_id
+		),
+		phase2c_stats AS (
+			SELECT
+				'movement_type_receipt_ratio' AS feature_name, 92 AS feature_index, 'advanced' AS feature_category,
+				AVG(receipt_ratio) AS mean_value, STDDEV_POP(receipt_ratio) AS std_value,
+				MIN(receipt_ratio) AS min_value, MAX(receipt_ratio) AS max_value,
+				COUNT(*) AS num_samples
+			FROM combined_phase2c
+			WHERE receipt_ratio IS NOT NULL
+			UNION ALL
+			SELECT
+				'movement_type_reversal_ratio', 93, 'advanced',
+				AVG(reversal_ratio), STDDEV_POP(reversal_ratio),
+				MIN(reversal_ratio), MAX(reversal_ratio), COUNT(*)
+			FROM combined_phase2c
+			WHERE reversal_ratio IS NOT NULL
+			UNION ALL
+			SELECT
+				'weekday_weekend_ratio', 94, 'advanced',
+				AVG(weekend_ratio), STDDEV_POP(weekend_ratio),
+				MIN(weekend_ratio), MAX(weekend_ratio), COUNT(*)
+			FROM combined_phase2c
+			WHERE weekend_ratio IS NOT NULL
+			UNION ALL
+			SELECT
+				'weekday_concentration', 95, 'advanced',
+				AVG(weekday_concentration), STDDEV_POP(weekday_concentration),
+				MIN(weekday_concentration), MAX(weekday_concentration), COUNT(*)
+			FROM combined_phase2c
+			WHERE weekday_concentration IS NOT NULL
+			UNION ALL
+			SELECT
+				'lifecycle_trend_strength', 96, 'advanced',
+				AVG(trend_strength), STDDEV_POP(trend_strength),
+				MIN(trend_strength), MAX(trend_strength), COUNT(*)
+			FROM combined_phase2c
+			WHERE trend_strength IS NOT NULL
+			UNION ALL
+			SELECT
+				'lifecycle_growth_indicator', 97, 'advanced',
+				AVG(growth_indicator), STDDEV_POP(growth_indicator),
+				MIN(growth_indicator), MAX(growth_indicator), COUNT(*)
+			FROM combined_phase2c
+			WHERE growth_indicator IS NOT NULL
+		)
+		INSERT OR REPLACE INTO transactional_embedding_statistics
+		SELECT
+			feature_name, feature_index, feature_category, mean_value, std_value,
+			min_value, max_value, num_samples, CURRENT_TIMESTAMP,
+			COALESCE((SELECT MAX(version) FROM transactional_embedding_statistics), 0) + 1
+		FROM phase2c_stats
+		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
+	)");
+	CheckQueryResult(result, "create compute_phase2c_statistics macro", FailureMode::OPTIONAL);
 }
 
 void CreateIncrementalUpdateTriggers(Connection &conn) {
