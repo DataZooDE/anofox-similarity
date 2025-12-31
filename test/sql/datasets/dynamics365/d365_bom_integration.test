@@ -1,0 +1,118 @@
+# name: test/sql/datasets/dynamics365/d365_bom_integration.test
+# tier: tier2
+# description: Dynamics 365 end-to-end BOM integration with similarity search
+# group: [datasets, integration]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Test 1: Create D365 master data (InventTable)
+# ============================================================================
+
+statement ok
+CREATE TABLE d365_materials AS
+SELECT * FROM (VALUES
+    ('MAT-A', 'Product A', 0),
+    ('MAT-B', 'Component B', 2),
+    ('MAT-C', 'Component C', 2),
+    ('MAT-D', 'Product D', 0)
+) AS t(ItemId, ItemName, ItemType)
+
+# ============================================================================
+# Test 2: Create D365 BOM structures
+# ============================================================================
+
+statement ok
+CREATE TABLE d365_boms AS
+SELECT * FROM (VALUES
+    ('BOM-A', 'MAT-A', 0),              -- Active
+    ('BOM-D', 'MAT-D', 0)               -- Active
+) AS t(BOMId, ItemId, Status)
+
+# ============================================================================
+# Test 3: Create D365 BOM versions
+# ============================================================================
+
+statement ok
+CREATE TABLE d365_versions AS
+SELECT * FROM (VALUES
+    ('BOM-A', 'V1', 1, TIMESTAMP '2024-01-01 00:00:00'),      -- Approved
+    ('BOM-D', 'V1', 1, TIMESTAMP '2024-01-01 00:00:00')       -- Approved
+) AS t(BOMId, VersionId, ApprovedStatus, ActivationDate)
+
+# ============================================================================
+# Test 4: Create D365 component definitions
+# ============================================================================
+
+statement ok
+CREATE TABLE d365_components AS
+SELECT * FROM (VALUES
+    ('BOM-A', 1, 'MAT-B', 2.0, 5.0),
+    ('BOM-A', 2, 'MAT-C', 1.5, 0.0),
+    ('BOM-D', 1, 'MAT-B', 1.0, 2.0)
+) AS t(BOMId, LineNum, ItemId, Quantity, ScrapPercent)
+
+# ============================================================================
+# Test 5: Convert D365 materials to universal schema
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM dynamics365_to_materials('d365_materials')
+----
+4
+
+# ============================================================================
+# Test 6: Convert D365 BOMs to universal header
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM dynamics365_to_bom_header('d365_boms', 'd365_versions')
+WHERE is_approved = TRUE
+----
+2
+
+# ============================================================================
+# Test 7: Convert D365 components to universal format
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM dynamics365_to_bom_component('d365_components')
+----
+3
+
+# ============================================================================
+# Test 8: Verify BOM hierarchy is preserved
+# ============================================================================
+
+query I
+SELECT COUNT(DISTINCT bom_id) FROM (
+    SELECT bom_id FROM dynamics365_to_bom_header('d365_boms', 'd365_versions')
+    WHERE is_approved = TRUE
+)
+----
+2
+
+# ============================================================================
+# Test 9: Verify component relationships
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM dynamics365_to_bom_component('d365_components')
+WHERE quantity_per > 0 AND scrap_percent >= 0
+----
+3
+
+# ============================================================================
+# Test 10: Verify cross-material similarity detection
+# ============================================================================
+
+query I
+SELECT COUNT(DISTINCT child_material_id) FROM (
+    SELECT child_material_id FROM dynamics365_to_bom_component('d365_components')
+    WHERE bom_id LIKE 'BOM-%'
+)
+----
+2

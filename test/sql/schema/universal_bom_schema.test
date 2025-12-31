@@ -1,0 +1,218 @@
+# name: test/sql/schema/universal_bom_schema.test
+# tier: tier1
+# description: Universal BOM schema validation and backward compatibility
+# group: [schema]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Test 1: Create universal schema tables
+# ============================================================================
+
+statement ok
+DROP TABLE IF EXISTS bom_component CASCADE
+
+statement ok
+DROP TABLE IF EXISTS bom_header CASCADE
+
+statement ok
+DROP TABLE IF EXISTS materials CASCADE
+
+statement ok
+CREATE TABLE materials (
+    material_id VARCHAR PRIMARY KEY,
+    material_number VARCHAR UNIQUE NOT NULL,
+    description VARCHAR(500),
+    material_type VARCHAR(20),
+    material_group VARCHAR(50),
+    procurement_type VARCHAR(20),
+    base_uom VARCHAR(10),
+    weight DECIMAL(12,4),
+    cost_per_unit DECIMAL(12,4),
+    source_system VARCHAR(20),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+statement ok
+CREATE TABLE bom_header (
+    bom_id VARCHAR PRIMARY KEY,
+    source_system VARCHAR NOT NULL,
+    source_bom_id VARCHAR,
+    parent_material_id VARCHAR NOT NULL,
+    bom_type VARCHAR,
+    alternative_number VARCHAR,
+    revision VARCHAR,
+    base_quantity DECIMAL(18,6) DEFAULT 1,
+    base_uom VARCHAR(10),
+    valid_from DATE,
+    valid_to DATE,
+    plant_id VARCHAR(20),
+    is_approved BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT current_timestamp,
+    CONSTRAINT fk_parent FOREIGN KEY (parent_material_id)
+        REFERENCES materials(material_id)
+)
+
+statement ok
+CREATE TABLE bom_component (
+    component_id VARCHAR PRIMARY KEY,
+    bom_id VARCHAR NOT NULL REFERENCES bom_header(bom_id),
+    line_number INTEGER NOT NULL,
+    child_material_id VARCHAR NOT NULL,
+    quantity_per DECIMAL(18,6) NOT NULL,
+    quantity_uom VARCHAR(10) NOT NULL,
+    is_fixed_quantity BOOLEAN DEFAULT FALSE,
+    scrap_percent DECIMAL(8,4) DEFAULT 0,
+    effective_from DATE,
+    effective_to DATE,
+    component_type VARCHAR(20),
+    supply_type VARCHAR(20),
+    operation_sequence INTEGER,
+    is_alternative BOOLEAN DEFAULT FALSE,
+    alternative_group VARCHAR(20),
+    created_at TIMESTAMP DEFAULT current_timestamp,
+    CONSTRAINT fk_child FOREIGN KEY (child_material_id)
+        REFERENCES materials(material_id)
+)
+
+# ============================================================================
+# Test 2: Insert sample data
+# ============================================================================
+
+statement ok
+INSERT INTO materials VALUES
+    ('MAT-001', 'ASSY-001', 'Assembly 1', 'ASSEMBLY', 'FINISHED', 'MAKE', 'EA', 10.5, 100.00, 'SYNTHETIC', TRUE, current_timestamp),
+    ('MAT-002', 'COMP-001', 'Component 1', 'COMPONENT', 'RAW', 'BUY', 'EA', 2.0, 5.00, 'SYNTHETIC', TRUE, current_timestamp),
+    ('MAT-003', 'COMP-002', 'Component 2', 'COMPONENT', 'RAW', 'BUY', 'EA', 3.0, 7.50, 'SYNTHETIC', TRUE, current_timestamp)
+
+statement ok
+INSERT INTO bom_header VALUES
+    ('BOM-001', 'SYNTHETIC', 'BOM-001', 'MAT-001', 'MANUFACTURING', '01', 'A', 1, 'EA', '2024-01-01', NULL, 'PLANT-001', TRUE, current_timestamp)
+
+statement ok
+INSERT INTO bom_component VALUES
+    ('COMP-001', 'BOM-001', 10, 'MAT-002', 2.0, 'EA', FALSE, 0, NULL, NULL, 'STOCK', 'PUSH', 10, FALSE, NULL, current_timestamp),
+    ('COMP-002', 'BOM-001', 20, 'MAT-003', 1.5, 'EA', FALSE, 0, NULL, NULL, 'STOCK', 'PUSH', 20, FALSE, NULL, current_timestamp)
+
+# ============================================================================
+# Test 3: Verify foreign keys work
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_header h
+JOIN bom_component c ON h.bom_id = c.bom_id
+WHERE h.parent_material_id = 'MAT-001'
+----
+2
+
+# ============================================================================
+# Test 4: Verify backward compatibility view (bom_to_items macro)
+# ============================================================================
+# This macro should create a view from universal schema
+
+query III rowsort
+SELECT * FROM bom_to_items('bom_header', 'bom_component')
+----
+MAT-001	MAT-002	2.0
+MAT-001	MAT-003	1.5
+
+# ============================================================================
+# Test 5: Verify bom_header structure
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_header WHERE is_approved = TRUE
+----
+1
+
+query III
+SELECT bom_id, parent_material_id, bom_type FROM bom_header
+----
+BOM-001	MAT-001	MANUFACTURING
+
+# ============================================================================
+# Test 6: Verify bom_component structure
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_component WHERE component_type = 'STOCK'
+----
+2
+
+query IIII
+SELECT line_number, child_material_id, quantity_per, scrap_percent FROM bom_component ORDER BY line_number
+----
+10	MAT-002	2.0	0.0
+20	MAT-003	1.5	0.0
+
+# ============================================================================
+# Test 7: Verify materials table
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM materials WHERE material_type = 'COMPONENT'
+----
+2
+
+query II
+SELECT material_id, material_type FROM materials WHERE is_active = TRUE ORDER BY material_id
+----
+MAT-001	ASSEMBLY
+MAT-002	COMPONENT
+MAT-003	COMPONENT
+
+# ============================================================================
+# Test 8: Verify complex join operations
+# ============================================================================
+
+query III rowsort
+SELECT m1.material_id, m2.material_id, c.quantity_per
+FROM bom_header h
+JOIN materials m1 ON h.parent_material_id = m1.material_id
+JOIN bom_component c ON h.bom_id = c.bom_id
+JOIN materials m2 ON c.child_material_id = m2.material_id
+WHERE m1.material_id = 'MAT-001'
+----
+MAT-001	MAT-002	2.0
+MAT-001	MAT-003	1.5
+
+# ============================================================================
+# Test 9: Verify NULL handling
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_header WHERE valid_to IS NULL
+----
+1
+
+query I
+SELECT COUNT(*) FROM bom_component WHERE effective_from IS NULL
+----
+2
+
+# ============================================================================
+# Test 10: Verify default values
+# ============================================================================
+
+query II
+SELECT base_quantity, is_approved FROM bom_header WHERE bom_id = 'BOM-001'
+----
+1	true
+
+query II
+SELECT is_fixed_quantity, scrap_percent FROM bom_component WHERE component_id = 'COMP-001'
+----
+false	0.0
+
+# ============================================================================
+# Test 11: Verify summary statistics
+# ============================================================================
+
+query II
+SELECT COUNT(DISTINCT parent_material_id), COUNT(DISTINCT child_material_id) FROM bom_header h, bom_component c WHERE h.bom_id = c.bom_id
+----
+1	2

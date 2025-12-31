@@ -25,10 +25,12 @@ set(EXTENSION_SOURCES
     src/modules/wl_kernel.cpp
     src/modules/predecessor_inference.cpp
     src/modules/sap_transformations.cpp
+    src/modules/dynamics365_transformations.cpp
     src/modules/vss_integration.cpp
     src/modules/textual_embeddings.cpp
     src/modules/multimodal_fusion.cpp
     src/modules/transactional_embeddings.cpp
+    src/modules/universal_schema.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})

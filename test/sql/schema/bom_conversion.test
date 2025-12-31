@@ -1,0 +1,103 @@
+# name: test/sql/schema/bom_conversion.test
+# tier: tier1
+# description: Test conversion between flat bom_items and universal schema
+# group: [schema]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Test 1: Create legacy flat bom_items table
+# ============================================================================
+
+statement ok
+CREATE TABLE legacy_bom_items AS
+SELECT * FROM (VALUES
+    ('PROD-A', 'COMP-1', 2.0),
+    ('PROD-A', 'COMP-2', 1.5),
+    ('PROD-B', 'COMP-1', 3.0)
+) AS t(parent_id, child_id, quantity)
+
+# ============================================================================
+# Test 2: Verify items_to_bom conversion produces all tables
+# ============================================================================
+
+query I
+SELECT COUNT(DISTINCT table_type) FROM items_to_bom('legacy_bom_items', 'LEGACY')
+----
+3
+
+# ============================================================================
+# Test 3: Verify items_to_bom produces materials
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM (
+    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+    WHERE table_type = 'materials'
+)
+----
+4
+
+# ============================================================================
+# Test 4: Verify items_to_bom produces bom_header
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM (
+    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+    WHERE table_type = 'bom_header'
+)
+----
+2
+
+# ============================================================================
+# Test 5: Verify items_to_bom produces bom_component
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM (
+    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+    WHERE table_type = 'bom_component'
+)
+----
+3
+
+# ============================================================================
+# Test 6: Round-trip test - convert and convert back
+# ============================================================================
+
+statement ok
+CREATE TABLE test_materials AS
+SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+WHERE table_type = 'materials'
+
+statement ok
+CREATE TABLE test_bom_header AS
+SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+WHERE table_type = 'bom_header'
+
+statement ok
+CREATE TABLE test_bom_component AS
+SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
+WHERE table_type = 'bom_component'
+
+# ============================================================================
+# Test 7: Verify bom_header count
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM test_bom_header
+----
+2
+
+# ============================================================================
+# Test 8: Verify bom_component count
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM test_bom_component
+----
+3
