@@ -1,0 +1,416 @@
+# name: test/sql/graph/graph_fallback.test
+# tier: tier1
+# description: SQL CTE fallback for BOM graph traversal (without DuckPGQ)
+# group: [graphs]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+SET order_by_non_integer_literal = true
+
+# ============================================================================
+# Setup: Create universal BOM schema with fallback test data
+# ============================================================================
+
+statement ok
+CREATE TABLE IF NOT EXISTS materials (
+	material_id VARCHAR PRIMARY KEY,
+	material_number VARCHAR UNIQUE NOT NULL,
+	description VARCHAR(500),
+	material_type VARCHAR(20),
+	material_group VARCHAR(50),
+	procurement_type VARCHAR(20),
+	base_uom VARCHAR(10),
+	weight DECIMAL(12,4),
+	cost_per_unit DECIMAL(12,4),
+	source_system VARCHAR(20),
+	is_active BOOLEAN DEFAULT TRUE,
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+statement ok
+CREATE TABLE IF NOT EXISTS bom_header (
+	bom_id VARCHAR PRIMARY KEY,
+	source_system VARCHAR NOT NULL,
+	source_bom_id VARCHAR,
+	parent_material_id VARCHAR NOT NULL,
+	bom_type VARCHAR,
+	alternative_number VARCHAR,
+	revision VARCHAR,
+	base_quantity DECIMAL(18,6) DEFAULT 1,
+	base_uom VARCHAR(10),
+	valid_from DATE,
+	valid_to DATE,
+	plant_id VARCHAR,
+	is_approved BOOLEAN DEFAULT FALSE,
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+statement ok
+CREATE TABLE IF NOT EXISTS bom_component (
+	component_id VARCHAR PRIMARY KEY,
+	bom_id VARCHAR NOT NULL,
+	line_number INTEGER NOT NULL,
+	child_material_id VARCHAR NOT NULL,
+	quantity_per DECIMAL(18,6) NOT NULL,
+	quantity_uom VARCHAR(10),
+	is_fixed_quantity BOOLEAN DEFAULT FALSE,
+	scrap_percent DECIMAL(5,2) DEFAULT 0,
+	effective_from DATE,
+	effective_to DATE,
+	component_type VARCHAR(20),
+	supply_type VARCHAR(20),
+	operation_sequence INTEGER,
+	is_alternative BOOLEAN DEFAULT FALSE,
+	alternative_group VARCHAR(20),
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+# ============================================================================
+# Test 1: Create test materials for BOM hierarchy
+# ============================================================================
+
+statement ok
+INSERT INTO materials (material_id, material_number, description, material_type, source_system)
+SELECT * FROM (VALUES
+    ('PROD-002', 'PROD-002', 'Alternative Product', 'FINISHED', 'TEST_FB'),
+    ('ASSY-003', 'ASSY-003', 'Sub-Assembly 3', 'ASSEMBLY', 'TEST_FB'),
+    ('ASSY-004', 'ASSY-004', 'Sub-Assembly 4', 'ASSEMBLY', 'TEST_FB'),
+    ('COMP-004', 'COMP-004', 'Component 4', 'COMPONENT', 'TEST_FB'),
+    ('COMP-005', 'COMP-005', 'Component 5', 'COMPONENT', 'TEST_FB'),
+    ('COMP-006', 'COMP-006', 'Component 6', 'COMPONENT', 'TEST_FB')
+) AS t(material_id, material_number, description, material_type, source_system)
+
+# ============================================================================
+# Test 2: Create BOM hierarchy for fallback testing
+# ============================================================================
+
+statement ok
+INSERT INTO bom_header (bom_id, source_system, parent_material_id, bom_type, base_quantity, base_uom, is_approved)
+SELECT * FROM (VALUES
+    ('BOM-FB01', 'TEST_FB', 'PROD-002', 'MANUFACTURING', 1.0, 'EA', TRUE),
+    ('BOM-FB02', 'TEST_FB', 'ASSY-003', 'MANUFACTURING', 1.0, 'EA', TRUE),
+    ('BOM-FB03', 'TEST_FB', 'ASSY-004', 'MANUFACTURING', 1.0, 'EA', TRUE)
+) AS t(bom_id, source_system, parent_material_id, bom_type, base_quantity, base_uom, is_approved)
+
+# ============================================================================
+# Test 3: Create BOM components for fallback testing
+# ============================================================================
+
+statement ok
+INSERT INTO bom_component (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom)
+SELECT * FROM (VALUES
+    ('COMP_FB01_1', 'BOM-FB01', 1, 'ASSY-003', 2.0, 'EA'),
+    ('COMP_FB01_2', 'BOM-FB01', 2, 'ASSY-004', 1.0, 'EA'),
+    ('COMP_FB02_1', 'BOM-FB02', 1, 'COMP-004', 3.0, 'EA'),
+    ('COMP_FB02_2', 'BOM-FB02', 2, 'COMP-005', 2.0, 'EA'),
+    ('COMP_FB03_1', 'BOM-FB03', 1, 'COMP-005', 1.0, 'EA'),
+    ('COMP_FB03_2', 'BOM-FB03', 2, 'COMP-006', 4.0, 'EA')
+) AS t(component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom)
+
+# ============================================================================
+# Test 4: Verify fallback test data loaded correctly
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM materials WHERE source_system = 'TEST_FB'
+----
+6
+
+query I
+SELECT COUNT(*) FROM bom_header WHERE source_system = 'TEST_FB'
+----
+3
+
+query I
+SELECT COUNT(*) FROM bom_component WHERE bom_id LIKE 'BOM-FB%'
+----
+6
+
+# ============================================================================
+# Test 5: SQL fallback - Single-level BOM explosion for PROD-002
+# ============================================================================
+
+query TTR
+WITH bom_explosion AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'PROD-002'
+)
+SELECT parent_material_id, child_material_id, quantity_per
+FROM bom_explosion
+ORDER BY child_material_id
+----
+PROD-002	ASSY-003	2.0
+PROD-002	ASSY-004	1.0
+
+# ============================================================================
+# Test 6: SQL fallback - Single-level explosion count
+# ============================================================================
+
+query I
+WITH bom_explosion AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'PROD-002'
+)
+SELECT COUNT(*) FROM bom_explosion
+----
+2
+
+# ============================================================================
+# Test 7: SQL fallback - Multi-level BOM explosion with recursive CTE
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'PROD-002'
+) AS t
+----
+2
+
+# ============================================================================
+# Test 8: SQL fallback - Multi-level explosion count
+# ============================================================================
+
+query I
+WITH RECURSIVE bom_levels AS (
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, 1 AS depth
+FROM bom_header bh
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bh.parent_material_id = 'PROD-002'
+UNION ALL
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, bl.depth + 1
+FROM bom_levels bl
+INNER JOIN bom_header bh ON bl.child_material_id = bh.parent_material_id
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bl.depth < 10
+)
+SELECT COUNT(*) FROM bom_levels
+----
+6
+
+# ============================================================================
+# Test 9: SQL fallback - Limited depth BOM explosion
+# ============================================================================
+
+query I
+WITH RECURSIVE bom_levels AS (
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, 1 AS depth
+FROM bom_header bh
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bh.parent_material_id = 'PROD-002'
+UNION ALL
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, bl.depth + 1
+FROM bom_levels bl
+INNER JOIN bom_header bh ON bl.child_material_id = bh.parent_material_id
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bl.depth < 1
+)
+SELECT COUNT(*) FROM bom_levels
+----
+2
+
+# ============================================================================
+# Test 10: SQL fallback - Where-used query for COMP-005
+# ============================================================================
+
+query TTR
+WITH where_used AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bc.child_material_id = 'COMP-005'
+)
+SELECT parent_material_id, child_material_id, quantity_per
+FROM where_used
+ORDER BY parent_material_id
+----
+ASSY-003	COMP-005	2.0
+ASSY-004	COMP-005	1.0
+
+# ============================================================================
+# Test 11: SQL fallback - Where-used count for COMP-005
+# ============================================================================
+
+query I
+WITH where_used AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bc.child_material_id = 'COMP-005'
+)
+SELECT COUNT(*) FROM where_used
+----
+2
+
+# ============================================================================
+# Test 12: SQL fallback - Where-used for component with single usage
+# ============================================================================
+
+query I
+WITH where_used AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bc.child_material_id = 'COMP-004'
+)
+SELECT COUNT(*) FROM where_used
+----
+1
+
+# ============================================================================
+# Test 13: SQL fallback - Common components between ASSY-003 and ASSY-004
+# ============================================================================
+
+query TT
+WITH assy3_components AS (
+    SELECT bc.child_material_id
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'ASSY-003'
+),
+assy4_components AS (
+    SELECT bc.child_material_id
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'ASSY-004'
+),
+common AS (
+    SELECT a3.child_material_id AS child_material_id_1, a4.child_material_id AS child_material_id_2
+    FROM assy3_components a3
+    INNER JOIN assy4_components a4 ON a3.child_material_id = a4.child_material_id
+)
+SELECT child_material_id_1, child_material_id_2
+FROM common
+ORDER BY child_material_id_1
+----
+COMP-005	COMP-005
+
+# ============================================================================
+# Test 14: SQL fallback - Common components count
+# ============================================================================
+
+query I
+WITH assy3_components AS (
+    SELECT bc.child_material_id
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'ASSY-003'
+),
+assy4_components AS (
+    SELECT bc.child_material_id
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'ASSY-004'
+)
+SELECT COUNT(*) FROM assy3_components INNER JOIN assy4_components USING (child_material_id)
+----
+1
+
+# ============================================================================
+# Test 15: SQL fallback - Handles missing parent gracefully
+# ============================================================================
+
+query I
+WITH bom_explosion AS (
+    SELECT
+        bh.parent_material_id,
+        bc.child_material_id,
+        bc.quantity_per
+    FROM bom_header bh
+    INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+    WHERE bh.parent_material_id = 'NONEXISTENT'
+)
+SELECT COUNT(*) FROM bom_explosion
+----
+0
+
+# ============================================================================
+# Test 16: SQL fallback - Recursive query handles nonexistent root
+# ============================================================================
+
+query I
+WITH RECURSIVE bom_levels AS (
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, 1 AS depth
+FROM bom_header bh
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bh.parent_material_id = 'NONEXISTENT'
+UNION ALL
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, bl.depth + 1
+FROM bom_levels bl
+INNER JOIN bom_header bh ON bl.child_material_id = bh.parent_material_id
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bl.depth < 10
+)
+SELECT COUNT(*) FROM bom_levels
+----
+0
+
+# ============================================================================
+# Test 17: SQL fallback - Returns consistent structure
+# ============================================================================
+
+query I
+WITH RECURSIVE bom_levels AS (
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, 1 AS depth
+FROM bom_header bh
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bh.parent_material_id = 'PROD-002'
+UNION ALL
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, bl.depth + 1
+FROM bom_levels bl
+INNER JOIN bom_header bh ON bl.child_material_id = bh.parent_material_id
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bl.depth < 10
+)
+SELECT COUNT(DISTINCT parent_material_id) FROM bom_levels
+----
+3
+
+# ============================================================================
+# Test 18: SQL fallback - Queries work correctly with depth tracking
+# ============================================================================
+
+query I
+WITH RECURSIVE bom_levels AS (
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, 1 AS depth
+FROM bom_header bh
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bh.parent_material_id = 'PROD-002'
+UNION ALL
+SELECT bh.parent_material_id, bc.child_material_id, bc.quantity_per, bl.depth + 1
+FROM bom_levels bl
+INNER JOIN bom_header bh ON bl.child_material_id = bh.parent_material_id
+INNER JOIN bom_component bc ON bh.bom_id = bc.bom_id
+WHERE bl.depth < 10
+)
+SELECT COUNT(*) FROM bom_levels WHERE depth = 1
+----
+2

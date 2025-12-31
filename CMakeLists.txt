@@ -31,6 +31,7 @@ set(EXTENSION_SOURCES
     src/modules/multimodal_fusion.cpp
     src/modules/transactional_embeddings.cpp
     src/modules/universal_schema.cpp
+    src/modules/duckpgq_integration.cpp
 )
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})

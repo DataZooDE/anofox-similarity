@@ -1,0 +1,263 @@
+# name: test/sql/graph/duckpgq_integration.test
+# tier: tier1
+# description: DuckPGQ Property Graph integration for BOM traversal
+# group: [graphs]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+SET order_by_non_integer_literal = true
+
+# ============================================================================
+# Setup: Create universal BOM schema with test data
+# ============================================================================
+
+statement ok
+CREATE TABLE IF NOT EXISTS materials (
+	material_id VARCHAR PRIMARY KEY,
+	material_number VARCHAR UNIQUE NOT NULL,
+	description VARCHAR(500),
+	material_type VARCHAR(20),
+	material_group VARCHAR(50),
+	procurement_type VARCHAR(20),
+	base_uom VARCHAR(10),
+	weight DECIMAL(12,4),
+	cost_per_unit DECIMAL(12,4),
+	source_system VARCHAR(20),
+	is_active BOOLEAN DEFAULT TRUE,
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+statement ok
+CREATE TABLE IF NOT EXISTS bom_header (
+	bom_id VARCHAR PRIMARY KEY,
+	source_system VARCHAR NOT NULL,
+	source_bom_id VARCHAR,
+	parent_material_id VARCHAR NOT NULL,
+	bom_type VARCHAR,
+	alternative_number VARCHAR,
+	revision VARCHAR,
+	base_quantity DECIMAL(18,6) DEFAULT 1,
+	base_uom VARCHAR(10),
+	valid_from DATE,
+	valid_to DATE,
+	plant_id VARCHAR,
+	is_approved BOOLEAN DEFAULT FALSE,
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+statement ok
+CREATE TABLE IF NOT EXISTS bom_component (
+	component_id VARCHAR PRIMARY KEY,
+	bom_id VARCHAR NOT NULL,
+	line_number INTEGER NOT NULL,
+	child_material_id VARCHAR NOT NULL,
+	quantity_per DECIMAL(18,6) NOT NULL,
+	quantity_uom VARCHAR(10),
+	is_fixed_quantity BOOLEAN DEFAULT FALSE,
+	scrap_percent DECIMAL(5,2) DEFAULT 0,
+	effective_from DATE,
+	effective_to DATE,
+	component_type VARCHAR(20),
+	supply_type VARCHAR(20),
+	operation_sequence INTEGER,
+	is_alternative BOOLEAN DEFAULT FALSE,
+	alternative_group VARCHAR(20),
+	created_at TIMESTAMP DEFAULT current_timestamp
+)
+
+# ============================================================================
+# Test 1: Create test materials for BOM hierarchy
+# ============================================================================
+
+statement ok
+INSERT INTO materials (material_id, material_number, description, material_type, source_system)
+SELECT * FROM (VALUES
+    ('PROD-001', 'PROD-001', 'Final Product', 'FINISHED', 'TEST'),
+    ('ASSY-001', 'ASSY-001', 'Sub-Assembly 1', 'ASSEMBLY', 'TEST'),
+    ('ASSY-002', 'ASSY-002', 'Sub-Assembly 2', 'ASSEMBLY', 'TEST'),
+    ('COMP-001', 'COMP-001', 'Component 1', 'COMPONENT', 'TEST'),
+    ('COMP-002', 'COMP-002', 'Component 2', 'COMPONENT', 'TEST'),
+    ('COMP-003', 'COMP-003', 'Component 3', 'COMPONENT', 'TEST')
+) AS t(material_id, material_number, description, material_type, source_system)
+
+# ============================================================================
+# Test 2: Create BOM hierarchy with 3-level structure
+# ============================================================================
+
+statement ok
+INSERT INTO bom_header (bom_id, source_system, parent_material_id, bom_type, base_quantity, base_uom, is_approved)
+SELECT * FROM (VALUES
+    ('BOM-001', 'TEST', 'PROD-001', 'MANUFACTURING', 1.0, 'EA', TRUE),
+    ('BOM-002', 'TEST', 'ASSY-001', 'MANUFACTURING', 1.0, 'EA', TRUE),
+    ('BOM-003', 'TEST', 'ASSY-002', 'MANUFACTURING', 1.0, 'EA', TRUE)
+) AS t(bom_id, source_system, parent_material_id, bom_type, base_quantity, base_uom, is_approved)
+
+# ============================================================================
+# Test 3: Create BOM components (child materials)
+# ============================================================================
+
+statement ok
+INSERT INTO bom_component (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom)
+SELECT * FROM (VALUES
+    ('COMP_BOM001_1', 'BOM-001', 1, 'ASSY-001', 2.0, 'EA'),
+    ('COMP_BOM001_2', 'BOM-001', 2, 'ASSY-002', 1.0, 'EA'),
+    ('COMP_BOM002_1', 'BOM-002', 1, 'COMP-001', 3.0, 'EA'),
+    ('COMP_BOM002_2', 'BOM-002', 2, 'COMP-002', 2.0, 'EA'),
+    ('COMP_BOM003_1', 'BOM-003', 1, 'COMP-002', 1.0, 'EA'),
+    ('COMP_BOM003_2', 'BOM-003', 2, 'COMP-003', 4.0, 'EA')
+) AS t(component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom)
+
+# ============================================================================
+# Test 4: Verify test data loaded correctly
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM materials WHERE source_system = 'TEST'
+----
+6
+
+query I
+SELECT COUNT(*) FROM bom_header WHERE source_system = 'TEST'
+----
+3
+
+query I
+SELECT COUNT(*) FROM bom_component
+----
+6
+
+# ============================================================================
+# Test 5: Test check_duckpgq_available() macro exists
+# ============================================================================
+
+query I
+SELECT check_duckpgq_available() AS is_available
+----
+0
+
+# ============================================================================
+# Test 7: Single-level BOM explosion for PROD-001
+# ============================================================================
+
+query TTR
+SELECT parent_material_id, child_material_id, quantity_per
+FROM bom_explosion_1level('PROD-001')
+ORDER BY child_material_id
+----
+PROD-001	ASSY-001	2.0
+PROD-001	ASSY-002	1.0
+
+# ============================================================================
+# Test 8: Single-level BOM explosion count for PROD-001
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_explosion_1level('PROD-001')
+----
+2
+
+# ============================================================================
+# Test 9: Multi-level BOM explosion for PROD-001 (all levels)
+# ============================================================================
+
+query TTR
+SELECT parent_material_id, child_material_id, quantity_per
+FROM bom_explosion_multilevel('PROD-001', 10)
+ORDER BY parent_material_id, child_material_id
+----
+ASSY-001	COMP-001	3.0
+ASSY-001	COMP-002	2.0
+ASSY-002	COMP-002	1.0
+ASSY-002	COMP-003	4.0
+PROD-001	ASSY-001	2.0
+PROD-001	ASSY-002	1.0
+
+# ============================================================================
+# Test 10: Multi-level BOM explosion count for PROD-001
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_explosion_multilevel('PROD-001', 10)
+----
+6
+
+# ============================================================================
+# Test 11: BOM explosion with limited depth
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_explosion_multilevel('PROD-001', 1)
+----
+2
+
+# ============================================================================
+# Test 12: Where-used query for COMP-002 (reverse BOM)
+# ============================================================================
+
+query TTR
+SELECT parent_material_id, child_material_id, quantity_per
+FROM bom_where_used('COMP-002')
+ORDER BY parent_material_id
+----
+ASSY-001	COMP-002	2.0
+ASSY-002	COMP-002	1.0
+
+# ============================================================================
+# Test 13: Where-used query count for COMP-002
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_where_used('COMP-002')
+----
+2
+
+# ============================================================================
+# Test 14: Where-used query for component with single usage
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_where_used('COMP-001')
+----
+1
+
+# ============================================================================
+# Test 15: Common components between ASSY-001 and ASSY-002
+# ============================================================================
+
+query TT
+SELECT child_material_id_1, child_material_id_2
+FROM bom_common_components('ASSY-001', 'ASSY-002')
+ORDER BY child_material_id_1
+----
+COMP-002	COMP-002
+
+# ============================================================================
+# Test 16: Common components count
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_common_components('ASSY-001', 'ASSY-002')
+----
+1
+
+# ============================================================================
+# Test 17: BOM explosion handles missing parent gracefully
+# ============================================================================
+
+query I
+SELECT COUNT(*) FROM bom_explosion_1level('NONEXISTENT')
+----
+0
+
+# ============================================================================
+# Test 18: Graph queries return consistent structure
+# ============================================================================
+
+query I
+SELECT COUNT(DISTINCT parent_material_id) FROM bom_explosion_multilevel('PROD-001', 10)
+----
+3

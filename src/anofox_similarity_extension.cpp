@@ -12,6 +12,7 @@
 #include "modules/textual_embeddings.hpp"
 #include "modules/transactional_embeddings.hpp"
 #include "modules/multimodal_fusion.hpp"
+#include "modules/duckpgq_integration.hpp"
 #include "duckdb.hpp"
 #include "duckdb/main/connection.hpp"
 
@@ -70,6 +71,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Note: CreateUniversalBOMSchema should be called explicitly when needed
 	// This ensures tests can control table creation and lifecycle
 	anofox::RegisterBOMConversionMacros(conn);
+
+	// Phase 3 (Alternative): Register DuckPGQ property graph macros (soft dependency)
+	anofox::RegisterCheckDuckPGQMacro(conn);
+	anofox::InitializeDuckPGQIntegration(conn);
+	anofox::RegisterPropertyGraphMacros(conn);
+	anofox::RegisterBOMTraversalMacros(conn);
 
 	// Phase 3: Create embedding storage and indexes
 	anofox::CreateEmbeddingTables(conn);
