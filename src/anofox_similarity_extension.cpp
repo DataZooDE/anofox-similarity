@@ -89,7 +89,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	// Phase 4: Register similarity search macros
 	anofox::RegisterSimilaritySearchMacros(conn);
-	anofox::RegisterWLKernelMacro(conn);
+	anofox::RegisterWLKernelMacros(conn);
 	anofox::RegisterPredecessorInferenceMacro(conn);
 	anofox::RegisterSAPTransformationMacros(conn);
 	anofox::RegisterDynamics365TransformationMacros(conn);
