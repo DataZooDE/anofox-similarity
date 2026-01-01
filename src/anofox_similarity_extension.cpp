@@ -99,6 +99,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterFusionMacro(conn);
 
 	// Phase 4b: Register transactional embedding macros (soft dependency on anofox-forecast)
+	// Attempt to load anofox-forecast extension before using it
+	auto forecast_result = conn.Query("INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
+	anofox::CheckQueryResult(forecast_result, "load anofox-forecast extension", anofox::FailureMode::OPTIONAL);
+
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingMacro(conn);
 

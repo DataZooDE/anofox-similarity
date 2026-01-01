@@ -18,9 +18,10 @@ void RegisterCheckDuckPGQMacro(Connection &conn) {
 }
 
 void InitializeDuckPGQIntegration(Connection &conn) {
-	// Attempt to load DuckPGQ (soft dependency)
-	// If DuckPGQ is not available, continue gracefully
-	// This is a soft dependency pattern - no error if DuckPGQ missing
+	// Attempt to load DuckPGQ extension (soft dependency)
+	// If DuckPGQ is not available, continue gracefully with SQL-only fallback
+	auto result = conn.Query("INSTALL duckpgq FROM community; LOAD duckpgq;");
+	CheckQueryResult(result, "load DuckPGQ extension", FailureMode::OPTIONAL);
 }
 
 void RegisterPropertyGraphMacros(Connection &conn) {
