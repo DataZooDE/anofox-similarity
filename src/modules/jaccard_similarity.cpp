@@ -130,45 +130,6 @@ void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(jaccard_similarity_function);
 }
 
-// Separate registration for embedding macro (called with Connection instead of ExtensionLoader)
-void RegisterJaccardEmbeddingMacro(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO compute_jaccard_embeddings(bom_table := 'bom_items') AS TABLE
-		WITH
-			-- Step 1: Aggregate components per material
-			material_components AS (
-				SELECT
-					parent_id AS material_id,
-					COUNT(DISTINCT child_id)::INTEGER AS num_components,
-					list(DISTINCT child_id ORDER BY child_id) AS components
-				FROM query_table(bom_table)
-				GROUP BY parent_id
-			),
-			-- Step 2: For each material and seed (0-127), compute min-hash value (JACCARD_EMBEDDING_DIM = 128)
-			-- Min-hash(A, seed) = MIN(HASH(c || ':' || seed) for c in A)
-			-- This preserves Jaccard similarity in expectation
-			minhash_by_seed AS (
-				SELECT
-					mc.material_id,
-					t.seed,
-					MIN(CAST(ABS(HASH(c || ':' || t.seed::VARCHAR)) AS FLOAT)) AS minhash_value,
-					mc.num_components
-				FROM material_components mc
-				CROSS JOIN generate_series(0, 127) AS t(seed)
-				CROSS JOIN UNNEST(mc.components) AS u(c)
-				GROUP BY mc.material_id, t.seed, mc.num_components
-			)
-		SELECT
-			material_id,
-			seed,
-			minhash_value,
-			num_components
-		FROM minhash_by_seed
-		ORDER BY material_id, seed
-	)");
-
-	CheckQueryResult(result, "create compute_jaccard_embeddings macro");
-}
 
 } // namespace anofox
 } // namespace duckdb

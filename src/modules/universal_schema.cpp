@@ -85,8 +85,65 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing) {
 }
 
 void RegisterBOMConversionMacros(Connection &conn) {
-	// Macro: bom_to_items - Convert universal schema to flat bom_items format
+	// Macro: CreateUniversalBOMSchema - Create universal BOM schema tables
+	// Provides SQL-callable interface to create materials, bom_header, bom_component tables
 	auto result = conn.Query(R"(
+		CREATE OR REPLACE MACRO CreateUniversalBOMSchema() AS (
+			CREATE TABLE IF NOT EXISTS materials (
+				material_id VARCHAR PRIMARY KEY,
+				material_number VARCHAR UNIQUE NOT NULL,
+				description VARCHAR(500),
+				material_type VARCHAR(20),
+				material_group VARCHAR(50),
+				procurement_type VARCHAR(20),
+				base_uom VARCHAR(10),
+				weight DECIMAL(12,4),
+				cost_per_unit DECIMAL(12,4),
+				source_system VARCHAR(20),
+				is_active BOOLEAN DEFAULT TRUE,
+				created_at TIMESTAMP DEFAULT current_timestamp
+			);
+			CREATE TABLE IF NOT EXISTS bom_header (
+				bom_id VARCHAR PRIMARY KEY,
+				source_system VARCHAR NOT NULL,
+				source_bom_id VARCHAR,
+				parent_material_id VARCHAR NOT NULL,
+				bom_type VARCHAR,
+				alternative_number VARCHAR,
+				revision VARCHAR,
+				base_quantity DECIMAL(18,6) DEFAULT 1,
+				base_uom VARCHAR(10),
+				valid_from DATE,
+				valid_to DATE,
+				plant_id VARCHAR,
+				is_approved BOOLEAN DEFAULT FALSE,
+				created_at TIMESTAMP DEFAULT current_timestamp
+			);
+			CREATE TABLE IF NOT EXISTS bom_component (
+				component_id VARCHAR PRIMARY KEY,
+				bom_id VARCHAR NOT NULL,
+				line_number INTEGER NOT NULL,
+				child_material_id VARCHAR NOT NULL,
+				quantity_per DECIMAL(18,6) NOT NULL,
+				quantity_uom VARCHAR(10),
+				is_fixed_quantity BOOLEAN DEFAULT FALSE,
+				scrap_percent DECIMAL(5,2) DEFAULT 0,
+				effective_from DATE,
+				effective_to DATE,
+				component_type VARCHAR(20),
+				supply_type VARCHAR(20),
+				operation_sequence INTEGER,
+				is_alternative BOOLEAN DEFAULT FALSE,
+				alternative_group VARCHAR(20),
+				created_at TIMESTAMP DEFAULT current_timestamp
+			);
+			SELECT 'Schema creation completed' AS status
+		)
+	)");
+	CheckQueryResult(result, "create CreateUniversalBOMSchema macro", FailureMode::OPTIONAL);
+
+	// Macro: bom_to_items - Convert universal schema to flat bom_items format
+	result = conn.Query(R"(
 		CREATE OR REPLACE MACRO bom_to_items(
 			header_table := 'bom_header',
 			component_table := 'bom_component'
