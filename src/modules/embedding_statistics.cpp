@@ -7,8 +7,14 @@ namespace anofox {
 
 void RegisterStatisticsMacros(Connection &conn) {
 	// Phase 2A: Recompute transactional embedding statistics from current data
+	// Parameters:
+	//   time_window_days: Historical window for feature extraction (default: 365 days)
+	//   min_observations: Minimum data points required (default: 3)
 	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO recompute_embedding_statistics() AS TABLE
+		CREATE OR REPLACE MACRO recompute_embedding_statistics(
+			time_window_days := 365,
+			min_observations := 3
+		) AS TABLE
 		WITH all_features AS (
 			SELECT
 				material_id,
@@ -17,11 +23,11 @@ void RegisterStatisticsMacros(Connection &conn) {
 					LIST(movement_date ORDER BY movement_date)
 				) AS features
 			FROM goods_movements
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL time_window_days DAYS
 			  AND quantity IS NOT NULL
 			  AND quantity > 0
 			GROUP BY material_id
-			HAVING COUNT(*) >= 3
+			HAVING COUNT(*) >= min_observations
 		),
 		feature_stats AS (
 			SELECT
@@ -434,7 +440,8 @@ void RegisterStatisticsMacros(Connection &conn) {
 			date_column := 'movement_date',
 			quantity_column := 'quantity',
 			movement_type_column := 'movement_type',
-			time_window_days := 365
+			time_window_days := 365,
+			min_observations := 3
 		) AS TABLE
 		WITH
 		-- Aggregate goods_movements by material and compute Phase 2C feature values
@@ -454,11 +461,11 @@ void RegisterStatisticsMacros(Connection &conn) {
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5) AS fri_count,
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6) AS sat_count
 			FROM query_table(movements_table)
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL time_window_days DAYS
 			  AND quantity IS NOT NULL
 			  AND quantity > 0
 			GROUP BY material_id
-			HAVING COUNT(*) >= 3
+			HAVING COUNT(*) >= min_observations
 		),
 		phase2c_features AS (
 			SELECT
@@ -495,11 +502,11 @@ void RegisterStatisticsMacros(Connection &conn) {
 					LIST(movement_date ORDER BY movement_date)
 				) AS features
 			FROM goods_movements
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '365 days'
+			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL time_window_days DAYS
 			  AND quantity IS NOT NULL
 			  AND quantity > 0
 			GROUP BY material_id
-			HAVING COUNT(*) >= 3
+			HAVING COUNT(*) >= min_observations
 		),
 		lifecycle_features AS (
 			SELECT

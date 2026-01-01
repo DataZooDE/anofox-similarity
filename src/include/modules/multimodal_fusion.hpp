@@ -38,7 +38,7 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader);
 //   - Batch fusion of materials from material_embeddings table
 //   - Outputs: material_id, combined_embedding (FLOAT[768]), fusion_weights
 //   - Default: equal weight to structural and textual, zero weight to transactional
-void RegisterFusionMacro(Connection &conn);
+void RegisterFusionMacros(Connection &conn);
 
 } // namespace anofox
 } // namespace duckdb

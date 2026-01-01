@@ -21,11 +21,11 @@ namespace anofox {
 //   - Fallback to HTTP if local provider unavailable
 void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader);
 
-// Registers the compute_textual_embeddings SQL macro for batch embedding generation
+// Registers the compute_textual_embeddings SQL macros for batch embedding generation
 // Parameters:
 //   - conn: Database connection for registering SQL macros
 //
-// Macro: compute_textual_embeddings(
+// Macros: compute_textual_embeddings(
 //   makt_table := 'sap_makt',
 //   language := 'EN',
 //   provider := 'gemma-local',
@@ -35,7 +35,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader);
 //   - Outputs: material_id, textual_embedding (FLOAT[384])
 //   - Uses configured provider backend for embedding generation
 //   - Supports batch processing with vectorized execution
-void RegisterTextualEmbeddingMacro(Connection &conn);
+void RegisterTextualEmbeddingMacros(Connection &conn);
 
 // Registers the embed_text lambda function for user convenience
 // Parameters:
@@ -44,7 +44,7 @@ void RegisterTextualEmbeddingMacro(Connection &conn);
 // Lambda: embed_text(description VARCHAR) -> FLOAT[384]
 //   - User-friendly function wrapping embedding_backend with 'gemma-local' provider
 //   - Can be overridden by users to use different providers
-void RegisterEmbedTextLambda(Connection &conn);
+void RegisterEmbedTextLambdas(Connection &conn);
 
 } // namespace anofox
 } // namespace duckdb

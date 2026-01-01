@@ -256,7 +256,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(embedding_backend_function);
 }
 
-void RegisterTextualEmbeddingMacro(Connection &conn) {
+void RegisterTextualEmbeddingMacros(Connection &conn) {
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO compute_textual_embeddings(
 			makt_table := 'sap_makt',
@@ -284,7 +284,7 @@ void RegisterTextualEmbeddingMacro(Connection &conn) {
 	CheckQueryResult(result, "create compute_textual_embeddings macro");
 }
 
-void RegisterEmbedTextLambda(Connection &conn) {
+void RegisterEmbedTextLambdas(Connection &conn) {
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO embed_text(description := '')
 		AS embedding_backend(description, 'gemma-local', '')

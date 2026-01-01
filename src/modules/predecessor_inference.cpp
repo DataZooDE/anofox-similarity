@@ -5,7 +5,7 @@
 namespace duckdb {
 namespace anofox {
 
-void RegisterPredecessorInferenceMacro(Connection &conn) {
+void RegisterPredecessorInferenceMacros(Connection &conn) {
 	// infer_predecessors: Historical consumption-aware predecessor detection
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO infer_predecessors(

@@ -126,7 +126,7 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(fuse_embeddings_function);
 }
 
-void RegisterFusionMacro(Connection &conn) {
+void RegisterFusionMacros(Connection &conn) {
 	// Register compute_fused_embeddings macro for batch fusion
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO compute_fused_embeddings(

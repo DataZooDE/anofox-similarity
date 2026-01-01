@@ -90,13 +90,13 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Phase 4: Register similarity search macros
 	anofox::RegisterSimilaritySearchMacros(conn);
 	anofox::RegisterWLKernelMacros(conn);
-	anofox::RegisterPredecessorInferenceMacro(conn);
+	anofox::RegisterPredecessorInferenceMacros(conn);
 	anofox::RegisterSAPTransformationMacros(conn);
 	anofox::RegisterDynamics365TransformationMacros(conn);
 	anofox::RegisterEmbeddingMacros(conn);
-	anofox::RegisterTextualEmbeddingMacro(conn);
-	anofox::RegisterEmbedTextLambda(conn);
-	anofox::RegisterFusionMacro(conn);
+	anofox::RegisterTextualEmbeddingMacros(conn);
+	anofox::RegisterEmbedTextLambdas(conn);
+	anofox::RegisterFusionMacros(conn);
 
 	// Phase 4b: Register transactional embedding macros (soft dependency on anofox-forecast)
 	// Attempt to load anofox-forecast extension before using it
