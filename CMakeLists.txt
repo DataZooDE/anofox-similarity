@@ -27,6 +27,8 @@ set(EXTENSION_SOURCES
     src/modules/sap_transformations.cpp
     src/modules/dynamics365_transformations.cpp
     src/modules/vss_integration.cpp
+    src/modules/embedding_statistics.cpp
+    src/modules/incremental_updates.cpp
     src/modules/textual_embeddings.cpp
     src/modules/multimodal_fusion.cpp
     src/modules/transactional_embeddings.cpp

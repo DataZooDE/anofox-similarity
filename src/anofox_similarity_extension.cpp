@@ -9,6 +9,8 @@
 #include "modules/dynamics365_transformations.hpp"
 #include "modules/universal_schema.hpp"
 #include "modules/vss_integration.hpp"
+#include "modules/embedding_statistics.hpp"
+#include "modules/incremental_updates.hpp"
 #include "modules/textual_embeddings.hpp"
 #include "modules/transactional_embeddings.hpp"
 #include "modules/multimodal_fusion.hpp"
@@ -100,8 +102,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingMacro(conn);
 
+	// Phase 4c: Register embedding statistics macros (z-score normalization)
+	anofox::RegisterStatisticsMacros(conn);
+
 	// Phase 5: Set up incremental update system
 	anofox::CreateIncrementalUpdateTriggers(conn);
+	anofox::RegisterIncrementalUpdateMacros(conn);
 }
 
 void AnofoxSimilarityExtension::Load(ExtensionLoader &db) {
