@@ -63,9 +63,11 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				END AS valid
 			FROM dependency_check
 		),
-		all_materials AS (
-			-- Phase 2D: Batch processing support
-			-- Get distinct materials (optionally filtered by batch size and offset)
+		-- Issue #9: Use shared extract_ts_features macro for performance optimization
+		-- This eliminates redundant feature extraction computation (previously done 3x independently)
+		filtered_materials AS (
+			-- Apply batch filtering to materials for consistent filtering across macros
+			-- (both feature_extraction and phase2c_features)
 			SELECT DISTINCT material_id
 			FROM query_table(movements_table)
 			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
@@ -75,32 +77,19 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			LIMIT CASE WHEN batch_size IS NOT NULL THEN batch_size ELSE NULL END
 			OFFSET CASE WHEN batch_size IS NOT NULL THEN batch_offset ELSE 0 END
 		),
-		material_timeseries AS (
-			-- Aggregate movements per material into time series arrays
-			SELECT
-				gm.material_id,
-				LIST(gm.quantity ORDER BY gm.movement_date) AS values_array,
-				LIST(gm.movement_date ORDER BY gm.movement_date) AS dates_array,
-				COUNT(*) AS num_observations
-			FROM query_table(movements_table) gm
-			INNER JOIN all_materials am ON gm.material_id = am.material_id
-			WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-				AND gm.quantity IS NOT NULL
-				AND gm.quantity > 0
-			GROUP BY gm.material_id
-			HAVING COUNT(*) >= 3  -- Minimum requirement for meaningful statistics
-		),
 		feature_extraction AS (
-			-- Extract time series features using anofox-forecast
-			-- This produces a STRUCT with 76+ named feature columns
+			-- Extract time series features using shared macro (with batch processing support)
 			SELECT
-				mt.material_id,
-				mt.num_observations,
-				anofox_fcst_ts_features(
-					UNNEST(mt.values_array),
-					UNNEST(mt.dates_array)
-				) AS features
-			FROM material_timeseries mt
+				material_id,
+				NULL::INTEGER AS num_observations,  -- Not needed by downstream logic, using shared macro for extraction only
+				features
+			FROM extract_ts_features(
+				movements_table,
+				time_window_days,
+				3,  -- min_observations
+				batch_size,
+				batch_offset
+			)
 			WHERE (SELECT valid FROM validated LIMIT 1)  -- Only execute if dependency validated
 		),
 		statistics_lookup AS (
@@ -116,7 +105,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		phase2c_features AS (
 			-- Phase 2C: Compute domain-specific features from goods_movements
 			-- These are optional and only computed if goods_movements table exists
-			-- Phase 2D: Apply batch filtering via all_materials
+			-- Apply batch filtering via filtered_materials CTE (Issue #9 optimization)
 			SELECT
 				gm.material_id,
 				COUNT(*) AS total_moves,
@@ -154,7 +143,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				NULL::FLOAT AS trend_strength,
 				NULL::FLOAT AS growth_indicator
 			FROM query_table(movements_table) gm
-			INNER JOIN all_materials am ON gm.material_id = am.material_id
+			INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
 			WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
 			  AND gm.quantity IS NOT NULL
 			  AND gm.quantity > 0
