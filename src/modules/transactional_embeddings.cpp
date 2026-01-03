@@ -67,7 +67,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		-- This eliminates redundant feature extraction computation (previously done 3x independently)
 		filtered_materials AS (
 			-- Apply batch filtering to materials for consistent filtering across macros
-			-- (both feature_extraction and phase2c_features)
+			-- (both feature_extraction and domain_specific_features)
 			SELECT DISTINCT material_id
 			FROM query_table(movements_table)
 			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
@@ -100,10 +100,10 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				COALESCE(mean_value, 0.0) AS mean_value,
 				COALESCE(std_value, 1.0) AS std_value
 			FROM transactional_embedding_statistics
-			WHERE feature_index < 104  -- All features including Phase 2C (if available)
+			WHERE feature_index < 104  -- All features including Domain-Specific ERP Features (if available)
 		),
 		phase2c_features AS (
-			-- Phase 2C: Compute domain-specific features from goods_movements
+			-- Domain-Specific ERP Features: Compute domain-specific features from goods_movements
 			-- These are optional and only computed if goods_movements table exists
 			-- Apply batch filtering via filtered_materials CTE (Issue #9 optimization)
 			SELECT
@@ -152,7 +152,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		),
 		normalized_features AS (
 			-- Apply z-score normalization: (x - μ) / σ
-			-- Phase 2A: Normalize the 30 core features for better similarity search
+			-- Core Time Series Features: Normalize the 30 core features for better similarity search
 			-- Refactored: Replace 98 individual LEFT JOINs with single efficient lookup
 			-- Uses COALESCE with subqueries for feature-specific statistic lookups
 			SELECT
@@ -192,7 +192,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				(COALESCE(fe.features.autocorrelation__lag_7, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1), 0.0) AS ac7_z,
 				(COALESCE(fe.features.autocorrelation__lag_14, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1), 0.0) AS ac14_z,
 				(COALESCE(fe.features.autocorrelation__lag_28, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1), 0.0) AS ac28_z,
-				-- Phase 2C: Advanced domain features (92-97)
+				-- Domain-Specific ERP Features: Advanced domain features (92-97)
 				-- Feature 92: Movement type receipt ratio
 				(COALESCE(p2c.receipt_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'movement_type_receipt_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'movement_type_receipt_ratio' LIMIT 1), 0.0) AS receipt_ratio_z,
 				-- Feature 93: Movement type reversal ratio
@@ -219,7 +219,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 		),
 		raw_embedding_vectors AS (
 			-- Convert z-score normalized features to FLOAT[128] array
-			-- Phase 2A: Use z-score normalized features (dims 0-29) + zero-padding (dims 30-127)
+			-- Core Time Series Features: Use z-score normalized features (dims 0-29) + zero-padding (dims 30-127)
 			SELECT
 				material_id,
 				ARRAY[
@@ -261,8 +261,8 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 					COALESCE(ac14_z, 0.0),
 					COALESCE(ac28_z, 0.0),
 
-					-- Phase 2B: Extended tsfresh features (62 features: dims 30-91)
-					-- Currently zero-padded; will be populated with Phase 2B computations
+					-- Extended Statistical Features: Extended tsfresh features (62 features: dims 30-91)
+					-- Currently zero-padded; will be populated with Extended Statistical Features computations
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -270,7 +270,7 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0,
-					-- Phase 2C: Advanced domain-specific features (6 features: dims 92-97)
+					-- Domain-Specific ERP Features: Advanced domain-specific features (6 features: dims 92-97)
 					COALESCE(receipt_ratio_z, 0.0),
 					COALESCE(reversal_ratio_z, 0.0),
 					COALESCE(weekend_ratio_z, 0.0),

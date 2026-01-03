@@ -19,7 +19,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			batch_offset := 0
 		) AS TABLE
 		WITH filtered_materials AS (
-			-- Apply batch filtering if specified (Phase 2D optimization)
+			-- Apply batch filtering if specified (Incremental Update Optimization)
 			SELECT DISTINCT material_id
 			FROM query_table(movements_table)
 			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
@@ -45,7 +45,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 	)");
 	CheckQueryResult(extract_result, "create extract_ts_features shared macro");
 
-	// Phase 2A: Recompute transactional embedding statistics from current data
+	// Core Time Series Features: Recompute transactional embedding statistics from current data
 	// Parameters:
 	//   time_window_days: Historical window for feature extraction (default: 365 days)
 	//   min_observations: Minimum data points required (default: 3)
@@ -181,7 +181,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 				MIN(features.autocorrelation__lag_28), MAX(features.autocorrelation__lag_28), COUNT(*)
 			FROM all_features
 		UNION ALL
-		-- Phase 2B: Quantile-based features (5)
+		-- Extended Statistical Features: Quantile-based features (5)
 		SELECT 'quantile__q_0_1', 30, 'quantile', AVG(features.quantile__q_0_1), STDDEV_POP(features.quantile__q_0_1),
 			MIN(features.quantile__q_0_1), MAX(features.quantile__q_0_1), COUNT(*)
 		FROM all_features
@@ -202,7 +202,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.iqr), MAX(features.iqr), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Min/Max/Range extensions (5)
+		-- Extended Statistical Features: Min/Max/Range extensions (5)
 		SELECT 'minimum', 35, 'extremes', AVG(features.minimum), STDDEV_POP(features.minimum),
 			MIN(features.minimum), MAX(features.minimum), COUNT(*)
 		FROM all_features
@@ -223,7 +223,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.absolute_energy), MAX(features.absolute_energy), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Extended autocorrelation (10)
+		-- Extended Statistical Features: Extended autocorrelation (10)
 		SELECT 'autocorrelation__lag_2', 40, 'temporal', AVG(features.autocorrelation__lag_2), STDDEV_POP(features.autocorrelation__lag_2),
 			MIN(features.autocorrelation__lag_2), MAX(features.autocorrelation__lag_2), COUNT(*)
 		FROM all_features
@@ -264,7 +264,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.autocorr_tendency), MAX(features.autocorr_tendency), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Peak and valley detection (8)
+		-- Extended Statistical Features: Peak and valley detection (8)
 		SELECT 'number_peaks', 50, 'peaks', AVG(features.number_peaks), STDDEV_POP(features.number_peaks),
 			MIN(features.number_peaks), MAX(features.number_peaks), COUNT(*)
 		FROM all_features
@@ -297,7 +297,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.number_crossing_0), MAX(features.number_crossing_0), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Entropy and complexity (8)
+		-- Extended Statistical Features: Entropy and complexity (8)
 		SELECT 'permutation_entropy', 58, 'entropy', AVG(features.permutation_entropy), STDDEV_POP(features.permutation_entropy),
 			MIN(features.permutation_entropy), MAX(features.permutation_entropy), COUNT(*)
 		FROM all_features
@@ -330,7 +330,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.detrended_fluctuation_analysis), MAX(features.detrended_fluctuation_analysis), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: FFT extensions (10)
+		-- Extended Statistical Features: FFT extensions (10)
 		SELECT 'fft_coefficient__attr_real__coeff_3', 66, 'frequency', AVG(features.fft_coefficient__attr_real__coeff_3), STDDEV_POP(features.fft_coefficient__attr_real__coeff_3),
 			MIN(features.fft_coefficient__attr_real__coeff_3), MAX(features.fft_coefficient__attr_real__coeff_3), COUNT(*)
 		FROM all_features
@@ -371,7 +371,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.spectral_centroid_freq), MAX(features.spectral_centroid_freq), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Change and trend metrics (8)
+		-- Extended Statistical Features: Change and trend metrics (8)
 		SELECT 'mean_abs_change', 76, 'trend', AVG(features.mean_abs_change), STDDEV_POP(features.mean_abs_change),
 			MIN(features.mean_abs_change), MAX(features.mean_abs_change), COUNT(*)
 		FROM all_features
@@ -404,7 +404,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.count_below_mean), MAX(features.count_below_mean), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Phase 2B: Statistical extensions (8)
+		-- Extended Statistical Features: Statistical extensions (8)
 		SELECT 'skewness_lag_1', 84, 'statistics', AVG(features.skewness_lag_1), STDDEV_POP(features.skewness_lag_1),
 			MIN(features.skewness_lag_1), MAX(features.skewness_lag_1), COUNT(*)
 		FROM all_features
@@ -437,18 +437,18 @@ void RegisterStatisticsMacros(Connection &conn) {
 			MIN(features.raw_moment_4), MAX(features.raw_moment_4), COUNT(*)
 		FROM all_features
 		UNION ALL
-		-- Reserved for Phase 2C: Advanced features (6 features: indices 92-97)
-		SELECT 'reserved_phase2c_92', 92, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		-- Reserved for Domain-Specific ERP Features: Advanced features (6 features: indices 92-97)
+		SELECT 'reserved_domain_specific_92', 92, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		UNION ALL
-		SELECT 'reserved_phase2c_93', 93, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		SELECT 'reserved_domain_specific_93', 93, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		UNION ALL
-		SELECT 'reserved_phase2c_94', 94, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		SELECT 'reserved_domain_specific_94', 94, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		UNION ALL
-		SELECT 'reserved_phase2c_95', 95, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		SELECT 'reserved_domain_specific_95', 95, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		UNION ALL
-		SELECT 'reserved_phase2c_96', 96, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		SELECT 'reserved_domain_specific_96', 96, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		UNION ALL
-		SELECT 'reserved_phase2c_97', 97, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
+		SELECT 'reserved_domain_specific_97', 97, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		)
 		INSERT OR REPLACE INTO transactional_embedding_statistics
 		SELECT
@@ -460,9 +460,9 @@ void RegisterStatisticsMacros(Connection &conn) {
 	)");
 	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::OPTIONAL);
 
-	// Phase 2C: Compute advanced domain-specific features (movement type, day-of-week, lifecycle)
+	// Domain-Specific ERP Features: Compute advanced domain-specific features (movement type, day-of-week, lifecycle)
 	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO compute_phase2c_statistics(
+		CREATE OR REPLACE MACRO compute_domain_specific_statistics(
 			movements_table := 'goods_movements',
 			material_column := 'material_id',
 			date_column := 'movement_date',
@@ -472,7 +472,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			min_observations := 3
 		) AS TABLE
 		WITH
-		-- Aggregate goods_movements by material and compute Phase 2C feature values
+		-- Aggregate goods_movements by material and compute Domain-Specific ERP feature values
 		movement_features AS (
 			SELECT
 				material_id,
@@ -495,7 +495,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 			GROUP BY material_id
 			HAVING COUNT(*) >= min_observations
 		),
-		phase2c_features AS (
+		domain_specific_features AS (
 			SELECT
 				material_id,
 				-- Feature 92: Movement type receipt ratio
@@ -543,8 +543,8 @@ void RegisterStatisticsMacros(Connection &conn) {
 				END AS growth_indicator
 			FROM all_features af
 		),
-		-- Combine all phase2c features and compute statistics
-		combined_phase2c AS (
+		-- Combine all domain-specific features and compute statistics
+		combined_domain_features AS (
 			SELECT
 				pf.material_id,
 				pf.receipt_ratio,
@@ -553,51 +553,51 @@ void RegisterStatisticsMacros(Connection &conn) {
 				pf.weekday_concentration,
 				lf.trend_strength,
 				lf.growth_indicator
-			FROM phase2c_features pf
+			FROM domain_specific_features pf
 			LEFT JOIN lifecycle_features lf ON pf.material_id = lf.material_id
 		),
-		phase2c_stats AS (
+		domain_stats AS (
 			SELECT
 				'movement_type_receipt_ratio' AS feature_name, 92 AS feature_index, 'advanced' AS feature_category,
 				AVG(receipt_ratio) AS mean_value, STDDEV_POP(receipt_ratio) AS std_value,
 				MIN(receipt_ratio) AS min_value, MAX(receipt_ratio) AS max_value,
 				COUNT(*) AS num_samples
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE receipt_ratio IS NOT NULL
 			UNION ALL
 			SELECT
 				'movement_type_reversal_ratio', 93, 'advanced',
 				AVG(reversal_ratio), STDDEV_POP(reversal_ratio),
 				MIN(reversal_ratio), MAX(reversal_ratio), COUNT(*)
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE reversal_ratio IS NOT NULL
 			UNION ALL
 			SELECT
 				'weekday_weekend_ratio', 94, 'advanced',
 				AVG(weekend_ratio), STDDEV_POP(weekend_ratio),
 				MIN(weekend_ratio), MAX(weekend_ratio), COUNT(*)
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE weekend_ratio IS NOT NULL
 			UNION ALL
 			SELECT
 				'weekday_concentration', 95, 'advanced',
 				AVG(weekday_concentration), STDDEV_POP(weekday_concentration),
 				MIN(weekday_concentration), MAX(weekday_concentration), COUNT(*)
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE weekday_concentration IS NOT NULL
 			UNION ALL
 			SELECT
 				'lifecycle_trend_strength', 96, 'advanced',
 				AVG(trend_strength), STDDEV_POP(trend_strength),
 				MIN(trend_strength), MAX(trend_strength), COUNT(*)
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE trend_strength IS NOT NULL
 			UNION ALL
 			SELECT
 				'lifecycle_growth_indicator', 97, 'advanced',
 				AVG(growth_indicator), STDDEV_POP(growth_indicator),
 				MIN(growth_indicator), MAX(growth_indicator), COUNT(*)
-			FROM combined_phase2c
+			FROM combined_domain_features
 			WHERE growth_indicator IS NOT NULL
 		)
 		INSERT OR REPLACE INTO transactional_embedding_statistics
@@ -605,10 +605,10 @@ void RegisterStatisticsMacros(Connection &conn) {
 			feature_name, feature_index, feature_category, mean_value, std_value,
 			min_value, max_value, num_samples, CURRENT_TIMESTAMP,
 			COALESCE((SELECT MAX(version) FROM transactional_embedding_statistics), 0) + 1
-		FROM phase2c_stats
+		FROM domain_stats
 		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
 	)");
-	CheckQueryResult(result, "create compute_phase2c_statistics macro", FailureMode::OPTIONAL);
+	CheckQueryResult(result, "create compute_domain_specific_statistics macro", FailureMode::OPTIONAL);
 }
 
 } // namespace anofox

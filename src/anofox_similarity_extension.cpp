@@ -60,34 +60,34 @@ static void LoadInternal(ExtensionLoader &loader) {
 	auto &db = loader.GetDatabaseInstance();
 	Connection conn(db);
 
-	// Phase 1: Register scalar functions (Jaccard similarity)
+	// Core Algorithms: Jaccard similarity scalar functions
 	anofox::RegisterJaccardFunctions(loader);
 
-	// Phase 1b: Register textual embedding functions
+	// Textual Analysis: Text embedding functions
 	anofox::RegisterTextualEmbeddingFunctions(loader);
 
-	// Phase 2: Initialize VSS extension integration
+	// Vector Search Infrastructure: HNSW indexes for fast similarity search
 	anofox::InitializeVSSIntegration(conn);
 
-	// Phase 2.5: Register universal BOM schema and conversion macros
+	// ERP Integration: Universal BOM schema and conversion macros
 	// Note: CreateUniversalBOMSchema should be called explicitly when needed
 	// This ensures tests can control table creation and lifecycle
 	anofox::RegisterBOMConversionMacros(conn);
 
-	// Phase 3 (Alternative): Register DuckPGQ property graph macros (soft dependency)
+	// Graph Analysis (Optional): DuckPGQ property graph macros for BOM traversal
 	anofox::RegisterCheckDuckPGQMacro(conn);
 	anofox::InitializeDuckPGQIntegration(conn);
 	anofox::RegisterPropertyGraphMacros(conn);
 	anofox::RegisterBOMTraversalMacros(conn);
 
-	// Phase 3: Create embedding storage and indexes
+	// Embedding Storage: Create tables and HNSW indexes for vector search
 	anofox::CreateEmbeddingTables(conn);
 	anofox::CreateHNSWIndexes(conn);
 
-	// Phase 3b: Register multi-modal fusion functions
+	// Multi-Modal Fusion: Combine embeddings from multiple sources
 	anofox::RegisterMultimodalFusionFunctions(loader);
 
-	// Phase 4: Register similarity search macros
+	// Similarity Search: High-level similarity search and inference macros
 	anofox::RegisterSimilaritySearchMacros(conn);
 	anofox::RegisterWLKernelMacros(conn);
 	anofox::RegisterPredecessorInferenceMacros(conn);
@@ -98,7 +98,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterEmbedTextLambdas(conn);
 	anofox::RegisterFusionMacros(conn);
 
-	// Phase 4b: Register transactional embedding macros (soft dependency on anofox-forecast)
+	// Transactional Embeddings (Optional): Time series feature integration with anofox-forecast
 	// Attempt to load anofox-forecast extension before using it
 	auto forecast_result = conn.Query("INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
 	anofox::CheckQueryResult(forecast_result, "load anofox-forecast extension", anofox::FailureMode::OPTIONAL);
@@ -106,10 +106,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingMacro(conn);
 
-	// Phase 4c: Register embedding statistics macros (z-score normalization)
+	// Feature Normalization: Embedding statistics computation for z-score normalization
 	anofox::RegisterStatisticsMacros(conn);
 
-	// Phase 5: Set up incremental update system
+	// Incremental Updates: Dirty material tracking and efficient refresh system
 	anofox::CreateIncrementalUpdateTriggers(conn);
 	anofox::RegisterIncrementalUpdateMacros(conn);
 }

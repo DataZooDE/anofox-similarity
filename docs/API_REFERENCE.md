@@ -468,7 +468,7 @@ compute_transactional_embeddings(
 - **Volatility Metrics** (10-19): coefficient of variation, skewness, kurtosis, entropy
 - **Frequency Metrics** (20-29): FFT coefficients and aggregates
 - **Temporal Metrics** (30-97): Autocorrelation, quantiles, seasonality indicators
-- **Phase 2C Features** (92-97): Movement types, lifecycle indicators
+- **Domain-Specific Features** (92-97): Movement types, lifecycle indicators
 
 **Returns:**
 - `material_id` - Material identifier
