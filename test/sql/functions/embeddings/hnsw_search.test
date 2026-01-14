@@ -41,7 +41,7 @@ SELECT * FROM (VALUES
 
 statement ok
 CREATE TEMP TABLE brute_force_results AS
-SELECT * FROM find_similar_materials('MAT-001', 3, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
 
 query I
 SELECT COUNT(*) FROM brute_force_results;
@@ -55,15 +55,52 @@ SELECT CAST(similarity AS TEXT) FROM brute_force_results ORDER BY similarity DES
 0.75
 
 # ============================================================================
-# Test 2: Verify Embeddings Table Exists (No Population Needed)
+# Test 2: Schema Verification (from index_verification.test)
 # ============================================================================
 
-# Verify material_embeddings table exists and can accept records
+# Verify material_embeddings table exists
 query I
 SELECT COUNT(*) FROM information_schema.tables
 WHERE table_name = 'material_embeddings';
 ----
 1
+
+# Verify required embedding columns exist
+query I
+SELECT COUNT(*) FROM information_schema.columns
+WHERE table_name = 'material_embeddings'
+AND column_name IN ('material_id', 'jaccard_embedding', 'textual_embedding', 'structural_embedding', 'combined_embedding');
+----
+5
+
+# Verify jaccard_embedding is FLOAT[128] type
+query I
+SELECT COUNT(*) FROM information_schema.columns
+WHERE table_name = 'material_embeddings'
+AND column_name = 'jaccard_embedding'
+AND data_type = 'FLOAT[128]';
+----
+1
+
+# Verify jaccard_similarity function exists
+query I
+SELECT EXISTS(
+    SELECT 1 FROM duckdb_functions()
+    WHERE function_name = 'jaccard_similarity'
+    AND function_type = 'scalar'
+);
+----
+true
+
+# Verify find_similar_materials_jaccard table macro exists
+query I
+SELECT EXISTS(
+    SELECT 1 FROM duckdb_functions()
+    WHERE function_name = 'find_similar_materials_jaccard'
+    AND function_type = 'table_macro'
+);
+----
+true
 
 # ============================================================================
 # Test 3: Test Brute-Force Search with Method Parameter
@@ -71,7 +108,7 @@ WHERE table_name = 'material_embeddings';
 
 statement ok
 CREATE TEMP TABLE indexed_results AS
-SELECT * FROM find_similar_materials('MAT-001', 3, method := 'jaccard', bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
 
 query I
 SELECT COUNT(*) FROM indexed_results;
@@ -85,7 +122,7 @@ SELECT COUNT(*) FROM indexed_results;
 # MAT-001 vs MAT-002: shared {A,B}, union {A,B,C,D} = 2/4 = 0.5
 statement ok
 CREATE TEMP TABLE jaccard_test AS
-SELECT * FROM find_similar_materials('MAT-001', 4, method := 'jaccard', bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 4, bom_table := 'test_bom');
 
 query R
 SELECT similarity FROM jaccard_test
@@ -94,25 +131,22 @@ WHERE material_id = 'MAT-002';
 0.5
 
 # ============================================================================
-# Test 5: Verify WL Kernel Similarity
+# Test 5: WL Kernel via direct function call
 # ============================================================================
 
-statement ok
-CREATE TEMP TABLE wl_test AS
-SELECT * FROM find_similar_materials('MAT-001', 4, method := 'wl_kernel', bom_table := 'test_bom');
-
+# WL kernel should be called directly, not through find_similar_materials
 query I
-SELECT COUNT(*) FROM wl_test;
+SELECT ROUND(wl_kernel_similarity('MAT-001', 'MAT-002', bom_table := 'test_bom'), 4) > 0;
 ----
-4
+true
 
 # ============================================================================
-# Test 6: Backward Compatibility - Brute-Force Still Works with use_index=false
+# Test 6: Brute-Force Jaccard Similarity
 # ============================================================================
 
 statement ok
 CREATE TEMP TABLE brute_force_v2 AS
-SELECT * FROM find_similar_materials('MAT-001', 2, method := 'jaccard', bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 2, bom_table := 'test_bom');
 
 query I
 SELECT COUNT(*) FROM brute_force_v2;
@@ -134,7 +168,7 @@ WHERE material_id = 'MAT-002';
 # Test with min_similarity filter (should still work with brute-force)
 statement ok
 CREATE TEMP TABLE indexed_filtered AS
-SELECT * FROM find_similar_materials('MAT-001', 5, min_similarity := 0.5, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 5, min_similarity := 0.5, bom_table := 'test_bom');
 
 # With brute-force and min_similarity := 0.5, should return MAT-003 (0.75) and MAT-002 (0.5)
 query I
@@ -180,7 +214,7 @@ SELECT COUNT(*) FROM material_embeddings WHERE jaccard_embedding IS NOT NULL;
 # Now that embeddings exist, find_similar_materials should use VSS path
 statement ok
 CREATE TEMP TABLE vss_search_results AS
-SELECT * FROM find_similar_materials('MAT-001', 3, method := 'jaccard', bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
 
 # Verify we get expected number of results
 query I
@@ -211,7 +245,7 @@ DELETE FROM material_embeddings;
 
 statement ok
 CREATE TEMP TABLE brute_force_baseline AS
-SELECT * FROM find_similar_materials('MAT-001', 3, method := 'jaccard', bom_table := 'test_bom')
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom')
 ORDER BY similarity DESC;
 
 # Re-populate embeddings
@@ -231,7 +265,7 @@ GROUP BY material_id;
 # Get VSS results again
 statement ok
 CREATE TEMP TABLE vss_search_results_v2 AS
-SELECT * FROM find_similar_materials('MAT-001', 3, method := 'jaccard', bom_table := 'test_bom')
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom')
 ORDER BY similarity DESC;
 
 # Validate that both paths return similar materials (Jaccard uses brute-force path)
@@ -254,7 +288,7 @@ DELETE FROM material_embeddings WHERE material_id = 'MAT-004';
 # Should still return results via brute-force fallback
 statement ok
 CREATE TEMP TABLE fallback_results AS
-SELECT * FROM find_similar_materials('MAT-004', 2, method := 'jaccard', bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-004', 2, bom_table := 'test_bom');
 
 query I
 SELECT COUNT(*) FROM fallback_results;
@@ -268,24 +302,26 @@ SELECT COUNT(*) FROM fallback_results WHERE shared_components IS NOT NULL;
 2
 
 # ============================================================================
-# Test 12: WL Kernel Method Uses Brute-Force
+# Test 12: WL Kernel Direct Function Calls
 # ============================================================================
 
-# Even with embeddings available, WL kernel should use brute-force
-statement ok
-CREATE TEMP TABLE wl_results AS
-SELECT * FROM find_similar_materials('MAT-001', 3, method := 'wl_kernel', bom_table := 'test_bom');
-
+# WL kernel should be called directly (not through find_similar_materials)
 query I
-SELECT COUNT(*) FROM wl_results;
+SELECT COUNT(*) FROM (
+    SELECT 'MAT-002' as material_id, wl_kernel_similarity('MAT-001', 'MAT-002', bom_table := 'test_bom') as sim
+    UNION ALL
+    SELECT 'MAT-003' as material_id, wl_kernel_similarity('MAT-001', 'MAT-003', bom_table := 'test_bom') as sim
+    UNION ALL
+    SELECT 'MAT-004' as material_id, wl_kernel_similarity('MAT-001', 'MAT-004', bom_table := 'test_bom') as sim
+);
 ----
 3
 
-# WL kernel results should have NULL shared_components (graph-based, not component-based)
+# WL kernel gives similarity scores
 query I
-SELECT COUNT(*) FROM wl_results WHERE shared_components IS NULL;
+SELECT wl_kernel_similarity('MAT-001', 'MAT-002', bom_table := 'test_bom') > 0;
 ----
-3
+true
 
 # ============================================================================
 # Summary: VSS Indexed Search Tests

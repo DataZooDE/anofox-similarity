@@ -51,6 +51,13 @@ WHERE table_name = 'material_embeddings_dirty';
 ----
 1
 
+# Verify dirty tracking table has expected columns (material_id, reason, marked_at)
+query I
+SELECT COUNT(*) FROM information_schema.columns
+WHERE table_name = 'material_embeddings_dirty';
+----
+3
+
 # ============================================================================
 # Test 3: Manual Dirty Marking for Testing
 # ============================================================================
@@ -82,7 +89,7 @@ MAT-B	test_update
 # Brute-force search should still work (doesn't rely on embeddings)
 statement ok
 CREATE TEMP TABLE search_results AS
-SELECT * FROM find_similar_materials('MAT-A', 5, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-A', 5, bom_table := 'test_bom');
 
 query I
 SELECT COUNT(*) FROM search_results;

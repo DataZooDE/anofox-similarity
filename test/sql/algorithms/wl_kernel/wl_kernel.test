@@ -238,42 +238,27 @@ SELECT var1 >= var2 AND var2 >= var3 FROM variant_sims;
 true
 
 # ============================================================================
-# Integration with find_similar_materials
+# Integration: WL kernel vs Jaccard comparison
 # ============================================================================
 
-# find_similar_materials with method='wl_kernel'
-# The method parameter should be respected
+# Direct wl_kernel_similarity call should work
 query I
-SELECT COUNT(*) FROM find_similar_materials('IDENT-PROD-A', 5, method := 'wl_kernel');
-----
-5
-
-# Results should be ordered by similarity (descending)
-query I
-WITH results AS (
-    SELECT similarity, ROW_NUMBER() OVER () as rn
-    FROM find_similar_materials('IDENT-PROD-A', 10, method := 'wl_kernel')
-),
-ordering_check AS (
-    SELECT COUNT(*) as violations
-    FROM results r1, results r2
-    WHERE r1.rn < r2.rn AND r1.similarity < r2.similarity
-)
-SELECT violations = 0 FROM ordering_check;
+SELECT ROUND(wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B'), 2) = 1.0;
 ----
 true
 
-# Top result for IDENT-PROD-A should be IDENT-PROD-B with similarity 1.0
+# WL kernel and Jaccard should agree on identical BOMs
 query I
-SELECT material_id = 'IDENT-PROD-B' AND ROUND(similarity, 2) = 1.0
-FROM find_similar_materials('IDENT-PROD-A', 1, method := 'wl_kernel');
+SELECT
+    ROUND(wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B'), 2) =
+    ROUND((SELECT similarity FROM find_similar_materials_jaccard('IDENT-PROD-A', 1) LIMIT 1), 2);
 ----
 true
 
-# Default method (jaccard) should still work
+# find_similar_materials (Jaccard) returns correct top result
 query I
 SELECT material_id = 'IDENT-PROD-B' AND ROUND(similarity, 2) = 1.0
-FROM find_similar_materials('IDENT-PROD-A', 1);
+FROM find_similar_materials_jaccard('IDENT-PROD-A', 1);
 ----
 true
 
@@ -303,3 +288,47 @@ SELECT wl_kernel_similarity('NON-EXISTENT-A', 'NON-EXISTENT-B') IS NULL
     OR wl_kernel_similarity('NON-EXISTENT-A', 'NON-EXISTENT-B') = 0.0;
 ----
 true
+
+# ============================================================================
+# Symmetry Tests - WL similarity should be symmetric
+# ============================================================================
+
+# wl_kernel_similarity(A, B) should equal wl_kernel_similarity(B, A)
+query I
+SELECT ABS(wl_kernel_similarity('IDENT-PROD-A', 'FAMILY-00-BASE')
+         - wl_kernel_similarity('FAMILY-00-BASE', 'IDENT-PROD-A')) < 0.0001;
+----
+true
+
+# Symmetry with custom iterations
+query I
+SELECT ABS(wl_kernel_similarity('FAMILY-00-BASE', 'FAMILY-00-VAR-1', iterations := 3)
+         - wl_kernel_similarity('FAMILY-00-VAR-1', 'FAMILY-00-BASE', iterations := 3)) < 0.0001;
+----
+true
+
+# ============================================================================
+# Return Type and Consistency Tests
+# ============================================================================
+
+# Return value is a DOUBLE/REAL
+query I
+SELECT typeof(wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B'));
+----
+DOUBLE
+
+# Results are consistent across multiple calls
+query I
+SELECT ABS(wl_kernel_similarity('IDENT-PROD-A', 'FAMILY-00-BASE')
+         - wl_kernel_similarity('IDENT-PROD-A', 'FAMILY-00-BASE')) < 0.0001;
+----
+true
+
+# Can use in WHERE clause comparisons
+query I
+SELECT COUNT(*) FROM (
+    SELECT 'IDENT-PROD-A' as mat_id
+    WHERE wl_kernel_similarity('IDENT-PROD-A', 'IDENT-PROD-B') > 0.5
+);
+----
+1

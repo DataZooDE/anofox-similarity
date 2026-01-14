@@ -319,6 +319,50 @@ SELECT (
 true
 
 # ============================================================================
+# VSS Population Pattern (from generation_vss.test)
+# ============================================================================
+
+# Test 31: Larger dataset (5 materials) for VSS population
+statement ok
+CREATE TEMP TABLE vss_test_bom AS
+SELECT * FROM (VALUES
+    ('MAT-V1', 'COMP-A'), ('MAT-V1', 'COMP-B'), ('MAT-V1', 'COMP-C'),
+    ('MAT-V2', 'COMP-A'), ('MAT-V2', 'COMP-B'), ('MAT-V2', 'COMP-D'),
+    ('MAT-V3', 'COMP-A'), ('MAT-V3', 'COMP-B'), ('MAT-V3', 'COMP-C'), ('MAT-V3', 'COMP-E'),
+    ('MAT-V4', 'COMP-F'), ('MAT-V4', 'COMP-G'),
+    ('MAT-V5', 'COMP-H'), ('MAT-V5', 'COMP-I')
+) AS t(parent_id, child_id);
+
+# Test 32: Verify 5 materials × 128 seeds = 640 rows
+query I
+SELECT COUNT(*) FROM compute_jaccard_embeddings(bom_table := 'vss_test_bom');
+----
+640
+
+# Test 33: VSS population pattern - aggregating into arrays for indexing
+statement ok
+CREATE TEMP TABLE vss_embeddings AS
+SELECT
+    material_id,
+    array_agg(minhash_value ORDER BY seed)::FLOAT[128] AS jaccard_embedding,
+    MAX(num_components) AS num_components
+FROM compute_jaccard_embeddings(bom_table := 'vss_test_bom')
+GROUP BY material_id;
+
+# Test 34: All 5 materials have embeddings
+query I
+SELECT COUNT(*) FROM vss_embeddings WHERE jaccard_embedding IS NOT NULL;
+----
+5
+
+# Test 35: Disjoint sets produce different embeddings
+query I
+SELECT COUNT(DISTINCT jaccard_embedding) FROM vss_embeddings
+WHERE material_id IN ('MAT-V4', 'MAT-V5');
+----
+2
+
+# ============================================================================
 # Cleanup
 # ============================================================================
 
@@ -351,3 +395,9 @@ DROP TABLE test_material_embeddings;
 
 statement ok
 DROP TABLE similarity_test;
+
+statement ok
+DROP TABLE vss_test_bom;
+
+statement ok
+DROP TABLE vss_embeddings;
