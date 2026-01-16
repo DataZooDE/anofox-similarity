@@ -17,10 +17,15 @@
 7. [Multi-modal Fusion](#multi-modal-fusion)
 8. [ERP Transformations](#erp-transformations)
 9. [Statistics & Normalization](#statistics--normalization)
-10. [Vector Search & Indexing](#vector-search--indexing)
-11. [Property Graph Integration](#property-graph-integration)
-12. [Function Coverage Matrix](#function-coverage-matrix)
-13. [Parameter Reference](#parameter-reference)
+10. [Embedding Generation](#embedding-generation)
+11. [Helper Macros](#helper-macros)
+12. [Incremental Updates](#incremental-updates)
+13. [Dependency Checks](#dependency-checks)
+14. [Vector Search & Indexing](#vector-search--indexing)
+15. [Property Graph Integration](#property-graph-integration)
+16. [Database Infrastructure](#database-infrastructure)
+17. [Function Coverage Matrix](#function-coverage-matrix)
+18. [Parameter Reference](#parameter-reference)
 
 ---
 
@@ -51,36 +56,42 @@ SELECT * FROM macro_name(
 
 ### 1. Jaccard Similarity (Scalar Function)
 
-Computes component overlap between two materials using Jaccard index.
+Computes set overlap using Jaccard index. Takes component lists directly.
 
 **Signature:**
 ```sql
 jaccard_similarity(
-    material_a VARCHAR,
-    material_b VARCHAR,
-    bom_table := 'bom_items'
+    list_a LIST,
+    list_b LIST
 ) → DOUBLE
 ```
 
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `material_a` | VARCHAR | Required | First material ID |
-| `material_b` | VARCHAR | Required | Second material ID |
-| `bom_table` | VARCHAR | 'bom_items' | BOM table name |
+| `list_a` | LIST(ANY) | Required | First set of elements |
+| `list_b` | LIST(ANY) | Required | Second set of elements |
 
 **Returns:**
 - DOUBLE: Similarity score [0.0, 1.0]
-  - 0.0 = Completely disjoint (no common components)
-  - 1.0 = Identical component sets
+  - 0.0 = Completely disjoint (no common elements)
+  - 1.0 = Identical element sets
 
-**Complexity:** O(n) where n = average number of components
+**Complexity:** O(n + m) where n, m = list sizes
 
 **Example:**
 ```sql
-SELECT
-  jaccard_similarity('PUMP-A', 'PUMP-B') AS similarity_score;
--- Result: 0.667 (2 common out of 3 total components)
+-- Direct list comparison
+SELECT jaccard_similarity(['A', 'B', 'C'], ['A', 'B', 'D']) AS similarity;
+-- Result: 0.5 (2 common out of 4 unique elements)
+
+-- With BOM data (via aggregate_material_components helper)
+WITH components AS (
+  SELECT material_id, components FROM aggregate_material_components('bom_items')
+)
+SELECT jaccard_similarity(a.components, b.components) AS similarity
+FROM components a, components b
+WHERE a.material_id = 'PUMP-A' AND b.material_id = 'PUMP-B';
 ```
 
 ### 2. WL Kernel Similarity (Scalar Function)
@@ -122,20 +133,28 @@ FROM cross_product_of_materials;
 
 ### 3. Predecessor Inference (Table Macro)
 
-Identifies predecessor-successor relationships through anti-correlation temporal analysis.
+Identifies predecessor-successor relationships through BOM similarity combined with anti-correlation temporal analysis.
 
 **Signature:**
 ```sql
 infer_predecessors(
     query_material_id VARCHAR,
-    lookback_months := 12,
+    lookback_months := 24,
+    min_similarity := 0.3,
+    min_confidence := 0.5,
     lag_weeks := 8,
-    goods_movements_table := 'goods_movements'
+    bom_table := 'bom_items',
+    movements_table := 'goods_movements'
 ) → TABLE (
-    predecessor_material_id VARCHAR,
-    confidence_score DOUBLE,
-    temporal_strength DOUBLE,
-    overlap_weeks INTEGER
+    predecessor_id VARCHAR,
+    confidence DOUBLE,
+    correlation DOUBLE,
+    similarity DOUBLE,
+    temporal_score DOUBLE,
+    predecessor_first_usage DATE,
+    predecessor_last_usage DATE,
+    successor_start DATE,
+    overlapping_weeks INTEGER
 )
 ```
 
@@ -143,50 +162,60 @@ infer_predecessors(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `query_material_id` | VARCHAR | Required | Material to find predecessors for |
-| `lookback_months` | INTEGER | 12 | Historical window in months |
-| `lag_weeks` | INTEGER | 8 | Expected temporal lag |
-| `goods_movements_table` | VARCHAR | 'goods_movements' | Source movements table |
+| `lookback_months` | INTEGER | 24 | Historical window in months |
+| `min_similarity` | DOUBLE | 0.3 | Minimum Jaccard similarity threshold |
+| `min_confidence` | DOUBLE | 0.5 | Minimum confidence threshold |
+| `lag_weeks` | INTEGER | 8 | Expected temporal lag between predecessor decline and successor rise |
+| `bom_table` | VARCHAR | 'bom_items' | BOM table name |
+| `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
 
 **Returns:**
-- `predecessor_material_id` - Identified predecessor material
-- `confidence_score` - Confidence [0.0, 1.0]
-- `temporal_strength` - Strength of anti-correlation
-- `overlap_weeks` - Weeks of overlapping usage
+- `predecessor_id` - Identified predecessor material
+- `confidence` - Combined confidence score [0.0, 1.0]
+- `correlation` - Temporal correlation (negative = anti-correlation)
+- `similarity` - Jaccard similarity score
+- `temporal_score` - Temporal succession score
+- `predecessor_first_usage` - First usage date of predecessor
+- `predecessor_last_usage` - Last usage date of predecessor
+- `successor_start` - Start date of successor (query material)
+- `overlapping_weeks` - Weeks of overlapping consumption
 
 **Example:**
 ```sql
 SELECT
-  predecessor_material_id,
-  confidence_score
+  predecessor_id,
+  confidence,
+  correlation,
+  similarity
 FROM infer_predecessors(
   query_material_id := 'AL-7076',
-  lookback_months := 24
+  lookback_months := 24,
+  min_similarity := 0.4,
+  min_confidence := 0.6
 )
-WHERE confidence_score > 0.8
-ORDER BY confidence_score DESC;
+ORDER BY confidence DESC;
 ```
 
 ---
 
 ## Similarity Search
 
-### 1. Find Similar Materials (Table Macro)
+### 1. Find Similar Materials - Jaccard (Table Macro)
 
-Finds k most similar materials using specified algorithm.
+Finds k most similar materials using Jaccard component overlap.
 
 **Signature:**
 ```sql
-find_similar_materials(
+find_similar_materials_jaccard(
     query_material_id VARCHAR,
-    k := 5,
-    method := 'structural',
+    k INTEGER,
     min_similarity := 0.0,
-    use_index := true,
     bom_table := 'bom_items'
 ) → TABLE (
-    similar_material_id VARCHAR,
-    jaccard_similarity DOUBLE,
-    similarity_rank INTEGER
+    material_id VARCHAR,
+    similarity DOUBLE,
+    shared_components BIGINT,
+    total_components BIGINT
 )
 ```
 
@@ -194,76 +223,126 @@ find_similar_materials(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `query_material_id` | VARCHAR | Required | Material to find similar to |
-| `k` | INTEGER | 5 | Number of results |
-| `method` | VARCHAR | 'structural' | 'structural' or 'combined' |
+| `k` | INTEGER | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
-| `use_index` | BOOLEAN | true | Use HNSW index if available |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 
 **Returns:**
-- `similar_material_id` - ID of similar material
-- `jaccard_similarity` - Computed similarity score
-- `similarity_rank` - Rank (1 = most similar)
+- `material_id` - ID of similar material
+- `similarity` - Jaccard similarity score [0.0, 1.0]
+- `shared_components` - Count of overlapping components
+- `total_components` - Count of unique components in union
 
-**Complexity:**
-- With index: O(log n + k) average case
-- Without index: O(n) brute force
+**Complexity:** O(n) brute force over all materials
 
 **Example:**
 ```sql
 SELECT
-  similar_material_id,
-  jaccard_similarity,
-  similarity_rank
-FROM find_similar_materials('PUMP-A', k := 10)
-WHERE similarity_rank <= 5;
+  material_id,
+  similarity,
+  shared_components
+FROM find_similar_materials_jaccard('PUMP-A', 10)
+WHERE similarity >= 0.5;
 ```
 
-### 2. Cold Start Analogs (Table Macro)
+### 2. Find Similar Materials - WL Kernel (Table Macro)
 
-Generates cold-start forecasting candidates with weighted predictions.
+Finds k most similar materials using Weisfeiler-Lehman graph kernel similarity.
 
 **Signature:**
 ```sql
-cold_start_analogs(
+find_similar_materials_wl_kernel(
     query_material_id VARCHAR,
-    k := 3,
-    forecast_periods := 12,
-    method := 'jaccard',
-    use_transactional_embedding := false,
-    movements_table := 'goods_movements'
+    k INTEGER,
+    iterations := 3,
+    min_similarity := 0.0,
+    bom_table := 'bom_items'
 ) → TABLE (
-    analog_material_id VARCHAR,
-    similarity_score DOUBLE,
-    analog_rank INTEGER,
-    forecast_weight DOUBLE
+    material_id VARCHAR,
+    similarity DOUBLE
 )
 ```
 
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query_material_id` | VARCHAR | Required | New product needing forecast |
-| `k` | INTEGER | 3 | Number of analog materials |
-| `forecast_periods` | INTEGER | 12 | Future periods to forecast |
-| `method` | VARCHAR | 'jaccard' | Similarity method to use |
-| `use_transactional_embedding` | BOOLEAN | false | Include time-series features |
-| `movements_table` | VARCHAR | 'goods_movements' | Movements history |
+| `query_material_id` | VARCHAR | Required | Material to find similar to |
+| `k` | INTEGER | Required | Number of results |
+| `iterations` | INTEGER | 3 | Number of WL refinement iterations |
+| `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
+| `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 
 **Returns:**
-- `analog_material_id` - Similar material with history
-- `similarity_score` - Similarity to query material
-- `analog_rank` - Rank (1 = best match)
-- `forecast_weight` - Weight for weighted average forecast
+- `material_id` - ID of similar material
+- `similarity` - WL kernel similarity score [0.0, 1.0]
+
+**Complexity:** O(n · h · m) where h = iterations, m = edges per material
 
 **Example:**
 ```sql
 SELECT
-  analog_material_id,
-  similarity_score,
-  forecast_weight
-FROM cold_start_analogs('X-750-NEW', k := 5)
-ORDER BY analog_rank;
+  material_id,
+  similarity
+FROM find_similar_materials_wl_kernel('PUMP-A', 10, iterations := 5)
+WHERE similarity >= 0.5;
+```
+
+### 3. Cold Start Analogs (Table Macro)
+
+Finds analog materials with consumption history for cold-start forecasting.
+
+**Signature:**
+```sql
+cold_start_analogs(
+    query_material_id VARCHAR,
+    k INTEGER,
+    min_history_months := 0,
+    min_similarity := 0.0,
+    bom_table := 'bom_items',
+    movements_table := 'goods_movements'
+) → TABLE (
+    material_id VARCHAR,
+    similarity DOUBLE,
+    shared_components BIGINT,
+    total_components BIGINT,
+    history_months BIGINT,
+    first_usage DATE,
+    last_usage DATE
+)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query_material_id` | VARCHAR | Required | New product needing analogs |
+| `k` | INTEGER | Required | Number of analog materials to return |
+| `min_history_months` | INTEGER | 0 | Minimum consumption history required |
+| `min_similarity` | DOUBLE | 0.0 | Minimum Jaccard similarity threshold |
+| `bom_table` | VARCHAR | 'bom_items' | BOM table name |
+| `movements_table` | VARCHAR | 'goods_movements' | Movements history table |
+
+**Returns:**
+- `material_id` - Similar material with history
+- `similarity` - Jaccard similarity to query material
+- `shared_components` - Count of shared components
+- `total_components` - Count of unique components in union
+- `history_months` - Months of consumption history
+- `first_usage` - First usage date
+- `last_usage` - Last usage date
+
+**Example:**
+```sql
+SELECT
+  material_id,
+  similarity,
+  history_months
+FROM cold_start_analogs(
+  'X-750-NEW',
+  k := 5,
+  min_history_months := 6,
+  min_similarity := 0.3
+)
+ORDER BY similarity DESC;
 ```
 
 ---
@@ -563,40 +642,70 @@ FROM compute_fused_embeddings(
 
 Convert SAP-format BOM to universal schema.
 
-**Signatures:**
+**sap_to_bom_items** - Convert MAST/STKO/STPO to universal BOM schema:
 ```sql
--- Convert MAST/STPO to universal schema
 sap_to_bom_items(
-    mast_table := 'MAST',
-    stpo_table := 'STPO',
-    output_table := 'bom_items'
-) → BOOLEAN
-
--- Extract material descriptions from MAKT
-extract_material_descriptions(
-    makt_table := 'MAKT',
-    language := 'EN'
+    mast_table VARCHAR,
+    stko_table VARCHAR,
+    stpo_table VARCHAR,
+    bom_alternative := '01',
+    reference_date := '9999-12-31',
+    bom_usage := NULL
 ) → TABLE (
-    material_id VARCHAR,
-    description VARCHAR
+    bom_id VARCHAR,
+    parent_id VARCHAR,
+    child_id VARCHAR,
+    qty DOUBLE,
+    unit VARCHAR,
+    valid_from DATE,
+    valid_to DATE,
+    bom_version VARCHAR
 )
+```
 
--- Full SAP master data conversion
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `mast_table` | VARCHAR | Required | MAST table (material-BOM link) |
+| `stko_table` | VARCHAR | Required | STKO table (BOM header) |
+| `stpo_table` | VARCHAR | Required | STPO table (BOM components) |
+| `bom_alternative` | VARCHAR | '01' | BOM alternative to extract |
+| `reference_date` | VARCHAR | '9999-12-31' | Validity reference date |
+| `bom_usage` | VARCHAR | NULL | Filter by BOM usage (optional) |
+
+**sap_to_materials** - Extract materials from MARA:
+```sql
 sap_to_materials(
-    mara_table := 'MARA',
-    makt_table := 'MAKT',
-    output_table := 'materials'
-) → BOOLEAN
+    mara_table VARCHAR,
+    makt_table := NULL,
+    language := 'E'
+) → TABLE (material_id, material_type, material_group, description, created_date)
+```
+
+**sap_to_materials_with_desc** - Materials with descriptions (MARA + MAKT):
+```sql
+sap_to_materials_with_desc(
+    mara_table VARCHAR,
+    makt_table VARCHAR,
+    language := 'E'
+) → TABLE (material_id, material_type, material_group, description, created_date)
+```
+
+**extract_material_descriptions** - Extract descriptions from MAKT:
+```sql
+extract_material_descriptions(
+    makt_table := 'sap_makt',
+    language := 'EN'
+) → TABLE (material_id VARCHAR, full_text VARCHAR)
 ```
 
 **Example:**
 ```sql
 -- Convert SAP BOM to universal format
-CALL sap_to_bom_items('MAST', 'STPO', 'bom_items');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
 
--- Extract descriptions
-SELECT *
-FROM extract_material_descriptions(language := 'EN');
+-- Extract materials with descriptions
+SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 ```
 
 ### 2. Dynamics 365 Transformations
@@ -622,23 +731,285 @@ dynamics365_to_bom_components(
 
 ### 1. Check Statistics Freshness (Table Macro)
 
-Validates whether statistics are current and complete.
+Validates whether transactional embedding statistics are current and complete.
 
 **Signature:**
 ```sql
-check_statistics_freshness(
-    freshness_threshold_days := 7
-) → TABLE (
-    is_fresh BOOLEAN,
+check_statistics_freshness() → TABLE (
+    stat_count INTEGER,
+    max_samples INTEGER,
+    current_version INTEGER,
     last_updated TIMESTAMP,
-    statistics_count INTEGER,
-    message VARCHAR
+    is_fresh BOOLEAN
+)
+```
+
+**Returns:**
+- `stat_count` - Number of statistics records
+- `max_samples` - Maximum samples used in computation
+- `current_version` - Statistics version number
+- `last_updated` - Last update timestamp
+- `is_fresh` - TRUE if ≥30 stats and updated within 7 days
+
+**Example:**
+```sql
+SELECT * FROM check_statistics_freshness();
+-- Result: stat_count=98, is_fresh=true
+```
+
+### 2. Recompute Embedding Statistics (Table Macro)
+
+Computes z-score normalization statistics for all 98 transactional embedding features.
+
+**Signature:**
+```sql
+recompute_embedding_statistics(
+    time_window_days := 365,
+    min_observations := 3
+) → TABLE (
+    feature_name VARCHAR,
+    feature_index INTEGER,
+    feature_category VARCHAR,
+    mean_value DOUBLE,
+    std_value DOUBLE,
+    min_value DOUBLE,
+    max_value DOUBLE,
+    num_samples INTEGER
 )
 ```
 
 **Example:**
 ```sql
-SELECT * FROM check_statistics_freshness();
+-- Recompute statistics from last 180 days of data
+SELECT * FROM recompute_embedding_statistics(time_window_days := 180);
+```
+
+### 3. Compute Domain-Specific Statistics (Table Macro)
+
+Computes advanced domain-specific ERP features (indices 92-97).
+
+**Signature:**
+```sql
+compute_domain_specific_statistics(
+    movements_table := 'goods_movements',
+    material_column := 'material_id',
+    date_column := 'movement_date',
+    quantity_column := 'quantity',
+    movement_type_column := 'movement_type',
+    time_window_days := 365,
+    min_observations := 3
+) → TABLE (feature_name, feature_index, feature_category, mean_value, std_value, ...)
+```
+
+**Features Computed:**
+- Feature 92: Movement type receipt ratio
+- Feature 93: Movement type reversal ratio
+- Feature 94: Weekday/weekend ratio
+- Feature 95: Weekday concentration (entropy-based)
+- Feature 96: Lifecycle trend strength
+- Feature 97: Lifecycle growth indicator
+
+---
+
+## Embedding Generation
+
+### 1. Compute Jaccard Embeddings (Table Macro)
+
+Generates 128-dimensional min-hash embeddings for Jaccard similarity approximation.
+
+**Signature:**
+```sql
+compute_jaccard_embeddings(
+    bom_table := 'bom_items'
+) → TABLE (
+    material_id VARCHAR,
+    seed INTEGER,
+    minhash_value FLOAT,
+    num_components INTEGER
+)
+```
+
+**Returns:**
+- `material_id` - Material identifier
+- `seed` - Seed index [0-127] for 128-D embedding
+- `minhash_value` - Min-hash value for this seed
+- `num_components` - Component count for this material
+
+**Usage Pattern:**
+```sql
+-- Generate embeddings and aggregate into FLOAT[128] arrays
+INSERT INTO material_embeddings (material_id, jaccard_embedding, num_components)
+SELECT
+    material_id,
+    array_agg(minhash_value ORDER BY seed)::FLOAT[128],
+    MAX(num_components)
+FROM compute_jaccard_embeddings(bom_table := 'bom_items')
+GROUP BY material_id
+ON CONFLICT (material_id) DO UPDATE SET
+    jaccard_embedding = EXCLUDED.jaccard_embedding,
+    num_components = EXCLUDED.num_components;
+```
+
+### 2. Extract Time-Series Features (Table Macro)
+
+Shared macro for efficient time-series feature extraction (avoids redundant computation).
+
+**Signature:**
+```sql
+extract_ts_features(
+    movements_table := 'goods_movements',
+    time_window_days := 365,
+    min_observations := 3,
+    batch_size := NULL,
+    batch_offset := 0
+) → TABLE (
+    material_id VARCHAR,
+    features STRUCT
+)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
+| `time_window_days` | INTEGER | 365 | Historical window |
+| `min_observations` | INTEGER | 3 | Minimum data points |
+| `batch_size` | INTEGER | NULL | Batch size for incremental processing |
+| `batch_offset` | INTEGER | 0 | Offset for batch processing |
+
+**Note:** Requires anofox-forecast extension for `anofox_fcst_ts_features()`.
+
+---
+
+## Helper Macros
+
+### 1. Aggregate Material Components (Table Macro)
+
+Centralized BOM component aggregation helper.
+
+**Signature:**
+```sql
+aggregate_material_components(
+    bom_table := 'bom_items',
+    material_filter := NULL
+) → TABLE (
+    material_id VARCHAR,
+    components LIST
+)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `bom_table` | VARCHAR | 'bom_items' | BOM table name |
+| `material_filter` | LIST | NULL | Optional list of material IDs to filter |
+
+**Example:**
+```sql
+-- Get component lists for all materials
+SELECT * FROM aggregate_material_components('bom_items');
+
+-- Filter to specific materials
+SELECT * FROM aggregate_material_components('bom_items', ['MAT-001', 'MAT-002']);
+```
+
+### 2. Filter Recent Movements (Table Macro)
+
+Centralized time-window filtering for goods movements.
+
+**Signature:**
+```sql
+filter_recent_movements(
+    movements_table := 'goods_movements',
+    time_window_days := 365,
+    min_quantity := 0
+) → TABLE (
+    material_id VARCHAR,
+    movement_date DATE,
+    quantity DOUBLE,
+    movement_type VARCHAR
+)
+```
+
+**Example:**
+```sql
+-- Get last 180 days of movements with quantity > 0
+SELECT * FROM filter_recent_movements('goods_movements', 180, 0);
+```
+
+---
+
+## Incremental Updates
+
+### 1. Refresh Transactional Embeddings (Table Macro)
+
+Refreshes embeddings only for materials marked as dirty.
+
+**Signature:**
+```sql
+refresh_transactional_embeddings() → TABLE (
+    material_id VARCHAR,
+    updated_embedding FLOAT[128]
+)
+```
+
+### 2. Clear Dirty Materials (Table Macro)
+
+Clears dirty tracking records after refresh.
+
+**Signature:**
+```sql
+clear_dirty_materials(
+    material_ids := NULL
+) → TABLE (
+    material_id VARCHAR,
+    reason VARCHAR,
+    marked_at TIMESTAMP
+)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `material_ids` | LIST | NULL | Specific IDs to clear (NULL = all) |
+
+### 3. Refresh Dirty Embeddings (Table Macro)
+
+Combined helper: refreshes and clears dirty materials.
+
+**Signature:**
+```sql
+refresh_dirty_embeddings(
+    bom_table := 'bom_items'
+) → TABLE (material_id VARCHAR)
+```
+
+---
+
+## Dependency Checks
+
+### 1. Check anofox-forecast Available (Scalar Macro)
+
+Checks if anofox-forecast extension is loaded.
+
+**Signature:**
+```sql
+check_anofox_forecast_available() → BOOLEAN
+```
+
+**Example:**
+```sql
+SELECT check_anofox_forecast_available();
+-- Returns: true/false
+```
+
+### 2. Check DuckPGQ Available (Scalar Macro)
+
+Checks if DuckPGQ extension is loaded.
+
+**Signature:**
+```sql
+check_duckpgq_available() → BOOLEAN
 ```
 
 ---
@@ -729,21 +1100,104 @@ FROM bom_dfs_neighborhood('PUMP-A', max_depth := 5);
 
 ---
 
+## Database Infrastructure
+
+The extension creates several database objects on load for embedding storage and incremental updates.
+
+### Tables
+
+**material_embeddings** - Primary embedding storage:
+```sql
+CREATE TABLE material_embeddings (
+    material_id VARCHAR PRIMARY KEY,
+    jaccard_embedding FLOAT[128],      -- Min-hash Jaccard embedding
+    structural_embedding FLOAT[256],   -- WL kernel structural embedding
+    textual_embedding FLOAT[384],      -- Text description embedding
+    transactional_embedding FLOAT[128],-- Time-series feature embedding
+    combined_embedding FLOAT[768],     -- Fused multi-modal embedding
+    updated_at TIMESTAMP,
+    num_components INTEGER
+);
+```
+
+**material_embeddings_dirty** - Dirty tracking for incremental updates:
+```sql
+CREATE TABLE material_embeddings_dirty (
+    material_id VARCHAR PRIMARY KEY,
+    reason VARCHAR,          -- 'insert', 'update', or 'delete'
+    marked_at TIMESTAMP
+);
+```
+
+**transactional_embedding_statistics** - Z-score normalization statistics:
+```sql
+CREATE TABLE transactional_embedding_statistics (
+    feature_name VARCHAR PRIMARY KEY,
+    feature_index INTEGER,
+    feature_category VARCHAR,
+    mean_value DOUBLE,
+    std_value DOUBLE,
+    min_value DOUBLE,
+    max_value DOUBLE,
+    num_samples INTEGER,
+    updated_at TIMESTAMP,
+    version INTEGER
+);
+```
+
+**transactional_feature_mapping** - Feature metadata:
+```sql
+CREATE TABLE transactional_feature_mapping (
+    feature_index INTEGER PRIMARY KEY,
+    feature_name VARCHAR,
+    category VARCHAR,
+    description VARCHAR,
+    is_advanced BOOLEAN
+);
+```
+
+### HNSW Indexes
+
+Created automatically for vector similarity search:
+
+| Index Name | Column | Metric | Dimension |
+|------------|--------|--------|-----------|
+| `jaccard_idx` | jaccard_embedding | L2-squared | 128 |
+| `hnsw_structural_idx` | structural_embedding | L2-squared | 256 |
+| `hnsw_textual_idx` | textual_embedding | cosine | 384 |
+| `hnsw_combined_idx` | combined_embedding | cosine | 768 |
+
+### Triggers
+
+Automatically mark materials as dirty when BOM changes:
+
+- `bom_items_insert_trigger` - Marks parent_id dirty on INSERT
+- `bom_items_update_trigger` - Marks parent_id dirty on UPDATE
+- `bom_items_delete_trigger` - Marks parent_id dirty on DELETE
+
+**Note:** Triggers require a `bom_items` table to exist. They are created with OPTIONAL failure mode.
+
+---
+
 ## Function Coverage Matrix
 
 | Category | Type | Count | Functions |
 |----------|------|-------|-----------|
 | **Similarity** | Scalar | 2 | jaccard_similarity, wl_kernel_similarity |
-| **Search** | Macro | 2 | find_similar_materials, cold_start_analogs |
+| **Search** | Macro | 3 | find_similar_materials_jaccard, find_similar_materials_wl_kernel, cold_start_analogs |
 | **Inference** | Macro | 1 | infer_predecessors |
-| **BOM Traversal** | Macro | 4 | bom_explosion_1level, bom_explosion_multilevel, bom_where_used, bom_common_components |
+| **BOM Traversal** | Macro | 5 | bom_explosion_1level, bom_explosion_multilevel, bom_where_used, bom_common_components, bom_dfs_neighborhood |
 | **Textual** | Macro + Scalar | 2 | compute_textual_embeddings, embed_text |
 | **Transactional** | Macro | 2 | compute_transactional_embeddings, recompute_embedding_statistics |
 | **Fusion** | Macro | 1 | compute_fused_embeddings |
+| **Embedding Gen** | Macro | 2 | compute_jaccard_embeddings, extract_ts_features |
+| **Statistics** | Macro | 2 | check_statistics_freshness, compute_domain_specific_statistics |
+| **Helpers** | Macro | 2 | aggregate_material_components, filter_recent_movements |
+| **Incremental** | Macro | 3 | refresh_transactional_embeddings, clear_dirty_materials, refresh_dirty_embeddings |
+| **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
-| **Infrastructure** | Macro + Procedure | 6 | Statistics, indexing, property graphs |
-| **Utilities** | Macro | 4 | Helper and check functions |
-| **TOTAL** | | **31** | Complete API |
+| **Infrastructure** | Macro | 2 | create_bom_property_graph, CreateHNSWIndexes |
+| **TOTAL** | | **~42** | Complete API |
 
 ---
 
@@ -763,7 +1217,7 @@ FROM bom_dfs_neighborhood('PUMP-A', max_depth := 5);
 
 **Temporal Parameters:**
 - `time_window_days` - Historical window (default: 365)
-- `lookback_months` - Lookback period (default: 12)
+- `lookback_months` - Lookback period (default: 24)
 - `lag_weeks` - Expected temporal lag (default: 8)
 
 **Quality Parameters:**
@@ -819,8 +1273,8 @@ All functions implement graceful error handling:
 All functions support calling without the `anofox_` prefix:
 ```sql
 -- These are equivalent:
-SELECT find_similar_materials('MAT-001');
-SELECT anofox_similarity.find_similar_materials('MAT-001');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);
+SELECT * FROM anofox_similarity.find_similar_materials_jaccard('MAT-001', 10);
 ```
 
 ---

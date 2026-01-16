@@ -329,7 +329,8 @@ We implement the framework as a native DuckDB extension named `anofox-similarity
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `find_similar_materials(m, k, method)` | Table | Return k most similar materials |
+| `find_similar_materials_jaccard(m, k)` | Table | Return k most similar materials using Jaccard |
+| `find_similar_materials_wl_kernel(m, k)` | Table | Return k most similar materials using WL kernel |
 | `material_similarity(m1, m2)` | Scalar | Pairwise similarity score |
 | `infer_predecessors(m, lookback)` | Table | Candidate predecessors with confidence |
 | `cold_start_analogs(m, k, min_history)` | Table | Analogs for forecasting with history |
@@ -451,10 +452,9 @@ What volume assumptions should I use for the X-750 launch?"
 **SQL Implementation:**
 ```sql
 -- Find analog products with sufficient history
-SELECT * FROM find_similar_materials(
-    material_id := 'X-750-NEW',
+SELECT * FROM cold_start_analogs(
+    query_material_id := 'X-750-NEW',
     k := 5,
-    method := 'jaccard',
     min_history_months := 12
 );
 ```
@@ -541,16 +541,15 @@ COMPLEXITY                  │                      COMPLEXITY
 **SQL API (Phase 1):**
 ```sql
 -- Core similarity search using Jaccard
-SELECT * FROM find_similar_materials(
-    material_id := 'X-750-NEW',
+SELECT * FROM find_similar_materials_jaccard(
+    query_material_id := 'X-750-NEW',
     k := 10,
-    method := 'jaccard',
     min_similarity := 0.5
 );
 
 -- Cold-start analog finding
 SELECT * FROM cold_start_analogs(
-    material_id := 'X-750-NEW',
+    query_material_id := 'X-750-NEW',
     k := 5,
     min_history_months := 12
 );
@@ -577,16 +576,15 @@ SELECT * FROM cold_start_analogs(
 **SQL API (Phase 2 additions):**
 ```sql
 -- Upgrade to WL kernel when structure matters
-SELECT * FROM find_similar_materials(
-    material_id := 'X-750-NEW',
+SELECT * FROM find_similar_materials_wl_kernel(
+    query_material_id := 'X-750-NEW',
     k := 10,
-    method := 'wl_kernel',
     min_similarity := 0.5
 );
 
 -- Predecessor inference (Scenario 6)
 SELECT * FROM infer_predecessors(
-    material_id := 'AL-7076',
+    query_material_id := 'AL-7076',
     lookback_months := 24,
     min_confidence := 0.6
 );
@@ -606,13 +604,13 @@ SELECT * FROM infer_predecessors(
 
 ## Workflow
 1. Identify the new product material_id
-2. Call find_similar_materials(material_id, k:=5, method:='jaccard')
+2. Call find_similar_materials_jaccard(query_material_id, k:=5)
 3. Present analog candidates with similarity scores
 4. Ask for volume assumptions
 5. Generate weighted forecast using anofox-forecast
 
 ## SQL Dependencies
-- anofox-similarity: find_similar_materials, cold_start_analogs
+- anofox-similarity: find_similar_materials_jaccard, find_similar_materials_wl_kernel, cold_start_analogs
 - anofox-forecast: ts_forecast (AutoETS method)
 ```
 

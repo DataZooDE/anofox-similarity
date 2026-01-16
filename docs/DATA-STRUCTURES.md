@@ -820,15 +820,24 @@ SELECT embedding_similarity(
     metric := 'cosine'
 ) FROM material_embeddings e1, material_embeddings e2;
 
--- Table function for batch processing
-SELECT * FROM find_similar_materials(
-    source_table := 'materials',
-    algorithm := 'combined',
-    threshold := 0.7,
-    weights := '{"structural": 0.4, "textual": 0.4, "transactional": 0.2}'::JSON
+-- Table function for Jaccard-based batch processing
+SELECT * FROM find_similar_materials_jaccard(
+    query_material_id := 'MAT-001',
+    k := 20,
+    min_similarity := 0.7
 )
-WHERE similarity_score > 0.8
-ORDER BY similarity_score DESC;
+WHERE similarity > 0.8
+ORDER BY similarity DESC;
+
+-- Table function for WL kernel-based batch processing
+SELECT * FROM find_similar_materials_wl_kernel(
+    query_material_id := 'MAT-001',
+    k := 20,
+    iterations := 3,
+    min_similarity := 0.7
+)
+WHERE similarity > 0.8
+ORDER BY similarity DESC;
 ```
 
 ---

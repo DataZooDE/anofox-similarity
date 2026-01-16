@@ -49,53 +49,101 @@ SELECT 1 AS test;  -- Should return 1
 ### Finding Similar Materials
 
 ```sql
--- Create sample BOM data
-CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR, quantity FLOAT);
+-- Create sample BOM data (components for each product)
+CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
 
 INSERT INTO bom_items VALUES
-  ('PUMP-A', 'SEAL-001', 2.0),
-  ('PUMP-A', 'BEARING-X', 1.0),
-  ('PUMP-B', 'SEAL-001', 2.0),
-  ('PUMP-B', 'BEARING-X', 1.0),
-  ('PUMP-B', 'GASKET-Y', 1.0);
+  ('PUMP-A', 'SEAL-001'),
+  ('PUMP-A', 'BEARING-X'),
+  ('PUMP-A', 'MOTOR-M1'),
+  ('PUMP-B', 'SEAL-001'),
+  ('PUMP-B', 'BEARING-X'),
+  ('PUMP-B', 'MOTOR-M1'),
+  ('PUMP-B', 'GASKET-Y'),
+  ('PUMP-C', 'FILTER-F1'),
+  ('PUMP-C', 'VALVE-V2');
 
 -- Find top 3 most similar materials to PUMP-A
-SELECT
-  similar_material_id,
-  jaccard_similarity AS similarity_score
-FROM find_similar_materials(
-  'PUMP-A',
-  k := 3,
-  method := 'structural'
-)
-ORDER BY similarity_score DESC;
+-- bom_table parameter specifies where to look for BOM data
+SELECT material_id, similarity, shared_components, total_components
+FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items');
+
+-- Results:
+-- PUMP-B: 3 shared / 4 total = 0.75 (high overlap)
+-- PUMP-C: 0 shared / 5 total = 0.0 (disjoint)
 ```
 
 ### Detecting Predecessors
 
 ```sql
--- Create goods movements sample data
+-- Create goods movements (temporal consumption data)
 CREATE TABLE goods_movements (
   material_id VARCHAR,
   movement_date DATE,
-  quantity FLOAT,
-  movement_type VARCHAR
+  quantity DOUBLE
 );
 
+-- OLD-PUMP consumption declining, NEW-PUMP rising (anti-correlation)
 INSERT INTO goods_movements VALUES
-  ('MATERIAL-001', '2024-01-01', 100.0, '261'),
-  ('MATERIAL-001', '2024-01-15', 150.0, '261'),
-  ('MATERIAL-002', '2024-01-08', 50.0, '261');
+  ('OLD-PUMP', '2023-01-15', 100.0),
+  ('OLD-PUMP', '2023-03-15', 80.0),
+  ('OLD-PUMP', '2023-06-15', 40.0),
+  ('OLD-PUMP', '2023-09-15', 10.0),
+  ('NEW-PUMP', '2023-06-01', 20.0),
+  ('NEW-PUMP', '2023-09-01', 60.0),
+  ('NEW-PUMP', '2023-12-01', 100.0);
 
--- Find predecessor materials
-SELECT
-  predecessor_material_id,
-  confidence_score
-FROM infer_predecessors(
-  query_material_id := 'MATERIAL-002',
-  lookback_months := 12
-)
-ORDER BY confidence_score DESC;
+-- Detect predecessor (requires shared BOM components + temporal anti-correlation)
+SELECT predecessor_id, confidence, correlation, overlapping_weeks
+FROM infer_predecessors(query_material_id := 'NEW-PUMP', min_confidence := 0.5)
+ORDER BY confidence DESC;
+
+-- correlation < 0 indicates anti-correlation (predecessor declining as successor rises)
+```
+
+### Finding Analogs for New Products
+
+```sql
+-- Find products similar to NEW-PUMP that have consumption history
+-- Useful for cold-start forecasting when a new product has no history
+SELECT material_id, similarity, history_months, first_usage, last_usage
+FROM cold_start_analogs(
+    'NEW-PUMP',
+    5,                              -- Return top 5 analogs
+    min_history_months := 12,       -- Require at least 12 months of history
+    bom_table := 'bom_items',
+    movements_table := 'goods_movements'
+);
+
+-- Returns similar products with consumption history
+-- Use their demand patterns to forecast the new product
+```
+
+### Converting ERP Data (SAP)
+
+```sql
+-- SAP tables: MARA (materials), MAKT (descriptions)
+CREATE TABLE sap_mara AS SELECT * FROM (VALUES
+    ('MAT-001', 'FERT', 'GRP01', '20200115', NULL),
+    ('MAT-002', 'HALB', 'GRP01', '20210301', NULL)
+) AS t(matnr, mtart, matkl, ersda, lvorm);
+
+CREATE TABLE sap_makt AS SELECT * FROM (VALUES
+    ('MAT-001', 'E', 'Pump Assembly'),
+    ('MAT-002', 'E', 'Motor Component')
+) AS t(matnr, spras, maktx);
+
+-- Convert to universal schema
+SELECT material_id, material_type, description, created_date
+FROM sap_to_materials_with_desc(
+    mara_table := 'sap_mara',
+    makt_table := 'sap_makt',
+    language := 'E'
+);
+
+-- Dynamics 365 conversion (see API_REFERENCE.md for full details)
+-- SELECT * FROM dynamics365_to_materials('d365_InventTable');
+-- SELECT * FROM dynamics365_to_bom_component('d365_BOM');
 ```
 
 ---
@@ -172,7 +220,7 @@ make test
 
 ### Test Suite
 
-The extension includes 102 comprehensive tests (2228 assertions):
+The extension includes 52 comprehensive tests (1179 assertions):
 
 ```bash
 # Run all tests
@@ -193,8 +241,8 @@ Write once in SQL, use everywhere:
 
 | Language | Support | Example |
 |----------|---------|---------|
-| **SQL (DuckDB)** | ✅ Native | `SELECT find_similar_materials(...)` |
-| **Python** | ✅ DuckDB connector | `duckdb.sql("SELECT find_similar_materials(...)")` |
+| **SQL (DuckDB)** | ✅ Native | `SELECT * FROM find_similar_materials_jaccard(...)` |
+| **Python** | ✅ DuckDB connector | `duckdb.sql("SELECT * FROM find_similar_materials_jaccard(...)")` |
 | **R** | ✅ duckdb package | `duckdb::execute(con, "SELECT...")` |
 | **Java** | ✅ JDBC driver | `stmt.execute("SELECT...")` |
 | **Node.js** | ✅ duckdb-wasm | `db.query("SELECT...")` |
@@ -229,8 +277,8 @@ The extension implements a **tiered similarity approach**:
 
 ## 🧪 Test Coverage
 
-- **102 SQL tests** across 11 functional categories
-- **2228 assertions** validating core algorithms
+- **52 SQL tests** across 11 functional categories
+- **1179 assertions** validating core algorithms
 - **Synthetic data tests** with known ground truth
 - **Real enterprise data tests** (SAP, Dynamics 365)
 - **Edge case tests** (sparse BOMs, circular references, NULL handling)
