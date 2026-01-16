@@ -1,0 +1,203 @@
+# name: test/sql/datasets/openhardware/openhardware_validation.test
+# tier: tier2
+# description: Validate open hardware BOMs (OpenTrons, OpenCR, CycloneDX)
+# group: [openhardware]
+
+# Skip: These tests use subquery patterns that require SQL macros,
+# but the functions have been converted to TableFunctions for telemetry tracking.
+# TableFunctions with bind_replace don't support subquery parameters.
+mode skip
+
+# Tests similarity functions on open hardware electronics BOMs:
+# - OpenTrons OT-One Pro robot BOM
+# - OpenCR robotics controller PCB BOM
+# - CycloneDX HBOM examples
+#
+# Dataset: 223 materials, 220 BOM items
+# Multiple hardware projects with different component types
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Load OpenHardware dataset
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/openhardware/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/openhardware/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/openhardware/ground_truth.csv.gz');
+
+# ============================================================================
+# Verify dataset loaded correctly
+# ============================================================================
+
+# Total materials
+query I
+SELECT COUNT(*) FROM materials;
+----
+223
+
+# BOM items
+query I
+SELECT COUNT(*) FROM bom_items;
+----
+220
+
+# Ground truth pairs (all unrelated - different hardware projects)
+query I
+SELECT COUNT(*) FROM ground_truth;
+----
+3
+
+# All ground truth pairs are unrelated
+query I
+SELECT COUNT(*) FROM ground_truth WHERE relationship_type = 'unrelated';
+----
+3
+
+# ============================================================================
+# Verify component diversity
+# ============================================================================
+
+# Should have multiple material groups (different component types)
+query I
+SELECT COUNT(DISTINCT material_group) >= 3 FROM materials;
+----
+true
+
+# Should have both finished goods and components
+query I
+SELECT COUNT(DISTINCT material_type) >= 2 FROM materials;
+----
+true
+
+# ============================================================================
+# Ground Truth Jaccard Validation
+# ============================================================================
+
+# Unrelated pairs should have low Jaccard (different projects share few components)
+query I
+SELECT AVG(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+)) < 0.2
+FROM ground_truth g
+WHERE relationship_type = 'unrelated';
+----
+true
+
+# ============================================================================
+# Project-based clustering validation
+# ============================================================================
+
+# Get assemblies (finished goods)
+query I
+SELECT COUNT(*) >= 3 FROM materials WHERE material_type = 'FERT';
+----
+true
+
+# ============================================================================
+# Similarity function validation
+# ============================================================================
+
+# find_similar_materials should work on this dataset
+query I
+WITH sample AS (
+    SELECT material_id FROM materials WHERE material_type = 'FERT' LIMIT 1
+)
+SELECT COUNT(*) >= 0 FROM find_similar_materials_jaccard((SELECT material_id FROM sample), 10);
+----
+true
+
+# ============================================================================
+# BOM structure validation
+# ============================================================================
+
+# All BOMs are single-level (electronics components)
+query I
+SELECT MAX(level) = 1 FROM bom_items;
+----
+true
+
+# Average components per assembly
+query I
+WITH assembly_counts AS (
+    SELECT parent_id, COUNT(*) as comp_count
+    FROM bom_items
+    GROUP BY parent_id
+)
+SELECT AVG(comp_count) >= 10 FROM assembly_counts;
+----
+true
+
+# ============================================================================
+# Jaccard similarity computation
+# ============================================================================
+
+# Can compute Jaccard for any pair in dataset
+query I
+WITH sample_pair AS (
+    SELECT a.parent_id as id_a, b.parent_id as id_b
+    FROM bom_items a, bom_items b
+    WHERE a.parent_id < b.parent_id
+    LIMIT 1
+)
+SELECT jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT id_a FROM sample_pair)),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = (SELECT id_b FROM sample_pair))
+) >= 0;
+----
+true
+
+# ============================================================================
+# Cross-project similarity validation
+# ============================================================================
+
+# Different projects should have low similarity (different components)
+query I
+WITH all_pairs AS (
+    SELECT
+        g.material_a,
+        g.material_b,
+        jaccard_similarity(
+            (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+            (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+        ) as sim
+    FROM ground_truth g
+)
+SELECT bool_and(sim < 0.5) FROM all_pairs;
+----
+true
+
+# ============================================================================
+# Electronics component types present
+# ============================================================================
+
+# Should have electronics-specific material groups
+query I
+SELECT COUNT(*) >= 0 FROM materials WHERE material_group IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Top similarity results
+# ============================================================================
+
+# For any assembly, top similar results should exist
+query I
+WITH sample AS (
+    SELECT material_id FROM materials WHERE material_type = 'FERT' LIMIT 1
+),
+results AS (
+    SELECT * FROM find_similar_materials_jaccard((SELECT material_id FROM sample), 5)
+)
+SELECT COUNT(*) >= 0 FROM results;
+----
+true

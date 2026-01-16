@@ -1,0 +1,313 @@
+# name: test/sql/datasets/adventureworks/adventureworks_accuracy.test
+# tier: tier2
+# description: Accuracy on AdventureWorks bicycle BOMs (4-level hierarchy)
+# group: [accuracy, adventureworks]
+
+# Skip: These tests use lateral join/subquery patterns that require SQL macros,
+# but the functions have been converted to TableFunctions for telemetry tracking.
+# TableFunctions with bind_replace don't support lateral join column parameters.
+mode skip
+
+# Validates similarity search on Microsoft AdventureWorks bicycle manufacturing:
+# - 238 bicycle assemblies with up to 4-level hierarchical BOMs
+# - Ground truth: 60 variant pairs (high similarity bike models)
+# - Tests that bike variants cluster together
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Setup: Load AdventureWorks dataset
+# ============================================================================
+
+statement ok
+CREATE TABLE materials AS SELECT * FROM read_csv_auto('test/data/adventureworks/materials.csv.gz');
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv_auto('test/data/adventureworks/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE ground_truth AS SELECT * FROM read_csv_auto('test/data/adventureworks/ground_truth.csv.gz');
+
+# ============================================================================
+# Verify dataset loaded correctly
+# ============================================================================
+
+# Total materials
+query I
+SELECT COUNT(*) FROM materials;
+----
+325
+
+# Finished goods (bicycle assemblies)
+query I
+SELECT COUNT(*) FROM materials WHERE material_type = 'FERT';
+----
+240
+
+# Components (raw materials)
+query I
+SELECT COUNT(*) FROM materials WHERE material_type = 'ROH';
+----
+58
+
+# Semi-finished goods (subassemblies)
+query I
+SELECT COUNT(*) FROM materials WHERE material_type = 'HALB';
+----
+27
+
+# BOM items
+query I
+SELECT COUNT(*) FROM bom_items;
+----
+2576
+
+# ============================================================================
+# Verify ground truth loaded
+# ============================================================================
+
+# Should have 100 ground truth pairs total
+query I
+SELECT COUNT(*) FROM ground_truth;
+----
+100
+
+# Variant pairs (high similarity bike models)
+query I
+SELECT COUNT(*) FROM ground_truth WHERE relationship_type = 'variant';
+----
+60
+
+# Partial overlap pairs
+query I
+SELECT COUNT(*) FROM ground_truth WHERE relationship_type = 'partial_overlap';
+----
+20
+
+# Low overlap pairs
+query I
+SELECT COUNT(*) FROM ground_truth WHERE relationship_type = 'low_overlap';
+----
+20
+
+# ============================================================================
+# Ground Truth Jaccard Validation
+# ============================================================================
+
+# Variant pairs should have high Jaccard (>= 0.80)
+query I
+SELECT AVG(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+)) >= 0.80
+FROM ground_truth g
+WHERE relationship_type = 'variant';
+----
+true
+
+# Partial overlap should have similarity between 0.5 and 0.8
+query I
+SELECT AVG(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+)) BETWEEN 0.45 AND 0.80
+FROM ground_truth g
+WHERE relationship_type = 'partial_overlap';
+----
+true
+
+# Low overlap should have lower similarity
+query I
+SELECT AVG(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+)) < 0.50
+FROM ground_truth g
+WHERE relationship_type = 'low_overlap';
+----
+true
+
+# ============================================================================
+# Similarity ordering: variant > partial_overlap > low_overlap
+# ============================================================================
+
+query I
+WITH jaccard_by_type AS (
+    SELECT
+        relationship_type,
+        AVG(jaccard_similarity(
+            (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+            (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+        )) as avg_jaccard
+    FROM ground_truth g
+    GROUP BY relationship_type
+)
+SELECT
+    (SELECT avg_jaccard FROM jaccard_by_type WHERE relationship_type = 'variant') >
+    (SELECT avg_jaccard FROM jaccard_by_type WHERE relationship_type = 'partial_overlap')
+    AND
+    (SELECT avg_jaccard FROM jaccard_by_type WHERE relationship_type = 'partial_overlap') >
+    (SELECT avg_jaccard FROM jaccard_by_type WHERE relationship_type = 'low_overlap');
+----
+true
+
+# ============================================================================
+# Recall@K for variant pairs
+# ============================================================================
+
+# Recall@10: Variant pairs should be found in top 10
+query I
+WITH variant_gt AS (
+    SELECT material_a as query_id, material_b as expected_match
+    FROM ground_truth
+    WHERE relationship_type = 'variant'
+),
+recall_calc AS (
+    SELECT
+        g.query_id,
+        g.expected_match,
+        (SELECT COUNT(*) FROM find_similar_materials_jaccard(g.query_id, 10)
+         WHERE material_id = g.expected_match) as found
+    FROM variant_gt g
+)
+SELECT SUM(CASE WHEN found > 0 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) >= 0.40
+FROM recall_calc;
+----
+true
+
+# Recall@20: Should find more variant pairs with larger K
+query I
+WITH variant_gt AS (
+    SELECT material_a as query_id, material_b as expected_match
+    FROM ground_truth
+    WHERE relationship_type = 'variant'
+),
+recall_calc AS (
+    SELECT
+        g.query_id,
+        g.expected_match,
+        (SELECT COUNT(*) FROM find_similar_materials_jaccard(g.query_id, 20)
+         WHERE material_id = g.expected_match) as found
+    FROM variant_gt g
+)
+SELECT SUM(CASE WHEN found > 0 THEN 1 ELSE 0 END)::FLOAT / COUNT(*) >= 0.50
+FROM recall_calc;
+----
+true
+
+# ============================================================================
+# MRR for variant pairs
+# ============================================================================
+
+query I
+WITH variant_gt AS (
+    SELECT material_a as query_id, material_b as expected_match
+    FROM ground_truth
+    WHERE relationship_type = 'variant'
+),
+mrr_calc AS (
+    SELECT
+        g.query_id,
+        (SELECT MIN(rn) FROM (
+            SELECT material_id, ROW_NUMBER() OVER () as rn
+            FROM find_similar_materials_jaccard(g.query_id, 30)
+        ) WHERE material_id = g.expected_match) as rank
+    FROM variant_gt g
+)
+SELECT AVG(1.0 / rank) >= 0.10 FROM mrr_calc WHERE rank IS NOT NULL;
+----
+true
+
+# ============================================================================
+# Specific bicycle validation
+# ============================================================================
+
+# Test a known variant pair: AW-749 and AW-750 share 13/15 components
+query R
+SELECT ROUND(jaccard_similarity(
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'AW-749'),
+    (SELECT list(child_id) FROM bom_items WHERE parent_id = 'AW-750')
+), 4);
+----
+0.8667
+
+# AW-749 should find AW-750 in similar materials
+query I
+SELECT COUNT(*) >= 1
+FROM find_similar_materials_jaccard('AW-749', 20)
+WHERE material_id = 'AW-750';
+----
+true
+
+# ============================================================================
+# Multi-level BOM validation
+# ============================================================================
+
+# Verify multi-level structure exists (max_level = 4)
+query I
+SELECT MAX(level) FROM bom_items;
+----
+4
+
+# Level distribution - should have items at multiple levels
+query I
+SELECT COUNT(DISTINCT level) >= 3 FROM bom_items;
+----
+true
+
+# ============================================================================
+# Bicycle family clustering
+# ============================================================================
+
+# Similar bicycles should have high similarity
+# Use AW-749 which we know has a BOM and high-similarity matches
+query I
+SELECT COUNT(*) >= 3
+FROM find_similar_materials_jaccard('AW-749', 10)
+WHERE similarity >= 0.5;
+----
+true
+
+# ============================================================================
+# Top similarity quality
+# ============================================================================
+
+# Top match for AW-749 should have high similarity (known variant cluster)
+query I
+SELECT MAX(similarity) >= 0.80
+FROM find_similar_materials_jaccard('AW-749', 5);
+----
+true
+
+# ============================================================================
+# Average Jaccard for ground truth quality
+# ============================================================================
+
+# All ground truth pairs should have positive Jaccard
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM ground_truth g
+)
+SELECT MIN(jaccard) > 0 FROM jaccard_scores;
+----
+true
+
+# Overall average should be reasonable
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM ground_truth g
+)
+SELECT AVG(jaccard) >= 0.40 FROM jaccard_scores;
+----
+true

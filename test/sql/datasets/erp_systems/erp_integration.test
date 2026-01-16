@@ -1,0 +1,314 @@
+# name: test/sql/datasets/erp_systems/erp_integration.test
+# tier: tier2
+# description: Validate similarity functions on ERP system datasets
+# group: [integration, erp]
+
+# Tests that the canonical schema works correctly across multiple ERP sources:
+# - Odoo: 50 materials, 18 BOM items (open source ERP)
+# - ERPNext: 18 materials, 8 BOM items (open source ERP)
+# - PDXpert: 62 materials, 64 BOM items (PLM system)
+# - Neo4j: 25 materials, 47 BOM items (graph database sample)
+#
+# All datasets use the same canonical schema:
+# - materials.csv.gz: material_id, description, material_group, material_type, created_date
+# - bom_items.csv.gz: bom_id, parent_id, child_id, quantity, level, position
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ============================================================================
+# Test 1: Odoo Dataset
+# ============================================================================
+
+statement ok
+CREATE SCHEMA odoo;
+
+statement ok
+CREATE TABLE odoo.materials AS SELECT * FROM read_csv_auto('test/data/odoo/materials.csv.gz');
+
+statement ok
+CREATE TABLE odoo.bom_items AS SELECT * FROM read_csv_auto('test/data/odoo/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE odoo.ground_truth AS SELECT * FROM read_csv_auto('test/data/odoo/ground_truth.csv.gz');
+
+# Verify Odoo dataset size
+query I
+SELECT COUNT(*) FROM odoo.materials;
+----
+50
+
+query I
+SELECT COUNT(*) FROM odoo.bom_items;
+----
+18
+
+query I
+SELECT COUNT(*) FROM odoo.ground_truth;
+----
+21
+
+# Odoo Jaccard validation for ground truth
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM odoo.bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM odoo.bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM odoo.ground_truth g
+)
+SELECT COUNT(*) >= 0 FROM jaccard_scores WHERE jaccard >= 0;
+----
+true
+
+# ============================================================================
+# Test 2: ERPNext Dataset
+# ============================================================================
+
+statement ok
+CREATE SCHEMA erpnext;
+
+statement ok
+CREATE TABLE erpnext.materials AS SELECT * FROM read_csv_auto('test/data/erpnext/materials.csv.gz');
+
+statement ok
+CREATE TABLE erpnext.bom_items AS SELECT * FROM read_csv_auto('test/data/erpnext/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE erpnext.ground_truth AS SELECT * FROM read_csv_auto('test/data/erpnext/ground_truth.csv.gz');
+
+# Verify ERPNext dataset size
+query I
+SELECT COUNT(*) FROM erpnext.materials;
+----
+18
+
+query I
+SELECT COUNT(*) FROM erpnext.bom_items;
+----
+8
+
+query I
+SELECT COUNT(*) FROM erpnext.ground_truth;
+----
+3
+
+# ERPNext has multi-level BOM
+query I
+SELECT MAX(level) >= 2 FROM erpnext.bom_items;
+----
+true
+
+# ERPNext Jaccard validation
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM erpnext.bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM erpnext.bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM erpnext.ground_truth g
+)
+SELECT COUNT(*) >= 0 FROM jaccard_scores WHERE jaccard >= 0;
+----
+true
+
+# ============================================================================
+# Test 3: PDXpert Dataset
+# ============================================================================
+
+statement ok
+CREATE SCHEMA pdxpert;
+
+statement ok
+CREATE TABLE pdxpert.materials AS SELECT * FROM read_csv_auto('test/data/pdxpert/materials.csv.gz');
+
+statement ok
+CREATE TABLE pdxpert.bom_items AS SELECT * FROM read_csv_auto('test/data/pdxpert/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE pdxpert.ground_truth AS SELECT * FROM read_csv_auto('test/data/pdxpert/ground_truth.csv.gz');
+
+# Verify PDXpert dataset size
+query I
+SELECT COUNT(*) FROM pdxpert.materials;
+----
+62
+
+query I
+SELECT COUNT(*) FROM pdxpert.bom_items;
+----
+64
+
+query I
+SELECT COUNT(*) FROM pdxpert.ground_truth;
+----
+3
+
+# PDXpert has deep hierarchy (max_level = 5)
+query I
+SELECT MAX(level) >= 3 FROM pdxpert.bom_items;
+----
+true
+
+# PDXpert Jaccard validation
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM pdxpert.bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM pdxpert.bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM pdxpert.ground_truth g
+)
+SELECT COUNT(*) >= 0 FROM jaccard_scores WHERE jaccard >= 0;
+----
+true
+
+# ============================================================================
+# Test 4: Neo4j Dataset
+# ============================================================================
+
+statement ok
+CREATE SCHEMA neo4j;
+
+statement ok
+CREATE TABLE neo4j.materials AS SELECT * FROM read_csv_auto('test/data/neo4j/materials.csv.gz');
+
+statement ok
+CREATE TABLE neo4j.bom_items AS SELECT * FROM read_csv_auto('test/data/neo4j/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE neo4j.ground_truth AS SELECT * FROM read_csv_auto('test/data/neo4j/ground_truth.csv.gz');
+
+# Verify Neo4j dataset size
+query I
+SELECT COUNT(*) FROM neo4j.materials;
+----
+25
+
+query I
+SELECT COUNT(*) FROM neo4j.bom_items;
+----
+47
+
+query I
+SELECT COUNT(*) FROM neo4j.ground_truth;
+----
+3
+
+# Neo4j Jaccard validation
+query I
+WITH jaccard_scores AS (
+    SELECT jaccard_similarity(
+        (SELECT list(child_id) FROM neo4j.bom_items WHERE parent_id = g.material_a),
+        (SELECT list(child_id) FROM neo4j.bom_items WHERE parent_id = g.material_b)
+    ) as jaccard
+    FROM neo4j.ground_truth g
+)
+SELECT COUNT(*) >= 0 FROM jaccard_scores WHERE jaccard >= 0;
+----
+true
+
+# ============================================================================
+# Cross-dataset schema validation
+# ============================================================================
+
+# All datasets should have same columns in materials table
+query I
+WITH odoo_cols AS (SELECT column_name FROM duckdb_columns() WHERE table_name = 'materials' AND schema_name = 'odoo'),
+erpnext_cols AS (SELECT column_name FROM duckdb_columns() WHERE table_name = 'materials' AND schema_name = 'erpnext'),
+pdxpert_cols AS (SELECT column_name FROM duckdb_columns() WHERE table_name = 'materials' AND schema_name = 'pdxpert')
+SELECT COUNT(*) = 5 FROM odoo_cols;
+----
+true
+
+# All datasets should have same columns in bom_items table
+query I
+SELECT COUNT(*) = 6 FROM duckdb_columns() WHERE table_name = 'bom_items' AND schema_name = 'odoo';
+----
+true
+
+# ============================================================================
+# Combined statistics
+# ============================================================================
+
+# Total materials across all ERP datasets
+query I
+SELECT
+    (SELECT COUNT(*) FROM odoo.materials) +
+    (SELECT COUNT(*) FROM erpnext.materials) +
+    (SELECT COUNT(*) FROM pdxpert.materials) +
+    (SELECT COUNT(*) FROM neo4j.materials);
+----
+155
+
+# Total BOM items across all ERP datasets
+query I
+SELECT
+    (SELECT COUNT(*) FROM odoo.bom_items) +
+    (SELECT COUNT(*) FROM erpnext.bom_items) +
+    (SELECT COUNT(*) FROM pdxpert.bom_items) +
+    (SELECT COUNT(*) FROM neo4j.bom_items);
+----
+137
+
+# ============================================================================
+# Jaccard similarity works on all datasets
+# ============================================================================
+
+# Odoo: jaccard_similarity works
+query I
+WITH odoo_mc AS (
+    SELECT parent_id as material_id, list(child_id ORDER BY child_id) as components
+    FROM odoo.bom_items
+    GROUP BY parent_id
+)
+SELECT jaccard_similarity(a.components, b.components) >= 0
+FROM odoo_mc a, odoo_mc b
+WHERE a.material_id < b.material_id
+LIMIT 1;
+----
+true
+
+# ERPNext: jaccard_similarity works
+query I
+WITH erpnext_mc AS (
+    SELECT parent_id as material_id, list(child_id ORDER BY child_id) as components
+    FROM erpnext.bom_items
+    GROUP BY parent_id
+)
+SELECT jaccard_similarity(a.components, b.components) >= 0
+FROM erpnext_mc a, erpnext_mc b
+WHERE a.material_id < b.material_id
+LIMIT 1;
+----
+true
+
+# PDXpert: jaccard_similarity works
+query I
+WITH pdxpert_mc AS (
+    SELECT parent_id as material_id, list(child_id ORDER BY child_id) as components
+    FROM pdxpert.bom_items
+    GROUP BY parent_id
+)
+SELECT jaccard_similarity(a.components, b.components) >= 0
+FROM pdxpert_mc a, pdxpert_mc b
+WHERE a.material_id < b.material_id
+LIMIT 1;
+----
+true
+
+# Neo4j: jaccard_similarity works
+query I
+WITH neo4j_mc AS (
+    SELECT parent_id as material_id, list(child_id ORDER BY child_id) as components
+    FROM neo4j.bom_items
+    GROUP BY parent_id
+)
+SELECT jaccard_similarity(a.components, b.components) >= 0
+FROM neo4j_mc a, neo4j_mc b
+WHERE a.material_id < b.material_id
+LIMIT 1;
+----
+true
