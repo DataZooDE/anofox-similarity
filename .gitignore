@@ -13,3 +13,4 @@ test/data/sap/*.parquet
 # Private ERP technical memos (internal reference only)
 docs/SAP_BOM_Explosion_Technical_Memo.md
 docs/Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md
+test/data/cyclonedx/raw/
