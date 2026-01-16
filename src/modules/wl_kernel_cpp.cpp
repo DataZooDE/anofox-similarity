@@ -44,10 +44,10 @@ namespace anofox {
 //------------------------------------------------------------------------------
 
 void RegisterWLKernelCppFunctions(ExtensionLoader &loader, Connection &conn) {
-  // Placeholder: C++ implementation infrastructure
-  // The SQL implementation in wl_kernel.cpp is currently used
-  // This function is registered for future C++ optimization pathway
+	// Placeholder: C++ implementation infrastructure
+	// The SQL implementation in wl_kernel.cpp is currently used
+	// This function is registered for future C++ optimization pathway
 }
 
-}  // namespace anofox
-}  // namespace duckdb
+} // namespace anofox
+} // namespace duckdb

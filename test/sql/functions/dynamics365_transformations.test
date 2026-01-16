@@ -1,7 +1,8 @@
 # name: test/sql/functions/dynamics365_transformations.test
-# tier: tier1
 # description: Dynamics 365 BOM transformations to universal schema
-# group: [transformations]
+# group: [functions]
+
+# tier: tier1
 
 require anofox_similarity
 

@@ -30,7 +30,8 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 // find_similar_materials_jaccard TableFunction
 //------------------------------------------------------------------------------
 
-static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext &context,
+                                                                   TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("find_similar_materials_jaccard");
 
 	// Parameters:
@@ -81,7 +82,8 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 		WHERE similarity >= %f
 		ORDER BY similarity DESC
 		LIMIT %lld
-	)", bom_table, query_material_id, query_material_id, min_similarity, k);
+	)",
+	                                bom_table, query_material_id, query_material_id, min_similarity, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_jaccard query");
 }
@@ -90,7 +92,8 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 // find_similar_materials_wl_kernel TableFunction
 //------------------------------------------------------------------------------
 
-static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContext &context,
+                                                                    TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("find_similar_materials_wl_kernel");
 
 	// Parameters:
@@ -122,7 +125,8 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		bom_table = input.named_parameters.at("bom_table").ToString();
 	}
 
-	string sql = StringUtil::Format(R"(
+	string sql =
+	    StringUtil::Format(R"(
 		WITH
 			all_materials AS (
 				SELECT DISTINCT parent_id AS material_id
@@ -140,7 +144,8 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		WHERE similarity >= %f
 		ORDER BY similarity DESC
 		LIMIT %lld
-	)", bom_table, query_material_id, iterations, bom_table, query_material_id, min_similarity, k);
+	)",
+	                       bom_table, query_material_id, iterations, bom_table, query_material_id, min_similarity, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_wl_kernel query");
 }
@@ -236,7 +241,9 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 			ORDER BY similarity DESC
 			LIMIT %lld
 		)
-	)", bom_table, query_material_id, query_material_id, movements_table, min_similarity, min_history_months, k);
+	)",
+	                                bom_table, query_material_id, query_material_id, movements_table, min_similarity,
+	                                min_history_months, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse cold_start_analogs query");
 }
@@ -247,8 +254,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 
 void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	// find_similar_materials_jaccard
-	TableFunction find_similar_jaccard("find_similar_materials_jaccard",
-	                                   {LogicalType::VARCHAR, LogicalType::BIGINT},
+	TableFunction find_similar_jaccard("find_similar_materials_jaccard", {LogicalType::VARCHAR, LogicalType::BIGINT},
 	                                   nullptr, nullptr);
 	find_similar_jaccard.bind_replace = FindSimilarMaterialsJaccardBindReplace;
 	find_similar_jaccard.named_parameters["min_similarity"] = LogicalType::DOUBLE;
@@ -256,8 +262,7 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(find_similar_jaccard);
 
 	// find_similar_materials_wl_kernel
-	TableFunction find_similar_wl("find_similar_materials_wl_kernel",
-	                              {LogicalType::VARCHAR, LogicalType::BIGINT},
+	TableFunction find_similar_wl("find_similar_materials_wl_kernel", {LogicalType::VARCHAR, LogicalType::BIGINT},
 	                              nullptr, nullptr);
 	find_similar_wl.bind_replace = FindSimilarMaterialsWLKernelBindReplace;
 	find_similar_wl.named_parameters["iterations"] = LogicalType::BIGINT;
@@ -266,9 +271,7 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(find_similar_wl);
 
 	// cold_start_analogs
-	TableFunction cold_start("cold_start_analogs",
-	                         {LogicalType::VARCHAR, LogicalType::BIGINT},
-	                         nullptr, nullptr);
+	TableFunction cold_start("cold_start_analogs", {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
 	cold_start.bind_replace = ColdStartAnalogsBindReplace;
 	cold_start.named_parameters["min_history_months"] = LogicalType::BIGINT;
 	cold_start.named_parameters["min_similarity"] = LogicalType::DOUBLE;

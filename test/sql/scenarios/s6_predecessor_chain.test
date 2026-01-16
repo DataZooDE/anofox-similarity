@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s6_predecessor_chain.test
-# tier: tier1
 # description: S6 - Predecessor chain testing with 70% retention per generation
-# group: [tier1_synthetic]
+# group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

@@ -184,7 +184,7 @@ def download_pdxpert(output_dir: Path) -> dict:
             with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
                 for name in zf.namelist():
                     # Only extract CSV files
-                    if name.endswith('.csv'):
+                    if name.endswith(".csv"):
                         # Flatten directory structure
                         dest_name = Path(name).name
                         dest_path = raw_dir / dest_name
@@ -248,24 +248,17 @@ def download_neo4j(output_dir: Path) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Download BOM demo data from open source and commercial ERPs"
+    parser = argparse.ArgumentParser(description="Download BOM demo data from open source and commercial ERPs")
+    parser.add_argument(
+        "--output", "-o", type=Path, default=Path("test/data"), help="Output directory for downloaded files"
     )
     parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data"),
-        help="Output directory for downloaded files"
-    )
-    parser.add_argument(
-        "--opensource-only",
-        action="store_true",
-        help="Only download open source ERP data (Odoo, ERPNext)"
+        "--opensource-only", action="store_true", help="Only download open source ERP data (Odoo, ERPNext)"
     )
     parser.add_argument(
         "--commercial-only",
         action="store_true",
-        help="Only download commercial ERP data (AdventureWorks, PDXpert, Neo4j)"
+        help="Only download commercial ERP data (AdventureWorks, PDXpert, Neo4j)",
     )
 
     args = parser.parse_args()

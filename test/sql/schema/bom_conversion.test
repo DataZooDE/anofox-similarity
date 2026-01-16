@@ -1,7 +1,8 @@
 # name: test/sql/schema/bom_conversion.test
-# tier: tier1
 # description: Test conversion between flat bom_items and universal schema
 # group: [schema]
+
+# tier: tier1
 
 require anofox_similarity
 

@@ -1,7 +1,8 @@
 # name: test/sql/fusion/multimodal_fusion.test
-# tier: tier2
 # description: Test multi-modal fusion combining structural, textual, and transactional embeddings
 # group: [fusion]
+
+# tier: tier2
 
 require anofox_similarity
 

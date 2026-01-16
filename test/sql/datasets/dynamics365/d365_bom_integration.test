@@ -1,7 +1,8 @@
 # name: test/sql/datasets/dynamics365/d365_bom_integration.test
-# tier: tier2
 # description: Dynamics 365 end-to-end BOM integration with similarity search
-# group: [datasets, integration]
+# group: [dynamics365]
+
+# tier: tier2
 
 require anofox_similarity
 

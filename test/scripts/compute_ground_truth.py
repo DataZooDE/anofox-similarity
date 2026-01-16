@@ -203,13 +203,15 @@ class GroundTruthGenerator:
 
         # Create ground truth records
         for prod_a, prod_b, sim, rel_type, notes in selected:
-            self.ground_truth.append(GroundTruth(
-                material_a=prod_a,
-                material_b=prod_b,
-                expected_similarity=round(sim, 4),
-                relationship_type=rel_type,
-                notes=notes,
-            ))
+            self.ground_truth.append(
+                GroundTruth(
+                    material_a=prod_a,
+                    material_b=prod_b,
+                    expected_similarity=round(sim, 4),
+                    relationship_type=rel_type,
+                    notes=notes,
+                )
+            )
 
         print(f"  Selected {len(self.ground_truth)} pairs for ground truth")
 
@@ -223,10 +225,9 @@ class GroundTruthGenerator:
     def write_output(self, output_path: Path) -> None:
         """Write ground truth CSV file."""
         with gzip.open(output_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_a", "material_b", "expected_similarity",
-                "relationship_type", "notes"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_a", "material_b", "expected_similarity", "relationship_type", "notes"]
+            )
             writer.writeheader()
             for gt in self.ground_truth:
                 writer.writerow(asdict(gt))
@@ -234,27 +235,26 @@ class GroundTruthGenerator:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Compute ground truth similarity pairs for BOM datasets"
-    )
+    parser = argparse.ArgumentParser(description="Compute ground truth similarity pairs for BOM datasets")
     parser.add_argument(
-        "--dataset", "-d",
-        choices=["odoo", "erpnext", "figshare", "figshare_subassembly", "adventureworks", "pdxpert", "neo4j", "openhardware", "caterpillar"],
+        "--dataset",
+        "-d",
+        choices=[
+            "odoo",
+            "erpnext",
+            "figshare",
+            "figshare_subassembly",
+            "adventureworks",
+            "pdxpert",
+            "neo4j",
+            "openhardware",
+            "caterpillar",
+        ],
         required=True,
-        help="Dataset to process"
+        help="Dataset to process",
     )
-    parser.add_argument(
-        "--data-dir",
-        type=Path,
-        default=Path("test/data"),
-        help="Base data directory"
-    )
-    parser.add_argument(
-        "--max-pairs",
-        type=int,
-        default=100,
-        help="Maximum number of pairs to output"
-    )
+    parser.add_argument("--data-dir", type=Path, default=Path("test/data"), help="Base data directory")
+    parser.add_argument("--max-pairs", type=int, default=100, help="Maximum number of pairs to output")
 
     args = parser.parse_args()
 

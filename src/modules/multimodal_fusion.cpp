@@ -62,7 +62,8 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 
 	for (idx_t i = 0; i < count; i++) {
 		// Handle NULL inputs
-		if (!structural_validity.RowIsValid(i) || !textual_validity.RowIsValid(i) || !transactional_validity.RowIsValid(i)) {
+		if (!structural_validity.RowIsValid(i) || !textual_validity.RowIsValid(i) ||
+		    !transactional_validity.RowIsValid(i)) {
 			result_validity.SetInvalid(i);
 			continue;
 		}
@@ -106,7 +107,7 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 //------------------------------------------------------------------------------
 
 static unique_ptr<FunctionData> FuseEmbeddingsBind(ClientContext &context, ScalarFunction &bound_function,
-                                                    vector<unique_ptr<Expression>> &arguments) {
+                                                   vector<unique_ptr<Expression>> &arguments) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("fuse_embeddings");
 	return nullptr;
 }
@@ -122,19 +123,14 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 
 	// Note: This is a simplified version for testing
 	// Production version would properly parse the weights struct
-	auto fuse_embeddings_function = ScalarFunction(
-	    "fuse_embeddings",
-	    {LogicalType::LIST(LogicalType::FLOAT), LogicalType::LIST(LogicalType::FLOAT),
-	     LogicalType::LIST(LogicalType::FLOAT), LogicalType::STRUCT({
-	     {"structural", LogicalType::FLOAT},
-	     {"textual", LogicalType::FLOAT},
-	     {"transactional", LogicalType::FLOAT}
-	 })}
-	,
-	    LogicalType::LIST(LogicalType::FLOAT),
-	    FuseEmbeddingsFunction,
-	    FuseEmbeddingsBind
-	);
+	auto fuse_embeddings_function =
+	    ScalarFunction("fuse_embeddings",
+	                   {LogicalType::LIST(LogicalType::FLOAT), LogicalType::LIST(LogicalType::FLOAT),
+	                    LogicalType::LIST(LogicalType::FLOAT),
+	                    LogicalType::STRUCT({{"structural", LogicalType::FLOAT},
+	                                         {"textual", LogicalType::FLOAT},
+	                                         {"transactional", LogicalType::FLOAT}})},
+	                   LogicalType::LIST(LogicalType::FLOAT), FuseEmbeddingsFunction, FuseEmbeddingsBind);
 	loader.RegisterFunction(fuse_embeddings_function);
 }
 

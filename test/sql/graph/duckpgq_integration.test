@@ -1,7 +1,8 @@
 # name: test/sql/graph/duckpgq_integration.test
-# tier: tier1
 # description: DuckPGQ Property Graph integration for BOM traversal
-# group: [graphs]
+# group: [graph]
+
+# tier: tier1
 
 require anofox_similarity
 

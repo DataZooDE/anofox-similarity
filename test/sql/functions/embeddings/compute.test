@@ -1,7 +1,8 @@
 # name: test/sql/functions/embeddings/compute.test
 # description: Tests for compute_jaccard_embeddings macro
+# group: [embeddings]
+
 # tier: tier1
-# group: [functions]
 
 require anofox_similarity
 

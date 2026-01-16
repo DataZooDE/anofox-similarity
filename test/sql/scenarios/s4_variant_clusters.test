@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s4_variant_clusters.test
-# tier: tier1
 # description: S4 - Variant clusters with 90%, 70%, 50% retention should show decreasing similarity
-# group: [tier1_synthetic]
+# group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

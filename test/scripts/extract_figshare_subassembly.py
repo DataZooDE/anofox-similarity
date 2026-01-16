@@ -42,9 +42,17 @@ class BOMItem:
 class FigshareExtractor:
     # Material columns in the Excel file
     MATERIAL_COLUMNS = [
-        "Aluminum", "Copper", "Steel", "Plastic", "Li-ion battery",
-        "PCB", "Flat panel glass", "CRT glass", "Other glass",
-        "Other metals", "Others"
+        "Aluminum",
+        "Copper",
+        "Steel",
+        "Plastic",
+        "Li-ion battery",
+        "PCB",
+        "Flat panel glass",
+        "CRT glass",
+        "Other glass",
+        "Other metals",
+        "Others",
     ]
 
     def __init__(self, excel_path: Path):
@@ -59,8 +67,8 @@ class FigshareExtractor:
     def _clean_id(self, name: str, prefix: str = "FIG") -> str:
         """Convert name to clean material ID."""
         # Remove special chars, normalize
-        clean = re.sub(r'[^a-zA-Z0-9\s-]', '', name)
-        clean = clean.strip().upper().replace(' ', '-')
+        clean = re.sub(r"[^a-zA-Z0-9\s-]", "", name)
+        clean = clean.strip().upper().replace(" ", "-")
         # Truncate if too long
         if len(clean) > 40:
             clean = clean[:40]
@@ -137,14 +145,16 @@ class FigshareExtractor:
 
                 # Add Level 1 BOM: Product -> Component
                 position_counter += 10
-                self.bom_items.append(BOMItem(
-                    bom_id=f"BOM-{current_product_id}",
-                    parent_id=current_product_id,
-                    child_id=current_component_id,
-                    quantity=1.0,
-                    level=1,
-                    position=position_counter,
-                ))
+                self.bom_items.append(
+                    BOMItem(
+                        bom_id=f"BOM-{current_product_id}",
+                        parent_id=current_product_id,
+                        child_id=current_component_id,
+                        quantity=1.0,
+                        level=1,
+                        position=position_counter,
+                    )
+                )
 
                 # Add Level 2 BOMs: Component -> Materials
                 mat_position = 0
@@ -158,14 +168,16 @@ class FigshareExtractor:
                                 if float_val > 0:
                                     mat_id = self._clean_id(mat_name, "MAT")
                                     mat_position += 10
-                                    self.bom_items.append(BOMItem(
-                                        bom_id=f"BOM-{current_component_id}",
-                                        parent_id=current_component_id,
-                                        child_id=mat_id,
-                                        quantity=float_val,
-                                        level=2,
-                                        position=mat_position,
-                                    ))
+                                    self.bom_items.append(
+                                        BOMItem(
+                                            bom_id=f"BOM-{current_component_id}",
+                                            parent_id=current_component_id,
+                                            child_id=mat_id,
+                                            quantity=float_val,
+                                            level=2,
+                                            position=mat_position,
+                                        )
+                                    )
                             except (ValueError, TypeError):
                                 # Skip non-numeric values
                                 pass
@@ -198,9 +210,9 @@ class FigshareExtractor:
         # Write materials.csv.gz
         materials_path = output_dir / "materials_subassembly.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -209,9 +221,7 @@ class FigshareExtractor:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items_subassembly.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in self.bom_items:
                 writer.writerow(asdict(item))
@@ -242,20 +252,16 @@ class FigshareExtractor:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract sub-assembly BOM data from Figshare Disassembly Detail"
-    )
+    parser = argparse.ArgumentParser(description="Extract sub-assembly BOM data from Figshare Disassembly Detail")
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=Path,
         default=Path("test/data/figshare/raw/Disassembly Detail_June2020.xlsx"),
-        help="Input Excel file"
+        help="Input Excel file",
     )
     parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data/figshare"),
-        help="Output directory for canonical CSV files"
+        "--output", "-o", type=Path, default=Path("test/data/figshare"), help="Output directory for canonical CSV files"
     )
 
     args = parser.parse_args()

@@ -195,7 +195,8 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 			num_components
 		FROM minhash_by_seed
 		ORDER BY material_id, seed
-	)", bom_table);
+	)",
+	                                bom_table);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_jaccard_embeddings query");
 }

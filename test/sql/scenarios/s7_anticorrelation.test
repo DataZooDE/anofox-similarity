@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s7_anticorrelation.test
 # description: S7 - Clear predecessor with anti-correlation
-# tier: tier1
 # group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

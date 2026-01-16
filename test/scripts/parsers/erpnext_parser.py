@@ -151,14 +151,16 @@ class ERPNextParser:
                     sub_bom_no = item.get("bom_no", "")
                     level = 2 if sub_bom_no else 1
 
-                    self.bom_items.append(BOMItem(
-                        bom_id=bom_id,
-                        parent_id=material_id,
-                        child_id=child_material_id,
-                        quantity=qty,
-                        level=level,
-                        position=position,
-                    ))
+                    self.bom_items.append(
+                        BOMItem(
+                            bom_id=bom_id,
+                            parent_id=material_id,
+                            child_id=child_material_id,
+                            quantity=qty,
+                            level=level,
+                            position=position,
+                        )
+                    )
 
                 bom_count += 1
 
@@ -212,9 +214,9 @@ class ERPNextParser:
         # Write materials.csv.gz
         materials_path = output_dir / "materials.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -223,9 +225,7 @@ class ERPNextParser:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in self.bom_items:
                 writer.writerow(asdict(item))
@@ -249,20 +249,12 @@ class ERPNextParser:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse ERPNext BOM test records and convert to canonical format"
+    parser = argparse.ArgumentParser(description="Parse ERPNext BOM test records and convert to canonical format")
+    parser.add_argument(
+        "--input", "-i", type=Path, default=Path("test/data/erpnext/raw"), help="Input directory with raw JSON files"
     )
     parser.add_argument(
-        "--input", "-i",
-        type=Path,
-        default=Path("test/data/erpnext/raw"),
-        help="Input directory with raw JSON files"
-    )
-    parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data/erpnext"),
-        help="Output directory for canonical CSV files"
+        "--output", "-o", type=Path, default=Path("test/data/erpnext"), help="Output directory for canonical CSV files"
     )
 
     args = parser.parse_args()

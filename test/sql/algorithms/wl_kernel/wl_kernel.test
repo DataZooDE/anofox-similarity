@@ -1,7 +1,8 @@
 # name: test/sql/algorithms/wl_kernel/wl_kernel.test
 # description: Weisfeiler-Lehman graph kernel tests for structural similarity
+# group: [wl_kernel]
+
 # tier: tier1
-# group: [algorithms, wl_kernel]
 
 # This test file validates the Weisfeiler-Lehman (WL) kernel implementation.
 # WL kernel captures structural graph similarity via recursive neighborhood hashing.

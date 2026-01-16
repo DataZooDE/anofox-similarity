@@ -1,7 +1,8 @@
 # name: test/sql/schema/universal_bom_schema.test
-# tier: tier1
 # description: Universal BOM schema validation and backward compatibility
 # group: [schema]
+
+# tier: tier1
 
 require anofox_similarity
 

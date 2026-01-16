@@ -1,7 +1,8 @@
 # name: test/sql/functions/infer_predecessors.test
 # description: Tests for infer_predecessors() - S7, S8, S9, S12 scenarios
-# tier: tier1
 # group: [functions]
+
+# tier: tier1
 
 require anofox_similarity
 

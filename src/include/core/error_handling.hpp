@@ -12,9 +12,9 @@ namespace anofox {
 //------------------------------------------------------------------------------
 
 enum class FailureMode {
-	REQUIRED,     // Throw on error (critical infrastructure)
-	OPTIONAL,     // Continue on error (optional features)
-	BEST_EFFORT   // Silently ignore errors (experimental features)
+	REQUIRED,   // Throw on error (critical infrastructure)
+	OPTIONAL,   // Continue on error (optional features)
+	BEST_EFFORT // Silently ignore errors (experimental features)
 };
 
 //------------------------------------------------------------------------------
@@ -27,9 +27,8 @@ enum class FailureMode {
 // - BEST_EFFORT: Silently ignores errors (for experimental features like triggers)
 //
 // Template parameter T: QueryResult, MaterializedQueryResult, or similar types
-template<typename T>
-void CheckQueryResult(const unique_ptr<T> &result,
-                      const std::string &operation,
+template <typename T>
+void CheckQueryResult(const unique_ptr<T> &result, const std::string &operation,
                       FailureMode mode = FailureMode::REQUIRED);
 
 } // namespace anofox

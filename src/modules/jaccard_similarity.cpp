@@ -121,7 +121,7 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 //------------------------------------------------------------------------------
 
 static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, ScalarFunction &bound_function,
-                                                       vector<unique_ptr<Expression>> &arguments) {
+                                                      vector<unique_ptr<Expression>> &arguments) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("jaccard_similarity");
 	return nullptr;
 }
@@ -132,16 +132,11 @@ static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, Sc
 
 void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	// Register scalar function
-	auto jaccard_similarity_function = ScalarFunction(
-	    "jaccard_similarity",
-	    {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
-	    LogicalType::DOUBLE,
-	    JaccardSimilarityFun,
-	    JaccardSimilarityBind
-	);
+	auto jaccard_similarity_function =
+	    ScalarFunction("jaccard_similarity", {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
+	                   LogicalType::DOUBLE, JaccardSimilarityFun, JaccardSimilarityBind);
 	loader.RegisterFunction(jaccard_similarity_function);
 }
-
 
 } // namespace anofox
 } // namespace duckdb

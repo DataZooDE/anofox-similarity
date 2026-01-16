@@ -1,7 +1,8 @@
 # name: test/sql/accuracy/predecessor_f1.test
-# tier: tier1
 # description: Tier 3 - Predecessor detection Precision, Recall, and F1 validation
-# group: [tier3_metrics]
+# group: [accuracy]
+
+# tier: tier1
 
 # Skip: These accuracy tests use lateral join patterns that require SQL macros,
 # but the functions have been converted to TableFunctions for telemetry tracking.

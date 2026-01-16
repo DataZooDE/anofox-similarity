@@ -59,85 +59,39 @@ namespace anofox {
 // The 68 new features from comprehensive tsfresh analysis:
 // These feature names follow anofox-forecast naming conventions
 
-static constexpr std::array<const char*, 68> PHASE2B_NEW_FEATURES = {{
-	// Quantile-based features (5)
-	"quantile__q_0_1",
-	"quantile__q_0_25",
-	"quantile__q_0_75",
-	"quantile__q_0_9",
-	"iqr",  // Interquartile range
+static constexpr std::array<const char *, 68> PHASE2B_NEW_FEATURES = {
+    {// Quantile-based features (5)
+     "quantile__q_0_1", "quantile__q_0_25", "quantile__q_0_75", "quantile__q_0_9",
+     "iqr", // Interquartile range
 
-	// Min/Max/Range extensions (5)
-	"minimum",
-	"maximum",
-	"absolute_maximum",
-	"range",
-	"absolute_energy",
+     // Min/Max/Range extensions (5)
+     "minimum", "maximum", "absolute_maximum", "range", "absolute_energy",
 
-	// Extended autocorrelation (10)
-	"autocorrelation__lag_2",
-	"autocorrelation__lag_3",
-	"autocorrelation__lag_4",
-	"autocorrelation__lag_5",
-	"autocorrelation__lag_6",
-	"autocorrelation__lag_8",
-	"autocorrelation__lag_12",
-	"autocorrelation__lag_24",
-	"autocorr_strength",
-	"autocorr_tendency",
+     // Extended autocorrelation (10)
+     "autocorrelation__lag_2", "autocorrelation__lag_3", "autocorrelation__lag_4", "autocorrelation__lag_5",
+     "autocorrelation__lag_6", "autocorrelation__lag_8", "autocorrelation__lag_12", "autocorrelation__lag_24",
+     "autocorr_strength", "autocorr_tendency",
 
-	// Peak and valley detection (8)
-	"number_peaks",
-	"number_valleys",
-	"longest_strike_above_mean",
-	"longest_strike_below_mean",
-	"longest_strike_above_zero",
-	"longest_strike_below_zero",
-	"number_crossing_m",
-	"number_crossing_0",
+     // Peak and valley detection (8)
+     "number_peaks", "number_valleys", "longest_strike_above_mean", "longest_strike_below_mean",
+     "longest_strike_above_zero", "longest_strike_below_zero", "number_crossing_m", "number_crossing_0",
 
-	// Entropy and complexity (8)
-	"permutation_entropy",
-	"spectral_entropy",
-	"shannon_entropy",
-	"approximate_entropy__lag_2",
-	"sample_entropy__lag_2",
-	"complexity_invariant",
-	"hurst_exponent",
-	"detrended_fluctuation_analysis",
+     // Entropy and complexity (8)
+     "permutation_entropy", "spectral_entropy", "shannon_entropy", "approximate_entropy__lag_2",
+     "sample_entropy__lag_2", "complexity_invariant", "hurst_exponent", "detrended_fluctuation_analysis",
 
-	// FFT extensions (10)
-	"fft_coefficient__attr_real__coeff_3",
-	"fft_coefficient__attr_imag__coeff_3",
-	"fft_coefficient__attr_real__coeff_4",
-	"fft_coefficient__attr_imag__coeff_4",
-	"fft_power",
-	"fft_centroid",
-	"fft_magnitude_ratio",
-	"welch_power_spectral_density",
-	"spectral_rolloff",
-	"spectral_centroid_freq",
+     // FFT extensions (10)
+     "fft_coefficient__attr_real__coeff_3", "fft_coefficient__attr_imag__coeff_3",
+     "fft_coefficient__attr_real__coeff_4", "fft_coefficient__attr_imag__coeff_4", "fft_power", "fft_centroid",
+     "fft_magnitude_ratio", "welch_power_spectral_density", "spectral_rolloff", "spectral_centroid_freq",
 
-	// Change and trend metrics (8)
-	"mean_abs_change",
-	"mean_second_derivative",
-	"trend_strength",
-	"mean_abs_change_rate",
-	"sum_of_absolute_second_derivative",
-	"mean_absolute_second_derivative",
-	"count_above_mean",
-	"count_below_mean",
+     // Change and trend metrics (8)
+     "mean_abs_change", "mean_second_derivative", "trend_strength", "mean_abs_change_rate",
+     "sum_of_absolute_second_derivative", "mean_absolute_second_derivative", "count_above_mean", "count_below_mean",
 
-	// Additional statistical moments (8)
-	"skewness_lag_1",
-	"kurtosis_lag_1",
-	"moment_3",
-	"moment_4",
-	"fisher_skewness",
-	"fisher_kurtosis",
-	"raw_moment_3",
-	"raw_moment_4"
-}};
+     // Additional statistical moments (8)
+     "skewness_lag_1", "kurtosis_lag_1", "moment_3", "moment_4", "fisher_skewness", "fisher_kurtosis", "raw_moment_3",
+     "raw_moment_4"}};
 
 } // namespace anofox
 } // namespace duckdb

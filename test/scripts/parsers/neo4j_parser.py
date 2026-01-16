@@ -61,7 +61,7 @@ class Neo4jParser:
             CREATE (f1:Family {id:'f1'})
         """
         # Match CREATE (var:Label {props})
-        match = re.search(r'CREATE\s*\((\w+):(\w+)\s*\{([^}]+)\}\)', line)
+        match = re.search(r"CREATE\s*\((\w+):(\w+)\s*\{([^}]+)\}\)", line)
         if not match:
             return None
 
@@ -98,7 +98,7 @@ class Neo4jParser:
             CREATE (f1)<-[:BELONGS_TO]-(a1)
         """
         # Match CREATE (to)<-[:REL {props}]-(from) format (Neo4j gist style)
-        match = re.search(r'CREATE\s*\((\w+)\)<-\[:(\w+)(?:\s*\{([^}]*)\})?\]-\((\w+)\)', line)
+        match = re.search(r"CREATE\s*\((\w+)\)<-\[:(\w+)(?:\s*\{([^}]*)\})?\]-\((\w+)\)", line)
         if match:
             to_var = match.group(1)
             rel_type = match.group(2)
@@ -106,7 +106,7 @@ class Neo4jParser:
             from_var = match.group(4)
         else:
             # Try alternative format: CREATE (from)-[:REL {props}]->(to)
-            match = re.search(r'CREATE\s*\((\w+)\)-\[:(\w+)(?:\s*\{([^}]*)\})?\]->\((\w+)\)', line)
+            match = re.search(r"CREATE\s*\((\w+)\)-\[:(\w+)(?:\s*\{([^}]*)\})?\]->\((\w+)\)", line)
             if not match:
                 return None
             from_var = match.group(1)
@@ -116,7 +116,7 @@ class Neo4jParser:
 
         # Parse quantity
         qty = 1.0
-        qty_match = re.search(r'qty:\s*([0-9.]+)', props_str)
+        qty_match = re.search(r"qty:\s*([0-9.]+)", props_str)
         if qty_match:
             qty = float(qty_match.group(1))
 
@@ -205,14 +205,16 @@ class Neo4jParser:
             position_counter[bom_id] += 10
             position = position_counter[bom_id]
 
-            self.bom_items.append(BOMItem(
-                bom_id=bom_id,
-                parent_id=parent_id,
-                child_id=child_id,
-                quantity=rel["qty"],
-                level=1,  # Will be computed later
-                position=position,
-            ))
+            self.bom_items.append(
+                BOMItem(
+                    bom_id=bom_id,
+                    parent_id=parent_id,
+                    child_id=child_id,
+                    quantity=rel["qty"],
+                    level=1,  # Will be computed later
+                    position=position,
+                )
+            )
 
         print(f"  Created {len(self.bom_items)} BOM items")
 
@@ -265,9 +267,9 @@ class Neo4jParser:
         # Write materials.csv.gz
         materials_path = output_dir / "materials.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -276,9 +278,7 @@ class Neo4jParser:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in self.bom_items:
                 writer.writerow(asdict(item))
@@ -306,20 +306,12 @@ class Neo4jParser:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse Neo4j BOM Gist Cypher files and convert to canonical format"
+    parser = argparse.ArgumentParser(description="Parse Neo4j BOM Gist Cypher files and convert to canonical format")
+    parser.add_argument(
+        "--input", "-i", type=Path, default=Path("test/data/neo4j/raw"), help="Input directory with raw Cypher files"
     )
     parser.add_argument(
-        "--input", "-i",
-        type=Path,
-        default=Path("test/data/neo4j/raw"),
-        help="Input directory with raw Cypher files"
-    )
-    parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data/neo4j"),
-        help="Output directory for canonical CSV files"
+        "--output", "-o", type=Path, default=Path("test/data/neo4j"), help="Output directory for canonical CSV files"
     )
 
     args = parser.parse_args()

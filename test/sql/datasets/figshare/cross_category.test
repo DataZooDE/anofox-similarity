@@ -1,7 +1,8 @@
 # name: test/sql/datasets/figshare/cross_category.test
-# tier: tier2
 # description: Tier 2 - Material discriminator and cross-category tests
-# group: [tier2_figshare]
+# group: [figshare]
+
+# tier: tier2
 
 # Tests the 2 discriminating materials in the Figshare dataset:
 # 1. CRT-glass: Only present in CRT monitors and CRT TVs

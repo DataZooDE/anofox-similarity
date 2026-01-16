@@ -180,12 +180,14 @@ class OdooParser:
                     except (ValueError, TypeError):
                         qty = 1.0
 
-                    self.bom_lines.append({
-                        "ext_id": ext_id,
-                        "bom_ref": bom_ref,
-                        "product_ref": product_ref,
-                        "quantity": qty,
-                    })
+                    self.bom_lines.append(
+                        {
+                            "ext_id": ext_id,
+                            "bom_ref": bom_ref,
+                            "product_ref": product_ref,
+                            "quantity": qty,
+                        }
+                    )
                     line_count += 1
 
         print(f"  Found {bom_count} BOMs, {line_count} BOM lines")
@@ -226,14 +228,16 @@ class OdooParser:
         for item in bom_items:
             # Level is relative to parent
             parent_level = levels.get(item.parent_id, 0)
-            result.append(BOMItem(
-                bom_id=item.bom_id,
-                parent_id=item.parent_id,
-                child_id=item.child_id,
-                quantity=item.quantity,
-                level=parent_level + 1,
-                position=item.position,
-            ))
+            result.append(
+                BOMItem(
+                    bom_id=item.bom_id,
+                    parent_id=item.parent_id,
+                    child_id=item.child_id,
+                    quantity=item.quantity,
+                    level=parent_level + 1,
+                    position=item.position,
+                )
+            )
 
         return result
 
@@ -258,24 +262,28 @@ class OdooParser:
                 # Create material for unknown product
                 child_id = self._clean_id(product_ref)
                 if child_id not in [m.material_id for m in materials]:
-                    materials.append(Material(
-                        material_id=child_id,
-                        description=product_ref,
-                        material_group="Components",
-                        material_type="ROH",
-                    ))
+                    materials.append(
+                        Material(
+                            material_id=child_id,
+                            description=product_ref,
+                            material_group="Components",
+                            material_type="ROH",
+                        )
+                    )
 
             position_counter[header.bom_id] += 10
             position = position_counter[header.bom_id]
 
-            bom_items.append(BOMItem(
-                bom_id=header.bom_id,
-                parent_id=header.parent_id,
-                child_id=child_id,
-                quantity=line["quantity"],
-                level=1,  # Will be computed later
-                position=position,
-            ))
+            bom_items.append(
+                BOMItem(
+                    bom_id=header.bom_id,
+                    parent_id=header.parent_id,
+                    child_id=child_id,
+                    quantity=line["quantity"],
+                    level=1,  # Will be computed later
+                    position=position,
+                )
+            )
 
         # Compute hierarchical levels
         bom_items = self._compute_levels(bom_items)
@@ -289,9 +297,9 @@ class OdooParser:
         # Write materials.csv.gz
         materials_path = output_dir / "materials.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -300,9 +308,7 @@ class OdooParser:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in bom_items:
                 writer.writerow(asdict(item))
@@ -327,20 +333,12 @@ class OdooParser:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse Odoo MRP demo data and convert to canonical format"
+    parser = argparse.ArgumentParser(description="Parse Odoo MRP demo data and convert to canonical format")
+    parser.add_argument(
+        "--input", "-i", type=Path, default=Path("test/data/odoo/raw"), help="Input directory with raw XML files"
     )
     parser.add_argument(
-        "--input", "-i",
-        type=Path,
-        default=Path("test/data/odoo/raw"),
-        help="Input directory with raw XML files"
-    )
-    parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data/odoo"),
-        help="Output directory for canonical CSV files"
+        "--output", "-o", type=Path, default=Path("test/data/odoo"), help="Output directory for canonical CSV files"
     )
 
     args = parser.parse_args()

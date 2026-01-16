@@ -1,7 +1,8 @@
 # name: test/sql/fusion/similarity_methods.test
-# tier: tier2
 # description: Test find_similar_materials Jaccard similarity search
 # group: [fusion]
+
+# tier: tier2
 
 require anofox_similarity
 

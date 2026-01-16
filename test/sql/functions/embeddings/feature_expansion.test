@@ -1,7 +1,8 @@
 # name: test/sql/functions/embeddings/feature_expansion.test
-# tier: tier1
 # description: Tests for Phase 2B feature expansion (30 → 98 tsfresh features)
-# group: [embeddings, feature_expansion]
+# group: [embeddings]
+
+# tier: tier1
 
 require anofox_similarity
 

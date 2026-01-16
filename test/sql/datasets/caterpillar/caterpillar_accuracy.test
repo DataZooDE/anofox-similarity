@@ -1,7 +1,8 @@
 # name: test/sql/datasets/caterpillar/caterpillar_accuracy.test
-# tier: tier2
 # description: Accuracy metrics on Caterpillar industrial tube assembly dataset (21K assemblies)
-# group: [accuracy, caterpillar]
+# group: [caterpillar]
+
+# tier: tier2
 
 # Validates Jaccard similarity accuracy on Caterpillar Tube Pricing dataset:
 # - 19,149 tube assemblies (FERT) with 2,048 component types

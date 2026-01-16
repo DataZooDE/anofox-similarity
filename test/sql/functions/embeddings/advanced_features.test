@@ -1,7 +1,8 @@
 # name: test/sql/functions/embeddings/advanced_features.test
-# tier: tier1
 # description: Tests for Phase 2C advanced features (movement type, day-of-week, lifecycle)
-# group: [embeddings, advanced_features]
+# group: [embeddings]
+
+# tier: tier1
 
 require anofox_similarity
 

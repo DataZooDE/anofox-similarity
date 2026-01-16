@@ -60,9 +60,9 @@ class SyntheticBOMGenerator:
         self.bom_items: List[BOMItem] = []
         self.ground_truth: List[GroundTruth] = []
 
-        self.prefixes = ['Premium', 'Standard', 'Heavy-Duty', 'Precision', 'Industrial']
-        self.materials_vocab = ['Steel', 'Aluminum', 'Polymer', 'Copper', 'Composite']
-        self.components = ['Housing', 'Bracket', 'Assembly', 'Module', 'Frame']
+        self.prefixes = ["Premium", "Standard", "Heavy-Duty", "Precision", "Industrial"]
+        self.materials_vocab = ["Steel", "Aluminum", "Polymer", "Copper", "Composite"]
+        self.components = ["Housing", "Bracket", "Assembly", "Module", "Frame"]
 
     def _generate_description(self) -> str:
         return f"{random.choice(self.prefixes)} {random.choice(self.materials_vocab)} {random.choice(self.components)}"
@@ -72,7 +72,7 @@ class SyntheticBOMGenerator:
             id=mat_id,
             description=self._generate_description(),
             material_group=f"GRP-{random.randint(1, 30):02d}",
-            material_type=mat_type
+            material_type=mat_type,
         )
 
     def generate_baseline_identical(self) -> None:
@@ -86,22 +86,26 @@ class SyntheticBOMGenerator:
 
         for prod in [prod_a, prod_b]:
             for i, comp in enumerate(components):
-                self.bom_items.append(BOMItem(
-                    bom_id=f"BOM-{prod.id}",
-                    parent_id=prod.id,
-                    child_id=comp.id,
-                    quantity=round(random.uniform(1, 5), 2),
-                    level=1,
-                    position=i * 10
-                ))
+                self.bom_items.append(
+                    BOMItem(
+                        bom_id=f"BOM-{prod.id}",
+                        parent_id=prod.id,
+                        child_id=comp.id,
+                        quantity=round(random.uniform(1, 5), 2),
+                        level=1,
+                        position=i * 10,
+                    )
+                )
 
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_a.id,
-            material_b=prod_b.id,
-            expected_similarity=1.0,
-            relationship_type='identical',
-            notes='Identical component sets'
-        ))
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_a.id,
+                material_b=prod_b.id,
+                expected_similarity=1.0,
+                relationship_type="identical",
+                notes="Identical component sets",
+            )
+        )
 
     def generate_baseline_disjoint(self) -> None:
         """S2: Two products with no overlap."""
@@ -118,13 +122,15 @@ class SyntheticBOMGenerator:
         for i, comp in enumerate(components_b):
             self.bom_items.append(BOMItem(f"BOM-{prod_b.id}", prod_b.id, comp.id, 1.0, 1, i * 10))
 
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_a.id,
-            material_b=prod_b.id,
-            expected_similarity=0.0,
-            relationship_type='unrelated',
-            notes='Completely disjoint component sets'
-        ))
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_a.id,
+                material_b=prod_b.id,
+                expected_similarity=0.0,
+                relationship_type="unrelated",
+                notes="Completely disjoint component sets",
+            )
+        )
 
     def generate_controlled_overlap(self) -> None:
         """S3: Products with known overlap ratio (Jaccard = 3/7)."""
@@ -142,13 +148,15 @@ class SyntheticBOMGenerator:
         for i, comp in enumerate(shared + unique_b):
             self.bom_items.append(BOMItem(f"BOM-{prod_b.id}", prod_b.id, comp.id, 1.0, 1, i * 10))
 
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_a.id,
-            material_b=prod_b.id,
-            expected_similarity=3 / 7,
-            relationship_type='partial_overlap',
-            notes='3 shared of 7 unique components (Jaccard = 3/7)'
-        ))
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_a.id,
+                material_b=prod_b.id,
+                expected_similarity=3 / 7,
+                relationship_type="partial_overlap",
+                notes="3 shared of 7 unique components (Jaccard = 3/7)",
+            )
+        )
 
     def generate_variant_cluster(self, base_id: str, n_variants: int = 3, n_components: int = 10) -> None:
         """S4: Product with variants at different similarity levels."""
@@ -176,13 +184,15 @@ class SyntheticBOMGenerator:
                 self.bom_items.append(BOMItem(f"BOM-{variant.id}", variant.id, comp.id, 1.0, 1, i * 10))
 
             expected_jaccard = n_keep / (2 * n_components - n_keep)
-            self.ground_truth.append(GroundTruth(
-                material_a=base_product.id,
-                material_b=variant.id,
-                expected_similarity=expected_jaccard,
-                relationship_type='variant',
-                notes=f'{retention * 100:.0f}% component retention'
-            ))
+            self.ground_truth.append(
+                GroundTruth(
+                    material_a=base_product.id,
+                    material_b=variant.id,
+                    expected_similarity=expected_jaccard,
+                    relationship_type="variant",
+                    notes=f"{retention * 100:.0f}% component retention",
+                )
+            )
 
     def generate_hierarchical_bom(self) -> None:
         """S5: Multi-level BOM structure with sub-assemblies."""
@@ -228,27 +238,33 @@ class SyntheticBOMGenerator:
 
         # Ground truth: each product pair shares 1 sub-assembly (1/3 Jaccard at level 1)
         # At leaf level: 4 shared of 8 unique = 0.5 Jaccard
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_1.id,
-            material_b=prod_2.id,
-            expected_similarity=1 / 3,  # 1 shared sub-assembly of 3 unique
-            relationship_type='hierarchical',
-            notes='Share sub-assembly A; Jaccard at level 1 = 1/3'
-        ))
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_1.id,
-            material_b=prod_3.id,
-            expected_similarity=1 / 3,
-            relationship_type='hierarchical',
-            notes='Share sub-assembly B; Jaccard at level 1 = 1/3'
-        ))
-        self.ground_truth.append(GroundTruth(
-            material_a=prod_2.id,
-            material_b=prod_3.id,
-            expected_similarity=1 / 3,
-            relationship_type='hierarchical',
-            notes='Share sub-assembly C; Jaccard at level 1 = 1/3'
-        ))
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_1.id,
+                material_b=prod_2.id,
+                expected_similarity=1 / 3,  # 1 shared sub-assembly of 3 unique
+                relationship_type="hierarchical",
+                notes="Share sub-assembly A; Jaccard at level 1 = 1/3",
+            )
+        )
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_1.id,
+                material_b=prod_3.id,
+                expected_similarity=1 / 3,
+                relationship_type="hierarchical",
+                notes="Share sub-assembly B; Jaccard at level 1 = 1/3",
+            )
+        )
+        self.ground_truth.append(
+            GroundTruth(
+                material_a=prod_2.id,
+                material_b=prod_3.id,
+                expected_similarity=1 / 3,
+                relationship_type="hierarchical",
+                notes="Share sub-assembly C; Jaccard at level 1 = 1/3",
+            )
+        )
 
     def generate_predecessor_chain(self, chain_length: int = 4, retention: float = 0.7) -> None:
         """S6: Succession chain for predecessor inference testing."""
@@ -280,13 +296,15 @@ class SyntheticBOMGenerator:
             n = 10  # base component count
             n_keep = int(n * retention)
             expected_jaccard = n_keep / (2 * n - n_keep)
-            self.ground_truth.append(GroundTruth(
-                material_a=products[i].id,
-                material_b=products[i - 1].id,
-                expected_similarity=expected_jaccard,
-                relationship_type='predecessor',
-                notes=f'Direct predecessor (Gen {i - 1} -> Gen {i})'
-            ))
+            self.ground_truth.append(
+                GroundTruth(
+                    material_a=products[i].id,
+                    material_b=products[i - 1].id,
+                    expected_similarity=expected_jaccard,
+                    relationship_type="predecessor",
+                    notes=f"Direct predecessor (Gen {i - 1} -> Gen {i})",
+                )
+            )
 
     def generate_all_scenarios(self) -> None:
         """Generate all test scenarios."""
@@ -309,42 +327,53 @@ class SyntheticBOMGenerator:
         path = Path(output_dir)
         path.mkdir(parents=True, exist_ok=True)
 
-        with open(path / "materials.csv", 'w', newline='') as f:
+        with open(path / "materials.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(['material_id', 'description', 'material_group', 'material_type', 'created_date'])
+            writer.writerow(["material_id", "description", "material_group", "material_type", "created_date"])
             for m in self.materials:
                 writer.writerow([m.id, m.description, m.material_group, m.material_type, m.created_date])
 
-        with open(path / "bom_items.csv", 'w', newline='') as f:
+        with open(path / "bom_items.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(['bom_id', 'parent_id', 'child_id', 'quantity', 'level', 'position'])
+            writer.writerow(["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             for item in self.bom_items:
                 writer.writerow([item.bom_id, item.parent_id, item.child_id, item.quantity, item.level, item.position])
 
-        with open(path / "ground_truth.csv", 'w', newline='') as f:
+        with open(path / "ground_truth.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(['material_a', 'material_b', 'expected_similarity', 'relationship_type', 'notes'])
+            writer.writerow(["material_a", "material_b", "expected_similarity", "relationship_type", "notes"])
             for gt in self.ground_truth:
-                writer.writerow([gt.material_a, gt.material_b, round(gt.expected_similarity, 6), gt.relationship_type, gt.notes])
+                writer.writerow(
+                    [gt.material_a, gt.material_b, round(gt.expected_similarity, 6), gt.relationship_type, gt.notes]
+                )
 
         metadata = {
-            'seed': self.seed,
-            'n_materials': len(self.materials),
-            'n_bom_items': len(self.bom_items),
-            'n_ground_truth': len(self.ground_truth),
-            'scenarios': ['S1-identical', 'S2-disjoint', 'S3-overlap', 'S4-variants', 'S5-hierarchical', 'S6-predecessor']
+            "seed": self.seed,
+            "n_materials": len(self.materials),
+            "n_bom_items": len(self.bom_items),
+            "n_ground_truth": len(self.ground_truth),
+            "scenarios": [
+                "S1-identical",
+                "S2-disjoint",
+                "S3-overlap",
+                "S4-variants",
+                "S5-hierarchical",
+                "S6-predecessor",
+            ],
         }
-        with open(path / "metadata.json", 'w') as f:
+        with open(path / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
-        print(f"\nGenerated: {len(self.materials)} materials, {len(self.bom_items)} BOM items, {len(self.ground_truth)} ground truth pairs")
+        print(
+            f"\nGenerated: {len(self.materials)} materials, {len(self.bom_items)} BOM items, {len(self.ground_truth)} ground truth pairs"
+        )
         print(f"Output written to: {path}")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate synthetic BOM test data')
-    parser.add_argument('--output', type=str, default='test/data/synthetic')
-    parser.add_argument('--seed', type=int, default=42)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate synthetic BOM test data")
+    parser.add_argument("--output", type=str, default="test/data/synthetic")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     generator = SyntheticBOMGenerator(seed=args.seed)

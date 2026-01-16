@@ -37,10 +37,10 @@ namespace anofox {
 //------------------------------------------------------------------------------
 
 void RegisterJaccardCppFunctions(ExtensionLoader &loader) {
-  // Placeholder: C++ implementation infrastructure
-  // The SQL implementation in vss_integration.cpp is currently used
-  // This function is registered for future C++ optimization pathway
+	// Placeholder: C++ implementation infrastructure
+	// The SQL implementation in vss_integration.cpp is currently used
+	// This function is registered for future C++ optimization pathway
 }
 
-}  // namespace anofox
-}  // namespace duckdb
+} // namespace anofox
+} // namespace duckdb

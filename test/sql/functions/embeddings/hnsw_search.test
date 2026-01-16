@@ -1,7 +1,8 @@
 # name: test/sql/functions/embeddings/hnsw_search.test
-# tier: tier1
 # description: Test HNSW-indexed k-NN search vs brute-force baseline
-# group: [functions]
+# group: [embeddings]
+
+# tier: tier1
 
 require anofox_similarity
 

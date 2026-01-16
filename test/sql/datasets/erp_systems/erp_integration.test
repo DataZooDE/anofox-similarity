@@ -1,7 +1,8 @@
 # name: test/sql/datasets/erp_systems/erp_integration.test
-# tier: tier2
 # description: Validate similarity functions on ERP system datasets
-# group: [integration, erp]
+# group: [erp_systems]
+
+# tier: tier2
 
 # Tests that the canonical schema works correctly across multiple ERP sources:
 # - Odoo: 50 materials, 18 BOM items (open source ERP)

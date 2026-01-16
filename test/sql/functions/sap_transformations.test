@@ -1,7 +1,8 @@
 # name: test/sql/functions/sap_transformations.test
 # description: Tests for SAP transformation macros (sap_to_materials)
-# tier: tier1
 # group: [functions]
+
+# tier: tier1
 
 require anofox_similarity
 

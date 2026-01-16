@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s3_controlled_overlap.test
-# tier: tier1
 # description: S3 - Controlled overlap should have Jaccard = 3/7 = 0.4286
-# group: [tier1_synthetic]
+# group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

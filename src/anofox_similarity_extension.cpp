@@ -39,16 +39,11 @@ static void OnTelemetryKey(ClientContext &context, SetScope scope, Value &parame
 static void RegisterTelemetryOptions(ExtensionLoader &loader) {
 	auto &config = DBConfig::GetConfig(loader.GetDatabaseInstance());
 
-	config.AddExtensionOption("anofox_telemetry_enabled",
-	                          "Enable or disable anonymous usage telemetry",
-	                          LogicalType::BOOLEAN, Value::BOOLEAN(true),
-	                          OnTelemetryEnabled);
+	config.AddExtensionOption("anofox_telemetry_enabled", "Enable or disable anonymous usage telemetry",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(true), OnTelemetryEnabled);
 
-	config.AddExtensionOption("anofox_telemetry_key",
-	                          "PostHog API key for telemetry",
-	                          LogicalType::VARCHAR,
-	                          Value("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t"),
-	                          OnTelemetryKey);
+	config.AddExtensionOption("anofox_telemetry_key", "PostHog API key for telemetry", LogicalType::VARCHAR,
+	                          Value("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t"), OnTelemetryKey);
 }
 
 /*
@@ -193,5 +188,4 @@ extern "C" {
 DUCKDB_CPP_EXTENSION_ENTRY(anofox_similarity, loader) {
 	duckdb::LoadInternal(loader);
 }
-
 }

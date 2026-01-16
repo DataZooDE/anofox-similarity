@@ -1,7 +1,8 @@
 # name: test/sql/functions/embeddings/performance.test
-# tier: tier2
 # description: Performance tests for Phase 2D incremental updates, batch processing, and statistics caching
-# group: [embeddings, performance]
+# group: [embeddings]
+
+# tier: tier2
 
 require anofox_similarity
 

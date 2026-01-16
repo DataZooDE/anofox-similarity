@@ -204,8 +204,9 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 			WHERE confidence >= %f
 			ORDER BY confidence DESC
 		)
-	)", movements_table, query_material_id, query_material_id, min_similarity, bom_table,
-	    movements_table, lookback_months, lag_weeks, min_confidence);
+	)",
+	                                movements_table, query_material_id, query_material_id, min_similarity, bom_table,
+	                                movements_table, lookback_months, lag_weeks, min_confidence);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse infer_predecessors query");
 }
@@ -216,9 +217,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 
 void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	// infer_predecessors
-	TableFunction infer_pred("infer_predecessors",
-	                         {LogicalType::VARCHAR},
-	                         nullptr, nullptr);
+	TableFunction infer_pred("infer_predecessors", {LogicalType::VARCHAR}, nullptr, nullptr);
 	infer_pred.bind_replace = InferPredecessorsBindReplace;
 	infer_pred.named_parameters["lookback_months"] = LogicalType::BIGINT;
 	infer_pred.named_parameters["min_similarity"] = LogicalType::DOUBLE;

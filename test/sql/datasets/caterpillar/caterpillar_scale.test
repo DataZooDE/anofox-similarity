@@ -1,7 +1,8 @@
 # name: test/sql/datasets/caterpillar/caterpillar_scale.test
-# tier: tier2
 # description: Scale testing with 21K tube assemblies
-# group: [scale, caterpillar]
+# group: [caterpillar]
+
+# tier: tier2
 
 # Tests scalability characteristics on the largest BOM dataset:
 # - 19,149 tube assemblies

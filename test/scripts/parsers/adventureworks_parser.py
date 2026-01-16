@@ -158,14 +158,16 @@ class AdventureWorksParser:
                 position_counter[bom_id] += 10
                 position = position_counter[bom_id]
 
-                self.bom_items.append(BOMItem(
-                    bom_id=bom_id,
-                    parent_id=parent_id,
-                    child_id=child_id,
-                    quantity=qty,
-                    level=bom_level,
-                    position=position,
-                ))
+                self.bom_items.append(
+                    BOMItem(
+                        bom_id=bom_id,
+                        parent_id=parent_id,
+                        child_id=child_id,
+                        quantity=qty,
+                        level=bom_level,
+                        position=position,
+                    )
+                )
                 bom_count += 1
 
         print(f"  Found {bom_count} BOM items")
@@ -205,9 +207,9 @@ class AdventureWorksParser:
         # Write materials.csv.gz
         materials_path = output_dir / "materials.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -216,9 +218,7 @@ class AdventureWorksParser:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in self.bom_items:
                 writer.writerow(asdict(item))
@@ -246,20 +246,20 @@ class AdventureWorksParser:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse AdventureWorks BOM data and convert to canonical format"
-    )
+    parser = argparse.ArgumentParser(description="Parse AdventureWorks BOM data and convert to canonical format")
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=Path,
         default=Path("test/data/adventureworks/raw"),
-        help="Input directory with raw CSV files"
+        help="Input directory with raw CSV files",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=Path("test/data/adventureworks"),
-        help="Output directory for canonical CSV files"
+        help="Output directory for canonical CSV files",
     )
 
     args = parser.parse_args()

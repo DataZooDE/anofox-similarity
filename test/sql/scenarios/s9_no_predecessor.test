@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s9_no_predecessor.test
 # description: S9 - No predecessor (genuinely new product)
-# tier: tier1
 # group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

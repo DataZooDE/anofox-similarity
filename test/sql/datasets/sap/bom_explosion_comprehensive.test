@@ -1,7 +1,8 @@
 # name: test/sql/datasets/sap/bom_explosion_comprehensive.test
-# tier: tier2
 # description: Comprehensive SAP BOM transformation testing covering date versioning, deleted BOMs, multiple reference dates, and complex hierarchies
-# group: [sap, bom_transformation]
+# group: [sap]
+
+# tier: tier2
 
 require anofox_similarity
 

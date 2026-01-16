@@ -63,7 +63,7 @@ public:
 		vector<float> embedding(384, 0.0f);
 		if (!text.empty()) {
 			// Simple deterministic placeholder based on text hash
-			size_t hash = std::hash<string>{}(text);
+			size_t hash = std::hash<string> {}(text);
 			for (size_t i = 0; i < 384; i++) {
 				embedding[i] = static_cast<float>((hash + i) % 1000) / 1000.0f - 0.5f;
 			}
@@ -71,7 +71,9 @@ public:
 		return embedding;
 	}
 
-	idx_t Dimension() const override { return 384; }
+	idx_t Dimension() const override {
+		return 384;
+	}
 };
 
 #endif
@@ -114,7 +116,7 @@ public:
 		// For now, return deterministic embeddings based on text
 		vector<float> embedding(dimension, 0.0f);
 		if (!text.empty()) {
-			size_t hash = std::hash<string>{}(text);
+			size_t hash = std::hash<string> {}(text);
 			for (size_t i = 0; i < dimension; i++) {
 				embedding[i] = static_cast<float>((hash + i) % 1000) / 1000.0f - 0.5f;
 			}
@@ -122,7 +124,9 @@ public:
 		return embedding;
 	}
 
-	idx_t Dimension() const override { return dimension; }
+	idx_t Dimension() const override {
+		return dimension;
+	}
 };
 
 //------------------------------------------------------------------------------
@@ -246,7 +250,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 //------------------------------------------------------------------------------
 
 static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, ScalarFunction &bound_function,
-                                                      vector<unique_ptr<Expression>> &arguments) {
+                                                     vector<unique_ptr<Expression>> &arguments) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("embedding_backend");
 	return nullptr;
 }
@@ -258,13 +262,9 @@ static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, Sca
 void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	// Register embedding_backend scalar function
 	// Note: Returns LIST(FLOAT) - dimension (384) is enforced at runtime
-	auto embedding_backend_function = ScalarFunction(
-	    "embedding_backend",
-	    {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
-	    LogicalType::LIST(LogicalType::FLOAT),
-	    EmbeddingBackendFunction,
-	    EmbeddingBackendBind
-	);
+	auto embedding_backend_function =
+	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
+	                   LogicalType::LIST(LogicalType::FLOAT), EmbeddingBackendFunction, EmbeddingBackendBind);
 	loader.RegisterFunction(embedding_backend_function);
 }
 

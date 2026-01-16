@@ -1,7 +1,8 @@
 # name: test/sql/scenarios/s12_transitive_chain.test
 # description: S12 - Transitive predecessor chain (6 generations)
-# tier: tier1
 # group: [scenarios]
+
+# tier: tier1
 
 require anofox_similarity
 

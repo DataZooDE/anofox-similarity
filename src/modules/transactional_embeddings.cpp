@@ -47,7 +47,8 @@ void RegisterCheckAnofoxForecastMacro(Connection &conn) {
 // compute_transactional_embeddings TableFunction
 //------------------------------------------------------------------------------
 
-static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientContext &context,
+                                                                      TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().CaptureFunctionExecution("compute_transactional_embeddings");
 
 	// Parameters (all named with defaults):
@@ -280,9 +281,10 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 			material_id,
 			transactional_embedding
 		FROM normalized_embedding_vectors
-	)", movements_table, time_window_days, batch_size, batch_size, batch_size, batch_offset,
-	    movements_table, time_window_days, batch_size, batch_offset,
-	    movements_table, time_window_days);
+	)",
+	                                movements_table, time_window_days, batch_size, batch_size, batch_size, batch_offset,
+	                                movements_table, time_window_days, batch_size, batch_offset, movements_table,
+	                                time_window_days);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_transactional_embeddings query");
 }

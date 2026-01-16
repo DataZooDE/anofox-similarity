@@ -88,14 +88,16 @@ def parse_caterpillar(input_dir: Path, output_dir: Path) -> None:
 
                 tube_components[tube_id].add(comp_id)
 
-                bom_items.append({
-                    "bom_id": f"BOM-{len(bom_items)+1}",
-                    "parent_id": tube_id,
-                    "child_id": comp_id,
-                    "quantity": qty,
-                    "level": 1,
-                    "position": i,
-                })
+                bom_items.append(
+                    {
+                        "bom_id": f"BOM-{len(bom_items)+1}",
+                        "parent_id": tube_id,
+                        "child_id": comp_id,
+                        "quantity": qty,
+                        "level": 1,
+                        "position": i,
+                    }
+                )
 
     print(f"  Created {len(bom_items)} BOM items")
 
@@ -116,13 +118,15 @@ def parse_caterpillar(input_dir: Path, output_dir: Path) -> None:
         if tube_data["num_bends"] and tube_data["num_bends"] != "0":
             desc_parts.append(f"{tube_data['num_bends']} bends")
 
-        materials.append({
-            "material_id": tube_id,
-            "description": " ".join(desc_parts),
-            "material_group": "TUBE_ASSEMBLY",
-            "material_type": "FERT",
-            "created_date": "2015-01-01",
-        })
+        materials.append(
+            {
+                "material_id": tube_id,
+                "description": " ".join(desc_parts),
+                "material_group": "TUBE_ASSEMBLY",
+                "material_type": "FERT",
+                "created_date": "2015-01-01",
+            }
+        )
 
     # Add components as raw materials
     used_components = set()
@@ -132,13 +136,15 @@ def parse_caterpillar(input_dir: Path, output_dir: Path) -> None:
     for comp_id in used_components:
         comp_data = components.get(comp_id, {"name": comp_id, "type_name": "Unknown"})
 
-        materials.append({
-            "material_id": comp_id,
-            "description": comp_data["name"],
-            "material_group": comp_data["type_name"].upper().replace(" ", "_"),
-            "material_type": "ROH",
-            "created_date": "2015-01-01",
-        })
+        materials.append(
+            {
+                "material_id": comp_id,
+                "description": comp_data["name"],
+                "material_group": comp_data["type_name"].upper().replace(" ", "_"),
+                "material_type": "ROH",
+                "created_date": "2015-01-01",
+            }
+        )
 
     print(f"  Total materials: {len(materials)} ({len(tubes)} tubes + {len(used_components)} components)")
 
@@ -148,7 +154,9 @@ def parse_caterpillar(input_dir: Path, output_dir: Path) -> None:
     # Write materials
     materials_path = output_dir / "materials.csv.gz"
     with gzip.open(materials_path, "wt", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"])
+        writer = csv.DictWriter(
+            f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+        )
         writer.writeheader()
         writer.writerows(materials)
     print(f"Wrote {len(materials)} materials to {materials_path}")

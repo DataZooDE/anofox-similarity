@@ -1,7 +1,8 @@
 # name: test/sql/datasets/figshare/product_families.test
-# tier: tier2
 # description: Tier 2 - Figshare product family ranking and clustering tests
-# group: [datasets, figshare]
+# group: [figshare]
+
+# tier: tier2
 
 # Skip: These tests use lateral join/subquery patterns that require SQL macros,
 # but the functions have been converted to TableFunctions for telemetry tracking.

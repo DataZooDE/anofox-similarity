@@ -59,31 +59,20 @@ class PDXpertParser:
             for row in reader:
                 # PDXpert uses "Number" for part number
                 part_number = (
-                    row.get("Number") or
-                    row.get("Part Number") or
-                    row.get("PartNumber") or
-                    row.get("Item") or
-                    row.get("ItemNumber") or
-                    ""
+                    row.get("Number")
+                    or row.get("Part Number")
+                    or row.get("PartNumber")
+                    or row.get("Item")
+                    or row.get("ItemNumber")
+                    or ""
                 ).strip()
 
                 if not part_number:
                     continue
 
-                description = (
-                    row.get("Description") or
-                    row.get("Title") or
-                    row.get("Name") or
-                    part_number
-                )
+                description = row.get("Description") or row.get("Title") or row.get("Name") or part_number
 
-                item_type = (
-                    row.get("Type") or
-                    row.get("Class") or
-                    row.get("ItemType") or
-                    row.get("Part Type") or
-                    ""
-                )
+                item_type = row.get("Type") or row.get("Class") or row.get("ItemType") or row.get("Part Type") or ""
 
                 self.items[part_number] = {
                     "part_number": part_number,
@@ -105,33 +94,28 @@ class PDXpertParser:
             for row in reader:
                 # PDXpert uses "Number" for parent and "ChildNumber" for child
                 parent = (
-                    row.get("Number") or
-                    row.get("Parent") or
-                    row.get("ParentPartNumber") or
-                    row.get("Parent Part Number") or
-                    row.get("Assembly") or
-                    ""
+                    row.get("Number")
+                    or row.get("Parent")
+                    or row.get("ParentPartNumber")
+                    or row.get("Parent Part Number")
+                    or row.get("Assembly")
+                    or ""
                 ).strip()
 
                 child = (
-                    row.get("ChildNumber") or
-                    row.get("Child") or
-                    row.get("ChildPartNumber") or
-                    row.get("Child Part Number") or
-                    row.get("Component") or
-                    ""
+                    row.get("ChildNumber")
+                    or row.get("Child")
+                    or row.get("ChildPartNumber")
+                    or row.get("Child Part Number")
+                    or row.get("Component")
+                    or ""
                 ).strip()
 
                 if not parent or not child:
                     continue
 
                 # Get quantity
-                qty_str = (
-                    row.get("Quantity") or
-                    row.get("Qty") or
-                    row.get("QtyPer") or
-                    "1"
-                )
+                qty_str = row.get("Quantity") or row.get("Qty") or row.get("QtyPer") or "1"
                 try:
                     qty = float(qty_str)
                 except ValueError:
@@ -150,14 +134,16 @@ class PDXpertParser:
                 position_counter[bom_id] += 10
                 position = position_counter[bom_id]
 
-                self.bom_items.append(BOMItem(
-                    bom_id=bom_id,
-                    parent_id=parent_id,
-                    child_id=child_id,
-                    quantity=qty,
-                    level=1,  # Will be computed later
-                    position=position,
-                ))
+                self.bom_items.append(
+                    BOMItem(
+                        bom_id=bom_id,
+                        parent_id=parent_id,
+                        child_id=child_id,
+                        quantity=qty,
+                        level=1,  # Will be computed later
+                        position=position,
+                    )
+                )
                 bom_count += 1
 
         print(f"  Found {bom_count} BOM items")
@@ -239,9 +225,9 @@ class PDXpertParser:
         # Write materials.csv.gz
         materials_path = output_dir / "materials.csv.gz"
         with gzip.open(materials_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "material_id", "description", "material_group", "material_type", "created_date"
-            ])
+            writer = csv.DictWriter(
+                f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+            )
             writer.writeheader()
             for mat in materials:
                 writer.writerow(asdict(mat))
@@ -250,9 +236,7 @@ class PDXpertParser:
         # Write bom_items.csv.gz
         bom_path = output_dir / "bom_items.csv.gz"
         with gzip.open(bom_path, "wt", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "bom_id", "parent_id", "child_id", "quantity", "level", "position"
-            ])
+            writer = csv.DictWriter(f, fieldnames=["bom_id", "parent_id", "child_id", "quantity", "level", "position"])
             writer.writeheader()
             for item in self.bom_items:
                 writer.writerow(asdict(item))
@@ -280,20 +264,12 @@ class PDXpertParser:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse PDXpert PLM sample data and convert to canonical format"
+    parser = argparse.ArgumentParser(description="Parse PDXpert PLM sample data and convert to canonical format")
+    parser.add_argument(
+        "--input", "-i", type=Path, default=Path("test/data/pdxpert/raw"), help="Input directory with raw CSV files"
     )
     parser.add_argument(
-        "--input", "-i",
-        type=Path,
-        default=Path("test/data/pdxpert/raw"),
-        help="Input directory with raw CSV files"
-    )
-    parser.add_argument(
-        "--output", "-o",
-        type=Path,
-        default=Path("test/data/pdxpert"),
-        help="Output directory for canonical CSV files"
+        "--output", "-o", type=Path, default=Path("test/data/pdxpert"), help="Output directory for canonical CSV files"
     )
 
     args = parser.parse_args()

@@ -1,7 +1,8 @@
 # name: test/sql/extension/anofox_similarity.test
 # description: Basic extension loading and availability test
-# tier: tier1
 # group: [extension]
+
+# tier: tier1
 
 require anofox_similarity
 

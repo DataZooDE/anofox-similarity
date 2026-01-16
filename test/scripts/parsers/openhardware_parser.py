@@ -25,13 +25,15 @@ def parse_opentrons_pro_bom(xlsx_path: Path) -> tuple[list[dict], list[dict]]:
 
     # Create top-level assembly
     assembly_id = "OT-ONE-PRO"
-    materials.append({
-        "material_id": assembly_id,
-        "description": "OpenTrons OT-One Pro Lab Automation Platform",
-        "material_group": "ASSEMBLY",
-        "material_type": "FERT",
-        "created_date": "2016-01-01",
-    })
+    materials.append(
+        {
+            "material_id": assembly_id,
+            "description": "OpenTrons OT-One Pro Lab Automation Platform",
+            "material_group": "ASSEMBLY",
+            "material_type": "FERT",
+            "created_date": "2016-01-01",
+        }
+    )
 
     # Parse rows (skip header row)
     for idx, row in df.iterrows():
@@ -65,13 +67,15 @@ def parse_opentrons_pro_bom(xlsx_path: Path) -> tuple[list[dict], list[dict]]:
                 elif "frame" in section_lower or "base" in section_lower:
                     material_group = "FRAME"
 
-            materials.append({
-                "material_id": part_id,
-                "description": str(part_name),
-                "material_group": material_group,
-                "material_type": "ROH",
-                "created_date": "2016-01-01",
-            })
+            materials.append(
+                {
+                    "material_id": part_id,
+                    "description": str(part_name),
+                    "material_group": material_group,
+                    "material_type": "ROH",
+                    "created_date": "2016-01-01",
+                }
+            )
 
             # Create BOM item linking to top-level assembly
             try:
@@ -79,14 +83,16 @@ def parse_opentrons_pro_bom(xlsx_path: Path) -> tuple[list[dict], list[dict]]:
             except (ValueError, TypeError):
                 qty = 1.0
 
-            bom_items.append({
-                "bom_id": f"BOM-{len(bom_items)+1}",
-                "parent_id": assembly_id,
-                "child_id": part_id,
-                "quantity": qty,
-                "level": 1,
-                "position": len(bom_items) + 1,
-            })
+            bom_items.append(
+                {
+                    "bom_id": f"BOM-{len(bom_items)+1}",
+                    "parent_id": assembly_id,
+                    "child_id": part_id,
+                    "quantity": qty,
+                    "level": 1,
+                    "position": len(bom_items) + 1,
+                }
+            )
 
     return materials, bom_items
 
@@ -102,13 +108,15 @@ def parse_opencr_bom(xls_path: Path) -> tuple[list[dict], list[dict]]:
 
     # Create top-level assembly
     assembly_id = "OPENCR-1.0"
-    materials.append({
-        "material_id": assembly_id,
-        "description": "OpenCR 1.0 Robotics Controller Board",
-        "material_group": "ASSEMBLY",
-        "material_type": "FERT",
-        "created_date": "2017-01-01",
-    })
+    materials.append(
+        {
+            "material_id": assembly_id,
+            "description": "OpenCR 1.0 Robotics Controller Board",
+            "material_group": "ASSEMBLY",
+            "material_type": "FERT",
+            "created_date": "2017-01-01",
+        }
+    )
 
     material_id_counter = 1
 
@@ -143,27 +151,31 @@ def parse_opencr_bom(xls_path: Path) -> tuple[list[dict], list[dict]]:
         else:
             material_group = "COMPONENT"
 
-        materials.append({
-            "material_id": part_id,
-            "description": f"{part_name} ({reference})" if reference else str(part_name),
-            "material_group": material_group,
-            "material_type": "ROH",
-            "created_date": "2017-01-01",
-        })
+        materials.append(
+            {
+                "material_id": part_id,
+                "description": f"{part_name} ({reference})" if reference else str(part_name),
+                "material_group": material_group,
+                "material_type": "ROH",
+                "created_date": "2017-01-01",
+            }
+        )
 
         try:
             qty = float(quantity)
         except (ValueError, TypeError):
             qty = 1.0
 
-        bom_items.append({
-            "bom_id": f"BOM-{len(bom_items)+1}",
-            "parent_id": assembly_id,
-            "child_id": part_id,
-            "quantity": qty,
-            "level": 1,
-            "position": len(bom_items) + 1,
-        })
+        bom_items.append(
+            {
+                "bom_id": f"BOM-{len(bom_items)+1}",
+                "parent_id": assembly_id,
+                "child_id": part_id,
+                "quantity": qty,
+                "level": 1,
+                "position": len(bom_items) + 1,
+            }
+        )
 
     return materials, bom_items
 
@@ -182,13 +194,15 @@ def parse_cyclonedx_hbom(json_path: Path) -> tuple[list[dict], list[dict]]:
     assembly_id = top_component.get("bom-ref", "CDX-ASSEMBLY")
     assembly_name = top_component.get("name", "CycloneDX Hardware Assembly")
 
-    materials.append({
-        "material_id": assembly_id,
-        "description": assembly_name,
-        "material_group": "ASSEMBLY",
-        "material_type": "FERT",
-        "created_date": metadata.get("timestamp", "2022-01-01")[:10],
-    })
+    materials.append(
+        {
+            "material_id": assembly_id,
+            "description": assembly_name,
+            "material_group": "ASSEMBLY",
+            "material_type": "FERT",
+            "created_date": metadata.get("timestamp", "2022-01-01")[:10],
+        }
+    )
 
     # Parse components
     for idx, comp in enumerate(data.get("components", [])):
@@ -217,22 +231,26 @@ def parse_cyclonedx_hbom(json_path: Path) -> tuple[list[dict], list[dict]]:
                     material_group = "JUMPER"
                 break
 
-        materials.append({
-            "material_id": part_id,
-            "description": description,
-            "material_group": material_group,
-            "material_type": "ROH",
-            "created_date": metadata.get("timestamp", "2022-01-01")[:10],
-        })
+        materials.append(
+            {
+                "material_id": part_id,
+                "description": description,
+                "material_group": material_group,
+                "material_type": "ROH",
+                "created_date": metadata.get("timestamp", "2022-01-01")[:10],
+            }
+        )
 
-        bom_items.append({
-            "bom_id": f"BOM-{len(bom_items)+1}",
-            "parent_id": assembly_id,
-            "child_id": part_id,
-            "quantity": quantity,
-            "level": 1,
-            "position": len(bom_items) + 1,
-        })
+        bom_items.append(
+            {
+                "bom_id": f"BOM-{len(bom_items)+1}",
+                "parent_id": assembly_id,
+                "child_id": part_id,
+                "quantity": quantity,
+                "level": 1,
+                "position": len(bom_items) + 1,
+            }
+        )
 
     return materials, bom_items
 
@@ -244,7 +262,9 @@ def write_output(materials: list[dict], bom_items: list[dict], output_dir: Path,
     # Write materials
     materials_path = output_dir / "materials.csv.gz"
     with gzip.open(materials_path, "wt", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"])
+        writer = csv.DictWriter(
+            f, fieldnames=["material_id", "description", "material_group", "material_type", "created_date"]
+        )
         writer.writeheader()
         writer.writerows(materials)
     print(f"Wrote {len(materials)} materials to {materials_path}")
