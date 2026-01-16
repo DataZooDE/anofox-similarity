@@ -1,0 +1,11 @@
+{
+  "source": "neo4j_gist",
+  "gist_url": "https://gist.github.com/maxdemarzi/e77145f0a77b7b5f6c9287bc0a96928f",
+  "license": "Open source",
+  "download_date": "2026-01-10T11:30:56.029817",
+  "files": [
+    "bom.cypher",
+    "bom2.cypher"
+  ],
+  "failed": []
+}

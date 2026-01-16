@@ -1,0 +1,13 @@
+{
+  "source": "figshare_subassembly",
+  "doi": "10.6084/m9.figshare.11306792.v4",
+  "license": "CC0",
+  "description": "Sub-assembly level BOM extracted from Disassembly Detail workbook",
+  "n_materials": 909,
+  "n_products": 279,
+  "n_components": 619,
+  "n_bom_items": 3122,
+  "n_level1_items": 696,
+  "n_level2_items": 2426,
+  "max_level": 2
+}

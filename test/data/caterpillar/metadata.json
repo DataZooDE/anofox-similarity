@@ -1,0 +1,11 @@
+{
+  "source": "caterpillar_kaggle",
+  "description": "Caterpillar Tube Pricing Competition - Industrial tube assemblies with components",
+  "license": "Kaggle Competition (research use)",
+  "n_materials": 21197,
+  "n_tube_assemblies": 19149,
+  "n_components": 2048,
+  "n_bom_items": 39459,
+  "max_level": 1,
+  "component_types": 29
+}

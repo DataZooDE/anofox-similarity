@@ -1,0 +1,10 @@
+{
+  "source": "adventureworks",
+  "repository": "https://github.com/Microsoft/sql-server-samples",
+  "license": "MIT",
+  "description": "Microsoft AdventureWorks bicycle manufacturing sample",
+  "n_materials": 325,
+  "n_bom_items": 2576,
+  "n_assemblies": 238,
+  "max_level": 4
+}

@@ -1,0 +1,18 @@
+{
+  "source": "pdxpert",
+  "url": "https://www.buyplm.com/resources/Example-PDXpertImport.zip",
+  "license": "Free evaluation",
+  "download_date": "2026-01-10T11:43:46.186680",
+  "files": [
+    "1-Example-CollectionOrganizations.csv",
+    "2-Example-CollectionPersons.csv",
+    "3-Example-CollectionGroups.csv",
+    "4-Example-ItemMaster.csv",
+    "5-Example-ListBOM.csv",
+    "6-Example-ListSources.csv",
+    "7-Example-ListReferences.csv",
+    "8-Example-ListRevisionFiles.csv",
+    "9-Example-ListItemFilesLinks.csv"
+  ],
+  "failed": []
+}

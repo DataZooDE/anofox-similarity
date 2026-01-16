@@ -1,0 +1,11 @@
+{
+  "source": "adventureworks",
+  "repository": "https://github.com/Microsoft/sql-server-samples",
+  "license": "MIT",
+  "download_date": "2026-01-10T11:30:53.989748",
+  "files": [
+    "BillOfMaterials.csv",
+    "Product.csv"
+  ],
+  "failed": []
+}

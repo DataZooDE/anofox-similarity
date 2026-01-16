@@ -1,0 +1,11 @@
+{
+  "source": "odoo",
+  "version": "18.0",
+  "license": "LGPL-3.0",
+  "repository": "https://github.com/odoo/odoo",
+  "n_materials": 50,
+  "n_bom_items": 18,
+  "n_boms": 8,
+  "phantom_boms": 1,
+  "max_level": 1
+}

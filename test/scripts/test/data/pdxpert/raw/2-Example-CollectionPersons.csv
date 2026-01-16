@@ -1,0 +1,10 @@
+Name,JobTitle,Organization,EmployeeID,EmailPrimary,PhoneMain,Access,Role,AccountName,Password
+Arthur Kennelly,Senior Power Engineer,,EMP0102,art@example.com,+1(518)555-2700 x1102,FF,Administrator,art,
+Beulah Louise Henry,Mechanical Engineer,,EMP0103,beulah@example.com,+1(518)555-2700 x1103,FF,Normal user,beulah,
+Charles Steinmetz,Power Systems Architect,,EMP0104,charles@example.com,+1(518)555-2700 x1104,FF,Analyst,charles,
+David Sarnoff,Engineering Director,,EMP0105,dave@example.com,+1(518)555-2700 x1105,FF,Normal user,dave,
+Edwin Armstrong,Design Engineer,,EMP0106,edwin@example.com,+1(518)555-2700 x1106,FF,Normal user,edwin,
+Frank Capra,Marketing,,EMP0107,frank@example.com,+1(518)555-2700 x1107,RO,Read-only,frank,
+Grace Hopper,Production Director,,EMP0108,grace@example.com,+1(518)555-2700 x1108,FF,Normal user,grace,
+Herbert Hancock,Quality Director,,EMP0109,herbie@example.com,+1(518)555-2700 x1109,FF,Normal user,herbie,
+Isambard Brunel,Sales Engineer,McMaster-Carr Industrial Supply,,isambard@example.com,+1(312)555-8877,FF,Partner,isambard,

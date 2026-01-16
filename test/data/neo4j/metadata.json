@@ -1,0 +1,10 @@
+{
+  "source": "neo4j_gist",
+  "gist_url": "https://gist.github.com/maxdemarzi/e77145f0a77b7b5f6c9287bc0a96928f",
+  "license": "Open source",
+  "description": "Neo4j BOM Gist sample data",
+  "n_materials": 25,
+  "n_bom_items": 47,
+  "n_assemblies": 22,
+  "max_level": 204
+}

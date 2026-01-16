@@ -1,0 +1,10 @@
+{
+  "source": "pdxpert",
+  "url": "https://www.buyplm.com/resources/Example-PDXpertImport.zip",
+  "license": "Free evaluation",
+  "description": "PDXpert PLM sample import package",
+  "n_materials": 62,
+  "n_bom_items": 64,
+  "n_assemblies": 12,
+  "max_level": 5
+}

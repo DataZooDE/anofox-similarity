@@ -1,0 +1,10 @@
+{
+  "source": "erpnext",
+  "branch": "develop",
+  "license": "GPL-3.0",
+  "repository": "https://github.com/frappe/erpnext",
+  "n_materials": 18,
+  "n_bom_items": 8,
+  "n_boms": 1,
+  "max_level": 2
+}
