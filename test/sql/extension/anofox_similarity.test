@@ -12,6 +12,6 @@ SELECT 1;
 # Verify extension functions are available
 query I
 SELECT COUNT(*) FROM duckdb_functions()
-WHERE function_name IN ('jaccard_similarity', 'find_similar_materials', 'cold_start_analogs', 'infer_predecessors');
+WHERE function_name IN ('jaccard_similarity', 'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel', 'cold_start_analogs', 'infer_predecessors');
 ----
-4
+5

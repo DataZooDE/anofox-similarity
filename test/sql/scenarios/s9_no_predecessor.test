@@ -43,7 +43,7 @@ SELECT COUNT(*) FROM infer_predecessors('S9-BRAND-NEW', min_confidence := 0.1, m
 
 # Verify no similar materials found (Jaccard similarity = 0 with all others)
 query I
-SELECT COUNT(*) FROM find_similar_materials('S9-BRAND-NEW', 10, min_similarity := 0.1);
+SELECT COUNT(*) FROM find_similar_materials_jaccard('S9-BRAND-NEW', 10, min_similarity := 0.1);
 ----
 0
 
