@@ -20,11 +20,9 @@ void RegisterStatisticsMacros(Connection &conn) {
 		) AS TABLE
 		WITH filtered_materials AS (
 			-- Apply batch filtering if specified (Incremental Update Optimization)
+			-- Use centralized helper to filter recent movements
 			SELECT DISTINCT material_id
-			FROM query_table(movements_table)
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-				AND quantity IS NOT NULL
-				AND quantity > 0
+			FROM filter_recent_movements(movements_table, time_window_days, 0)
 			ORDER BY material_id
 			LIMIT CASE WHEN batch_size IS NOT NULL THEN batch_size ELSE NULL END
 			OFFSET CASE WHEN batch_size IS NOT NULL THEN batch_offset ELSE 0 END
@@ -35,11 +33,8 @@ void RegisterStatisticsMacros(Connection &conn) {
 				LIST(gm.quantity ORDER BY gm.movement_date),
 				LIST(gm.movement_date ORDER BY gm.movement_date)
 			) AS features
-		FROM query_table(movements_table) gm
+		FROM filter_recent_movements(movements_table, time_window_days, 0) gm
 		INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
-		WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-		  AND gm.quantity IS NOT NULL
-		  AND gm.quantity > 0
 		GROUP BY gm.material_id
 		HAVING COUNT(*) >= min_observations
 	)");

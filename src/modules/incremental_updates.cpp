@@ -91,12 +91,9 @@ void RegisterIncrementalUpdateMacros(Connection &conn) {
 				SELECT material_id FROM material_embeddings_dirty
 			),
 			material_components AS (
-				SELECT
-					parent_id AS material_id,
-					LIST(DISTINCT child_id ORDER BY child_id) AS components
-				FROM query_table(bom_table)
-				WHERE parent_id IN (SELECT material_id FROM dirty_materials)
-				GROUP BY parent_id
+				-- Use centralized helper and filter for dirty materials
+				SELECT * FROM aggregate_material_components(bom_table)
+				WHERE material_id IN (SELECT material_id FROM dirty_materials)
 			)
 		DELETE FROM material_embeddings_dirty
 		WHERE material_id IN (SELECT material_id FROM material_components)
