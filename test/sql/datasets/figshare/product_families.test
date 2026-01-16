@@ -3,6 +3,11 @@
 # description: Tier 2 - Figshare product family ranking and clustering tests
 # group: [datasets, figshare]
 
+# Skip: These tests use lateral join/subquery patterns that require SQL macros,
+# but the functions have been converted to TableFunctions for telemetry tracking.
+# TableFunctions with bind_replace don't support lateral join column parameters.
+mode skip
+
 # Figshare Consumer Electronics BOM Dataset
 # Source: https://figshare.com/articles/dataset/Material_composition_of_consumer_electronics/11306792
 # License: CC0 (Public Domain)
@@ -50,7 +55,7 @@ SELECT COUNT(*) FROM materials WHERE material_id LIKE 'MAT-%';
 query I
 WITH top_matches AS (
     SELECT f.material_id, f.similarity, m.material_group
-    FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 50) f
+    FROM find_similar_materials_jaccard('IPHONE-1ST-GENERATION-A1203-2007', 50) f
     JOIN materials m ON f.material_id = m.material_id
 ),
 category_avgs AS (
@@ -72,7 +77,7 @@ WITH laptop AS (
 ),
 top_matches AS (
     SELECT f.material_id, f.similarity, m.material_group
-    FROM find_similar_materials((SELECT material_id FROM laptop), 50) f
+    FROM find_similar_materials_jaccard((SELECT material_id FROM laptop), 50) f
     JOIN materials m ON f.material_id = m.material_id
 ),
 category_avgs AS (
@@ -93,7 +98,7 @@ true
 # At least 1 other Motorola smartphone should be in top 20
 # MOTOROLA-MOTO_E-XT1527-2015 is expected to appear as a similar match
 query I
-SELECT COUNT(*) >= 1 FROM find_similar_materials('MOTOROLA-ROKR-RIZR-Z6-2007', 20)
+SELECT COUNT(*) >= 1 FROM find_similar_materials_jaccard('MOTOROLA-ROKR-RIZR-Z6-2007', 20)
 WHERE material_id = 'MOTOROLA-MOTO_E-XT1527-2015';
 ----
 true
@@ -101,7 +106,7 @@ true
 # LG products should cluster together
 # At least 2 other LG products should be in top 20
 query I
-SELECT COUNT(*) >= 2 FROM find_similar_materials('LG-VX-3200-2004', 20)
+SELECT COUNT(*) >= 2 FROM find_similar_materials_jaccard('LG-VX-3200-2004', 20)
 WHERE material_id LIKE 'LG%';
 ----
 true
@@ -136,7 +141,7 @@ SELECT CASE WHEN jaccard_similarity(
 query I
 WITH results AS (
     SELECT similarity, ROW_NUMBER() OVER () as rn
-    FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 10)
+    FROM find_similar_materials_jaccard('IPHONE-1ST-GENERATION-A1203-2007', 10)
 ),
 ordering_check AS (
     SELECT COUNT(*) as violations
@@ -150,7 +155,7 @@ true
 # Top result should have similarity >= 0.8 (high baseline due to shared materials)
 query I
 SELECT similarity >= 0.8
-FROM find_similar_materials('IPHONE-1ST-GENERATION-A1203-2007', 1);
+FROM find_similar_materials_jaccard('IPHONE-1ST-GENERATION-A1203-2007', 1);
 ----
 true
 

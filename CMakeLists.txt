@@ -23,10 +23,14 @@ set(EXTENSION_SOURCES
     src/modules/jaccard_similarity.cpp
     src/modules/similarity_search.cpp
     src/modules/wl_kernel.cpp
+    src/modules/wl_kernel_cpp.cpp
+    src/modules/jaccard_cpp.cpp
     src/modules/predecessor_inference.cpp
     src/modules/sap_transformations.cpp
     src/modules/dynamics365_transformations.cpp
     src/modules/vss_integration.cpp
+    src/modules/bom_utilities.cpp
+    src/modules/statistics_functions.cpp
     src/modules/embedding_statistics.cpp
     src/modules/incremental_updates.cpp
     src/modules/textual_embeddings.cpp
@@ -39,10 +43,38 @@ set(EXTENSION_SOURCES
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
+# --- PostHog Telemetry ---
+find_package(OpenSSL REQUIRED)
+
+add_library(posthog_telemetry_obj OBJECT
+    ${CMAKE_CURRENT_SOURCE_DIR}/posthog-telemetry/src/telemetry.cpp
+)
+
+target_include_directories(posthog_telemetry_obj PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/posthog-telemetry/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/duckdb/src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/duckdb/third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/duckdb/third_party/httplib
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+target_compile_features(posthog_telemetry_obj PUBLIC cxx_std_17)
+
+# Add telemetry objects to extension targets
+target_sources(${EXTENSION_NAME} PRIVATE $<TARGET_OBJECTS:posthog_telemetry_obj>)
+target_sources(${LOADABLE_EXTENSION_NAME} PRIVATE $<TARGET_OBJECTS:posthog_telemetry_obj>)
+
+target_include_directories(${EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/posthog-telemetry/include)
+target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/posthog-telemetry/include)
+
+# Link OpenSSL for telemetry
+target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
+
 # Link OpenVINO if available
 if(OpenVINO_FOUND)
-    target_link_libraries(${EXTENSION_NAME} PRIVATE openvino::runtime)
-    target_link_libraries(${LOADABLE_EXTENSION_NAME} PRIVATE openvino::runtime)
+    target_link_libraries(${EXTENSION_NAME} openvino::runtime)
+    target_link_libraries(${LOADABLE_EXTENSION_NAME} openvino::runtime)
 endif()
 
 install(

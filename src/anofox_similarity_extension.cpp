@@ -9,6 +9,10 @@
 #include "modules/dynamics365_transformations.hpp"
 #include "modules/universal_schema.hpp"
 #include "modules/vss_integration.hpp"
+#include "modules/bom_utilities.hpp"
+#include "modules/statistics_functions.hpp"
+#include "modules/wl_kernel_cpp.hpp"
+#include "modules/jaccard_cpp.hpp"
 #include "modules/embedding_statistics.hpp"
 #include "modules/incremental_updates.hpp"
 #include "modules/textual_embeddings.hpp"
@@ -17,8 +21,35 @@
 #include "modules/duckpgq_integration.hpp"
 #include "duckdb.hpp"
 #include "duckdb/main/connection.hpp"
+#include "telemetry.hpp"
 
 namespace duckdb {
+
+// --- Telemetry Configuration ---
+static void OnTelemetryEnabled(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &telemetry = PostHogTelemetry::Instance();
+	telemetry.SetEnabled(BooleanValue::Get(parameter));
+}
+
+static void OnTelemetryKey(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &telemetry = PostHogTelemetry::Instance();
+	telemetry.SetAPIKey(StringValue::Get(parameter));
+}
+
+static void RegisterTelemetryOptions(ExtensionLoader &loader) {
+	auto &config = DBConfig::GetConfig(loader.GetDatabaseInstance());
+
+	config.AddExtensionOption("anofox_telemetry_enabled",
+	                          "Enable or disable anonymous usage telemetry",
+	                          LogicalType::BOOLEAN, Value::BOOLEAN(true),
+	                          OnTelemetryEnabled);
+
+	config.AddExtensionOption("anofox_telemetry_key",
+	                          "PostHog API key for telemetry",
+	                          LogicalType::VARCHAR,
+	                          Value("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t"),
+	                          OnTelemetryKey);
+}
 
 /*
  * anofox_similarity - Product Similarity Detection for Manufacturing
@@ -56,12 +87,31 @@ namespace duckdb {
  */
 
 static void LoadInternal(ExtensionLoader &loader) {
+	// Register telemetry options first
+	RegisterTelemetryOptions(loader);
+
+	// Initialize and capture extension load
+	auto &telemetry = PostHogTelemetry::Instance();
+	telemetry.SetAPIKey("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t");
+
+	std::string version;
+#ifdef EXT_VERSION_ANOFOX_SIMILARITY
+	version = EXT_VERSION_ANOFOX_SIMILARITY;
+#else
+	version = "0.1.0";
+#endif
+	telemetry.CaptureExtensionLoad("anofox_similarity", version);
+
 	// Get database connection for SQL operations
 	auto &db = loader.GetDatabaseInstance();
 	Connection conn(db);
 
 	// Core Algorithms: Jaccard similarity scalar functions
 	anofox::RegisterJaccardFunctions(loader);
+
+	// C++ Optimizations: Jaccard min-hash and WL kernel implementations
+	anofox::RegisterJaccardCppFunctions(loader);
+	anofox::RegisterWLKernelCppFunctions(loader, conn);
 
 	// Textual Analysis: Text embedding functions
 	anofox::RegisterTextualEmbeddingFunctions(loader);
@@ -73,6 +123,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Note: CreateUniversalBOMSchema should be called explicitly when needed
 	// This ensures tests can control table creation and lifecycle
 	anofox::RegisterBOMConversionMacros(conn);
+
+	// BOM Utilities: Helper macros for common BOM and movement filtering patterns
+	anofox::RegisterBOMUtilityMacros(conn);
+
+	// Statistics Functions: Infrastructure for efficient z-score normalization
+	anofox::RegisterStatisticsFunctions(conn);
 
 	// Graph Analysis (Optional): DuckPGQ property graph macros for BOM traversal
 	anofox::RegisterCheckDuckPGQMacro(conn);
@@ -87,13 +143,13 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Multi-Modal Fusion: Combine embeddings from multiple sources
 	anofox::RegisterMultimodalFusionFunctions(loader);
 
-	// Similarity Search: High-level similarity search and inference macros
-	anofox::RegisterSimilaritySearchMacros(conn);
+	// Similarity Search: High-level similarity search and inference table functions
+	anofox::RegisterSimilaritySearchFunctions(loader);
 	anofox::RegisterWLKernelMacros(conn);
-	anofox::RegisterPredecessorInferenceMacros(conn);
+	anofox::RegisterPredecessorInferenceFunctions(loader);
 	anofox::RegisterSAPTransformationMacros(conn);
 	anofox::RegisterDynamics365TransformationMacros(conn);
-	anofox::RegisterEmbeddingMacros(conn);
+	anofox::RegisterEmbeddingFunctions(loader);
 	anofox::RegisterTextualEmbeddingMacros(conn);
 	anofox::RegisterEmbedTextLambdas(conn);
 	anofox::RegisterFusionMacros(conn);
@@ -104,7 +160,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::CheckQueryResult(forecast_result, "load anofox-forecast extension", anofox::FailureMode::OPTIONAL);
 
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
-	anofox::RegisterTransactionalEmbeddingMacro(conn);
+	anofox::RegisterTransactionalEmbeddingFunctions(loader);
 
 	// Feature Normalization: Embedding statistics computation for z-score normalization
 	anofox::RegisterStatisticsMacros(conn);

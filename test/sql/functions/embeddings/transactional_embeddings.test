@@ -15,14 +15,14 @@ SELECT check_anofox_forecast_available() IN (0, 1);
 true
 
 # ============================================================================
-# Test 2: Verify compute_transactional_embeddings macro is registered
+# Test 2: Verify compute_transactional_embeddings table function is registered
 # ============================================================================
 
 statement ok
 SELECT COUNT(*) > 0
 FROM duckdb_functions()
 WHERE function_name = 'compute_transactional_embeddings'
-  AND function_type = 'table_macro';
+  AND function_type = 'table';
 
 # ============================================================================
 # Test Summary: Soft Dependency Validation

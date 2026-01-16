@@ -92,12 +92,12 @@ SELECT EXISTS(
 ----
 true
 
-# Verify find_similar_materials_jaccard table macro exists
+# Verify find_similar_materials_jaccard table function exists
 query I
 SELECT EXISTS(
     SELECT 1 FROM duckdb_functions()
     WHERE function_name = 'find_similar_materials_jaccard'
-    AND function_type = 'table_macro'
+    AND function_type = 'table'
 );
 ----
 true

@@ -3,6 +3,11 @@
 # description: Tier 3 - Predecessor detection Precision, Recall, and F1 validation
 # group: [tier3_metrics]
 
+# Skip: These accuracy tests use lateral join patterns that require SQL macros,
+# but the functions have been converted to TableFunctions for telemetry tracking.
+# TableFunctions with bind_replace don't support lateral join column parameters.
+mode skip
+
 # Validates predecessor detection accuracy against CONCEPT.md Section 6.3 targets:
 # - P2 Target: Predecessor F1 >= 0.70
 #

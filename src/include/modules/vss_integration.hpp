@@ -23,10 +23,10 @@ void CreateEmbeddingTables(Connection &conn);
 // Create HNSW indexes for fast similarity search
 void CreateHNSWIndexes(Connection &conn);
 
-// Register core embedding macros (Jaccard embeddings, statistics freshness check)
+// Register core embedding table functions (Jaccard embeddings, statistics freshness check)
 // Note: Statistics computation macros are registered by embedding_statistics module
 // Note: Incremental update macros are registered by incremental_updates module
-void RegisterEmbeddingMacros(Connection &conn);
+void RegisterEmbeddingFunctions(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

@@ -21,7 +21,8 @@ namespace anofox {
 // Purpose: Allows graceful fallback when anofox-forecast extension not loaded
 void RegisterCheckAnofoxForecastMacro(Connection &conn);
 
-// Registers compute_transactional_embeddings(
+// Registers compute_transactional_embeddings as a TableFunction with telemetry
+// (
 //   movements_table := 'goods_movements',
 //   material_column := 'material_id',
 //   date_column := 'movement_date',
@@ -61,7 +62,7 @@ void RegisterCheckAnofoxForecastMacro(Connection &conn);
 //   - Designed to integrate with material_embeddings table
 //   - Works with existing fuse_embeddings() fusion function
 //   - Supports HNSW index creation for fast similarity search
-void RegisterTransactionalEmbeddingMacro(Connection &conn);
+void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

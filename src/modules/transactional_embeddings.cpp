@@ -1,8 +1,31 @@
 #include "modules/transactional_embeddings.hpp"
 #include "core/error_handling.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/function/table_function.hpp"
+#include "duckdb/parser/parser.hpp"
+#include "duckdb/parser/tableref/subqueryref.hpp"
+#include "duckdb/main/client_context.hpp"
+#include "duckdb/main/connection.hpp"
+#include "telemetry.hpp"
 
 namespace duckdb {
 namespace anofox {
+
+//------------------------------------------------------------------------------
+// Helper: Parse SQL to SubqueryRef
+//------------------------------------------------------------------------------
+
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
+	Parser parser(options);
+	parser.ParseQuery(query);
+	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+		throw ParserException(err_msg);
+	}
+	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto new_stmt = make_uniq<SelectStatement>();
+	new_stmt->node = std::move(select_stmt.node);
+	return make_uniq<SubqueryRef>(std::move(new_stmt));
+}
 
 //------------------------------------------------------------------------------
 // Soft Dependency Checking
@@ -21,37 +44,57 @@ void RegisterCheckAnofoxForecastMacro(Connection &conn) {
 }
 
 //------------------------------------------------------------------------------
-// Transactional Embeddings Macro
-//
-// Generates 128-D embeddings from 30 key time series features extracted via
-// anofox-forecast, with remaining 98 dimensions zero-padded for future expansion.
-//
-// Feature Categories:
-//   1. Consumption Patterns (dims 1-10): mean, median, variance, trend, etc.
-//   2. Demand Volatility (dims 11-18): CV, skewness, entropy, etc.
-//   3. Frequency Domain (dims 19-26): FFT coefficients and aggregates
-//   4. Temporal Patterns (dims 27-30): Autocorrelation at various lags
-//   5. Reserved/Zero-Padding (dims 31-128): Future expansion
+// compute_transactional_embeddings TableFunction
 //------------------------------------------------------------------------------
 
-void RegisterTransactionalEmbeddingMacro(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO compute_transactional_embeddings(
-			movements_table := 'goods_movements',
-			material_column := 'material_id',
-			date_column := 'movement_date',
-			quantity_column := 'quantity',
-			time_window_days := 365,
-			batch_size := NULL,
-			batch_offset := 0
-		) AS TABLE
+static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().CaptureFunctionExecution("compute_transactional_embeddings");
 
+	// Parameters (all named with defaults):
+	// movements_table := 'goods_movements'
+	// material_column := 'material_id'
+	// date_column := 'movement_date'
+	// quantity_column := 'quantity'
+	// time_window_days := 365
+	// batch_size := NULL
+	// batch_offset := 0
+
+	string movements_table = "goods_movements";
+	string material_column = "material_id";
+	string date_column = "movement_date";
+	string quantity_column = "quantity";
+	int64_t time_window_days = 365;
+	string batch_size = "NULL";
+	int64_t batch_offset = 0;
+
+	if (input.named_parameters.count("movements_table")) {
+		movements_table = input.named_parameters.at("movements_table").ToString();
+	}
+	if (input.named_parameters.count("material_column")) {
+		material_column = input.named_parameters.at("material_column").ToString();
+	}
+	if (input.named_parameters.count("date_column")) {
+		date_column = input.named_parameters.at("date_column").ToString();
+	}
+	if (input.named_parameters.count("quantity_column")) {
+		quantity_column = input.named_parameters.at("quantity_column").ToString();
+	}
+	if (input.named_parameters.count("time_window_days")) {
+		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
+	}
+	if (input.named_parameters.count("batch_size") && !input.named_parameters.at("batch_size").IsNull()) {
+		batch_size = std::to_string(input.named_parameters.at("batch_size").GetValue<int64_t>());
+	}
+	if (input.named_parameters.count("batch_offset")) {
+		batch_offset = input.named_parameters.at("batch_offset").GetValue<int64_t>();
+	}
+
+	// Build the complex SQL query
+	string sql = StringUtil::Format(R"(
 		WITH dependency_check AS (
-			-- Verify anofox-forecast is loaded
 			SELECT check_anofox_forecast_available() AS is_available
 		),
 		validated AS (
-			-- Validate dependency before proceeding
 			SELECT
 				CASE
 					WHEN NOT is_available THEN
@@ -63,49 +106,36 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				END AS valid
 			FROM dependency_check
 		),
-		-- Issue #9: Use shared extract_ts_features macro for performance optimization
-		-- This eliminates redundant feature extraction computation (previously done 3x independently)
 		filtered_materials AS (
-			-- Apply batch filtering to materials for consistent filtering across macros
-			-- (both feature_extraction and domain_specific_features)
 			SELECT DISTINCT material_id
-			FROM query_table(movements_table)
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-				AND quantity IS NOT NULL
-				AND quantity > 0
+			FROM filter_recent_movements('%s', %lld, 0)
 			ORDER BY material_id
-			LIMIT CASE WHEN batch_size IS NOT NULL THEN batch_size ELSE NULL END
-			OFFSET CASE WHEN batch_size IS NOT NULL THEN batch_offset ELSE 0 END
+			LIMIT CASE WHEN %s IS NOT NULL THEN %s ELSE NULL END
+			OFFSET CASE WHEN %s IS NOT NULL THEN %lld ELSE 0 END
 		),
 		feature_extraction AS (
-			-- Extract time series features using shared macro (with batch processing support)
 			SELECT
 				material_id,
-				NULL::INTEGER AS num_observations,  -- Not needed by downstream logic, using shared macro for extraction only
+				NULL::INTEGER AS num_observations,
 				features
 			FROM extract_ts_features(
-				movements_table,
-				time_window_days,
-				3,  -- min_observations
-				batch_size,
-				batch_offset
+				'%s',
+				%lld,
+				3,
+				%s,
+				%lld
 			)
-			WHERE (SELECT valid FROM validated LIMIT 1)  -- Only execute if dependency validated
+			WHERE (SELECT valid FROM validated LIMIT 1)
 		),
 		statistics_lookup AS (
-			-- Create efficient feature lookup table (single scan of statistics)
-			-- Instead of 98 LEFT JOINs, load all statistics once and reference by feature_name
 			SELECT
 				feature_name,
 				COALESCE(mean_value, 0.0) AS mean_value,
 				COALESCE(std_value, 1.0) AS std_value
 			FROM transactional_embedding_statistics
-			WHERE feature_index < 104  -- All features including Domain-Specific ERP Features (if available)
+			WHERE feature_index < 104
 		),
 		phase2c_features AS (
-			-- Domain-Specific ERP Features: Compute domain-specific features from goods_movements
-			-- These are optional and only computed if goods_movements table exists
-			-- Apply batch filtering via filtered_materials CTE (Issue #9 optimization)
 			SELECT
 				gm.material_id,
 				COUNT(*) AS total_moves,
@@ -139,26 +169,17 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 						) / LN(7.0)
 					ELSE 0.0
 				END AS weekday_concentration,
-				-- Lifecycle features from anofox-forecast (computed later via LEFT JOIN)
 				NULL::FLOAT AS trend_strength,
 				NULL::FLOAT AS growth_indicator
-			FROM query_table(movements_table) gm
+			FROM filter_recent_movements('%s', %lld, 0) gm
 			INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
-			WHERE gm.movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL '1 day' * time_window_days
-			  AND gm.quantity IS NOT NULL
-			  AND gm.quantity > 0
 			GROUP BY gm.material_id
 			HAVING COUNT(*) >= 3
 		),
 		normalized_features AS (
-			-- Apply z-score normalization: (x - μ) / σ
-			-- Core Time Series Features: Normalize the 30 core features for better similarity search
-			-- Refactored: Replace 98 individual LEFT JOINs with single efficient lookup
-			-- Uses COALESCE with subqueries for feature-specific statistic lookups
 			SELECT
 				fe.material_id,
 				fe.num_observations,
-				-- Consumption Patterns (dims 0-9) - z-score normalized
 				(COALESCE(fe.features.mean, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'mean' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'mean' LIMIT 1), 0.0) AS mean_z,
 				(COALESCE(fe.features.median, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'median' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'median' LIMIT 1), 0.0) AS median_z,
 				(COALESCE(fe.features.variance, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'variance' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'variance' LIMIT 1), 0.0) AS variance_z,
@@ -169,7 +190,6 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				(COALESCE(fe.features.length, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'length' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'length' LIMIT 1), 0.0) AS length_z,
 				(COALESCE(fe.features.first_location_of_maximum, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'first_location_of_maximum' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'first_location_of_maximum' LIMIT 1), 0.0) AS first_max_z,
 				(COALESCE(fe.features.last_location_of_maximum, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'last_location_of_maximum' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'last_location_of_maximum' LIMIT 1), 0.0) AS last_max_z,
-				-- Demand Volatility (dims 10-17) - z-score normalized
 				(COALESCE(fe.features.coefficient_variation, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'coefficient_variation' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'coefficient_variation' LIMIT 1), 0.0) AS cv_z,
 				(COALESCE(fe.features.skewness, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'skewness' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'skewness' LIMIT 1), 0.0) AS skew_z,
 				(COALESCE(fe.features.kurtosis, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'kurtosis' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'kurtosis' LIMIT 1), 0.0) AS kurt_z,
@@ -178,7 +198,6 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				(COALESCE(fe.features.approximate_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1), 0.0) AS approx_ent_z,
 				(COALESCE(fe.features.sample_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1), 0.0) AS sample_ent_z,
 				(COALESCE(fe.features.benford_correlation, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1), 0.0) AS benford_z,
-				-- Frequency Domain (dims 18-25) - z-score normalized
 				(COALESCE(fe.features.fft_coefficient__attr_real__coeff_0, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_0' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_0' LIMIT 1), 0.0) AS fft_r0_z,
 				(COALESCE(fe.features.fft_coefficient__attr_imag__coeff_0, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_0' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_0' LIMIT 1), 0.0) AS fft_i0_z,
 				(COALESCE(fe.features.fft_coefficient__attr_real__coeff_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_1' LIMIT 1), 0.0) AS fft_r1_z,
@@ -187,27 +206,19 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 				(COALESCE(fe.features.fft_coefficient__attr_imag__coeff_2, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_2' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_2' LIMIT 1), 0.0) AS fft_i2_z,
 				(COALESCE(fe.features.fft_aggregated__aggtype_mean, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_mean' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_mean' LIMIT 1), 0.0) AS fft_mean_z,
 				(COALESCE(fe.features.fft_aggregated__aggtype_variance, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_variance' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_variance' LIMIT 1), 0.0) AS fft_var_z,
-				-- Temporal Patterns (dims 26-29) - z-score normalized
 				(COALESCE(fe.features.autocorrelation__lag_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_1' LIMIT 1), 0.0) AS ac1_z,
 				(COALESCE(fe.features.autocorrelation__lag_7, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1), 0.0) AS ac7_z,
 				(COALESCE(fe.features.autocorrelation__lag_14, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1), 0.0) AS ac14_z,
 				(COALESCE(fe.features.autocorrelation__lag_28, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1), 0.0) AS ac28_z,
-				-- Domain-Specific ERP Features: Advanced domain features (92-97)
-				-- Feature 92: Movement type receipt ratio
 				(COALESCE(p2c.receipt_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'movement_type_receipt_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'movement_type_receipt_ratio' LIMIT 1), 0.0) AS receipt_ratio_z,
-				-- Feature 93: Movement type reversal ratio
 				(COALESCE(p2c.reversal_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'movement_type_reversal_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'movement_type_reversal_ratio' LIMIT 1), 0.0) AS reversal_ratio_z,
-				-- Feature 94: Weekday/weekend ratio
 				(COALESCE(p2c.weekend_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'weekday_weekend_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'weekday_weekend_ratio' LIMIT 1), 0.0) AS weekend_ratio_z,
-				-- Feature 95: Weekday concentration
 				(COALESCE(p2c.weekday_concentration, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'weekday_concentration' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'weekday_concentration' LIMIT 1), 0.0) AS weekday_conc_z,
-				-- Feature 96: Lifecycle trend strength (from anofox-forecast)
 				(CASE
 					WHEN ABS(COALESCE(fe.features.mean, 1.0)) > 1e-8 THEN
 						ABS(COALESCE(fe.features.linear_trend__slope, 0.0)) / ABS(COALESCE(fe.features.mean, 1.0))
 					ELSE 0.0
 				END - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'lifecycle_trend_strength' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'lifecycle_trend_strength' LIMIT 1), 0.0) AS trend_strength_z,
-				-- Feature 97: Lifecycle growth indicator (from anofox-forecast)
 				(CASE
 					WHEN ABS(COALESCE(fe.features.mean, 1.0)) > 1e-8 THEN
 						SIGN(COALESCE(fe.features.linear_trend__slope, 0.0)) *
@@ -218,51 +229,17 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			LEFT JOIN phase2c_features p2c ON fe.material_id = p2c.material_id
 		),
 		raw_embedding_vectors AS (
-			-- Convert z-score normalized features to FLOAT[128] array
-			-- Core Time Series Features: Use z-score normalized features (dims 0-29) + zero-padding (dims 30-127)
 			SELECT
 				material_id,
 				ARRAY[
-					-- Consumption Patterns (10 features: dims 0-9) - z-score normalized
-					COALESCE(mean_z, 0.0),
-					COALESCE(median_z, 0.0),
-					COALESCE(variance_z, 0.0),
-					COALESCE(std_z, 0.0),
-					COALESCE(slope_z, 0.0),
-					COALESCE(intercept_z, 0.0),
-					COALESCE(sum_z, 0.0),
-					COALESCE(length_z, 0.0),
-					COALESCE(first_max_z, 0.0),
-					COALESCE(last_max_z, 0.0),
-
-					-- Demand Volatility (8 features: dims 10-17) - z-score normalized
-					COALESCE(cv_z, 0.0),
-					COALESCE(skew_z, 0.0),
-					COALESCE(kurt_z, 0.0),
-					COALESCE(range_z, 0.0),
-					COALESCE(ratio_z, 0.0),
-					COALESCE(approx_ent_z, 0.0),
-					COALESCE(sample_ent_z, 0.0),
-					COALESCE(benford_z, 0.0),
-
-					-- Frequency Domain (8 features: dims 18-25) - z-score normalized
-					COALESCE(fft_r0_z, 0.0),
-					COALESCE(fft_i0_z, 0.0),
-					COALESCE(fft_r1_z, 0.0),
-					COALESCE(fft_i1_z, 0.0),
-					COALESCE(fft_r2_z, 0.0),
-					COALESCE(fft_i2_z, 0.0),
-					COALESCE(fft_mean_z, 0.0),
-					COALESCE(fft_var_z, 0.0),
-
-					-- Temporal Patterns (4 features: dims 26-29) - z-score normalized
-					COALESCE(ac1_z, 0.0),
-					COALESCE(ac7_z, 0.0),
-					COALESCE(ac14_z, 0.0),
-					COALESCE(ac28_z, 0.0),
-
-					-- Extended Statistical Features: Extended tsfresh features (62 features: dims 30-91)
-					-- Currently zero-padded; will be populated with Extended Statistical Features computations
+					COALESCE(mean_z, 0.0), COALESCE(median_z, 0.0), COALESCE(variance_z, 0.0), COALESCE(std_z, 0.0),
+					COALESCE(slope_z, 0.0), COALESCE(intercept_z, 0.0), COALESCE(sum_z, 0.0), COALESCE(length_z, 0.0),
+					COALESCE(first_max_z, 0.0), COALESCE(last_max_z, 0.0),
+					COALESCE(cv_z, 0.0), COALESCE(skew_z, 0.0), COALESCE(kurt_z, 0.0), COALESCE(range_z, 0.0),
+					COALESCE(ratio_z, 0.0), COALESCE(approx_ent_z, 0.0), COALESCE(sample_ent_z, 0.0), COALESCE(benford_z, 0.0),
+					COALESCE(fft_r0_z, 0.0), COALESCE(fft_i0_z, 0.0), COALESCE(fft_r1_z, 0.0), COALESCE(fft_i1_z, 0.0),
+					COALESCE(fft_r2_z, 0.0), COALESCE(fft_i2_z, 0.0), COALESCE(fft_mean_z, 0.0), COALESCE(fft_var_z, 0.0),
+					COALESCE(ac1_z, 0.0), COALESCE(ac7_z, 0.0), COALESCE(ac14_z, 0.0), COALESCE(ac28_z, 0.0),
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -270,14 +247,9 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0,
-					-- Domain-Specific ERP Features: Advanced domain-specific features (6 features: dims 92-97)
-					COALESCE(receipt_ratio_z, 0.0),
-					COALESCE(reversal_ratio_z, 0.0),
-					COALESCE(weekend_ratio_z, 0.0),
-					COALESCE(weekday_conc_z, 0.0),
-					COALESCE(trend_strength_z, 0.0),
-					COALESCE(growth_indicator_z, 0.0),
-					-- Reserved / Zero-Padding (30 features: dims 98-127)
+					COALESCE(receipt_ratio_z, 0.0), COALESCE(reversal_ratio_z, 0.0),
+					COALESCE(weekend_ratio_z, 0.0), COALESCE(weekday_conc_z, 0.0),
+					COALESCE(trend_strength_z, 0.0), COALESCE(growth_indicator_z, 0.0),
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -285,8 +257,6 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			FROM normalized_features
 		),
 		l2_normalization AS (
-			-- Compute L2 norm of raw embedding
-			-- ||v||_2 = sqrt(sum(v_i^2))
 			SELECT
 				material_id,
 				raw_embedding,
@@ -296,9 +266,6 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			GROUP BY material_id, raw_embedding
 		),
 		normalized_embedding_vectors AS (
-			-- Apply L2 normalization: v_normalized = v / ||v||_2
-			-- Converts embedding to unit vector (||v||_2 = 1.0)
-			-- Important for cosine similarity in HNSW indexing
 			SELECT
 				material_id,
 				LIST(CASE
@@ -313,9 +280,29 @@ void RegisterTransactionalEmbeddingMacro(Connection &conn) {
 			material_id,
 			transactional_embedding
 		FROM normalized_embedding_vectors
-	)");
+	)", movements_table, time_window_days, batch_size, batch_size, batch_size, batch_offset,
+	    movements_table, time_window_days, batch_size, batch_offset,
+	    movements_table, time_window_days);
 
-	CheckQueryResult(result, "create compute_transactional_embeddings macro");
+	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_transactional_embeddings query");
+}
+
+//------------------------------------------------------------------------------
+// Module Registration
+//------------------------------------------------------------------------------
+
+void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
+	// compute_transactional_embeddings
+	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
+	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
+	compute_trans.named_parameters["movements_table"] = LogicalType::VARCHAR;
+	compute_trans.named_parameters["material_column"] = LogicalType::VARCHAR;
+	compute_trans.named_parameters["date_column"] = LogicalType::VARCHAR;
+	compute_trans.named_parameters["quantity_column"] = LogicalType::VARCHAR;
+	compute_trans.named_parameters["time_window_days"] = LogicalType::BIGINT;
+	compute_trans.named_parameters["batch_size"] = LogicalType::BIGINT;
+	compute_trans.named_parameters["batch_offset"] = LogicalType::BIGINT;
+	loader.RegisterFunction(compute_trans);
 }
 
 } // namespace anofox

@@ -4,6 +4,7 @@
 #include "duckdb/common/vector_operations/unary_executor.hpp"
 #include "duckdb/main/connection.hpp"
 #include "duckdb/common/types/vector.hpp"
+#include "telemetry.hpp"
 
 #ifdef DUCKDB_OPENVINO_AVAILABLE
 #include "openvino/openvino.hpp"
@@ -241,6 +242,16 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 }
 
 //------------------------------------------------------------------------------
+// Telemetry Bind Function
+//------------------------------------------------------------------------------
+
+static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, ScalarFunction &bound_function,
+                                                      vector<unique_ptr<Expression>> &arguments) {
+	PostHogTelemetry::Instance().CaptureFunctionExecution("embedding_backend");
+	return nullptr;
+}
+
+//------------------------------------------------------------------------------
 // Module Registration
 //------------------------------------------------------------------------------
 
@@ -251,7 +262,8 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	    "embedding_backend",
 	    {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	    LogicalType::LIST(LogicalType::FLOAT),
-	    EmbeddingBackendFunction
+	    EmbeddingBackendFunction,
+	    EmbeddingBackendBind
 	);
 	loader.RegisterFunction(embedding_backend_function);
 }

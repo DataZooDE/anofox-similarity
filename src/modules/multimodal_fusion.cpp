@@ -3,6 +3,7 @@
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
 #include "duckdb/main/connection.hpp"
+#include "telemetry.hpp"
 #include <cmath>
 
 namespace duckdb {
@@ -101,6 +102,16 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 }
 
 //------------------------------------------------------------------------------
+// Telemetry Bind Function
+//------------------------------------------------------------------------------
+
+static unique_ptr<FunctionData> FuseEmbeddingsBind(ClientContext &context, ScalarFunction &bound_function,
+                                                    vector<unique_ptr<Expression>> &arguments) {
+	PostHogTelemetry::Instance().CaptureFunctionExecution("fuse_embeddings");
+	return nullptr;
+}
+
+//------------------------------------------------------------------------------
 // Module Registration
 //------------------------------------------------------------------------------
 
@@ -121,7 +132,8 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	 })}
 	,
 	    LogicalType::LIST(LogicalType::FLOAT),
-	    FuseEmbeddingsFunction
+	    FuseEmbeddingsFunction,
+	    FuseEmbeddingsBind
 	);
 	loader.RegisterFunction(fuse_embeddings_function);
 }

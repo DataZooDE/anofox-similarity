@@ -4,6 +4,7 @@
 #include "duckdb/common/vector_operations/binary_executor.hpp"
 #include "duckdb/common/types/value.hpp"
 #include "duckdb/main/connection.hpp"
+#include "telemetry.hpp"
 
 #include <unordered_set>
 
@@ -116,6 +117,16 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 }
 
 //------------------------------------------------------------------------------
+// Telemetry Bind Function
+//------------------------------------------------------------------------------
+
+static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, ScalarFunction &bound_function,
+                                                       vector<unique_ptr<Expression>> &arguments) {
+	PostHogTelemetry::Instance().CaptureFunctionExecution("jaccard_similarity");
+	return nullptr;
+}
+
+//------------------------------------------------------------------------------
 // Module Registration
 //------------------------------------------------------------------------------
 
@@ -125,7 +136,8 @@ void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	    "jaccard_similarity",
 	    {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
 	    LogicalType::DOUBLE,
-	    JaccardSimilarityFun
+	    JaccardSimilarityFun,
+	    JaccardSimilarityBind
 	);
 	loader.RegisterFunction(jaccard_similarity_function);
 }

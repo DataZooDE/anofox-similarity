@@ -9,8 +9,8 @@ namespace anofox {
 // Similarity Search Module - find_similar_materials & cold_start_analogs
 //------------------------------------------------------------------------------
 
-// Registers hybrid similarity search macros that combine VSS (when available) with brute-force
-void RegisterSimilaritySearchMacros(Connection &conn);
+// Registers similarity search table functions with telemetry tracking
+void RegisterSimilaritySearchFunctions(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

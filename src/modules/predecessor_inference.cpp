@@ -1,33 +1,91 @@
 #include "modules/predecessor_inference.hpp"
 #include "core/error_handling.hpp"
-#include "duckdb/main/connection.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/function/table_function.hpp"
+#include "duckdb/parser/parser.hpp"
+#include "duckdb/parser/tableref/subqueryref.hpp"
+#include "duckdb/main/client_context.hpp"
+#include "telemetry.hpp"
 
 namespace duckdb {
 namespace anofox {
 
-void RegisterPredecessorInferenceMacros(Connection &conn) {
-	// infer_predecessors: Historical consumption-aware predecessor detection
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO infer_predecessors(
-			query_material_id,
-			lookback_months := 24,
-			min_similarity := 0.3,
-			min_confidence := 0.5,
-			lag_weeks := 8,
-			bom_table := 'bom_items',
-			movements_table := 'goods_movements'
-		) AS TABLE
+//------------------------------------------------------------------------------
+// Helper: Parse SQL to SubqueryRef
+//------------------------------------------------------------------------------
+
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
+	Parser parser(options);
+	parser.ParseQuery(query);
+	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+		throw ParserException(err_msg);
+	}
+	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto new_stmt = make_uniq<SelectStatement>();
+	new_stmt->node = std::move(select_stmt.node);
+	return make_uniq<SubqueryRef>(std::move(new_stmt));
+}
+
+//------------------------------------------------------------------------------
+// infer_predecessors TableFunction
+//------------------------------------------------------------------------------
+
+static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().CaptureFunctionExecution("infer_predecessors");
+
+	// Parameters:
+	// 0: query_material_id (VARCHAR)
+	// Named: lookback_months (BIGINT, default 24)
+	// Named: min_similarity (DOUBLE, default 0.3)
+	// Named: min_confidence (DOUBLE, default 0.5)
+	// Named: lag_weeks (BIGINT, default 8)
+	// Named: bom_table (VARCHAR, default 'bom_items')
+	// Named: movements_table (VARCHAR, default 'goods_movements')
+
+	if (input.inputs.size() < 1) {
+		throw BinderException("infer_predecessors requires at least 1 argument: query_material_id");
+	}
+
+	string query_material_id = input.inputs[0].ToString();
+
+	// Get named parameters with defaults
+	int64_t lookback_months = 24;
+	double min_similarity = 0.3;
+	double min_confidence = 0.5;
+	int64_t lag_weeks = 8;
+	string bom_table = "bom_items";
+	string movements_table = "goods_movements";
+
+	if (input.named_parameters.count("lookback_months")) {
+		lookback_months = input.named_parameters.at("lookback_months").GetValue<int64_t>();
+	}
+	if (input.named_parameters.count("min_similarity")) {
+		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
+	}
+	if (input.named_parameters.count("min_confidence")) {
+		min_confidence = input.named_parameters.at("min_confidence").GetValue<double>();
+	}
+	if (input.named_parameters.count("lag_weeks")) {
+		lag_weeks = input.named_parameters.at("lag_weeks").GetValue<int64_t>();
+	}
+	if (input.named_parameters.count("bom_table")) {
+		bom_table = input.named_parameters.at("bom_table").ToString();
+	}
+	if (input.named_parameters.count("movements_table")) {
+		movements_table = input.named_parameters.at("movements_table").ToString();
+	}
+
+	string sql = StringUtil::Format(R"(
 		SELECT * FROM (
 			WITH
-				-- Get query material's time series and boundaries
 				query_ts AS (
 					SELECT
 						movement_date,
 						quantity,
 						MIN(movement_date) OVER () AS query_start,
 						MAX(movement_date) OVER () AS query_end
-					FROM query_table(movements_table)
-					WHERE material_id = query_material_id
+					FROM query_table('%s')
+					WHERE material_id = '%s'
 				),
 				query_boundaries AS (
 					SELECT
@@ -35,17 +93,14 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						MAX(query_end) AS end_date
 					FROM query_ts
 				),
-				-- Find similar materials (potential predecessors)
 				similar_mats AS (
 					SELECT material_id, similarity, shared_components, total_components
-					FROM find_similar_materials(
-						query_material_id, 100,
-						method := 'jaccard',
-						min_similarity := min_similarity,
-						bom_table := bom_table
+					FROM find_similar_materials_jaccard(
+						'%s', 100,
+						min_similarity := %f,
+						bom_table := '%s'
 					)
 				),
-				-- Get candidate materials' time series with boundaries
 				candidate_ts AS (
 					SELECT
 						gm.material_id,
@@ -53,11 +108,10 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						gm.quantity,
 						MIN(gm.movement_date) OVER (PARTITION BY gm.material_id) AS cand_first_usage,
 						MAX(gm.movement_date) OVER (PARTITION BY gm.material_id) AS cand_last_usage
-					FROM query_table(movements_table) gm
+					FROM query_table('%s') gm
 					INNER JOIN similar_mats s ON gm.material_id = s.material_id
-					WHERE gm.movement_date >= (SELECT start_date - INTERVAL (lookback_months) MONTHS FROM query_boundaries)
+					WHERE gm.movement_date >= (SELECT start_date - INTERVAL (%lld) MONTHS FROM query_boundaries)
 				),
-				-- Create weekly aggregates for correlation with lag applied to query
 				query_weekly AS (
 					SELECT
 						DATE_TRUNC('week', movement_date) AS week,
@@ -75,7 +129,6 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 					FROM candidate_ts
 					GROUP BY material_id, DATE_TRUNC('week', movement_date)
 				),
-				-- Join with lag: candidate week vs query week + lag
 				lagged_join AS (
 					SELECT
 						c.material_id,
@@ -85,9 +138,8 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						c.first_usage,
 						c.last_usage
 					FROM candidate_weekly c
-					INNER JOIN query_weekly q ON c.week = q.week - INTERVAL (lag_weeks) WEEKS
+					INNER JOIN query_weekly q ON c.week = q.week - INTERVAL (%lld) WEEKS
 				),
-				-- Calculate correlation per candidate
 				correlations AS (
 					SELECT
 						material_id,
@@ -97,9 +149,8 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						MAX(last_usage) AS last_usage
 					FROM lagged_join
 					GROUP BY material_id
-					HAVING COUNT(*) >= 8  -- Require at least 8 weeks of overlap (MIN_OVERLAP_WEEKS = 8)
+					HAVING COUNT(*) >= 8
 				),
-				-- Combine with similarity and calculate scores
 				scored AS (
 					SELECT
 						c.material_id,
@@ -109,20 +160,13 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						c.last_usage,
 						(SELECT start_date FROM query_boundaries) AS query_start,
 						c.overlapping_weeks,
-						-- Temporal succession: predecessor should end around/after query starts (overlap)
-						-- Best case: predecessor ends 0-6 months after successor starts (proper phaseout)
-						-- Also valid: predecessor ends up to 3 months before successor starts (gap)
-						-- Invalid: predecessor ends more than 6 months before (unrelated) or is still active
 						CASE
-							-- Predecessor ends during overlap period (0 to 6 months after successor starts)
 							WHEN c.last_usage >= (SELECT start_date FROM query_boundaries)
 							 AND c.last_usage <= (SELECT start_date FROM query_boundaries) + INTERVAL 6 MONTHS
 							THEN 1.0 - (DATEDIFF('day', (SELECT start_date FROM query_boundaries), c.last_usage) / 180.0) * 0.3
-							-- Predecessor ends shortly before successor starts (up to 3 months gap)
 							WHEN c.last_usage >= (SELECT start_date FROM query_boundaries) - INTERVAL 3 MONTHS
 							 AND c.last_usage < (SELECT start_date FROM query_boundaries)
 							THEN 0.7 - (DATEDIFF('day', c.last_usage, (SELECT start_date FROM query_boundaries)) / 90.0) * 0.3
-							-- Predecessor still active well after successor starts (more than 6 months)
 							WHEN c.last_usage > (SELECT start_date FROM query_boundaries) + INTERVAL 6 MONTHS
 							THEN 0.3
 							ELSE 0.0
@@ -131,12 +175,9 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 					INNER JOIN similar_mats s ON c.material_id = s.material_id
 					WHERE c.correlation IS NOT NULL
 				),
-				-- Calculate confidence and filter
 				with_confidence AS (
 					SELECT
 						material_id,
-						-- Confidence = 0.4 * (-correlation) + 0.3 * similarity + 0.3 * temporal_score
-						-- Negative correlation (anti-correlation) contributes positively
 						0.4 * GREATEST(0, -correlation) + 0.3 * similarity + 0.3 * temporal_score AS confidence,
 						correlation,
 						similarity,
@@ -146,8 +187,8 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 						query_start,
 						overlapping_weeks
 					FROM scored
-					WHERE correlation < 0  -- Must have negative correlation (anti-correlation)
-					  AND temporal_score > 0.0  -- Must have valid temporal succession
+					WHERE correlation < 0
+					  AND temporal_score > 0.0
 				)
 			SELECT
 				material_id AS predecessor_id,
@@ -160,12 +201,32 @@ void RegisterPredecessorInferenceMacros(Connection &conn) {
 				query_start AS successor_start,
 				overlapping_weeks
 			FROM with_confidence
-			WHERE confidence >= min_confidence
+			WHERE confidence >= %f
 			ORDER BY confidence DESC
 		)
-	)");
+	)", movements_table, query_material_id, query_material_id, min_similarity, bom_table,
+	    movements_table, lookback_months, lag_weeks, min_confidence);
 
-	CheckQueryResult(result, "create infer_predecessors macro");
+	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse infer_predecessors query");
+}
+
+//------------------------------------------------------------------------------
+// Module Registration
+//------------------------------------------------------------------------------
+
+void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
+	// infer_predecessors
+	TableFunction infer_pred("infer_predecessors",
+	                         {LogicalType::VARCHAR},
+	                         nullptr, nullptr);
+	infer_pred.bind_replace = InferPredecessorsBindReplace;
+	infer_pred.named_parameters["lookback_months"] = LogicalType::BIGINT;
+	infer_pred.named_parameters["min_similarity"] = LogicalType::DOUBLE;
+	infer_pred.named_parameters["min_confidence"] = LogicalType::DOUBLE;
+	infer_pred.named_parameters["lag_weeks"] = LogicalType::BIGINT;
+	infer_pred.named_parameters["bom_table"] = LogicalType::VARCHAR;
+	infer_pred.named_parameters["movements_table"] = LogicalType::VARCHAR;
+	loader.RegisterFunction(infer_pred);
 }
 
 } // namespace anofox
