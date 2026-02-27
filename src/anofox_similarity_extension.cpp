@@ -43,7 +43,7 @@ static void RegisterTelemetryOptions(ExtensionLoader &loader) {
 	                          LogicalType::BOOLEAN, Value::BOOLEAN(true), OnTelemetryEnabled);
 
 	config.AddExtensionOption("anofox_telemetry_key", "PostHog API key for telemetry", LogicalType::VARCHAR,
-	                          Value("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t"), OnTelemetryKey);
+	                          Value(""), OnTelemetryKey);
 }
 
 /*
@@ -87,7 +87,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	// Initialize and capture extension load
 	auto &telemetry = PostHogTelemetry::Instance();
-	telemetry.SetAPIKey("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t");
 
 	std::string version;
 #ifdef EXT_VERSION_ANOFOX_SIMILARITY

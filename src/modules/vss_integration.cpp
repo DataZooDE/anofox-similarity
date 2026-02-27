@@ -1,5 +1,6 @@
 #include "modules/vss_integration.hpp"
 #include "core/error_handling.hpp"
+#include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parser.hpp"
@@ -32,8 +33,20 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 //------------------------------------------------------------------------------
 
 void InitializeVSSIntegration(Connection &conn) {
-	auto vss_result = conn.Query("INSTALL vss; LOAD vss;");
-	CheckQueryResult(vss_result, "load VSS extension");
+	// Best-effort loading strategy for restricted/offline environments:
+	// 1) Try loading an already-installed extension.
+	// 2) If that fails, try installing from repository, then load again.
+	// All steps are optional to avoid hard-failing extension load.
+	auto vss_result = conn.Query("LOAD vss;");
+	if (vss_result->HasError()) {
+		CheckQueryResult(vss_result, "load VSS extension", FailureMode::OPTIONAL);
+
+		auto install_result = conn.Query("INSTALL vss;");
+		CheckQueryResult(install_result, "install VSS extension", FailureMode::OPTIONAL);
+
+		vss_result = conn.Query("LOAD vss;");
+		CheckQueryResult(vss_result, "load VSS extension after install", FailureMode::OPTIONAL);
+	}
 
 	// HNSW persistence is experimental - continue if unavailable
 	vss_result = conn.Query("SET hnsw_enable_experimental_persistence = true;");
@@ -100,6 +113,10 @@ void CreateEmbeddingTables(Connection &conn) {
 		SELECT COUNT(*) FROM information_schema.columns
 		WHERE table_name = 'material_embeddings' AND column_name = 'wl_embedding'
 	)");
+	if (!migration_check || migration_check->HasError()) {
+		CheckQueryResult(migration_check, "check wl_embedding migration state", FailureMode::OPTIONAL);
+		return;
+	}
 
 	if (migration_check->GetValue(0, 0).GetValue<int64_t>() > 0) {
 		auto migration_result = conn.Query(R"(
@@ -164,8 +181,9 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 	string bom_table = "bom_items";
 
 	if (input.named_parameters.count("bom_table")) {
-		bom_table = input.named_parameters.at("bom_table").ToString();
+		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
+	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 
 	string sql = StringUtil::Format(R"(
 		WITH

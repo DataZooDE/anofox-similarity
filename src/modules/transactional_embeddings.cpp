@@ -1,5 +1,6 @@
 #include "modules/transactional_embeddings.hpp"
 #include "core/error_handling.hpp"
+#include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parser.hpp"
@@ -53,33 +54,19 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 
 	// Parameters (all named with defaults):
 	// movements_table := 'goods_movements'
-	// material_column := 'material_id'
-	// date_column := 'movement_date'
-	// quantity_column := 'quantity'
 	// time_window_days := 365
 	// batch_size := NULL
 	// batch_offset := 0
 
 	string movements_table = "goods_movements";
-	string material_column = "material_id";
-	string date_column = "movement_date";
-	string quantity_column = "quantity";
 	int64_t time_window_days = 365;
 	string batch_size = "NULL";
 	int64_t batch_offset = 0;
 
 	if (input.named_parameters.count("movements_table")) {
-		movements_table = input.named_parameters.at("movements_table").ToString();
+		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
-	if (input.named_parameters.count("material_column")) {
-		material_column = input.named_parameters.at("material_column").ToString();
-	}
-	if (input.named_parameters.count("date_column")) {
-		date_column = input.named_parameters.at("date_column").ToString();
-	}
-	if (input.named_parameters.count("quantity_column")) {
-		quantity_column = input.named_parameters.at("quantity_column").ToString();
-	}
+	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	if (input.named_parameters.count("time_window_days")) {
 		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
 	}
@@ -298,9 +285,6 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
 	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
 	compute_trans.named_parameters["movements_table"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["material_column"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["date_column"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["quantity_column"] = LogicalType::VARCHAR;
 	compute_trans.named_parameters["time_window_days"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_size"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_offset"] = LogicalType::BIGINT;

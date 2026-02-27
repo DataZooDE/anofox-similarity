@@ -24,9 +24,6 @@ void RegisterCheckAnofoxForecastMacro(Connection &conn);
 // Registers compute_transactional_embeddings as a TableFunction with telemetry
 // (
 //   movements_table := 'goods_movements',
-//   material_column := 'material_id',
-//   date_column := 'movement_date',
-//   quantity_column := 'quantity',
 //   time_window_days := 365
 // ) SQL macro
 //

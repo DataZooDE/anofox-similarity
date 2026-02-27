@@ -1,5 +1,6 @@
 #include "modules/similarity_search.hpp"
 #include "core/error_handling.hpp"
+#include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parser.hpp"
@@ -44,8 +45,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 		throw BinderException("find_similar_materials_jaccard requires at least 2 arguments: query_material_id, k");
 	}
 
-	string query_material_id = input.inputs[0].ToString();
+	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
+	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
 
 	// Get named parameters with defaults
 	double min_similarity = 0.0;
@@ -55,8 +57,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
 	if (input.named_parameters.count("bom_table")) {
-		bom_table = input.named_parameters.at("bom_table").ToString();
+		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
+	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 
 	string sql = StringUtil::Format(R"(
 		WITH
@@ -66,7 +69,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 			query_mat AS (
 				SELECT components AS query_components
 				FROM material_components
-				WHERE material_id = '%s'
+				WHERE material_id = %s
 			),
 			computed_similarity AS (
 				SELECT
@@ -75,7 +78,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 					len(list_intersect(qm.query_components, mc.components))::BIGINT AS shared_components,
 					len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT AS total_components
 				FROM material_components mc, query_mat qm
-				WHERE mc.material_id != '%s'
+				WHERE mc.material_id != %s
 			)
 		SELECT material_id, similarity, shared_components, total_components
 		FROM computed_similarity
@@ -83,7 +86,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 		ORDER BY similarity DESC
 		LIMIT %lld
 	)",
-	                                bom_table, query_material_id, query_material_id, min_similarity, k);
+	                                bom_table, query_material_id_sql, query_material_id_sql, min_similarity, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_jaccard query");
 }
@@ -107,8 +110,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		throw BinderException("find_similar_materials_wl_kernel requires at least 2 arguments: query_material_id, k");
 	}
 
-	string query_material_id = input.inputs[0].ToString();
+	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
+	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
 
 	// Get named parameters with defaults
 	int64_t iterations = 3;
@@ -122,8 +126,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
 	if (input.named_parameters.count("bom_table")) {
-		bom_table = input.named_parameters.at("bom_table").ToString();
+		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
+	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 
 	string sql =
 	    StringUtil::Format(R"(
@@ -135,9 +140,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 			computed_similarity AS (
 				SELECT
 					am.material_id,
-					wl_kernel_similarity('%s', am.material_id, %lld, '%s') AS similarity
+						wl_kernel_similarity(%s, am.material_id, %lld, '%s') AS similarity
 				FROM all_materials am
-				WHERE am.material_id != '%s'
+					WHERE am.material_id != %s
 			)
 		SELECT material_id, similarity
 		FROM computed_similarity
@@ -145,7 +150,8 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		ORDER BY similarity DESC
 		LIMIT %lld
 	)",
-	                       bom_table, query_material_id, iterations, bom_table, query_material_id, min_similarity, k);
+		                       bom_table, query_material_id_sql, iterations, bom_table, query_material_id_sql, min_similarity,
+		                       k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_wl_kernel query");
 }
@@ -169,8 +175,9 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 		throw BinderException("cold_start_analogs requires at least 2 arguments: query_material_id, k");
 	}
 
-	string query_material_id = input.inputs[0].ToString();
+	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
+	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
 
 	// Get named parameters with defaults
 	int64_t min_history_months = 0;
@@ -185,11 +192,13 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
 	if (input.named_parameters.count("bom_table")) {
-		bom_table = input.named_parameters.at("bom_table").ToString();
+		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	if (input.named_parameters.count("movements_table")) {
-		movements_table = input.named_parameters.at("movements_table").ToString();
+		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
+	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
+	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (
@@ -200,7 +209,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 				query_mat AS (
 					SELECT components AS query_components
 					FROM material_components
-					WHERE material_id = '%s'
+						WHERE material_id = %s
 				),
 				computed_similarity AS (
 					SELECT
@@ -209,7 +218,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 						len(list_intersect(qm.query_components, mc.components))::BIGINT AS shared_components,
 						len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT AS total_components
 					FROM material_components mc, query_mat qm
-					WHERE mc.material_id != '%s'
+						WHERE mc.material_id != %s
 				),
 				material_history AS (
 					SELECT
@@ -242,7 +251,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 			LIMIT %lld
 		)
 	)",
-	                                bom_table, query_material_id, query_material_id, movements_table, min_similarity,
+	                                bom_table, query_material_id_sql, query_material_id_sql, movements_table, min_similarity,
 	                                min_history_months, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse cold_start_analogs query");
