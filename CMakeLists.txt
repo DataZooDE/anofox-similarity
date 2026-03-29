@@ -16,6 +16,8 @@ if(OpenVINO_FOUND)
     add_compile_definitions(DUCKDB_OPENVINO_AVAILABLE=1)
 endif()
 
+find_package(nlohmann_json CONFIG REQUIRED)
+
 set(EXTENSION_SOURCES
     src/anofox_similarity_extension.cpp
     src/core/constants.cpp
@@ -70,6 +72,9 @@ target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SO
 # Link OpenSSL for telemetry
 target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
+
+target_link_libraries(${EXTENSION_NAME} nlohmann_json::nlohmann_json)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} nlohmann_json::nlohmann_json)
 
 # Link OpenVINO if available
 if(OpenVINO_FOUND)
