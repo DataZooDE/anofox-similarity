@@ -1,6 +1,5 @@
 {
 	"dependencies": [
-		"openvino",
 		"nlohmann-json"
 	],
 	"vcpkg-configuration": {
