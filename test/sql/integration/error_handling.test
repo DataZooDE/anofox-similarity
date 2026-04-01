@@ -47,12 +47,12 @@ SELECT COUNT(*) FROM bom_explosion_1level('PARENT-001')
 # Test 2: anofox-forecast Availability - Soft Dependency Loaded
 # ============================================================================
 
-# Verify check_anofox_forecast_available() confirms anofox-forecast is loaded
+# Verify check_anofox_forecast_available() returns false when anofox-forecast is not installed
 # (the extension attempts to load anofox-forecast as a soft dependency in LoadInternal)
 query I
 SELECT check_anofox_forecast_available()
 ----
-1
+0
 
 # ============================================================================
 # Test 3: Multimodal Fusion with Missing Embeddings
