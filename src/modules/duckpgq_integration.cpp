@@ -18,10 +18,9 @@ void RegisterCheckDuckPGQMacro(Connection &conn) {
 }
 
 void InitializeDuckPGQIntegration(Connection &conn) {
-	// Attempt to load DuckPGQ extension (soft dependency)
-	// If DuckPGQ is not available, continue gracefully with SQL-only fallback
-	auto result = conn.Query("INSTALL duckpgq FROM community; LOAD duckpgq;");
-	CheckQueryResult(result, "load DuckPGQ extension", FailureMode::OPTIONAL);
+	// DuckPGQ is an optional soft dependency — must be installed and loaded by the user
+	// before using property graph features. Auto-installing crashes in some environments.
+	(void)conn;
 }
 
 void RegisterPropertyGraphMacros(Connection &conn) {

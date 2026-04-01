@@ -63,7 +63,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			textual_embedding FLOAT[384],
 			transactional_embedding FLOAT[128],
 			combined_embedding FLOAT[768],
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT NULL,
 			num_components INTEGER
 		)
 	)");
@@ -80,7 +80,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			min_value DOUBLE,
 			max_value DOUBLE,
 			num_samples INTEGER,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT NULL,
 			version INTEGER DEFAULT 1
 		)
 	)");
@@ -94,7 +94,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			category VARCHAR,
 			description VARCHAR,
 			is_advanced BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT NULL
 		)
 	)");
 	CheckQueryResult(mapping_result, "create transactional_feature_mapping table");
@@ -103,7 +103,7 @@ void CreateEmbeddingTables(Connection &conn) {
 		CREATE TABLE IF NOT EXISTS material_embeddings_dirty (
 			material_id VARCHAR PRIMARY KEY,
 			reason VARCHAR,
-			marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			marked_at TIMESTAMP DEFAULT NULL
 		)
 	)");
 	CheckQueryResult(tracking_result, "create material_embeddings_dirty table");

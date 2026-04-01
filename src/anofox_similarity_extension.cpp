@@ -149,9 +149,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterFusionMacros(conn);
 
 	// Transactional Embeddings (Optional): Time series feature integration with anofox-forecast
-	// Attempt to load anofox-forecast extension before using it
-	auto forecast_result = conn.Query("INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
-	anofox::CheckQueryResult(forecast_result, "load anofox-forecast extension", anofox::FailureMode::OPTIONAL);
+	// anofox-forecast must be installed and loaded by the user before using transactional embeddings
 
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);
