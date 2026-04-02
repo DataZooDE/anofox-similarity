@@ -1,5 +1,6 @@
 #include "modules/predecessor_inference.hpp"
 #include "core/error_handling.hpp"
+#include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parser.hpp"
@@ -46,7 +47,8 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		throw BinderException("infer_predecessors requires at least 1 argument: query_material_id");
 	}
 
-	string query_material_id = input.inputs[0].ToString();
+	string query_material_id = input.inputs[0].GetValue<string>();
+	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
 
 	// Get named parameters with defaults
 	int64_t lookback_months = 24;
@@ -69,11 +71,13 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		lag_weeks = input.named_parameters.at("lag_weeks").GetValue<int64_t>();
 	}
 	if (input.named_parameters.count("bom_table")) {
-		bom_table = input.named_parameters.at("bom_table").ToString();
+		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	if (input.named_parameters.count("movements_table")) {
-		movements_table = input.named_parameters.at("movements_table").ToString();
+		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
+	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
+	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (
@@ -85,7 +89,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 						MIN(movement_date) OVER () AS query_start,
 						MAX(movement_date) OVER () AS query_end
 					FROM query_table('%s')
-					WHERE material_id = '%s'
+						WHERE material_id = %s
 				),
 				query_boundaries AS (
 					SELECT
@@ -96,7 +100,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 				similar_mats AS (
 					SELECT material_id, similarity, shared_components, total_components
 					FROM find_similar_materials_jaccard(
-						'%s', 100,
+							%s, 100,
 						min_similarity := %f,
 						bom_table := '%s'
 					)
@@ -205,8 +209,8 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 			ORDER BY confidence DESC
 		)
 	)",
-	                                movements_table, query_material_id, query_material_id, min_similarity, bom_table,
-	                                movements_table, lookback_months, lag_weeks, min_confidence);
+		                                movements_table, query_material_id_sql, query_material_id_sql, min_similarity, bom_table,
+		                                movements_table, lookback_months, lag_weeks, min_confidence);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse infer_predecessors query");
 }

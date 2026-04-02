@@ -1,5 +1,6 @@
 #include "modules/transactional_embeddings.hpp"
 #include "core/error_handling.hpp"
+#include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parser.hpp"
@@ -53,33 +54,19 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 
 	// Parameters (all named with defaults):
 	// movements_table := 'goods_movements'
-	// material_column := 'material_id'
-	// date_column := 'movement_date'
-	// quantity_column := 'quantity'
 	// time_window_days := 365
 	// batch_size := NULL
 	// batch_offset := 0
 
 	string movements_table = "goods_movements";
-	string material_column = "material_id";
-	string date_column = "movement_date";
-	string quantity_column = "quantity";
 	int64_t time_window_days = 365;
 	string batch_size = "NULL";
 	int64_t batch_offset = 0;
 
 	if (input.named_parameters.count("movements_table")) {
-		movements_table = input.named_parameters.at("movements_table").ToString();
+		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
-	if (input.named_parameters.count("material_column")) {
-		material_column = input.named_parameters.at("material_column").ToString();
-	}
-	if (input.named_parameters.count("date_column")) {
-		date_column = input.named_parameters.at("date_column").ToString();
-	}
-	if (input.named_parameters.count("quantity_column")) {
-		quantity_column = input.named_parameters.at("quantity_column").ToString();
-	}
+	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	if (input.named_parameters.count("time_window_days")) {
 		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
 	}
@@ -198,7 +185,9 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				(COALESCE(fe.features.ratio_beyond_r_sigma__r_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'ratio_beyond_r_sigma__r_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'ratio_beyond_r_sigma__r_1' LIMIT 1), 0.0) AS ratio_z,
 				(COALESCE(fe.features.approximate_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1), 0.0) AS approx_ent_z,
 				(COALESCE(fe.features.sample_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1), 0.0) AS sample_ent_z,
-				(COALESCE(fe.features.benford_correlation, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1), 0.0) AS benford_z,
+				(COALESCE(fe.features.benford_correlation, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'benford_correlation' LIMIT 1), 0.0) AS benford_z)"
+	// Split string literal to stay under MSVC's 16KB per-token limit (C2026)
+	R"(,
 				(COALESCE(fe.features.fft_coefficient__attr_real__coeff_0, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_0' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_0' LIMIT 1), 0.0) AS fft_r0_z,
 				(COALESCE(fe.features.fft_coefficient__attr_imag__coeff_0, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_0' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_0' LIMIT 1), 0.0) AS fft_i0_z,
 				(COALESCE(fe.features.fft_coefficient__attr_real__coeff_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_1' LIMIT 1), 0.0) AS fft_r1_z,
@@ -298,9 +287,6 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
 	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
 	compute_trans.named_parameters["movements_table"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["material_column"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["date_column"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["quantity_column"] = LogicalType::VARCHAR;
 	compute_trans.named_parameters["time_window_days"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_size"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_offset"] = LogicalType::BIGINT;

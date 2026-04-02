@@ -44,6 +44,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 	// Parameters:
 	//   time_window_days: Historical window for feature extraction (default: 365 days)
 	//   min_observations: Minimum data points required (default: 3)
+	// Split into two string literals to stay under MSVC's 16KB string literal limit (C2026)
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO recompute_embedding_statistics(
 			time_window_days := 365,
@@ -245,7 +246,8 @@ void RegisterStatisticsMacros(Connection &conn) {
 		UNION ALL
 		SELECT 'autocorrelation__lag_12', 46, 'temporal', AVG(features.autocorrelation__lag_12), STDDEV_POP(features.autocorrelation__lag_12),
 			MIN(features.autocorrelation__lag_12), MAX(features.autocorrelation__lag_12), COUNT(*)
-		FROM all_features
+		FROM all_features)"
+	R"(
 		UNION ALL
 		SELECT 'autocorrelation__lag_24', 47, 'temporal', AVG(features.autocorrelation__lag_24), STDDEV_POP(features.autocorrelation__lag_24),
 			MIN(features.autocorrelation__lag_24), MAX(features.autocorrelation__lag_24), COUNT(*)

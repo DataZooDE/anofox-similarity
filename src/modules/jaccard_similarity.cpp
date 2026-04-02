@@ -114,6 +114,10 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 			result_data[i] = static_cast<double>(intersection_count) / static_cast<double>(union_size);
 		}
 	}
+
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
 }
 
 //------------------------------------------------------------------------------

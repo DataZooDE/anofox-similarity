@@ -43,7 +43,7 @@ static void RegisterTelemetryOptions(ExtensionLoader &loader) {
 	                          LogicalType::BOOLEAN, Value::BOOLEAN(true), OnTelemetryEnabled);
 
 	config.AddExtensionOption("anofox_telemetry_key", "PostHog API key for telemetry", LogicalType::VARCHAR,
-	                          Value("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t"), OnTelemetryKey);
+	                          Value(""), OnTelemetryKey);
 }
 
 /*
@@ -87,7 +87,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	// Initialize and capture extension load
 	auto &telemetry = PostHogTelemetry::Instance();
-	telemetry.SetAPIKey("phc_t3wwRLtpyEmLHYaZCSszG0MqVr74J6wnCrj9D41zk2t");
 
 	std::string version;
 #ifdef EXT_VERSION_ANOFOX_SIMILARITY
@@ -150,9 +149,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterFusionMacros(conn);
 
 	// Transactional Embeddings (Optional): Time series feature integration with anofox-forecast
-	// Attempt to load anofox-forecast extension before using it
-	auto forecast_result = conn.Query("INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
-	anofox::CheckQueryResult(forecast_result, "load anofox-forecast extension", anofox::FailureMode::OPTIONAL);
+	// anofox-forecast must be installed and loaded by the user before using transactional embeddings
 
 	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);

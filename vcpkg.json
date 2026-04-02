@@ -1,7 +1,7 @@
 {
 	"dependencies": [
-		"openvino",
-		"nlohmann-json"
+		"nlohmann-json",
+		"openssl"
 	],
 	"vcpkg-configuration": {
 		"overlay-ports": [
