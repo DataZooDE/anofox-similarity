@@ -73,6 +73,12 @@ target_include_directories(${LOADABLE_EXTENSION_NAME} PRIVATE ${CMAKE_CURRENT_SO
 target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto)
 
+# Link iphlpapi on Windows for GetAdaptersInfo (used by telemetry to get MAC address)
+if(WIN32)
+    target_link_libraries(${EXTENSION_NAME} iphlpapi)
+    target_link_libraries(${LOADABLE_EXTENSION_NAME} iphlpapi)
+endif()
+
 target_link_libraries(${EXTENSION_NAME} nlohmann_json::nlohmann_json)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} nlohmann_json::nlohmann_json)
 
