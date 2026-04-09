@@ -5,6 +5,7 @@
 #include "duckdb/common/types/value.hpp"
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 
 #include <unordered_set>
 
@@ -135,11 +136,23 @@ static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, Sc
 //------------------------------------------------------------------------------
 
 void RegisterJaccardFunctions(ExtensionLoader &loader) {
-	// Register scalar function
 	auto jaccard_similarity_function =
 	    ScalarFunction("jaccard_similarity", {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
 	                   LogicalType::DOUBLE, JaccardSimilarityFun, JaccardSimilarityBind);
-	loader.RegisterFunction(jaccard_similarity_function);
+
+	CreateScalarFunctionInfo info(jaccard_similarity_function);
+	FunctionDescription desc;
+	desc.description = "Computes the Jaccard similarity coefficient between two lists treated as sets. "
+	                   "Returns a value in [0.0, 1.0] equal to |intersection| / |union|. "
+	                   "Duplicates within each list are deduplicated before comparison. "
+	                   "Returns NULL if either argument is NULL; returns 0.0 if both lists are empty.";
+	desc.examples    = {"SELECT jaccard_similarity(['A','B','C'], ['B','C','D']); -- 0.5",
+	                    "SELECT jaccard_similarity([1,2,3,4], [3,4,5,6]); -- 0.3333"};
+	desc.categories  = {"similarity"};
+	desc.parameter_names = {"list_a", "list_b"};
+	desc.parameter_types = {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)};
+	info.descriptions.push_back(std::move(desc));
+	loader.RegisterFunction(std::move(info));
 }
 
 } // namespace anofox

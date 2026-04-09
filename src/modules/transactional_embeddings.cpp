@@ -8,6 +8,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -290,7 +291,19 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	compute_trans.named_parameters["time_window_days"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_size"] = LogicalType::BIGINT;
 	compute_trans.named_parameters["batch_offset"] = LogicalType::BIGINT;
-	loader.RegisterFunction(compute_trans);
+
+	CreateTableFunctionInfo info(compute_trans);
+	FunctionDescription desc;
+	desc.description = "Computes 128-dimensional transactional embeddings from goods movement data and upserts "
+	                   "them into material_embeddings. Features include demand velocity, seasonality, frequency, "
+	                   "and quantity statistics normalized against transactional_embedding_statistics. "
+	                   "Supports batched computation via batch_size and batch_offset.";
+	desc.examples    = {"SELECT * FROM compute_transactional_embeddings();",
+	                    "SELECT * FROM compute_transactional_embeddings(movements_table := 'sap_mseg', time_window_days := 365);",
+	                    "SELECT * FROM compute_transactional_embeddings(batch_size := 1000, batch_offset := 0);"};
+	desc.categories  = {"embeddings", "transactional"};
+	info.descriptions.push_back(std::move(desc));
+	loader.RegisterFunction(std::move(info));
 }
 
 } // namespace anofox
