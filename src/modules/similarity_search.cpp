@@ -7,6 +7,7 @@
 #include "duckdb/parser/tableref/subqueryref.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -263,30 +264,72 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 
 void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	// find_similar_materials_jaccard
-	TableFunction find_similar_jaccard("find_similar_materials_jaccard", {LogicalType::VARCHAR, LogicalType::BIGINT},
-	                                   nullptr, nullptr);
-	find_similar_jaccard.bind_replace = FindSimilarMaterialsJaccardBindReplace;
-	find_similar_jaccard.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-	find_similar_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
-	loader.RegisterFunction(find_similar_jaccard);
+	{
+		TableFunction find_similar_jaccard("find_similar_materials_jaccard",
+		                                   {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
+		find_similar_jaccard.bind_replace = FindSimilarMaterialsJaccardBindReplace;
+		find_similar_jaccard.named_parameters["min_similarity"] = LogicalType::DOUBLE;
+		find_similar_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
+
+		CreateTableFunctionInfo info(find_similar_jaccard);
+		FunctionDescription desc;
+		desc.description = "Finds the k most structurally similar materials to a query material using exact "
+		                   "Jaccard similarity on BOM component sets. Returns material_id, similarity, "
+		                   "shared_components, and total_components. Filtered by min_similarity threshold.";
+		desc.examples    = {"SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);",
+		                    "SELECT * FROM find_similar_materials_jaccard('MAT-001', 20, min_similarity := 0.3);"};
+		desc.categories  = {"similarity", "search"};
+		desc.parameter_names = {"material_id", "k"};
+		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		info.descriptions.push_back(std::move(desc));
+		loader.RegisterFunction(std::move(info));
+	}
 
 	// find_similar_materials_wl_kernel
-	TableFunction find_similar_wl("find_similar_materials_wl_kernel", {LogicalType::VARCHAR, LogicalType::BIGINT},
-	                              nullptr, nullptr);
-	find_similar_wl.bind_replace = FindSimilarMaterialsWLKernelBindReplace;
-	find_similar_wl.named_parameters["iterations"] = LogicalType::BIGINT;
-	find_similar_wl.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-	find_similar_wl.named_parameters["bom_table"] = LogicalType::VARCHAR;
-	loader.RegisterFunction(find_similar_wl);
+	{
+		TableFunction find_similar_wl("find_similar_materials_wl_kernel",
+		                              {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
+		find_similar_wl.bind_replace = FindSimilarMaterialsWLKernelBindReplace;
+		find_similar_wl.named_parameters["iterations"] = LogicalType::BIGINT;
+		find_similar_wl.named_parameters["min_similarity"] = LogicalType::DOUBLE;
+		find_similar_wl.named_parameters["bom_table"] = LogicalType::VARCHAR;
+
+		CreateTableFunctionInfo info(find_similar_wl);
+		FunctionDescription desc;
+		desc.description = "Finds the k most structurally similar materials using the Weisfeiler-Lehman graph "
+		                   "kernel, which captures multi-hop BOM structure beyond direct component overlap. "
+		                   "iterations controls the number of WL refinement rounds (default 3).";
+		desc.examples    = {"SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);",
+		                    "SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := 0.2);"};
+		desc.categories  = {"similarity", "search", "graph"};
+		desc.parameter_names = {"material_id", "k"};
+		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		info.descriptions.push_back(std::move(desc));
+		loader.RegisterFunction(std::move(info));
+	}
 
 	// cold_start_analogs
-	TableFunction cold_start("cold_start_analogs", {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
-	cold_start.bind_replace = ColdStartAnalogsBindReplace;
-	cold_start.named_parameters["min_history_months"] = LogicalType::BIGINT;
-	cold_start.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-	cold_start.named_parameters["bom_table"] = LogicalType::VARCHAR;
-	cold_start.named_parameters["movements_table"] = LogicalType::VARCHAR;
-	loader.RegisterFunction(cold_start);
+	{
+		TableFunction cold_start("cold_start_analogs", {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
+		cold_start.bind_replace = ColdStartAnalogsBindReplace;
+		cold_start.named_parameters["min_history_months"] = LogicalType::BIGINT;
+		cold_start.named_parameters["min_similarity"] = LogicalType::DOUBLE;
+		cold_start.named_parameters["bom_table"] = LogicalType::VARCHAR;
+		cold_start.named_parameters["movements_table"] = LogicalType::VARCHAR;
+
+		CreateTableFunctionInfo info(cold_start);
+		FunctionDescription desc;
+		desc.description = "Finds structural analogs for a cold-start material (one with little or no demand "
+		                   "history). Returns established materials that are structurally similar and have at "
+		                   "least min_history_months of goods movement data, enabling surrogate forecasting.";
+		desc.examples    = {"SELECT * FROM cold_start_analogs('NEW-PART', 5);",
+		                    "SELECT * FROM cold_start_analogs('NEW-PART', 10, min_history_months := 12, min_similarity := 0.4);"};
+		desc.categories  = {"similarity", "search", "forecasting"};
+		desc.parameter_names = {"material_id", "k"};
+		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		info.descriptions.push_back(std::move(desc));
+		loader.RegisterFunction(std::move(info));
+	}
 }
 
 } // namespace anofox

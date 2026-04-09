@@ -7,6 +7,7 @@
 #include "duckdb/parser/tableref/subqueryref.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -229,7 +230,21 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	infer_pred.named_parameters["lag_weeks"] = LogicalType::BIGINT;
 	infer_pred.named_parameters["bom_table"] = LogicalType::VARCHAR;
 	infer_pred.named_parameters["movements_table"] = LogicalType::VARCHAR;
-	loader.RegisterFunction(infer_pred);
+
+	CreateTableFunctionInfo info(infer_pred);
+	FunctionDescription desc;
+	desc.description = "Identifies predecessor (superseded) materials for a given successor by combining BOM "
+	                   "structural similarity with anti-correlated consumption patterns. Returns predecessor "
+	                   "candidates ranked by confidence score along with correlation, similarity, and temporal "
+	                   "overlap data. Useful for lifecycle transition planning and inventory run-down.";
+	desc.examples    = {"SELECT * FROM infer_predecessors('NEW-PART');",
+	                    "SELECT * FROM infer_predecessors('NEW-PART', lookback_months := 24, min_similarity := 0.5, "
+	                    "min_confidence := 0.6, lag_weeks := 4);"};
+	desc.categories  = {"similarity", "predecessor", "lifecycle"};
+	desc.parameter_names = {"material_id"};
+	desc.parameter_types = {LogicalType::VARCHAR};
+	info.descriptions.push_back(std::move(desc));
+	loader.RegisterFunction(std::move(info));
 }
 
 } // namespace anofox

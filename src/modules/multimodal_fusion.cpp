@@ -4,6 +4,7 @@
 #include "duckdb/common/vector_operations/unary_executor.hpp"
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -185,7 +186,6 @@ static unique_ptr<FunctionData> FuseEmbeddingsBind(ClientContext &context, Scala
 //------------------------------------------------------------------------------
 
 void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
-	// Register fuse_embeddings scalar function
 	// Takes: structural (LIST(FLOAT)), textual (LIST(FLOAT)), transactional (LIST(FLOAT)), weights (STRUCT)
 	// Returns: fused embedding (LIST(FLOAT))
 	auto fuse_embeddings_function =
@@ -196,7 +196,24 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	                                         {"textual", LogicalType::FLOAT},
 	                                         {"transactional", LogicalType::FLOAT}})},
 	                   LogicalType::LIST(LogicalType::FLOAT), FuseEmbeddingsFunction, FuseEmbeddingsBind);
-	loader.RegisterFunction(fuse_embeddings_function);
+
+	CreateScalarFunctionInfo info(fuse_embeddings_function);
+	FunctionDescription desc;
+	desc.description = "Fuses structural (FLOAT[256]), textual (FLOAT[384]), and transactional (FLOAT[128]) "
+	                   "embeddings into a single 768-dimensional combined embedding using weighted concatenation. "
+	                   "Each component is scaled by sqrt(weight). Weights do not need to sum to 1.0.";
+	desc.examples    = {"SELECT fuse_embeddings(se, te, xe, {'structural':0.5,'textual':0.5,'transactional':0.0}) "
+	                    "FROM material_embeddings;"};
+	desc.categories  = {"embeddings", "fusion"};
+	desc.parameter_names = {"structural_embedding", "textual_embedding", "transactional_embedding", "weights"};
+	desc.parameter_types = {LogicalType::LIST(LogicalType::FLOAT),
+	                         LogicalType::LIST(LogicalType::FLOAT),
+	                         LogicalType::LIST(LogicalType::FLOAT),
+	                         LogicalType::STRUCT({{"structural", LogicalType::FLOAT},
+	                                              {"textual", LogicalType::FLOAT},
+	                                              {"transactional", LogicalType::FLOAT}})};
+	info.descriptions.push_back(std::move(desc));
+	loader.RegisterFunction(std::move(info));
 }
 
 void RegisterFusionMacros(Connection &conn) {

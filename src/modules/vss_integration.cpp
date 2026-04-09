@@ -8,6 +8,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -246,15 +247,39 @@ static unique_ptr<TableRef> CheckStatisticsFreshnessBindReplace(ClientContext &c
 
 void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 	// compute_jaccard_embeddings
-	TableFunction compute_jaccard("compute_jaccard_embeddings", {}, nullptr, nullptr);
-	compute_jaccard.bind_replace = ComputeJaccardEmbeddingsBindReplace;
-	compute_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
-	loader.RegisterFunction(compute_jaccard);
+	{
+		TableFunction compute_jaccard("compute_jaccard_embeddings", {}, nullptr, nullptr);
+		compute_jaccard.bind_replace = ComputeJaccardEmbeddingsBindReplace;
+		compute_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
+
+		CreateTableFunctionInfo info(compute_jaccard);
+		FunctionDescription desc;
+		desc.description = "Computes 128-dimensional MinHash embeddings from BOM component sets for all materials "
+		                   "and upserts them into material_embeddings. Each material's embedding is derived from "
+		                   "its set of direct child component material numbers. Requires bom_table with columns "
+		                   "matnr and idnrk.";
+		desc.examples    = {"SELECT * FROM compute_jaccard_embeddings();",
+		                    "SELECT * FROM compute_jaccard_embeddings(bom_table := 'sap_stpo');"};
+		desc.categories  = {"embeddings", "structural"};
+		info.descriptions.push_back(std::move(desc));
+		loader.RegisterFunction(std::move(info));
+	}
 
 	// check_statistics_freshness
-	TableFunction check_freshness("check_statistics_freshness", {}, nullptr, nullptr);
-	check_freshness.bind_replace = CheckStatisticsFreshnessBindReplace;
-	loader.RegisterFunction(check_freshness);
+	{
+		TableFunction check_freshness("check_statistics_freshness", {}, nullptr, nullptr);
+		check_freshness.bind_replace = CheckStatisticsFreshnessBindReplace;
+
+		CreateTableFunctionInfo info(check_freshness);
+		FunctionDescription desc;
+		desc.description = "Returns a single-row summary of the transactional_embedding_statistics table including "
+		                   "stat_count, max_samples, current_version, last_updated, and is_fresh. "
+		                   "is_fresh is TRUE when >= 30 statistics rows exist and last_updated is within 7 days.";
+		desc.examples    = {"SELECT * FROM check_statistics_freshness();"};
+		desc.categories  = {"embeddings", "transactional", "diagnostics"};
+		info.descriptions.push_back(std::move(desc));
+		loader.RegisterFunction(std::move(info));
+	}
 }
 
 } // namespace anofox

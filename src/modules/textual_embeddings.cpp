@@ -5,6 +5,7 @@
 #include "duckdb/main/connection.hpp"
 #include "duckdb/common/types/vector.hpp"
 #include "telemetry.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 
 #ifdef DUCKDB_OPENVINO_AVAILABLE
 #include "openvino/openvino.hpp"
@@ -260,12 +261,23 @@ static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, Sca
 //------------------------------------------------------------------------------
 
 void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
-	// Register embedding_backend scalar function
 	// Note: Returns LIST(FLOAT) - dimension (384) is enforced at runtime
 	auto embedding_backend_function =
 	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                   LogicalType::LIST(LogicalType::FLOAT), EmbeddingBackendFunction, EmbeddingBackendBind);
-	loader.RegisterFunction(embedding_backend_function);
+
+	CreateScalarFunctionInfo info(embedding_backend_function);
+	FunctionDescription desc;
+	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384]) for the given text using the "
+	                   "specified inference provider. provider_config is a JSON string for provider-specific "
+	                   "options (api_key, endpoint, etc.). Supported providers: 'gemma-local', 'gemini-api'.";
+	desc.examples    = {"SELECT embedding_backend('diesel pump', 'gemma-local', '{}');",
+	                    "SELECT embedding_backend('valve seat', 'gemini-api', '{\"api_key\": \"...\"}');"};
+	desc.categories  = {"embeddings", "textual"};
+	desc.parameter_names = {"text", "provider", "provider_config"};
+	desc.parameter_types = {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR};
+	info.descriptions.push_back(std::move(desc));
+	loader.RegisterFunction(std::move(info));
 }
 
 void RegisterTextualEmbeddingMacros(Connection &conn) {

@@ -1,0 +1,45 @@
+# name: test/sql/extension/function_documentation.test
+# description: Verify duckdb_functions() returns complete documentation metadata for all registered functions
+# group: [extension]
+
+# tier: tier1
+
+require anofox_similarity
+
+# All 10 registered public functions must appear in duckdb_functions()
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN (
+    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
+    'compute_jaccard_embeddings', 'check_statistics_freshness',
+    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
+    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
+);
+----
+10
+
+# All 10 must have non-empty descriptions
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN (
+    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
+    'compute_jaccard_embeddings', 'check_statistics_freshness',
+    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
+    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
+)
+AND description IS NOT NULL AND description != '';
+----
+10
+
+# All 10 must have non-empty categories
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN (
+    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
+    'compute_jaccard_embeddings', 'check_statistics_freshness',
+    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
+    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
+)
+AND len(categories) > 0;
+----
+10
