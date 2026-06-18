@@ -13,18 +13,26 @@ concurrency:
 
 jobs:
   duckdb-stable-build:
-    name: Build extension binaries
-    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@v1.4.4
+    name: Build extension binaries (DuckDB v1.4.5 LTS)
+    # No extension-ci-tools tag is compatible with DuckDB v1.4.5 on current runners:
+    # the v1.4 line (v1.4.4 / v1.4-andium) ships an OpenSSL vcpkg baseline that fails
+    # to build under MinGW and won't link under vs2019comp on Windows-2025, and forcing
+    # the newer baseline breaks the v1.4 Docker images on Linux. Pin to the current
+    # extension-ci-tools main commit, whose Docker images, vcpkg baseline (84bab45d) and
+    # Windows-2025 fixes are mutually consistent and build OpenSSL on all platforms.
+    # Pinned to a SHA (not the moving main branch) for reproducibility.
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@a00c74e02aefbfa3fd31a4c74c4b6bc260af0de7
     with:
-      duckdb_version: v1.4.4
-      ci_tools_version: v1.4.4
+      duckdb_version: v1.4.5
+      ci_tools_version: a00c74e02aefbfa3fd31a4c74c4b6bc260af0de7
       extension_name: anofox_similarity
 
-  duckdb-v153-build:
-    name: Build extension binaries (DuckDB v1.5.3)
+  duckdb-v154-build:
+    name: Build extension binaries (DuckDB v1.5.4)
+    # extension-ci-tools has no v1.5.4 branch yet; pin to latest in the v1.5 line (v1.5.3)
     uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@v1.5.3
     with:
-      duckdb_version: v1.5.3
+      duckdb_version: v1.5.4
       ci_tools_version: v1.5.3
       extension_name: anofox_similarity
 
