@@ -26,6 +26,14 @@ jobs:
       duckdb_version: v1.4.5
       ci_tools_version: a00c74e02aefbfa3fd31a4c74c4b6bc260af0de7
       extension_name: anofox_similarity
+      # macOS gating: build osx_amd64/osx_arm64 ONLY on tag (release) pushes. On PRs /
+      # branch pushes / main the two osx archs are excluded -- macOS runners are the
+      # dominant CI cost and don't need to run on every change. On a tag the exclude is
+      # empty, so both osx archs build natively on macos-latest -- a real Mac, never
+      # mocked (the live acceptance gate). Unfiltered `push:` above already fires on tags,
+      # so no trigger change is needed. Linux/Windows stay on the default GitHub-hosted
+      # runners (free for this public repo).
+      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
 
   duckdb-v154-build:
     name: Build extension binaries (DuckDB v1.5.4)
@@ -35,4 +43,6 @@ jobs:
       duckdb_version: v1.5.4
       ci_tools_version: v1.5.3
       extension_name: anofox_similarity
+      # macOS gating -- see the v1.4.5 job above. osx builds only on tag (release) pushes.
+      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
 
