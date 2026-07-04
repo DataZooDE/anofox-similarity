@@ -79,6 +79,12 @@ if(WIN32)
     target_link_libraries(${LOADABLE_EXTENSION_NAME} iphlpapi)
 endif()
 
+# Link IOKit/CoreFoundation on macOS for GetMachineId (used by telemetry for the distinct id)
+if(APPLE)
+    target_link_libraries(${EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(${LOADABLE_EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation")
+endif()
+
 target_link_libraries(${EXTENSION_NAME} nlohmann_json::nlohmann_json)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} nlohmann_json::nlohmann_json)
 
