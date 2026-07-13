@@ -252,7 +252,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 
 static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, ScalarFunction &bound_function,
                                                      vector<unique_ptr<Expression>> &arguments) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("embedding_backend");
+	PostHogTelemetry::Instance().RecordFunctionCall("embedding_backend");
 	return nullptr;
 }
 

@@ -34,7 +34,7 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 
 static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext &context,
                                                                    TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("find_similar_materials_jaccard");
+	PostHogTelemetry::Instance().RecordFunctionCall("find_similar_materials_jaccard");
 
 	// Parameters:
 	// 0: query_material_id (VARCHAR)
@@ -98,7 +98,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 
 static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContext &context,
                                                                     TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("find_similar_materials_wl_kernel");
+	PostHogTelemetry::Instance().RecordFunctionCall("find_similar_materials_wl_kernel");
 
 	// Parameters:
 	// 0: query_material_id (VARCHAR)
@@ -162,7 +162,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 //------------------------------------------------------------------------------
 
 static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("cold_start_analogs");
+	PostHogTelemetry::Instance().RecordFunctionCall("cold_start_analogs");
 
 	// Parameters:
 	// 0: query_material_id (VARCHAR)

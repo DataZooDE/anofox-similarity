@@ -174,7 +174,7 @@ void CreateHNSWIndexes(Connection &conn) {
 //------------------------------------------------------------------------------
 
 static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("compute_jaccard_embeddings");
+	PostHogTelemetry::Instance().RecordFunctionCall("compute_jaccard_embeddings");
 
 	// Parameters:
 	// Named: bom_table (VARCHAR, default 'bom_items')
@@ -225,7 +225,7 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 //------------------------------------------------------------------------------
 
 static unique_ptr<TableRef> CheckStatisticsFreshnessBindReplace(ClientContext &context, TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("check_statistics_freshness");
+	PostHogTelemetry::Instance().RecordFunctionCall("check_statistics_freshness");
 
 	string sql = R"(
 		SELECT

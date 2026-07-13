@@ -33,7 +33,7 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 //------------------------------------------------------------------------------
 
 static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("infer_predecessors");
+	PostHogTelemetry::Instance().RecordFunctionCall("infer_predecessors");
 
 	// Parameters:
 	// 0: query_material_id (VARCHAR)

@@ -51,7 +51,7 @@ void RegisterCheckAnofoxForecastMacro(Connection &conn) {
 
 static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientContext &context,
                                                                       TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("compute_transactional_embeddings");
+	PostHogTelemetry::Instance().RecordFunctionCall("compute_transactional_embeddings");
 
 	// Parameters (all named with defaults):
 	// movements_table := 'goods_movements'

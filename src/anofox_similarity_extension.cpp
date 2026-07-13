@@ -94,6 +94,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 #else
 	version = "0.1.0";
 #endif
+	telemetry.SetProduct("anofox_similarity", version, "oss");
+	telemetry.AssociateGroup("deployment", PostHogTelemetry::GetDistinctId());
 	telemetry.CaptureExtensionLoad("anofox_similarity", version);
 
 	// Get database connection for SQL operations

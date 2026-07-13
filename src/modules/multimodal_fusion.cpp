@@ -177,7 +177,7 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 
 static unique_ptr<FunctionData> FuseEmbeddingsBind(ClientContext &context, ScalarFunction &bound_function,
                                                    vector<unique_ptr<Expression>> &arguments) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("fuse_embeddings");
+	PostHogTelemetry::Instance().RecordFunctionCall("fuse_embeddings");
 	return nullptr;
 }
 
