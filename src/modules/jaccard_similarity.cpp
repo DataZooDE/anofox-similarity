@@ -127,7 +127,7 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 
 static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, ScalarFunction &bound_function,
                                                       vector<unique_ptr<Expression>> &arguments) {
-	PostHogTelemetry::Instance().CaptureFunctionExecution("jaccard_similarity");
+	PostHogTelemetry::Instance().RecordFunctionCall("jaccard_similarity");
 	return nullptr;
 }
 
