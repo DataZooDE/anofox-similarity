@@ -78,7 +78,9 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
+	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
+	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (

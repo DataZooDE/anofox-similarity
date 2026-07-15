@@ -68,6 +68,7 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
+	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
 	if (input.named_parameters.count("time_window_days")) {
 		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
 	}

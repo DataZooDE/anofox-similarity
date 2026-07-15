@@ -185,6 +185,7 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
+	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
 
 	string sql = StringUtil::Format(R"(
 		WITH
