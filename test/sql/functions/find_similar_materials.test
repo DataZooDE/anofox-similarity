@@ -138,3 +138,24 @@ FROM find_similar_materials_jaccard('NONEXISTENT-MATERIAL-XYZ', 5, min_similarit
 ----
 0
 
+
+# ---------------------------------------------------------------------------
+# A bom_table with the wrong shape produces a clear, actionable error
+# (not a cryptic binder error from the internal SQL)
+# ---------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE misshapen_bom (material_id VARCHAR, component_id VARCHAR);
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('X', 3, bom_table := 'misshapen_bom');
+----
+<REGEX>:.*bom_table 'misshapen_bom' is missing required column\(s\): parent_id, child_id.*
+
+statement ok
+CREATE TABLE misshapen_moves (material_id VARCHAR, at_date DATE);
+
+statement error
+SELECT * FROM cold_start_analogs('X', 3, bom_table := 'misshapen_bom', movements_table := 'misshapen_moves');
+----
+<REGEX>:.*missing required column\(s\).*

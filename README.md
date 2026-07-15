@@ -37,10 +37,15 @@ Mid-sized manufacturers face a persistent planning challenge: *"How do I forecas
 
 ### Installation
 
+> [!NOTE]
+> The community-repository build is not published yet
+> (`INSTALL anofox_similarity FROM community` currently returns HTTP 404
+> for every platform). Until it lands, build from source (see
+> [Development](#%EF%B8%8F-development)) and load the unsigned binary:
+
 ```sql
--- Install and load the extension
-INSTALL anofox_similarity FROM community;
-LOAD anofox_similarity;
+-- After `make release` (requires `duckdb -unsigned` or allow_unsigned_extensions)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Verify installation
 SELECT 1 AS test;  -- Should return 1
