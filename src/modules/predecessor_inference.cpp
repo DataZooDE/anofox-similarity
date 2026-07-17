@@ -47,6 +47,9 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	if (input.inputs.size() < 1) {
 		throw BinderException("infer_predecessors requires at least 1 argument: query_material_id");
 	}
+	if (input.inputs[0].IsNull()) {
+		throw BinderException("infer_predecessors: query_material_id must not be NULL");
+	}
 
 	string query_material_id = input.inputs[0].GetValue<string>();
 	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
@@ -56,25 +59,29 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	double min_similarity = 0.3;
 	double min_confidence = 0.5;
 	int64_t lag_weeks = 8;
+	int64_t min_overlapping_weeks = 8;
 	string bom_table = "bom_items";
 	string movements_table = "goods_movements";
 
-	if (input.named_parameters.count("lookback_months")) {
+	if (input.named_parameters.count("lookback_months") && !input.named_parameters.at("lookback_months").IsNull()) {
 		lookback_months = input.named_parameters.at("lookback_months").GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_similarity")) {
+	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
-	if (input.named_parameters.count("min_confidence")) {
+	if (input.named_parameters.count("min_confidence") && !input.named_parameters.at("min_confidence").IsNull()) {
 		min_confidence = input.named_parameters.at("min_confidence").GetValue<double>();
 	}
-	if (input.named_parameters.count("lag_weeks")) {
+	if (input.named_parameters.count("lag_weeks") && !input.named_parameters.at("lag_weeks").IsNull()) {
 		lag_weeks = input.named_parameters.at("lag_weeks").GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("bom_table")) {
+	if (input.named_parameters.count("min_overlapping_weeks") && !input.named_parameters.at("min_overlapping_weeks").IsNull()) {
+		min_overlapping_weeks = input.named_parameters.at("min_overlapping_weeks").GetValue<int64_t>();
+	}
+	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
-	if (input.named_parameters.count("movements_table")) {
+	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
 		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
@@ -104,7 +111,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 					SELECT material_id, similarity, shared_components, total_components
 					FROM find_similar_materials_jaccard(
 							%s, 100,
-						min_similarity := %f,
+						min_similarity := %.17g,
 						bom_table := '%s'
 					)
 				),
@@ -156,7 +163,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 						MAX(last_usage) AS last_usage
 					FROM lagged_join
 					GROUP BY material_id
-					HAVING COUNT(*) >= 8
+					HAVING COUNT(*) >= %lld
 				),
 				scored AS (
 					SELECT
@@ -213,7 +220,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		)
 	)",
 		                                movements_table, query_material_id_sql, query_material_id_sql, min_similarity, bom_table,
-		                                movements_table, lookback_months, lag_weeks, min_confidence);
+		                                movements_table, lookback_months, lag_weeks, min_overlapping_weeks, min_confidence);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse infer_predecessors query");
 }
@@ -230,6 +237,7 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	infer_pred.named_parameters["min_similarity"] = LogicalType::DOUBLE;
 	infer_pred.named_parameters["min_confidence"] = LogicalType::DOUBLE;
 	infer_pred.named_parameters["lag_weeks"] = LogicalType::BIGINT;
+	infer_pred.named_parameters["min_overlapping_weeks"] = LogicalType::BIGINT;
 	infer_pred.named_parameters["bom_table"] = LogicalType::VARCHAR;
 	infer_pred.named_parameters["movements_table"] = LogicalType::VARCHAR;
 

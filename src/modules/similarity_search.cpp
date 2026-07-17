@@ -45,6 +45,12 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	if (input.inputs.size() < 2) {
 		throw BinderException("find_similar_materials_jaccard requires at least 2 arguments: query_material_id, k");
 	}
+	if (input.inputs[0].IsNull()) {
+		throw BinderException("find_similar_materials_jaccard: query_material_id must not be NULL");
+	}
+	if (input.inputs[1].IsNull()) {
+		throw BinderException("find_similar_materials_jaccard: k must not be NULL");
+	}
 
 	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
@@ -54,19 +60,25 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	double min_similarity = 0.0;
 	string bom_table = "bom_items";
 
-	if (input.named_parameters.count("min_similarity")) {
+	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table")) {
+	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
 
+	// The component aggregation is inlined (rather than calling the aggregate_material_components
+	// macro) so this function is self-contained and works even on a read-only database, where the
+	// SQL helper macros are not registered.
 	string sql = StringUtil::Format(R"(
 		WITH
 			material_components AS MATERIALIZED (
-				SELECT * FROM aggregate_material_components('%s')
+				SELECT parent_id AS material_id, list(child_id ORDER BY child_id) AS components
+				FROM query_table('%s')
+				WHERE parent_id IS NOT NULL AND child_id IS NOT NULL
+				GROUP BY parent_id
 			),
 			query_mat AS (
 				SELECT components AS query_components
@@ -84,7 +96,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 			)
 		SELECT material_id, similarity, shared_components, total_components
 		FROM computed_similarity
-		WHERE similarity >= %f
+		WHERE similarity >= %.17g
 		ORDER BY similarity DESC
 		LIMIT %lld
 	)",
@@ -111,6 +123,12 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	if (input.inputs.size() < 2) {
 		throw BinderException("find_similar_materials_wl_kernel requires at least 2 arguments: query_material_id, k");
 	}
+	if (input.inputs[0].IsNull()) {
+		throw BinderException("find_similar_materials_wl_kernel: query_material_id must not be NULL");
+	}
+	if (input.inputs[1].IsNull()) {
+		throw BinderException("find_similar_materials_wl_kernel: k must not be NULL");
+	}
 
 	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
@@ -121,40 +139,88 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	double min_similarity = 0.0;
 	string bom_table = "bom_items";
 
-	if (input.named_parameters.count("iterations")) {
+	// A NULL iterations (like any NULL named tuning param) falls back to the default.
+	if (input.named_parameters.count("iterations") && !input.named_parameters.at("iterations").IsNull()) {
 		iterations = input.named_parameters.at("iterations").GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_similarity")) {
+	// Clamp to at least 1 so iterations <= 0 means "direct children only", consistent with the
+	// wl_kernel_similarity scalar macro (which likewise treats <1 as 1).
+	if (iterations < 1) {
+		iterations = 1;
+	}
+	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table")) {
+	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
 
-	string sql =
-	    StringUtil::Format(R"(
-		WITH
-			all_materials AS (
-				SELECT DISTINCT parent_id AS material_id
+	// Set-wise WL-kernel search: compute a depth-expanded component fingerprint for EVERY
+	// material in a single recursive pass, then score every candidate against the query
+	// fingerprint with a bounded weighted-Jaccard (sum(min)/sum(max)). This replaces the old
+	// per-candidate correlated scalar-macro call, which crashed DuckDB's decorrelation on any
+	// BOM with more than ~14 distinct parents, and it keeps every score in [0, 1].
+	string sql = StringUtil::Format(R"(
+		WITH RECURSIVE
+			all_dfs(material_id, component, depth) AS (
+				SELECT DISTINCT parent_id, child_id, 0
 				FROM query_table('%s')
+				-- UNION (not UNION ALL): dedup (material_id, component, depth) so a dense/cyclic BOM
+				-- does not fan out into an O(nodes^4) walk-count explosion. The depth cap bounds depth;
+				-- UNION bounds width. COUNT(DISTINCT depth) downstream is unaffected by the dedup.
+				UNION
+				SELECT a.material_id, b.child_id, a.depth + 1
+				FROM all_dfs a
+				JOIN query_table('%s') b ON a.component = b.parent_id
+				-- Produce depths 0..(iterations-1), capped at depth 4 (5 levels), so this matches the
+				-- wl_kernel_similarity scalar macro's bounded wl_fingerprint expansion exactly.
+				WHERE a.depth < LEAST(%lld - 1, 4)
 			),
-			computed_similarity AS (
+			fingerprints AS (
+				SELECT material_id, component, COUNT(DISTINCT depth) AS occ
+				FROM all_dfs
+				GROUP BY material_id, component
+			),
+			query_fp AS (
+				SELECT component, occ FROM fingerprints WHERE material_id = %s
+			),
+			candidates AS (
+				SELECT DISTINCT material_id FROM fingerprints WHERE material_id != %s
+			),
+			pair_components AS (
+				-- candidate-side components (matched against the query where present)
+				SELECT f.material_id, f.occ AS cocc, COALESCE(q.occ, 0) AS qocc
+				FROM fingerprints f
+				LEFT JOIN query_fp q ON f.component = q.component
+				WHERE f.material_id != %s
+				UNION ALL
+				-- query-only components, contributed to every candidate that lacks them
+				SELECT c.material_id, 0 AS cocc, q.occ AS qocc
+				FROM candidates c
+				CROSS JOIN query_fp q
+				WHERE NOT EXISTS (
+					SELECT 1 FROM fingerprints f2
+					WHERE f2.material_id = c.material_id AND f2.component = q.component
+				)
+			),
+			scored AS (
 				SELECT
-					am.material_id,
-						wl_kernel_similarity(%s, am.material_id, %lld, '%s') AS similarity
-				FROM all_materials am
-					WHERE am.material_id != %s
+					material_id,
+					SUM(LEAST(cocc, qocc))::DOUBLE
+						/ NULLIF(SUM(GREATEST(cocc, qocc))::DOUBLE, 0.0) AS similarity
+				FROM pair_components
+				GROUP BY material_id
 			)
-		SELECT material_id, similarity
-		FROM computed_similarity
-		WHERE similarity >= %f
+		SELECT material_id, COALESCE(similarity, 0.0) AS similarity
+		FROM scored
+		WHERE COALESCE(similarity, 0.0) >= %.17g
 		ORDER BY similarity DESC
 		LIMIT %lld
 	)",
-		                       bom_table, query_material_id_sql, iterations, bom_table, query_material_id_sql, min_similarity,
-		                       k);
+	                                bom_table, bom_table, iterations, query_material_id_sql, query_material_id_sql,
+	                                query_material_id_sql, min_similarity, k);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_wl_kernel query");
 }
@@ -177,6 +243,12 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	if (input.inputs.size() < 2) {
 		throw BinderException("cold_start_analogs requires at least 2 arguments: query_material_id, k");
 	}
+	if (input.inputs[0].IsNull()) {
+		throw BinderException("cold_start_analogs: query_material_id must not be NULL");
+	}
+	if (input.inputs[1].IsNull()) {
+		throw BinderException("cold_start_analogs: k must not be NULL");
+	}
 
 	string query_material_id = input.inputs[0].GetValue<string>();
 	int64_t k = input.inputs[1].GetValue<int64_t>();
@@ -188,16 +260,16 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	string bom_table = "bom_items";
 	string movements_table = "goods_movements";
 
-	if (input.named_parameters.count("min_history_months")) {
+	if (input.named_parameters.count("min_history_months") && !input.named_parameters.at("min_history_months").IsNull()) {
 		min_history_months = input.named_parameters.at("min_history_months").GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_similarity")) {
+	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
 		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table")) {
+	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
-	if (input.named_parameters.count("movements_table")) {
+	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
 		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
@@ -209,7 +281,10 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 		SELECT * FROM (
 			WITH
 				material_components AS MATERIALIZED (
-					SELECT * FROM aggregate_material_components('%s')
+					SELECT parent_id AS material_id, list(child_id ORDER BY child_id) AS components
+					FROM query_table('%s')
+					WHERE parent_id IS NOT NULL AND child_id IS NOT NULL
+					GROUP BY parent_id
 				),
 				query_mat AS (
 					SELECT components AS query_components
@@ -246,7 +321,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 						mh.last_usage
 					FROM computed_similarity cs
 					LEFT JOIN material_history mh ON cs.material_id = mh.material_id
-					WHERE cs.similarity >= %f
+					WHERE cs.similarity >= %.17g
 					  AND COALESCE(mh.history_months, 0) >= %lld
 				)
 			SELECT material_id, similarity, shared_components, total_components,
