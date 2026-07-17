@@ -81,14 +81,20 @@ FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items');
 ### Detecting Predecessors
 
 ```sql
--- Create goods movements (temporal consumption data)
+-- infer_predecessors needs BOTH a bom_items table (to establish structural similarity)
+-- AND a goods_movements table (for temporal anti-correlation).
+CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+INSERT INTO bom_items VALUES
+  ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
+  ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
+
 CREATE TABLE goods_movements (
   material_id VARCHAR,
   movement_date DATE,
   quantity DOUBLE
 );
 
--- OLD-PUMP consumption declining, NEW-PUMP rising (anti-correlation)
+-- OLD-PUMP consumption declining, NEW-PUMP rising (anti-correlation), weekly cadence
 INSERT INTO goods_movements VALUES
   ('OLD-PUMP', '2023-01-15', 100.0),
   ('OLD-PUMP', '2023-03-15', 80.0),
@@ -98,13 +104,18 @@ INSERT INTO goods_movements VALUES
   ('NEW-PUMP', '2023-09-01', 60.0),
   ('NEW-PUMP', '2023-12-01', 100.0);
 
--- Detect predecessor (requires shared BOM components + temporal anti-correlation)
+-- The material id is the FIRST positional argument (it cannot be passed by name).
 SELECT predecessor_id, confidence, correlation, overlapping_weeks
-FROM infer_predecessors(query_material_id := 'NEW-PUMP', min_confidence := 0.5)
+FROM infer_predecessors('NEW-PUMP', min_confidence := 0.5, min_overlapping_weeks := 2)
 ORDER BY confidence DESC;
-
--- correlation < 0 indicates anti-correlation (predecessor declining as successor rises)
 ```
+
+> **Note on data density.** Predecessor detection aligns predecessor and successor consumption into
+> **weekly** buckets (offset by `lag_weeks`) and requires at least `min_overlapping_weeks` overlapping
+> buckets (default 8). The few, months-apart rows above are deliberately sparse and will typically
+> return **zero** predecessors — real detection needs dense, overlapping weekly history where the
+> predecessor declines as the successor rises (`correlation < 0`). See
+> `test/sql/scenarios/s7_anticorrelation.test` for a dataset that produces a confident match.
 
 ### Finding Analogs for New Products
 
@@ -311,10 +322,10 @@ The extension implements a **tiered similarity approach**:
 All macros support parameterization for different use cases:
 
 ```sql
--- Customize time window for feature extraction
-CALL compute_transactional_embeddings(
-  time_window_days := 180,      -- Last 6 months only
-  min_observations := 5          -- Require 5+ data points
+-- Customize time window for feature extraction (requires anofox-forecast)
+SELECT * FROM compute_transactional_embeddings(
+  movements_table := 'goods_movements',
+  time_window_days := 180        -- last 6 months of history
 );
 
 -- Customize BOM explosion depth
@@ -326,13 +337,13 @@ SELECT * FROM bom_explosion_multilevel(
 
 ### HNSW Index Configuration
 
-```sql
--- Create index for faster similarity search
-CALL CreateHNSWIndexes();  -- Default: ef=100, M=16
+HNSW indexes over the embedding columns are created automatically on load. There is no
+`CreateHNSWIndexes()` function; to build a custom index, use the `vss` extension's DDL directly:
 
--- Fine-tune for your dataset size
--- Small datasets (< 10K materials): ef=50, M=8
--- Large datasets (> 100K materials): ef=200, M=32
+```sql
+INSTALL vss; LOAD vss;
+SET hnsw_enable_experimental_persistence = true;
+CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH (metric = 'cosine');
 ```
 
 ---

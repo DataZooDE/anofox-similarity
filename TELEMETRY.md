@@ -11,17 +11,23 @@ Ingestion is the EU PostHog cloud.
 
 ## How to turn it off
 
-Either of these fully short-circuits telemetry — when disabled, **nothing leaves
-the machine** (the opt-out is enforced at the transport, not just at the call
-sites):
+The opt-out is enforced at the transport, not just at the call sites.
+
+```bash
+export DATAZOO_DISABLE_TELEMETRY=1        -- environment (1|true|yes)
+```
 
 ```sql
 SET anofox_telemetry_enabled = false;   -- DuckDB setting (per session)
 ```
 
-```bash
-export DATAZOO_DISABLE_TELEMETRY=1        -- environment (1|true|yes)
-```
+> [!IMPORTANT]
+> Use the **environment variable** to suppress *everything*, including the single
+> `extension_loaded` event. That event is emitted while the extension loads — before any SQL
+> statement (including `SET anofox_telemetry_enabled = false`) can run — so the SQL setting
+> cannot suppress it. The SQL setting disables all telemetry from the moment it is set (i.e. every
+> per-function event); the environment variable additionally covers the load event. When
+> `DATAZOO_DISABLE_TELEMETRY` is set, nothing leaves the machine at all.
 
 ## The guarantee: bounded, enumerated, non-PII
 

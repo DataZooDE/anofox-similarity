@@ -814,16 +814,17 @@ SELECT jaccard_similarity(
 
 SELECT wl_kernel_similarity(bom_graph_1, bom_graph_2, iterations := 3);
 
-SELECT embedding_similarity(
-    e1.structural_embedding, 
-    e2.structural_embedding, 
-    metric := 'cosine'
+-- Vector similarity uses DuckDB/VSS built-ins (there is no embedding_similarity function):
+SELECT array_cosine_similarity(
+    e1.structural_embedding,
+    e2.structural_embedding
 ) FROM material_embeddings e1, material_embeddings e2;
 
 -- Table function for Jaccard-based batch processing
+-- (material id and k are POSITIONAL; only trailing tuning args take name := value)
 SELECT * FROM find_similar_materials_jaccard(
-    query_material_id := 'MAT-001',
-    k := 20,
+    'MAT-001',
+    20,
     min_similarity := 0.7
 )
 WHERE similarity > 0.8
@@ -831,8 +832,8 @@ ORDER BY similarity DESC;
 
 -- Table function for WL kernel-based batch processing
 SELECT * FROM find_similar_materials_wl_kernel(
-    query_material_id := 'MAT-001',
-    k := 20,
+    'MAT-001',
+    20,
     iterations := 3,
     min_similarity := 0.7
 )
