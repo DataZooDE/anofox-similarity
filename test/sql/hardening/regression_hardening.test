@@ -1,0 +1,712 @@
+# name: test/sql/hardening/regression_hardening.test
+# description: Regression guards for the 2026-07 hardening pass (crashes, scale, defaults, doc drift)
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ------------------------------------------------------------------------------
+# C-1 / H-1: WL-kernel search must work at scale (previously INTERNAL Error at >=15
+# distinct parents) and every score must lie in [0, 1].
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_items AS
+SELECT 'M' || i::VARCHAR AS parent_id, 'C' || (i % 40)::VARCHAR AS child_id
+FROM range(1, 201) t(i);
+
+# Runs without crashing on 200 parents and returns exactly k rows.
+query I
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 10);
+----
+10
+
+# All similarities are within [0, 1].
+query I
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 50)
+WHERE similarity < 0.0 OR similarity > 1.0;
+----
+0
+
+statement ok
+DROP TABLE bom_items;
+
+# ------------------------------------------------------------------------------
+# H-1: wl_kernel_similarity is bounded, symmetric, and self-similarity is 1.0,
+# even when a component is reachable at multiple BOM depths (previously returned inf).
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES ('A','B'),('A','C'),('B','C'),('B','D'),('X','B'),('X','C'),('X','D'),('C','D');
+
+query I
+SELECT wl_kernel_similarity('A','A',3,'bom_items');
+----
+1.0
+
+# Symmetric and finite, in [0,1].
+query I
+SELECT CASE WHEN wl_kernel_similarity('A','X',3,'bom_items') = wl_kernel_similarity('X','A',3,'bom_items')
+             AND wl_kernel_similarity('A','X',3,'bom_items') BETWEEN 0.0 AND 1.0
+        THEN 1 ELSE 0 END;
+----
+1
+
+# ------------------------------------------------------------------------------
+# R2b-CRIT: wl_kernel_similarity with a fixed query and a candidate COLUMN argument (the documented
+# pairwise usage) must work at scale, not throw an INTERNAL Error during decorrelation.
+statement ok
+CREATE TABLE wl_bom AS SELECT 'M' || i::VARCHAR AS parent_id, 'C' || (i % 6)::VARCHAR AS child_id FROM range(1, 40) t(i);
+
+query I
+SELECT COUNT(*) FROM (
+  SELECT parent_id, wl_kernel_similarity('M1', parent_id, 3, 'wl_bom') AS sim FROM wl_bom
+) WHERE sim BETWEEN 0.0 AND 1.0;
+----
+39
+
+# Self-similarity is 1.0 even when the argument is a column reference.
+query I
+SELECT COUNT(*) FROM (
+  SELECT parent_id, wl_kernel_similarity(parent_id, parent_id, 3, 'wl_bom') AS sim FROM wl_bom
+) WHERE sim = 1.0;
+----
+39
+
+statement ok
+DROP TABLE wl_bom;
+
+# C-2: NULL POSITIONAL k must raise a clean binder error, not an INTERNAL Error.
+# (NULL NAMED tuning params fall back to their default instead — covered by the R6 block above.)
+# ------------------------------------------------------------------------------
+statement error
+SELECT * FROM find_similar_materials_jaccard('A', NULL);
+----
+k must not be NULL
+
+statement error
+SELECT * FROM cold_start_analogs('A', NULL);
+----
+k must not be NULL
+
+statement error
+SELECT * FROM cold_start_analogs('A', NULL);
+----
+k must not be NULL
+
+statement ok
+DROP TABLE bom_items;
+
+# ------------------------------------------------------------------------------
+# C-3 / H-5: filter_recent_movements works on the documented (material_id,
+# movement_date, quantity) schema with a DATE column (previously a cast error),
+# and no longer requires a movement_type column.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+INSERT INTO goods_movements VALUES ('A', DATE '2020-01-01', 5.0), ('A', DATE '2024-06-01', 3.0), ('B', DATE '2024-06-15', 7.0);
+
+# Anchored on the latest movement date in the data (2024-06-15); a 180-day window keeps the two
+# June-2024 rows and drops the 2020 row.
+query I
+SELECT COUNT(*) FROM filter_recent_movements('goods_movements', 180, 0);
+----
+2
+
+statement ok
+DROP TABLE goods_movements;
+
+# ------------------------------------------------------------------------------
+# C-4: compute_transactional_embeddings without anofox-forecast raises a clear,
+# actionable error naming the missing extension (not a cryptic Catalog Error).
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement error
+SELECT * FROM compute_transactional_embeddings();
+----
+anofox-forecast
+
+statement ok
+DROP TABLE goods_movements;
+
+# ------------------------------------------------------------------------------
+# H-3: previously-phantom functions are now registered.
+# ------------------------------------------------------------------------------
+query I
+SELECT COUNT(*) FROM duckdb_functions()
+WHERE function_name IN ('recompute_embedding_statistics', 'compute_domain_specific_statistics');
+----
+2
+
+# ------------------------------------------------------------------------------
+# H-2: fuse_embeddings with a zero-weighted, NULL modality no longer nulls the
+# result, and weights that do not sum to 1 are normalized rather than dropped.
+# ------------------------------------------------------------------------------
+# zero-weighted NULL transactional modality (correct 256/384 dims for the used modalities)
+query I
+SELECT fuse_embeddings(list_resize([1.0]::FLOAT[], 256, 0.0), list_resize([1.0]::FLOAT[], 384, 0.0),
+   NULL::FLOAT[], {'structural':0.5,'textual':0.5,'transactional':0.0}) IS NULL;
+----
+false
+
+# weights that do not sum to 1 are normalized, not dropped (all three dims correct)
+query I
+SELECT fuse_embeddings(list_resize([1.0]::FLOAT[], 256, 0.0), list_resize([1.0]::FLOAT[], 384, 0.0),
+   list_resize([1.0]::FLOAT[], 128, 0.0), {'structural':0.5,'textual':0.5,'transactional':0.5}) IS NULL;
+----
+false
+
+# M-3: a wrong-length modality vector at positive weight yields NULL (no silent pad/truncate).
+query I
+SELECT fuse_embeddings([1.0,2.0]::FLOAT[], list_resize([1.0]::FLOAT[], 384, 0.0),
+   list_resize([1.0]::FLOAT[], 128, 0.0), {'structural':0.34,'textual':0.33,'transactional':0.33}) IS NULL;
+----
+true
+
+# ------------------------------------------------------------------------------
+# H-7 / M-1: BOM traversal on the universal schema.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_header(bom_id VARCHAR, parent_material_id VARCHAR);
+
+statement ok
+CREATE TABLE bom_component(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+# Cyclic BOM A->B->C->A must terminate (visited-set), not loop or explode.
+statement ok
+INSERT INTO bom_header VALUES ('bA','A'),('bB','B'),('bC','C');
+
+statement ok
+INSERT INTO bom_component VALUES ('bA','B',2),('bB','C',3),('bC','A',5);
+
+query I
+SELECT COUNT(*) FROM bom_explosion_multilevel('A', max_depth := 10,
+   header_table := 'bom_header', component_table := 'bom_component');
+----
+3
+
+statement ok
+DROP TABLE bom_component;
+
+statement ok
+DROP TABLE bom_header;
+
+# R2-05: a shared subassembly reached via multiple paths must NOT inflate its child edges'
+# quantity (edge-list semantics via DISTINCT, not path-multiplying SUM).
+statement ok
+CREATE TABLE bom_header(bom_id VARCHAR, parent_material_id VARCHAR);
+
+statement ok
+CREATE TABLE bom_component(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO bom_header VALUES ('bA','A'),('bB','B'),('bC','C'),('bX','X');
+
+statement ok
+INSERT INTO bom_component VALUES ('bA','B',1),('bA','C',1),('bB','X',1),('bC','X',1),('bX','Y',1);
+
+# X is reached via both B and C; the X->Y edge (quantity 1) must appear once, not doubled.
+query R
+SELECT quantity_per FROM bom_explosion_multilevel('A',
+   header_table := 'bom_header', component_table := 'bom_component')
+WHERE child_material_id = 'Y';
+----
+1.0
+
+statement ok
+DROP TABLE bom_component;
+
+statement ok
+DROP TABLE bom_header;
+
+# M-1: common components are not multiplicatively inflated by duplicate lines.
+statement ok
+CREATE TABLE bom_header(bom_id VARCHAR, parent_material_id VARCHAR);
+
+statement ok
+CREATE TABLE bom_component(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO bom_header VALUES ('bA','A'),('bB','B2');
+
+statement ok
+INSERT INTO bom_component VALUES ('bA','X',1),('bA','X',1),('bB','X',1),('bB','X',1);
+
+query I
+SELECT COUNT(*) FROM bom_common_components('A','B2',
+   header_table := 'bom_header', component_table := 'bom_component');
+----
+1
+
+statement ok
+DROP TABLE bom_component;
+
+statement ok
+DROP TABLE bom_header;
+
+# ------------------------------------------------------------------------------
+# H-9: infer_predecessors accepts min_overlapping_weeks (previously hardcoded 8).
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+SELECT * FROM infer_predecessors('X', min_overlapping_weeks := 2);
+
+statement ok
+DROP TABLE bom_items;
+
+statement ok
+DROP TABLE goods_movements;
+
+# ------------------------------------------------------------------------------
+# R3-CRIT: fuse_embeddings must not overflow/segfault on a batch large enough that
+# count * 768 exceeds the initial list-child capacity.
+statement ok
+CREATE TEMP TABLE fuse_scale AS
+SELECT 'g' || i AS material_id,
+       list_resize([1.5]::FLOAT[], 256, 1.5) AS structural_embedding,
+       list_resize([2.5]::FLOAT[], 384, 2.5) AS textual_embedding
+FROM range(1, 4001) t(i);
+
+query II
+SELECT COUNT(*), MAX(len(combined))
+FROM (
+  SELECT fuse_embeddings(structural_embedding, textual_embedding, NULL::FLOAT[],
+     {'structural':0.5,'textual':0.5,'transactional':0.0}) AS combined
+  FROM fuse_scale
+);
+----
+4000	768
+
+statement ok
+DROP TABLE fuse_scale;
+
+# R3: SAP dates in native YYYYMMDD form parse instead of throwing a Conversion Error.
+statement ok
+CREATE TABLE MAST(matnr VARCHAR, stlnr VARCHAR, stlal VARCHAR);
+
+statement ok
+INSERT INTO MAST VALUES ('FG', 'B1', '01');
+
+statement ok
+CREATE TABLE STKO(stlnr VARCHAR, stlal VARCHAR, datuv VARCHAR);
+
+statement ok
+INSERT INTO STKO VALUES ('B1', '01', '20240101');
+
+statement ok
+CREATE TABLE STPO(stlnr VARCHAR, stlkn VARCHAR, idnrk VARCHAR, menge DOUBLE, meins VARCHAR);
+
+statement ok
+INSERT INTO STPO VALUES ('B1', '1', 'COMP-A', 2.0, 'PC');
+
+query TTT
+SELECT parent_id, child_id, valid_from FROM sap_to_bom_items('MAST', 'STKO', 'STPO');
+----
+FG	COMP-A	2024-01-01
+
+statement ok
+DROP TABLE MAST;
+
+statement ok
+DROP TABLE STKO;
+
+statement ok
+DROP TABLE STPO;
+
+# R3: bom_to_items no longer silently drops rows whose header is_approved is not TRUE.
+statement ok
+CREATE TABLE bom_header(bom_id VARCHAR, parent_material_id VARCHAR, is_approved BOOLEAN);
+
+statement ok
+CREATE TABLE bom_component(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO bom_header VALUES ('b1','A',FALSE),('b2','B',NULL);
+
+statement ok
+INSERT INTO bom_component VALUES ('b1','x',1),('b2','y',1);
+
+query I
+SELECT COUNT(*) FROM bom_to_items(header_table := 'bom_header', component_table := 'bom_component');
+----
+2
+
+statement ok
+DROP TABLE bom_component;
+
+statement ok
+DROP TABLE bom_header;
+
+# R10-CRIT: find_similar_materials_wl_kernel on a dense/complete cyclic BOM must be sub-second
+# (set-based UNION), not the old O(nodes^4) UNION ALL blowup. A complete 30-node graph would have
+# taken tens of seconds before; it must return k rows quickly now.
+statement ok
+CREATE TABLE complete_bom AS
+SELECT 'C' || a AS parent_id, 'C' || b AS child_id FROM range(30) t1(a), range(30) t2(b) WHERE a <> b;
+
+query I
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('C0', 5, iterations := 1000, bom_table := 'complete_bom');
+----
+5
+
+statement ok
+DROP TABLE complete_bom;
+
+# R12: bom_dfs_neighborhood's max_depth means "N hops", matching bom_explosion_multilevel's
+# convention exactly. max_depth := 1 on a 3-hop chain returns only the direct child (was off-by-one:
+# used to also include the 2-hop descendant).
+statement ok
+CREATE TABLE dfs_chain(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO dfs_chain VALUES ('R','L1'),('L1','L2'),('L2','L3');
+
+query T
+SELECT component FROM bom_dfs_neighborhood('R', max_depth := 1, bom_table := 'dfs_chain');
+----
+L1
+
+statement ok
+DROP TABLE dfs_chain;
+
+# R12: compute_fused_embeddings must not silently drop rows when a weights_* param is passed as an
+# explicit NULL (which is documented to fall back to that param's own default).
+statement ok
+INSERT INTO material_embeddings(material_id, structural_embedding, textual_embedding)
+SELECT 'FUSE-NULL-WT', (SELECT array_agg(1.0::FLOAT) FROM range(256)), (SELECT array_agg(1.0::FLOAT) FROM range(384));
+
+query I
+SELECT COUNT(*) FROM compute_fused_embeddings(weights_transactional := NULL) WHERE material_id = 'FUSE-NULL-WT';
+----
+1
+
+statement ok
+DELETE FROM material_embeddings WHERE material_id = 'FUSE-NULL-WT';
+
+# R11-CRIT: wl_kernel_similarity (via wl_fingerprint) must not blow up exponentially on a dense
+# fully-cyclic BOM. Its non-recursive 5-level self-join must dedup at each level (not chain raw
+# joins), so cost is O(depth * edges), not O(fanout^depth).
+statement ok
+CREATE TABLE complete_bom2 AS
+SELECT 'M' || a AS parent_id, 'M' || b AS child_id FROM range(80) t1(a), range(80) t2(b) WHERE a <> b;
+
+query I
+SELECT wl_kernel_similarity('M0', 'M1', 5, 'complete_bom2') BETWEEN 0.0 AND 1.0;
+----
+true
+
+statement ok
+DROP TABLE complete_bom2;
+
+# R11: create_bom_property_graph registers even when bom_header/bom_component do not exist yet
+# (COALESCE combined with a literal table reference used to make DuckDB eagerly bind the macro
+# body at CREATE time, so it silently failed to register on every fresh database).
+query I
+SELECT COUNT(*) FROM duckdb_functions() WHERE function_name = 'create_bom_property_graph';
+----
+1
+
+statement ok
+CREATE TABLE pg_header(bom_id VARCHAR, parent_material_id VARCHAR, source_system VARCHAR);
+
+statement ok
+INSERT INTO pg_header VALUES ('h1', 'A', 'TEST');
+
+statement ok
+CREATE TABLE pg_component(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO pg_component VALUES ('h1', 'X', 1.0);
+
+statement ok
+ALTER TABLE pg_header RENAME TO bom_header;
+
+statement ok
+ALTER TABLE pg_component RENAME TO bom_component;
+
+query I
+SELECT num_nodes FROM create_bom_property_graph(source_system := NULL);
+----
+1
+
+statement ok
+DROP TABLE bom_header;
+
+statement ok
+DROP TABLE bom_component;
+
+# R9-CRIT: multi-path (diamond) BOMs must NOT blow up exponentially. A 25-deep diamond chain with a
+# back-edge and a 2-billion max_depth must complete near-instantly (node-based traversal), not hang.
+statement ok
+CREATE TABLE diamond AS
+WITH d AS (SELECT i FROM range(0,25) t(i))
+SELECT 'X' || i AS parent_id, 'A' || i AS child_id FROM d
+UNION ALL SELECT 'X' || i, 'B' || i FROM d
+UNION ALL SELECT 'A' || i, 'X' || (i+1) FROM d
+UNION ALL SELECT 'B' || i, 'X' || (i+1) FROM d
+UNION ALL SELECT 'X25', 'X0';
+
+query I
+SELECT COUNT(*) > 0 FROM bom_dfs_neighborhood(root_material_id := 'X0', max_depth := 2000000000, bom_table := 'diamond');
+----
+true
+
+statement ok
+DROP TABLE diamond;
+
+# R9: compute_fused_embeddings coalesces a NULL weight to its default rather than nulling every row.
+statement ok
+INSERT INTO material_embeddings(material_id, structural_embedding, textual_embedding, transactional_embedding)
+SELECT 'FZ', (SELECT array_agg(1.0::FLOAT) FROM range(256)),
+       (SELECT array_agg(0.5::FLOAT) FROM range(384)),
+       (SELECT array_agg(2.0::FLOAT) FROM range(128));
+
+query I
+SELECT combined_embedding IS NULL FROM compute_fused_embeddings(weights_structural := NULL) WHERE material_id = 'FZ';
+----
+false
+
+statement ok
+DELETE FROM material_embeddings WHERE material_id = 'FZ';
+
+# R8-CRIT: bom_dfs_neighborhood must terminate on a cyclic BOM even with a huge max_depth
+# (visited-path guard), not hang. A->B->A cycle yields exactly the 2 reachable components.
+statement ok
+CREATE TABLE cyc(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO cyc VALUES ('A','B'),('B','A');
+
+query I
+SELECT COUNT(*) FROM bom_dfs_neighborhood('A', max_depth := 2147483647, bom_table := 'cyc');
+----
+2
+
+statement ok
+DROP TABLE cyc;
+
+# R8: wl_kernel_similarity iterations := NULL uses the default (3), not 1.
+statement ok
+CREATE TABLE wlm(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO wlm VALUES ('M1','C-A'),('M1','C-B'),('M2','C-A'),('M2','C-D'),('C-A','S1'),('C-A','S2'),('C-B','S3');
+
+query I
+SELECT CASE WHEN wl_kernel_similarity('M1','M2', NULL, 'wlm') = wl_kernel_similarity('M1','M2', 3, 'wlm') THEN 1 ELSE 0 END;
+----
+1
+
+statement ok
+DROP TABLE wlm;
+
+# R7: NULL numeric macro params fall back to their default instead of silently truncating/emptying.
+statement ok
+CREATE TABLE r7h(bom_id VARCHAR, parent_material_id VARCHAR);
+
+statement ok
+CREATE TABLE r7c(bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO r7h VALUES ('b1','A'),('b2','B');
+
+statement ok
+INSERT INTO r7c VALUES ('b1','B',1),('b2','C',1);
+
+# max_depth := NULL must still traverse deep (default 10), not stop at direct children.
+query I
+SELECT COUNT(*) FROM bom_explosion_multilevel('A', max_depth := NULL, header_table := 'r7h', component_table := 'r7c');
+----
+2
+
+statement ok
+DROP TABLE r7c;
+
+statement ok
+DROP TABLE r7h;
+
+statement ok
+CREATE TABLE r7mv(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+INSERT INTO r7mv VALUES ('A', DATE '2024-01-05', 10.0), ('B', DATE '2024-03-10', 7.0);
+
+# NULL time_window_days / min_quantity must fall back to defaults (365 / 0), not return empty.
+query I
+SELECT COUNT(*) FROM filter_recent_movements('r7mv', time_window_days := NULL);
+----
+2
+
+query I
+SELECT COUNT(*) FROM filter_recent_movements('r7mv', 365, NULL);
+----
+2
+
+statement ok
+DROP TABLE r7mv;
+
+# R6-CRIT: a NULL passed to a NAMED tuning parameter must fall back to the default, not raise an
+# INTERNAL Error (positional args still error; named tuning args degrade to default).
+statement ok
+CREATE TABLE nb(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO nb VALUES ('A','B'),('A','C'),('X','B');
+
+statement ok
+CREATE TABLE nb_mv(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+query I
+SELECT COUNT(*) FROM find_similar_materials_jaccard('A', 5, min_similarity := NULL, bom_table := 'nb');
+----
+1
+
+query I
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('A', 5, iterations := NULL, min_similarity := NULL, bom_table := 'nb');
+----
+1
+
+query I
+SELECT COUNT(*) FROM cold_start_analogs('A', 5, min_history_months := NULL, min_similarity := NULL, bom_table := 'nb', movements_table := 'nb_mv');
+----
+1
+
+statement ok
+SELECT * FROM infer_predecessors('A', min_similarity := NULL, lag_weeks := NULL, min_overlapping_weeks := NULL, bom_table := 'nb', movements_table := 'nb_mv');
+
+statement ok
+DROP TABLE nb;
+
+statement ok
+DROP TABLE nb_mv;
+
+# R5-CRIT: embedding_backend must not overflow/segfault on a batch large enough that
+# count * 384 exceeds the initial list-child capacity.
+query II
+SELECT COUNT(*), MAX(len(e))
+FROM (SELECT embedding_backend('m' || i, 'gemma-local', '') AS e FROM range(1, 5001) t(i));
+----
+5000	384
+
+# R5: sap_to_bom_items keeps genuinely-distinct BOM numbers for one material (plant-specific),
+# collapsing only validity slices of the same BOM number.
+statement ok
+CREATE TABLE MAST2(matnr VARCHAR, stlnr VARCHAR);
+
+statement ok
+INSERT INTO MAST2 VALUES ('MAT','B1'),('MAT','B2');
+
+statement ok
+CREATE TABLE STKO2(stlnr VARCHAR, stlal VARCHAR, datuv VARCHAR);
+
+statement ok
+INSERT INTO STKO2 VALUES ('B1','01','20240101'),('B2','01','20230101');
+
+statement ok
+CREATE TABLE STPO2(stlnr VARCHAR, stlkn VARCHAR, idnrk VARCHAR, menge DOUBLE, meins VARCHAR);
+
+statement ok
+INSERT INTO STPO2 VALUES ('B1','1','CP1',1,'PC'),('B2','1','CP2',1,'PC');
+
+query I
+SELECT COUNT(*) FROM sap_to_bom_items('MAST2','STKO2','STPO2');
+----
+2
+
+statement ok
+DROP TABLE MAST2;
+
+statement ok
+DROP TABLE STKO2;
+
+statement ok
+DROP TABLE STPO2;
+
+# R4: filter_recent_movements coerces VARCHAR ISO dates instead of a raw binder error.
+statement ok
+CREATE TABLE mv_txt(material_id VARCHAR, movement_date VARCHAR, quantity DOUBLE);
+
+statement ok
+INSERT INTO mv_txt VALUES ('A','2024-01-01',5.0),('A','2024-06-01',3.0);
+
+query I
+SELECT COUNT(*) FROM filter_recent_movements('mv_txt', 365, 0);
+----
+2
+
+statement ok
+DROP TABLE mv_txt;
+
+# R4: duplicate MAKT rows per (matnr,spras) collapse to one material (no fan-out).
+statement ok
+CREATE TABLE MARA(matnr VARCHAR, mtart VARCHAR, matkl VARCHAR, ersda VARCHAR, lvorm VARCHAR);
+
+statement ok
+INSERT INTO MARA VALUES ('M1','FERT','G','20200101',NULL);
+
+statement ok
+CREATE TABLE MAKT(matnr VARCHAR, spras VARCHAR, maktx VARCHAR);
+
+statement ok
+INSERT INTO MAKT VALUES ('M1','E','Pump'),('M1','E','Pump duplicate');
+
+query I
+SELECT COUNT(*) FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
+----
+1
+
+statement ok
+DROP TABLE MARA;
+
+statement ok
+DROP TABLE MAKT;
+
+# R4: WL search and scalar macro agree for iterations <= 0 (both clamp to 1 = direct children).
+statement ok
+CREATE TABLE wl0(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO wl0 VALUES ('A','B'),('X','B'),('X','C');
+
+query I
+SELECT CASE WHEN (SELECT similarity FROM find_similar_materials_wl_kernel('A',5,iterations:=0,bom_table:='wl0') WHERE material_id='X')
+             = wl_kernel_similarity('A','X',0,'wl0') THEN 1 ELSE 0 END;
+----
+1
+
+statement ok
+DROP TABLE wl0;
+
+# M-5: non-ASCII (UTF-8) table names are accepted through table-name parameters,
+# while injection attempts are still rejected.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE "零件表"(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO "零件表" VALUES ('A','x'),('B','x');
+
+query I
+SELECT COUNT(*) FROM find_similar_materials_jaccard('A', 5, bom_table := '零件表');
+----
+1
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('A', 5, bom_table := 'x; DROP TABLE x;--');
+----
+Invalid identifier
+
+statement ok
+DROP TABLE "零件表";
