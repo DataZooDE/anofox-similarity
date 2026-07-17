@@ -68,7 +68,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			num_components INTEGER
 		)
 	)");
-	CheckQueryResult(schema_result, "create material_embeddings table");
+	CheckQueryResult(schema_result, "create material_embeddings table", FailureMode::OPTIONAL);
 
 	// Create statistics table for transactional embedding normalization (Phase 2A)
 	auto stats_result = conn.Query(R"(
@@ -85,7 +85,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			version INTEGER DEFAULT 1
 		)
 	)");
-	CheckQueryResult(stats_result, "create transactional_embedding_statistics table");
+	CheckQueryResult(stats_result, "create transactional_embedding_statistics table", FailureMode::OPTIONAL);
 
 	// Create feature mapping table for transactional embeddings (Phase 2A)
 	auto mapping_result = conn.Query(R"(
@@ -98,7 +98,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			created_at TIMESTAMP DEFAULT NULL
 		)
 	)");
-	CheckQueryResult(mapping_result, "create transactional_feature_mapping table");
+	CheckQueryResult(mapping_result, "create transactional_feature_mapping table", FailureMode::OPTIONAL);
 
 	auto tracking_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings_dirty (
@@ -107,7 +107,7 @@ void CreateEmbeddingTables(Connection &conn) {
 			marked_at TIMESTAMP DEFAULT NULL
 		)
 	)");
-	CheckQueryResult(tracking_result, "create material_embeddings_dirty table");
+	CheckQueryResult(tracking_result, "create material_embeddings_dirty table", FailureMode::OPTIONAL);
 
 	// Schema migration: Handle old schema with wl_embedding
 	auto migration_check = conn.Query(R"(
@@ -138,13 +138,13 @@ void CreateEmbeddingTables(Connection &conn) {
 void CreateHNSWIndexes(Connection &conn) {
 	// HNSW indexes are performance optimizations - continue if creation fails
 
-	auto idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS jaccard_idx ON material_embeddings
-		USING HNSW(jaccard_embedding) WITH (metric = 'l2sq')
-	)");
-	CheckQueryResult(idx_result, "create jaccard HNSW index", FailureMode::OPTIONAL);
+	// NOTE: no HNSW index is built over jaccard_embedding. Those are raw 64-bit MinHash values
+	// stored as FLOAT (~1e18); an L2/cosine distance over them does NOT approximate the Jaccard
+	// index (MinHash estimates Jaccard via the *rate of equal coordinates*, not vector distance).
+	// A vector index there would silently return wrong neighbours. Jaccard similarity search is
+	// served exactly and quickly by find_similar_materials_jaccard() instead.
 
-	idx_result = conn.Query(R"(
+	auto idx_result = conn.Query(R"(
 		CREATE INDEX IF NOT EXISTS hnsw_structural_idx ON material_embeddings
 		USING HNSW(structural_embedding) WITH (metric = 'l2sq')
 	)");
@@ -162,11 +162,8 @@ void CreateHNSWIndexes(Connection &conn) {
 	)");
 	CheckQueryResult(idx_result, "create combined HNSW index", FailureMode::OPTIONAL);
 
-	idx_result = conn.Query(R"(
-		CREATE INDEX IF NOT EXISTS wl_idx ON material_embeddings
-		USING HNSW(structural_embedding) WITH (metric = 'cosine')
-	)");
-	CheckQueryResult(idx_result, "create WL legacy HNSW index", FailureMode::OPTIONAL);
+	// (No separate wl_idx: it was a redundant cosine index over structural_embedding, the same
+	// column hnsw_structural_idx already covers. Removed to avoid duplicate index maintenance.)
 }
 
 //------------------------------------------------------------------------------
@@ -181,7 +178,7 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 
 	string bom_table = "bom_items";
 
-	if (input.named_parameters.count("bom_table")) {
+	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
 		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
@@ -195,6 +192,9 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 					COUNT(DISTINCT child_id)::INTEGER AS num_components,
 					list(DISTINCT child_id ORDER BY child_id) AS components
 				FROM query_table('%s')
+				-- Ignore NULL parent/child rows: a stray NULL child would otherwise perturb the
+				-- MinHash so two materials with identical real component sets get different vectors.
+				WHERE parent_id IS NOT NULL AND child_id IS NOT NULL
 				GROUP BY parent_id
 			),
 			minhash_by_seed AS (
@@ -255,10 +255,10 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 
 		CreateTableFunctionInfo info(compute_jaccard);
 		FunctionDescription desc;
-		desc.description = "Computes 128-dimensional MinHash embeddings from BOM component sets for all materials "
-		                   "and upserts them into material_embeddings. Each material's embedding is derived from "
-		                   "its set of direct child component material numbers. Requires bom_table with columns "
-		                   "matnr and idnrk.";
+		desc.description = "Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed) from "
+		                   "BOM component sets; it does not write to material_embeddings — aggregate and upsert the "
+		                   "result yourself. Each material's embedding is derived from its set of direct child "
+		                   "components. Requires bom_table with columns parent_id and child_id.";
 		desc.examples    = {"SELECT * FROM compute_jaccard_embeddings();",
 		                    "SELECT * FROM compute_jaccard_embeddings(bom_table := 'sap_stpo');"};
 		desc.categories  = {"embeddings", "structural"};

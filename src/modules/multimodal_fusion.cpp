@@ -53,6 +53,11 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	auto &structural_child = ListVector::GetEntry(structural_vector);
 	auto &textual_child = ListVector::GetEntry(textual_vector);
 	auto &transactional_child = ListVector::GetEntry(transactional_vector);
+	// Reserve the result child vector to hold count * COMBINED_DIM floats BEFORE taking a pointer
+	// into it. The list child starts at STANDARD_VECTOR_SIZE capacity; without this reserve, any
+	// batch whose count * 768 exceeds that capacity overflowed the heap (SIGSEGV). Reserve may
+	// reallocate, so result_child_data is fetched afterwards (below).
+	ListVector::Reserve(result, count * COMBINED_DIM);
 	auto &result_child = ListVector::GetEntry(result);
 
 	UnifiedVectorFormat structural_child_vdata;
@@ -97,9 +102,9 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 		auto wt_idx = textual_weight_vdata.sel->get_index(i);
 		auto wx_idx = transactional_weight_vdata.sel->get_index(i);
 
-		// Handle NULL inputs
-		if (!structural_vdata.validity.RowIsValid(struct_idx) || !textual_vdata.validity.RowIsValid(text_idx) ||
-		    !transactional_vdata.validity.RowIsValid(trans_idx) || !weights_vdata.validity.RowIsValid(weights_idx) ||
+		// The weights struct itself must be present; individual modality vectors may be NULL
+		// as long as their weight is zero (a zero-weighted modality is treated as absent).
+		if (!weights_vdata.validity.RowIsValid(weights_idx) ||
 		    !structural_weight_vdata.validity.RowIsValid(ws_idx) || !textual_weight_vdata.validity.RowIsValid(wt_idx) ||
 		    !transactional_weight_vdata.validity.RowIsValid(wx_idx)) {
 			result_validity.SetInvalid(i);
@@ -110,11 +115,6 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 		result_entries[i].length = COMBINED_DIM;
 
 		try {
-			// Extract embedding data
-			auto &struct_entry = structural_data[struct_idx];
-			auto &text_entry = textual_data[text_idx];
-			auto &trans_entry = transactional_data[trans_idx];
-
 			auto w_structural = structural_weight_data[ws_idx];
 			auto w_textual = textual_weight_data[wt_idx];
 			auto w_transactional = transactional_weight_data[wx_idx];
@@ -125,8 +125,43 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 				continue;
 			}
 
+			// A modality only contributes when its weight is strictly positive. When it does
+			// contribute, its embedding vector must be present; a NULL vector at a positive
+			// weight makes the fused result NULL. At weight 0 the vector is ignored, so a
+			// missing (NULL) transactional vector no longer nulls out the whole fusion.
+			const bool use_structural = w_structural > 0.0f;
+			const bool use_textual = w_textual > 0.0f;
+			const bool use_transactional = w_transactional > 0.0f;
+
+			if ((use_structural && !structural_vdata.validity.RowIsValid(struct_idx)) ||
+			    (use_textual && !textual_vdata.validity.RowIsValid(text_idx)) ||
+			    (use_transactional && !transactional_vdata.validity.RowIsValid(trans_idx))) {
+				result_validity.SetInvalid(i);
+				continue;
+			}
+
 			auto weight_sum = w_structural + w_textual + w_transactional;
-			if (weight_sum <= 0.0f || std::fabs(weight_sum - 1.0f) > WEIGHT_SUM_TOLERANCE) {
+			if (weight_sum <= 0.0f) {
+				result_validity.SetInvalid(i);
+				continue;
+			}
+			// Normalize the active weights so they sum to 1, instead of silently returning NULL
+			// when the caller's weights do not. This matches the documented behaviour
+			// ("weights do not need to sum to 1.0") and keeps the sqrt-weighted concatenation stable.
+			w_structural /= weight_sum;
+			w_textual /= weight_sum;
+			w_transactional /= weight_sum;
+
+			auto struct_entry = use_structural ? structural_data[struct_idx] : list_entry_t {0, 0};
+			auto text_entry = use_textual ? textual_data[text_idx] : list_entry_t {0, 0};
+			auto trans_entry = use_transactional ? transactional_data[trans_idx] : list_entry_t {0, 0};
+
+			// Validate dimensions of every contributing modality instead of silently zero-padding a
+			// short vector or truncating a long one — a wrong-length embedding is a caller bug, so
+			// the fused result for that row is NULL rather than a quietly-corrupted vector.
+			if ((use_structural && struct_entry.length != STRUCTURAL_DIM) ||
+			    (use_textual && text_entry.length != TEXTUAL_DIM) ||
+			    (use_transactional && trans_entry.length != TRANSACTIONAL_DIM)) {
 				result_validity.SetInvalid(i);
 				continue;
 			}
@@ -196,6 +231,11 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	                                         {"textual", LogicalType::FLOAT},
 	                                         {"transactional", LogicalType::FLOAT}})},
 	                   LogicalType::LIST(LogicalType::FLOAT), FuseEmbeddingsFunction, FuseEmbeddingsBind);
+	// SPECIAL_HANDLING so the function is invoked even when a modality vector is NULL; the body
+	// decides per-modality whether a NULL is acceptable (it is, when that modality's weight is 0).
+	// With default handling DuckDB would short-circuit the whole result to NULL, which is why a
+	// NULL transactional vector used to null out compute_fused_embeddings on its default weights.
+	fuse_embeddings_function.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 
 	CreateScalarFunctionInfo info(fuse_embeddings_function);
 	FunctionDescription desc;
@@ -224,12 +264,23 @@ void RegisterFusionMacros(Connection &conn) {
 			weights_textual := 0.5,
 			weights_transactional := 0.0
 		) AS TABLE
-		WITH weights AS (
+		WITH raw_weights AS (
+			-- COALESCE each weight to its documented default so an explicit NULL falls back instead of
+			-- poisoning the whole computation (a NULL operand would make the normalized weights NULL
+			-- and every fused embedding NULL).
+			SELECT COALESCE(weights_structural, 0.5) AS ws,
+			       COALESCE(weights_textual, 0.5) AS wt,
+			       COALESCE(weights_transactional, 0.0) AS wx
+		),
+		weights AS (
+			-- Normalize so fusion_weights reflects the weights actually applied by fuse_embeddings
+			-- (which normalizes internally); guard against a zero sum.
 			SELECT {
-				'structural': weights_structural,
-				'textual': weights_textual,
-				'transactional': weights_transactional
+				'structural': ws / NULLIF(ws + wt + wx, 0),
+				'textual': wt / NULLIF(ws + wt + wx, 0),
+				'transactional': wx / NULLIF(ws + wt + wx, 0)
 			}::STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT) AS w
+			FROM raw_weights
 		),
 		fused AS (
 			SELECT
@@ -243,8 +294,15 @@ void RegisterFusionMacros(Connection &conn) {
 				w AS fusion_weights
 			FROM material_embeddings me
 			CROSS JOIN weights
-			WHERE me.structural_embedding IS NOT NULL
-			  AND me.textual_embedding IS NOT NULL
+			CROSS JOIN raw_weights
+			-- Only require a modality's vector when that modality has positive weight, mirroring
+			-- fuse_embeddings itself. Gate on the COALESCEd raw_weights.ws/wt/wx (not the bare
+			-- weights_structural/weights_textual/weights_transactional macro params): an explicit
+			-- weights_transactional := NULL must be treated as its default 0.0, not as
+			-- "NULL = 0 is NULL" (falsy), which previously dropped every row lacking that modality.
+			WHERE (ws = 0 OR me.structural_embedding IS NOT NULL)
+			  AND (wt = 0 OR me.textual_embedding IS NOT NULL)
+			  AND (wx = 0 OR me.transactional_embedding IS NOT NULL)
 		)
 		SELECT * FROM fused
 	)");
