@@ -40,9 +40,11 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 			m.created_date
 		FROM sap_to_materials(mara_table := mara_table) m
 		LEFT JOIN (
-			SELECT TRIM(matnr) AS material_id, maktx
-			FROM query_table(makt_table)
-			WHERE spras = language
+			-- One description per material: real MAKT can have several rows per (matnr, spras)
+			-- (e.g. across MANDT/client), which would otherwise fan the material out into duplicates.
+			SELECT material_id, ANY_VALUE(maktx) AS maktx
+			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE spras = COALESCE(language, 'E'))
+			GROUP BY material_id
 		) k ON m.material_id = k.material_id
 	)");
 
@@ -55,13 +57,15 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 			language := 'EN'
 		) AS TABLE
 		WITH descriptions AS (
+			-- Collapse multiple MAKT rows per (matnr, spras) to a single description so a material
+			-- is not duplicated (real MAKT repeats per MANDT/client).
 			SELECT
 				TRIM(matnr) AS material_id,
-				TRIM(maktx) AS description,
-				TRIM(maktg) AS short_text,
-				spras AS language
+				ANY_VALUE(TRIM(maktx)) AS description,
+				ANY_VALUE(TRIM(maktg)) AS short_text
 			FROM query_table(makt_table)
-			WHERE spras = language
+			WHERE spras = COALESCE(language, 'EN')
+			GROUP BY TRIM(matnr)
 		),
 		combined_text AS (
 			SELECT
@@ -94,10 +98,18 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 						s.stlnr AS bom_id,
 						s.stlal AS alternative,
 						s.datuv AS header_datuv,
-						ROW_NUMBER() OVER (PARTITION BY TRIM(m.matnr), s.stlal ORDER BY s.datuv DESC) AS rn
+						-- Partition by (matnr, stlnr, stlal): dedup only collapses validity SLICES of
+						-- the SAME BOM number. Omitting stlnr previously dropped genuinely-distinct BOMs
+						-- (e.g. plant-specific BOMs a material can carry under the same alternative).
+						ROW_NUMBER() OVER (PARTITION BY TRIM(m.matnr), s.stlnr, s.stlal ORDER BY s.datuv DESC) AS rn
 					FROM query_table(mast_table) m
 					JOIN query_table(stko_table) s ON m.stlnr = s.stlnr
-					WHERE (s.datuv IS NULL OR CAST(s.datuv AS DATE) <= CAST(reference_date AS DATE))
+					-- SAP stores dates as YYYYMMDD strings; accept that AND ISO YYYY-MM-DD without
+					-- a hard cast error (a plain CAST(... AS DATE) rejects '20240101').
+					WHERE (s.datuv IS NULL
+					       OR COALESCE(TRY_STRPTIME(s.datuv::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(s.datuv AS DATE))
+					          <= COALESCE(TRY_STRPTIME(COALESCE(reference_date, '9999-12-31')::VARCHAR, '%Y%m%d')::DATE,
+					                      TRY_CAST(COALESCE(reference_date, '9999-12-31') AS DATE)))
 				),
 				-- Step 2: Get BOM components (FROM STPO, not STKO)
 				stpo_components AS (
@@ -117,13 +129,15 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 						sc.component_id AS child_id,
 						sc.qty,
 						sc.unit,
-						TRY_STRPTIME('19000101'::VARCHAR, '%Y%m%d')::DATE AS valid_from,
+						-- Derive validity from the selected header's datuv instead of a constant.
+						COALESCE(TRY_STRPTIME(mp.header_datuv::VARCHAR, '%Y%m%d')::DATE,
+						         TRY_CAST(mp.header_datuv AS DATE)) AS valid_from,
 						'9999-12-31'::DATE AS valid_to,
 						mp.alternative AS bom_version
 					FROM mast_stko_parsed mp
 					INNER JOIN stpo_components sc ON mp.bom_id = sc.bom_id
 					WHERE mp.rn = 1
-						AND mp.alternative = bom_alternative
+						AND mp.alternative = COALESCE(bom_alternative, '01')
 				)
 			SELECT
 				bom_id,
