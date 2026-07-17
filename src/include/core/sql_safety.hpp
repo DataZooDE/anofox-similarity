@@ -42,15 +42,20 @@ inline string ValidateSQLIdentifierPath(const string &identifier, const string &
 			continue;
 		}
 
+		// Bytes with the high bit set are UTF-8 continuation/lead bytes of a non-ASCII identifier
+		// (e.g. an emoji or CJK table name). They are allowed because every SQL metacharacter that
+		// could enable injection (quote, semicolon, whitespace, parenthesis, dot) is ASCII < 0x80.
+		const bool is_utf8 = static_cast<unsigned char>(ch) >= 0x80;
+
 		if (expect_segment_start) {
-			if (!(std::isalpha(static_cast<unsigned char>(ch)) || ch == '_')) {
+			if (!(std::isalpha(static_cast<unsigned char>(ch)) || ch == '_' || is_utf8)) {
 				throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), identifier.c_str());
 			}
 			expect_segment_start = false;
 			continue;
 		}
 
-		if (!(std::isalnum(static_cast<unsigned char>(ch)) || ch == '_')) {
+		if (!(std::isalnum(static_cast<unsigned char>(ch)) || ch == '_' || is_utf8)) {
 			throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), identifier.c_str());
 		}
 	}

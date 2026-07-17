@@ -102,66 +102,66 @@ static void LoadInternal(ExtensionLoader &loader) {
 	auto &db = loader.GetDatabaseInstance();
 	Connection conn(db);
 
-	// Core Algorithms: Jaccard similarity scalar functions
-	anofox::RegisterJaccardFunctions(loader);
+	// When the primary database is opened read-only, catalog-mutating registrations
+	// (CREATE MACRO / CREATE TABLE / CREATE INDEX) cannot run and — being REQUIRED — would throw
+	// out of LoadInternal and abort the ENTIRE extension load, so even pure C++ scalars became
+	// unusable. Detect read-only and skip only the catalog-mutating (conn-based) registrations;
+	// the loader-based C++ functions below still register and work.
+	const bool read_only = DBConfig::GetConfig(db).options.access_mode == AccessMode::READ_ONLY;
 
-	// C++ Optimizations: Jaccard min-hash and WL kernel implementations
+	// --- Loader-based C++ registrations (always safe, even read-only) ---
+	anofox::RegisterJaccardFunctions(loader);
 	anofox::RegisterJaccardCppFunctions(loader);
 	anofox::RegisterWLKernelCppFunctions(loader, conn);
-
-	// Textual Analysis: Text embedding functions
 	anofox::RegisterTextualEmbeddingFunctions(loader);
-
-	// Vector Search Infrastructure: HNSW indexes for fast similarity search
-	anofox::InitializeVSSIntegration(conn);
-
-	// ERP Integration: Universal BOM schema and conversion macros
-	// Note: CreateUniversalBOMSchema should be called explicitly when needed
-	// This ensures tests can control table creation and lifecycle
-	anofox::RegisterBOMConversionMacros(conn);
-
-	// BOM Utilities: Helper macros for common BOM and movement filtering patterns
-	anofox::RegisterBOMUtilityMacros(conn);
-
-	// Statistics Functions: Infrastructure for efficient z-score normalization
-	anofox::RegisterStatisticsFunctions(conn);
-
-	// Graph Analysis (Optional): DuckPGQ property graph macros for BOM traversal
-	anofox::RegisterCheckDuckPGQMacro(conn);
-	anofox::InitializeDuckPGQIntegration(conn);
-	anofox::RegisterPropertyGraphMacros(conn);
-	anofox::RegisterBOMTraversalMacros(conn);
-
-	// Embedding Storage: Create tables and HNSW indexes for vector search
-	anofox::CreateEmbeddingTables(conn);
-	anofox::CreateHNSWIndexes(conn);
-
-	// Multi-Modal Fusion: Combine embeddings from multiple sources
 	anofox::RegisterMultimodalFusionFunctions(loader);
-
-	// Similarity Search: High-level similarity search and inference table functions
 	anofox::RegisterSimilaritySearchFunctions(loader);
-	anofox::RegisterWLKernelMacros(conn);
 	anofox::RegisterPredecessorInferenceFunctions(loader);
-	anofox::RegisterSAPTransformationMacros(conn);
-	anofox::RegisterDynamics365TransformationMacros(conn);
 	anofox::RegisterEmbeddingFunctions(loader);
-	anofox::RegisterTextualEmbeddingMacros(conn);
-	anofox::RegisterEmbedTextLambdas(conn);
-	anofox::RegisterFusionMacros(conn);
-
-	// Transactional Embeddings (Optional): Time series feature integration with anofox-forecast
-	// anofox-forecast must be installed and loaded by the user before using transactional embeddings
-
-	anofox::RegisterCheckAnofoxForecastMacro(conn);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);
 
-	// Feature Normalization: Embedding statistics computation for z-score normalization
-	anofox::RegisterStatisticsMacros(conn);
+	// --- Catalog-mutating (conn-based) registrations: SQL macros, infra tables, indexes ---
+	// These define most of the SQL-macro API and require a writable catalog.
+	if (!read_only) {
+		anofox::InitializeVSSIntegration(conn);
 
-	// Incremental Updates: Dirty material tracking and efficient refresh system
-	anofox::CreateIncrementalUpdateTriggers(conn);
-	anofox::RegisterIncrementalUpdateMacros(conn);
+		// ERP Integration: Universal BOM schema and conversion macros
+		anofox::RegisterBOMConversionMacros(conn);
+
+		// BOM Utilities: Helper macros for common BOM and movement filtering patterns
+		anofox::RegisterBOMUtilityMacros(conn);
+
+		// Statistics Functions: Infrastructure for efficient z-score normalization
+		anofox::RegisterStatisticsFunctions(conn);
+
+		// Graph Analysis (Optional): DuckPGQ property graph macros for BOM traversal
+		anofox::RegisterCheckDuckPGQMacro(conn);
+		anofox::InitializeDuckPGQIntegration(conn);
+		anofox::RegisterPropertyGraphMacros(conn);
+		anofox::RegisterBOMTraversalMacros(conn);
+
+		// Embedding Storage: Create tables and HNSW indexes for vector search
+		anofox::CreateEmbeddingTables(conn);
+		anofox::CreateHNSWIndexes(conn);
+
+		// Similarity-search helper macros and inference macros
+		anofox::RegisterWLKernelMacros(conn);
+		anofox::RegisterSAPTransformationMacros(conn);
+		anofox::RegisterDynamics365TransformationMacros(conn);
+		anofox::RegisterTextualEmbeddingMacros(conn);
+		anofox::RegisterEmbedTextLambdas(conn);
+		anofox::RegisterFusionMacros(conn);
+
+		// Transactional Embeddings (Optional): integration with anofox-forecast
+		anofox::RegisterCheckAnofoxForecastMacro(conn);
+
+		// Feature Normalization: embedding statistics computation
+		anofox::RegisterStatisticsMacros(conn);
+
+		// Incremental Updates (no-ops today; DuckDB has no triggers / DML-in-macro)
+		anofox::CreateIncrementalUpdateTriggers(conn);
+		anofox::RegisterIncrementalUpdateMacros(conn);
+	}
 }
 
 void AnofoxSimilarityExtension::Load(ExtensionLoader &db) {

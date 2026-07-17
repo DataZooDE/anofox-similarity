@@ -64,18 +64,51 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	string batch_size = "NULL";
 	int64_t batch_offset = 0;
 
-	if (input.named_parameters.count("movements_table")) {
+	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
 		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
 	}
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
-	if (input.named_parameters.count("time_window_days")) {
+
+	// Fail fast, with an actionable message, when the anofox-forecast dependency is missing.
+	// Without this guard the inner extract_ts_features() call resolves anofox_fcst_ts_features()
+	// at bind time and raises a cryptic Catalog Error, contradicting the documented graceful
+	// degradation. We check the catalog directly through a fresh connection.
+	{
+		Connection dep_con(*context.db);
+		auto dep = dep_con.Query("SELECT COUNT(*) FROM duckdb_functions() "
+		                         "WHERE function_name = 'anofox_fcst_ts_features'");
+		bool available = false;
+		if (dep && !dep->HasError()) {
+			auto chunk = dep->Fetch();
+			if (chunk && chunk->size() > 0 && !chunk->GetValue(0, 0).IsNull()) {
+				available = chunk->GetValue(0, 0).GetValue<int64_t>() > 0;
+			}
+		}
+		if (!available) {
+			throw BinderException(
+			    "compute_transactional_embeddings requires the anofox-forecast extension, which is not "
+			    "loaded. Install and load it first: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
+		}
+	}
+
+	// movement_type is optional: use it when the column exists, otherwise substitute NULL so the
+	// movement-type ERP features (indices 92-97) degrade to 0 instead of failing to bind.
+	bool has_movement_type = false;
+	try {
+		ValidateTableColumns(context, movements_table, {"movement_type"}, "movements_table");
+		has_movement_type = true;
+	} catch (...) {
+		has_movement_type = false;
+	}
+	const char *movement_type_expr = has_movement_type ? "movement_type" : "NULL::VARCHAR";
+	if (input.named_parameters.count("time_window_days") && !input.named_parameters.at("time_window_days").IsNull()) {
 		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
 	}
 	if (input.named_parameters.count("batch_size") && !input.named_parameters.at("batch_size").IsNull()) {
 		batch_size = std::to_string(input.named_parameters.at("batch_size").GetValue<int64_t>());
 	}
-	if (input.named_parameters.count("batch_offset")) {
+	if (input.named_parameters.count("batch_offset") && !input.named_parameters.at("batch_offset").IsNull()) {
 		batch_offset = input.named_parameters.at("batch_offset").GetValue<int64_t>();
 	}
 
@@ -161,7 +194,13 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				END AS weekday_concentration,
 				NULL::FLOAT AS trend_strength,
 				NULL::FLOAT AS growth_indicator
-			FROM filter_recent_movements('%s', %lld, 0) gm
+			FROM (
+				SELECT material_id, movement_date, %s AS movement_type
+				FROM query_table('%s')
+				WHERE movement_date IS NOT NULL AND quantity IS NOT NULL AND quantity > 0
+				  AND movement_date >= (SELECT MAX(movement_date) FROM query_table('%s'))
+				                       - (INTERVAL '1 day' * %lld)
+			) gm
 			INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
 			GROUP BY gm.material_id
 			HAVING COUNT(*) >= 3
@@ -274,8 +313,8 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 		FROM normalized_embedding_vectors
 	)",
 	                                movements_table, time_window_days, batch_size, batch_size, batch_size, batch_offset,
-	                                movements_table, time_window_days, batch_size, batch_offset, movements_table,
-	                                time_window_days);
+	                                movements_table, time_window_days, batch_size, batch_offset, movement_type_expr,
+	                                movements_table, movements_table, time_window_days);
 
 	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_transactional_embeddings query");
 }

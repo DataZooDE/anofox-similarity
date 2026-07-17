@@ -36,7 +36,7 @@ void RegisterStatisticsMacros(Connection &conn) {
 		FROM filter_recent_movements(movements_table, time_window_days, 0) gm
 		INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
 		GROUP BY gm.material_id
-		HAVING COUNT(*) >= min_observations
+		HAVING COUNT(*) >= COALESCE(min_observations, 3)
 	)");
 	CheckQueryResult(extract_result, "create extract_ts_features shared macro");
 
@@ -48,10 +48,14 @@ void RegisterStatisticsMacros(Connection &conn) {
 	auto result = conn.Query(R"(
 		CREATE OR REPLACE MACRO recompute_embedding_statistics(
 			time_window_days := 365,
-			min_observations := 3
+			min_observations := 3,
+			movements_table := 'goods_movements'
 		) AS TABLE
 		WITH all_features AS (
-			SELECT * FROM extract_ts_features('goods_movements', time_window_days, min_observations)
+			-- Passing the table as a macro parameter (rather than a literal) defers binding of the
+			-- nested extract_ts_features() call to call time, so this macro registers at load even
+			-- when the anofox-forecast dependency is not yet present.
+			SELECT * FROM extract_ts_features(movements_table, time_window_days, min_observations)
 		),
 		feature_stats AS (
 			SELECT
@@ -447,24 +451,25 @@ void RegisterStatisticsMacros(Connection &conn) {
 		UNION ALL
 		SELECT 'reserved_domain_specific_97', 97, 'reserved', 0.0, 1.0, 0.0, 0.0, 1
 		)
-		INSERT OR REPLACE INTO transactional_embedding_statistics
+		-- Table macros cannot contain DML, so this returns the freshly computed statistics as a
+		-- result set. To persist, run: INSERT OR REPLACE INTO transactional_embedding_statistics
+		-- SELECT *, CURRENT_TIMESTAMP, COALESCE((SELECT MAX(version) FROM
+		-- transactional_embedding_statistics),0)+1 FROM recompute_embedding_statistics();
 		SELECT
 			feature_name, feature_index, feature_category, mean_value, std_value,
-			min_value, max_value, num_samples, CURRENT_TIMESTAMP,
-			COALESCE((SELECT MAX(version) FROM transactional_embedding_statistics), 0) + 1
+			min_value, max_value, num_samples
 		FROM feature_stats
-		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
 	)");
-	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::OPTIONAL);
+	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::REQUIRED);
 
 	// Domain-Specific ERP Features: Compute advanced domain-specific features (movement type, day-of-week, lifecycle)
 	result = conn.Query(R"(
+		-- The movements table must use the canonical column names material_id, movement_date,
+		-- quantity, movement_type. (A SQL macro cannot use a string parameter as a column
+		-- identifier, so the previous material_column/date_column/... parameters had no effect and
+		-- have been removed rather than silently ignored.)
 		CREATE OR REPLACE MACRO compute_domain_specific_statistics(
 			movements_table := 'goods_movements',
-			material_column := 'material_id',
-			date_column := 'movement_date',
-			quantity_column := 'quantity',
-			movement_type_column := 'movement_type',
 			time_window_days := 365,
 			min_observations := 3
 		) AS TABLE
@@ -486,11 +491,12 @@ void RegisterStatisticsMacros(Connection &conn) {
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 5) AS fri_count,
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) = 6) AS sat_count
 			FROM query_table(movements_table)
-			WHERE movement_date >= CAST(CURRENT_TIMESTAMP AS DATE) - INTERVAL time_window_days DAYS
+			WHERE movement_date >= (SELECT MAX(movement_date) FROM query_table(movements_table))
+			                       - (INTERVAL '1 day' * COALESCE(time_window_days, 365))
 			  AND quantity IS NOT NULL
 			  AND quantity > 0
 			GROUP BY material_id
-			HAVING COUNT(*) >= min_observations
+			HAVING COUNT(*) >= COALESCE(min_observations, 3)
 		),
 		domain_specific_features AS (
 			SELECT
@@ -597,15 +603,14 @@ void RegisterStatisticsMacros(Connection &conn) {
 			FROM combined_domain_features
 			WHERE growth_indicator IS NOT NULL
 		)
-		INSERT OR REPLACE INTO transactional_embedding_statistics
+		-- Pure computation (table macros cannot contain DML); persist with an explicit
+		-- INSERT OR REPLACE INTO transactional_embedding_statistics SELECT ... if desired.
 		SELECT
 			feature_name, feature_index, feature_category, mean_value, std_value,
-			min_value, max_value, num_samples, CURRENT_TIMESTAMP,
-			COALESCE((SELECT MAX(version) FROM transactional_embedding_statistics), 0) + 1
+			min_value, max_value, num_samples
 		FROM domain_stats
-		RETURNING feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples;
 	)");
-	CheckQueryResult(result, "create compute_domain_specific_statistics macro", FailureMode::OPTIONAL);
+	CheckQueryResult(result, "create compute_domain_specific_statistics macro", FailureMode::REQUIRED);
 }
 
 } // namespace anofox

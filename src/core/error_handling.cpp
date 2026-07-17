@@ -1,5 +1,7 @@
 #include "core/error_handling.hpp"
 
+#include <cstdio>
+
 namespace duckdb {
 namespace anofox {
 
@@ -11,10 +13,15 @@ void CheckQueryResult(const unique_ptr<T> &result, const std::string &operation,
 		case FailureMode::REQUIRED:
 			throw InvalidInputException("Failed to %s: %s", operation.c_str(), result->GetError().c_str());
 		case FailureMode::OPTIONAL:
-			// Continue on error - optional feature not available
-			break;
 		case FailureMode::BEST_EFFORT:
-			// Silently continue - experimental feature
+			// Non-fatal: an optional/experimental feature could not be set up. This used to be
+			// swallowed completely, which is how several documented functions silently failed to
+			// register. In debug builds we surface it on stderr so regressions are caught early;
+			// release builds still continue so a missing optional dependency never blocks load.
+#ifndef NDEBUG
+			fprintf(stderr, "[anofox_similarity] WARNING: failed to %s: %s\n", operation.c_str(),
+			        result->GetError().c_str());
+#endif
 			break;
 		}
 	}

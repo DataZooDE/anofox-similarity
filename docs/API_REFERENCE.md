@@ -74,7 +74,7 @@ jaccard_similarity(
 
 **Returns:**
 - DOUBLE: Similarity score [0.0, 1.0]
-  - 0.0 = Completely disjoint (no common elements)
+  - 0.0 = Completely disjoint (no common elements), **and by convention two empty (or all-NULL) sets also score 0.0**
   - 1.0 = Identical element sets
 
 **Complexity:** O(n + m) where n, m = list sizes
@@ -113,7 +113,7 @@ wl_kernel_similarity(
 |-----------|------|---------|-------------|
 | `material_a` | VARCHAR | Required | First material ID |
 | `material_b` | VARCHAR | Required | Second material ID |
-| `iterations` | INTEGER | 3 | Number of refinement iterations |
+| `iterations` | INTEGER | 3 | Number of refinement iterations (clamped: values above 5 behave identically to 5) |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 
 **Returns:**
@@ -138,11 +138,12 @@ Identifies predecessor-successor relationships through BOM similarity combined w
 **Signature:**
 ```sql
 infer_predecessors(
-    query_material_id VARCHAR,
+    material_id VARCHAR,           -- positional (not query_material_id :=)
     lookback_months := 24,
     min_similarity := 0.3,
     min_confidence := 0.5,
     lag_weeks := 8,
+    min_overlapping_weeks := 8,
     bom_table := 'bom_items',
     movements_table := 'goods_movements'
 ) → TABLE (
@@ -154,18 +155,19 @@ infer_predecessors(
     predecessor_first_usage DATE,
     predecessor_last_usage DATE,
     successor_start DATE,
-    overlapping_weeks INTEGER
+    overlapping_weeks BIGINT
 )
 ```
 
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query_material_id` | VARCHAR | Required | Material to find predecessors for |
+| `material_id` | VARCHAR | Required | Material to find predecessors for (positional) |
 | `lookback_months` | INTEGER | 24 | Historical window in months |
 | `min_similarity` | DOUBLE | 0.3 | Minimum Jaccard similarity threshold |
 | `min_confidence` | DOUBLE | 0.5 | Minimum confidence threshold |
 | `lag_weeks` | INTEGER | 8 | Expected temporal lag between predecessor decline and successor rise |
+| `min_overlapping_weeks` | INTEGER | 8 | Minimum aligned weekly buckets required |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 | `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
 
@@ -181,6 +183,11 @@ infer_predecessors(
 - `overlapping_weeks` - Weeks of overlapping consumption
 
 **Example:**
+> [!IMPORTANT]
+> The leading material-id argument is **positional-only** — pass it as the first argument, not
+> as `query_material_id := ...`. The same applies to `k` on the search functions below. Only the
+> trailing tuning arguments (`lookback_months`, `min_similarity`, ...) accept `name := value`.
+
 ```sql
 SELECT
   predecessor_id,
@@ -188,10 +195,11 @@ SELECT
   correlation,
   similarity
 FROM infer_predecessors(
-  query_material_id := 'AL-7076',
+  'AL-7076',                    -- positional material id (required)
   lookback_months := 24,
   min_similarity := 0.4,
-  min_confidence := 0.6
+  min_confidence := 0.6,
+  min_overlapping_weeks := 8    -- min aligned weekly buckets (default 8; lower for sparse data)
 )
 ORDER BY confidence DESC;
 ```
@@ -337,8 +345,8 @@ SELECT
   similarity,
   history_months
 FROM cold_start_analogs(
-  'X-750-NEW',
-  k := 5,
+  'X-750-NEW',                  -- positional material id (required)
+  5,                            -- positional k (required, not k := 5)
   min_history_months := 6,
   min_similarity := 0.3
 )
@@ -390,6 +398,11 @@ bom_explosion_multilevel(
     quantity_per FLOAT
 )
 ```
+> [!IMPORTANT]
+> `max_depth` is clamped to a **hard ceiling of 64** regardless of the value passed in (this bounds
+> traversal cost on cyclic BOMs). A BOM genuinely deeper than 64 levels is silently truncated at 64
+> with no error — this is extremely rare in practice, but if you need to detect it, compare the
+> returned row count against an independent depth check.
 
 **Parameters:**
 | Parameter | Type | Default | Description |
@@ -399,7 +412,8 @@ bom_explosion_multilevel(
 | `header_table` | VARCHAR | 'bom_header' | Header table name |
 | `component_table` | VARCHAR | 'bom_component' | Component table name |
 
-**Complexity:** O(2^d) worst case where d = depth
+**Complexity:** O(depth × edges) — the traversal is set-based (each edge is expanded at most once
+per depth level, even on cyclic or multi-path/diamond BOMs), not exponential in depth.
 
 **Example:**
 ```sql
@@ -487,6 +501,15 @@ compute_textual_embeddings(
 - `openai` - OpenAI API (requires config: `{"api_key": "..."}`)
 - `anthropic` - Anthropic API (requires config)
 
+> [!IMPORTANT]
+> Unless the extension is built with a local OpenVINO model or a real API backend is wired in,
+> **all providers currently return a deterministic hash-based PLACEHOLDER embedding** — useful for
+> plumbing and tests, but not for semantic search. The `makt_table` must have `matnr`, `spras`,
+> `maktx`, **and `maktg`** (both description columns are referenced; a MAKT lacking `maktg` errors).
+> Multiple MAKT rows per `(matnr, spras)` are collapsed to one description. The default
+> `language` is `'EN'`; SAP `MAKT.SPRAS` typically uses the single character `'E'`, so pass
+> `language := 'E'` when working directly from SAP MAKT.
+
 **Returns:**
 - `material_id` - Material identifier
 - `textual_embedding` - 384-D FLOAT array
@@ -528,7 +551,8 @@ Extracts 98+ time-series features from goods movement history.
 compute_transactional_embeddings(
     movements_table := 'goods_movements',
     time_window_days := 365,
-    min_observations := 3
+    batch_size := NULL,
+    batch_offset := 0
 ) → TABLE (
     material_id VARCHAR,
     transactional_embedding FLOAT[128]
@@ -539,8 +563,15 @@ compute_transactional_embeddings(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
-| `time_window_days` | INTEGER | 365 | Historical window |
-| `min_observations` | INTEGER | 3 | Minimum data points required |
+| `time_window_days` | INTEGER | 365 | Historical window (relative to the latest movement date in the data) |
+| `batch_size` | INTEGER | NULL | Optional batch size for incremental processing |
+| `batch_offset` | INTEGER | 0 | Offset for batch processing |
+
+> [!IMPORTANT]
+> **Requires the `anofox-forecast` extension** (`anofox_fcst_ts_features`). If it is not loaded,
+> this function raises a clear error telling you to install it — it does not silently return NULL.
+> The `movements_table` must have `material_id`, `movement_date`, `quantity`; a `movement_type`
+> column is used for the ERP movement-type features when present and treated as NULL when absent.
 
 **Features Extracted:**
 - **Consumption Metrics** (0-9): mean, median, variance, std dev, trend, sum, length, extrema
@@ -559,8 +590,8 @@ SELECT
   material_id,
   transactional_embedding
 FROM compute_transactional_embeddings(
-  time_window_days := 180,
-  min_observations := 5
+  movements_table := 'goods_movements',
+  time_window_days := 180
 );
 ```
 
@@ -572,15 +603,22 @@ Computes z-score normalization statistics for transactional embeddings.
 ```sql
 recompute_embedding_statistics(
     time_window_days := 365,
-    min_observations := 3
+    min_observations := 3,
+    movements_table := 'goods_movements'
 ) → TABLE (
     feature_name VARCHAR,
     feature_index INTEGER,
     feature_category VARCHAR,
     mean_value DOUBLE,
-    std_value DOUBLE
+    std_value DOUBLE,
+    min_value DOUBLE,
+    max_value DOUBLE,
+    num_samples INTEGER
 )
 ```
+> [!NOTE]
+> Requires the `anofox-forecast` extension; without it this fails at bind time with a catalog error
+> naming `anofox_fcst_ts_features` (unlike `compute_transactional_embeddings`, which gives a friendlier message).
 
 **Example:**
 ```sql
@@ -600,14 +638,21 @@ Combines structural, textual, and transactional embeddings.
 compute_fused_embeddings(
     weights_structural := 0.5,
     weights_textual := 0.5,
-    weights_transactional := 0.0,
-    embedding_table := 'material_embeddings'
+    weights_transactional := 0.0
 ) → TABLE (
     material_id VARCHAR,
-    fused_embedding FLOAT[768],
-    fusion_weights STRUCT(structural DOUBLE, textual DOUBLE, transactional DOUBLE)
+    combined_embedding FLOAT[768],
+    fusion_weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)
 )
 ```
+
+> [!NOTE]
+> The fused-vector column is named **`combined_embedding`** (not `fused_embedding`). `fusion_weights`
+> reports the **normalized** weights actually applied (each input weight divided by their sum), typed
+> `FLOAT` (not `DOUBLE`). Each modality's vector is scaled by `sqrt(weight)` before concatenation (so
+> that combining two unit-norm vectors at weight 0.5 each yields a unit-norm result), not by the raw
+> weight — this affects magnitude if you consume `combined_embedding` for anything beyond cosine
+> similarity / nearest-neighbor search.
 
 **Parameters:**
 | Parameter | Type | Default | Description |
@@ -615,18 +660,22 @@ compute_fused_embeddings(
 | `weights_structural` | DOUBLE | 0.5 | Structural embedding weight |
 | `weights_textual` | DOUBLE | 0.5 | Textual embedding weight |
 | `weights_transactional` | DOUBLE | 0.0 | Transactional embedding weight |
-| `embedding_table` | VARCHAR | 'material_embeddings' | Embeddings table |
+
+> [!NOTE]
+> Reads from the fixed `material_embeddings` table (there is no `embedding_table` parameter).
+> Weights need not sum to 1 — they are normalized. A modality with weight `0` is ignored even if
+> its vector is NULL, so the default (structural + textual) works without transactional embeddings.
 
 **Returns:**
 - `material_id` - Material identifier
-- `fused_embedding` - Combined 768-D FLOAT array
-- `fusion_weights` - Struct with actual weights used
+- `combined_embedding` - Combined 768-D FLOAT array (column name is `combined_embedding`)
+- `fusion_weights` - STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT) of the normalized weights applied
 
 **Example:**
 ```sql
 SELECT
   material_id,
-  fused_embedding
+  combined_embedding
 FROM compute_fused_embeddings(
   weights_structural := 0.4,
   weights_textual := 0.4,
@@ -671,14 +720,26 @@ sap_to_bom_items(
 | `stpo_table` | VARCHAR | Required | STPO table (BOM components) |
 | `bom_alternative` | VARCHAR | '01' | BOM alternative to extract |
 | `reference_date` | VARCHAR | '9999-12-31' | Validity reference date |
-| `bom_usage` | VARCHAR | NULL | Filter by BOM usage (optional) |
+| `bom_usage` | VARCHAR | NULL | Reserved — accepted but **not currently applied** as a filter |
 
-**sap_to_materials** - Extract materials from MARA:
+> [!NOTE]
+> SAP dates (`STKO.datuv`, `reference_date`) may be passed as `YYYYMMDD` strings or ISO `YYYY-MM-DD`;
+> both are parsed. `valid_from` is derived from the selected header's `datuv`. `bom_usage` is a
+> placeholder and does not yet filter results.
+>
+> **Limitations:** `reference_date` selects the applicable STKO **header** slice (and thus
+> `valid_from`), but the component set is joined by BOM number only, so it does not change the
+> component composition. Likewise, `bom_alternative` filters the header; if one BOM number (`stlnr`)
+> carries several alternatives, all of their STPO components are returned. These require SAP STAS
+> resolution, which this macro does not model — provide STPO already scoped to one alternative.
+> `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
+
+**sap_to_materials** - Extract materials from MARA. Requires MARA columns `matnr`, `mtart`, `matkl`,
+`ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). Its `description`
+column is always empty; use **`sap_to_materials_with_desc`** (below) to populate descriptions from MAKT:
 ```sql
 sap_to_materials(
-    mara_table VARCHAR,
-    makt_table := NULL,
-    language := 'E'
+    mara_table VARCHAR
 ) → TABLE (material_id, material_type, material_group, description, created_date)
 ```
 
@@ -691,7 +752,8 @@ sap_to_materials_with_desc(
 ) → TABLE (material_id, material_type, material_group, description, created_date)
 ```
 
-**extract_material_descriptions** - Extract descriptions from MAKT:
+**extract_material_descriptions** - Extract descriptions from MAKT. Requires MAKT columns `matnr`,
+`spras`, `maktx`, **and `maktg`**; multiple rows per `(matnr, spras)` collapse to one:
 ```sql
 extract_material_descriptions(
     makt_table := 'sap_makt',
@@ -712,17 +774,37 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 Convert Microsoft Dynamics 365 BOM format.
 
-**Signatures:**
-```sql
-dynamics365_to_materials(
-    items_table := 'items',
-    output_table := 'materials'
-) → BOOLEAN
+These are table macros that RETURN **universal-schema** rows (materials / bom_header / bom_component
+shapes) — they do not write an output table, and the component macro does **not** return flat
+`bom_items`. Expected input column names are exactly as listed (they mirror D365 field names).
 
-dynamics365_to_bom_components(
-    bom_table := 'bom',
-    output_table := 'bom_items'
-) → BOOLEAN
+```sql
+-- InventTable → universal materials. Reads columns: ItemId, ItemName, ItemType (0/1/2).
+dynamics365_to_materials(invent_table := 'InventTable')
+    → TABLE (material_id, material_number, description, material_type, material_group,
+             procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
+
+-- BOMTable + BOMVersion → universal bom_header. Reads BOMTable.(BOMId, ItemId, Status) and
+-- BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); keeps rows with Status = 0.
+dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
+    → TABLE (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
+             revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
+
+-- BOM lines → universal bom_component (singular). Reads columns: BOMId, LineNum, ItemId,
+-- Quantity, ScrapPercent.
+dynamics365_to_bom_component(bom_lines := 'BOM')
+    → TABLE (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
+             is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
+             supply_type, operation_sequence, is_alternative, alternative_group, created_at)
+```
+
+**Example — D365 to a `bom_items` table usable by the similarity functions:**
+```sql
+CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable');
+CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
+CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
+-- Flatten header + component into the parent_id/child_id/quantity shape the algorithms expect:
+CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_component');
 ```
 
 ---
@@ -736,7 +818,7 @@ Validates whether transactional embedding statistics are current and complete.
 **Signature:**
 ```sql
 check_statistics_freshness() → TABLE (
-    stat_count INTEGER,
+    stat_count BIGINT,
     max_samples INTEGER,
     current_version INTEGER,
     last_updated TIMESTAMP,
@@ -760,6 +842,8 @@ SELECT * FROM check_statistics_freshness();
 ### 2. Recompute Embedding Statistics (Table Macro)
 
 Computes z-score normalization statistics for all 98 transactional embedding features.
+**Requires the `anofox-forecast` extension** (it derives time-series features); without it the call
+fails with a catalog error naming `anofox_fcst_ts_features`.
 
 **Signature:**
 ```sql
@@ -792,14 +876,14 @@ Computes advanced domain-specific ERP features (indices 92-97).
 ```sql
 compute_domain_specific_statistics(
     movements_table := 'goods_movements',
-    material_column := 'material_id',
-    date_column := 'movement_date',
-    quantity_column := 'quantity',
-    movement_type_column := 'movement_type',
     time_window_days := 365,
     min_observations := 3
 ) → TABLE (feature_name, feature_index, feature_category, mean_value, std_value, ...)
 ```
+
+> [!NOTE]
+> The movements table must use the canonical column names `material_id`, `movement_date`,
+> `quantity`, `movement_type`. Requires the `anofox-forecast` extension (lifecycle features 96–97).
 
 **Features Computed:**
 - Feature 92: Movement type receipt ratio
@@ -926,10 +1010,14 @@ filter_recent_movements(
 ) → TABLE (
     material_id VARCHAR,
     movement_date DATE,
-    quantity DOUBLE,
-    movement_type VARCHAR
+    quantity DOUBLE
 )
 ```
+
+> [!NOTE]
+> The window is measured from the **most recent `movement_date` in the data**, not from wall-clock
+> "today" (this works without the ICU extension and suits historical ERP extracts). Rows with NULL
+> date/quantity and `quantity <= min_quantity` are filtered out. `movement_type` is **not** returned.
 
 **Example:**
 ```sql
@@ -941,48 +1029,20 @@ SELECT * FROM filter_recent_movements('goods_movements', 180, 0);
 
 ## Incremental Updates
 
-### 1. Refresh Transactional Embeddings (Table Macro)
-
-Refreshes embeddings only for materials marked as dirty.
-
-**Signature:**
-```sql
-refresh_transactional_embeddings() → TABLE (
-    material_id VARCHAR,
-    updated_embedding FLOAT[128]
-)
-```
-
-### 2. Clear Dirty Materials (Table Macro)
-
-Clears dirty tracking records after refresh.
-
-**Signature:**
-```sql
-clear_dirty_materials(
-    material_ids := NULL
-) → TABLE (
-    material_id VARCHAR,
-    reason VARCHAR,
-    marked_at TIMESTAMP
-)
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `material_ids` | LIST | NULL | Specific IDs to clear (NULL = all) |
-
-### 3. Refresh Dirty Embeddings (Table Macro)
-
-Combined helper: refreshes and clears dirty materials.
-
-**Signature:**
-```sql
-refresh_dirty_embeddings(
-    bom_table := 'bom_items'
-) → TABLE (material_id VARCHAR)
-```
+> [!NOTE]
+> There is **no automatic dirty-tracking / incremental-refresh subsystem**. DuckDB does not support
+> `CREATE TRIGGER`, and table macros cannot contain DML, so the previously-documented
+> `refresh_transactional_embeddings`, `clear_dirty_materials`, and `refresh_dirty_embeddings`
+> functions could never be provided and have been removed.
+>
+> To refresh embeddings after BOM or movement changes, recompute them for the affected materials
+> explicitly, e.g.:
+> ```sql
+> INSERT OR REPLACE INTO material_embeddings (material_id, transactional_embedding, updated_at)
+> SELECT material_id, transactional_embedding, now()
+> FROM compute_transactional_embeddings(movements_table := 'goods_movements')
+> WHERE material_id IN ('CHANGED-1', 'CHANGED-2');
+> ```
 
 ---
 
@@ -1016,38 +1076,17 @@ check_duckpgq_available() → BOOLEAN
 
 ## Vector Search & Indexing
 
-### 1. Create HNSW Indexes
+### 1. HNSW Indexes
 
-Creates vector indexes for fast similarity search.
+HNSW indexes over the `material_embeddings` vector columns are **created automatically when the
+extension loads** (see [HNSW Indexes](#hnsw-indexes) below for the index list). There is no
+SQL-callable `CreateHNSWIndexes(...)` function — that entry point does not exist. Build vector
+indexes directly with the `vss` extension's DDL if you need custom parameters, e.g.:
 
-**Signature:**
 ```sql
-CreateHNSWIndexes(
-    embedding_table := 'material_embeddings',
-    ef := 100,
-    M := 16
-) → VOID
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `embedding_table` | VARCHAR | 'material_embeddings' | Table with embeddings |
-| `ef` | INTEGER | 100 | Construction effort |
-| `M` | INTEGER | 16 | Maximum connections per node |
-
-**Configuration Guide:**
-- **Small datasets** (< 10K): ef=50, M=8
-- **Medium datasets** (10K-100K): ef=100, M=16 ✓ Default
-- **Large datasets** (> 100K): ef=200, M=32
-
-**Example:**
-```sql
--- Create indexes with defaults
-CALL CreateHNSWIndexes();
-
--- Fine-tune for large dataset
-CALL CreateHNSWIndexes(ef := 200, M := 32);
+INSTALL vss; LOAD vss;
+SET hnsw_enable_experimental_persistence = true;
+CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH (metric = 'cosine');
 ```
 
 ---
@@ -1070,7 +1109,9 @@ create_bom_property_graph(
 )
 ```
 
-**Note:** Requires DuckPGQ extension loaded.
+**Note:** This macro is pure SQL over `bom_header` / `bom_component` and does **not** require the
+DuckPGQ extension. (Actual property-graph traversal with DuckPGQ syntax would require it, but this
+helper only returns the graph name and node/edge counts.)
 
 **Example:**
 ```sql
@@ -1091,6 +1132,10 @@ bom_dfs_neighborhood(
     component VARCHAR
 )
 ```
+> [!IMPORTANT]
+> `max_depth` is clamped to a **hard ceiling of 64** (bounds traversal cost on cyclic BOMs); a value
+> above that is silently treated as 64. `max_depth := N` returns components reachable within exactly
+> N hops of `root_material_id`.
 
 **Example:**
 ```sql
@@ -1103,6 +1148,14 @@ FROM bom_dfs_neighborhood('PUMP-A', max_depth := 5);
 ## Database Infrastructure
 
 The extension creates several database objects on load for embedding storage and incremental updates.
+
+> [!NOTE]
+> **Read-only databases:** if the primary database is opened read-only, the SQL-macro API (BOM
+> traversal, SAP/D365 transforms, textual/fused embeddings, statistics, etc. — everything registered
+> via `CREATE MACRO`) is **not** available, since macro registration needs a writable catalog. The
+> core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
+> `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`) and all scalar functions
+> still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
 
@@ -1162,20 +1215,21 @@ Created automatically for vector similarity search:
 
 | Index Name | Column | Metric | Dimension |
 |------------|--------|--------|-----------|
-| `jaccard_idx` | jaccard_embedding | L2-squared | 128 |
 | `hnsw_structural_idx` | structural_embedding | L2-squared | 256 |
 | `hnsw_textual_idx` | textual_embedding | cosine | 384 |
 | `hnsw_combined_idx` | combined_embedding | cosine | 768 |
 
+> [!NOTE]
+> There is **no vector index over `jaccard_embedding`**: those are raw MinHash values, over which an
+> L2/cosine distance does not approximate Jaccard. Use `find_similar_materials_jaccard()` (exact) for
+> Jaccard search.
+
 ### Triggers
 
-Automatically mark materials as dirty when BOM changes:
-
-- `bom_items_insert_trigger` - Marks parent_id dirty on INSERT
-- `bom_items_update_trigger` - Marks parent_id dirty on UPDATE
-- `bom_items_delete_trigger` - Marks parent_id dirty on DELETE
-
-**Note:** Triggers require a `bom_items` table to exist. They are created with OPTIONAL failure mode.
+> [!NOTE]
+> DuckDB has **no `CREATE TRIGGER` support**, so there are no automatic dirty-tracking triggers.
+> The `material_embeddings_dirty` table exists but is not populated automatically; refresh
+> embeddings explicitly after changes (see [Incremental Updates](#incremental-updates)).
 
 ---
 
@@ -1191,12 +1245,12 @@ Automatically mark materials as dirty when BOM changes:
 | **Transactional** | Macro | 2 | compute_transactional_embeddings, recompute_embedding_statistics |
 | **Fusion** | Macro | 1 | compute_fused_embeddings |
 | **Embedding Gen** | Macro | 2 | compute_jaccard_embeddings, extract_ts_features |
-| **Statistics** | Macro | 2 | check_statistics_freshness, compute_domain_specific_statistics |
+| **Statistics** | Macro | 1 | check_statistics_freshness |
 | **Helpers** | Macro | 2 | aggregate_material_components, filter_recent_movements |
-| **Incremental** | Macro | 3 | refresh_transactional_embeddings, clear_dirty_materials, refresh_dirty_embeddings |
+| **Statistics (advanced)** | Macro | 1 | compute_domain_specific_statistics |
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
-| **Infrastructure** | Macro | 2 | create_bom_property_graph, CreateHNSWIndexes |
+| **Infrastructure** | Macro | 1 | create_bom_property_graph |
 | **TOTAL** | | **~42** | Complete API |
 
 ---
@@ -1206,9 +1260,8 @@ Automatically mark materials as dirty when BOM changes:
 ### Common Parameters
 
 **Table References:**
-- `bom_table` - Default: 'bom_items' (columns: parent_id, child_id, quantity)
+- `bom_table` - Default: 'bom_items' (columns: parent_id, child_id)
 - `movements_table` - Default: 'goods_movements' (columns: material_id, movement_date, quantity)
-- `embedding_table` - Default: 'material_embeddings' (columns: material_id, embedding vectors)
 
 **Dimension Parameters:**
 - `k` - Number of results to return (default: 5)
@@ -1223,7 +1276,7 @@ Automatically mark materials as dirty when BOM changes:
 **Quality Parameters:**
 - `min_observations` - Minimum data points (default: 3)
 - `min_similarity` - Minimum similarity threshold (default: 0.0)
-- `use_index` - Use HNSW index (default: true)
+- `min_overlapping_weeks` - Minimum aligned weekly buckets for predecessor inference (default: 8)
 
 **Weighting Parameters:**
 - `weights_structural` - Structural embedding weight (default: 0.5)
@@ -1243,7 +1296,9 @@ All functions implement graceful error handling:
 | Circular BOM reference | Handled via depth limit |
 | NULL embedding | Treated as missing, skipped in fusion |
 | VSS extension unavailable | Falls back to brute-force k-NN |
-| anofox-forecast unavailable | Transactional embeddings return NULL |
+| anofox-forecast unavailable | `compute_transactional_embeddings` raises a clear "install anofox-forecast" error; the SQL-macro functions (`extract_ts_features`, `recompute_embedding_statistics`, `compute_domain_specific_statistics`) fail at bind time with a catalog error naming `anofox_fcst_ts_features` — all require the extension in full (no partial features) |
+| NULL k / iterations on a search function | Clean binder error (not an internal crash) |
+| Weights not summing to 1 in fusion | Normalized automatically |
 
 ---
 
@@ -1257,7 +1312,7 @@ All functions implement graceful error handling:
 | WL Kernel | O(h·m) | O(h·n²) | h=iterations, m=edges |
 | Find similar (indexed) | O(log n) | O(log n + k) | With HNSW index |
 | Find similar (brute) | O(n·m) | O(n²) | Without index |
-| BOM explosion | O(c) | O(2^d) | c=children, d=depth |
+| BOM explosion | O(c) | O(depth × edges) | c=children; set-based traversal, not exponential (safe on cycles/diamonds) |
 | Textual embeddings | O(n) | O(n) | Linear in material count |
 
 ### Memory Considerations
@@ -1268,14 +1323,14 @@ All functions implement graceful error handling:
 
 ---
 
-## Aliases & Backward Compatibility
+## Function Names
 
-All functions support calling without the `anofox_` prefix:
+All functions are registered in the `main` schema under the names shown in this document; call them
+unqualified:
 ```sql
--- These are equivalent:
 SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);
-SELECT * FROM anofox_similarity.find_similar_materials_jaccard('MAT-001', 10);
 ```
+There is no `anofox_similarity.<function>` schema-qualified form and no `anofox_`-prefixed alias.
 
 ---
 

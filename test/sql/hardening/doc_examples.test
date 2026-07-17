@@ -1,0 +1,95 @@
+# name: test/sql/hardening/doc_examples.test
+# description: Executable contract tests for the SQL examples shown in README.md / docs/API_REFERENCE.md
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ------------------------------------------------------------------------------
+# README "Finding Similar Materials" — must reproduce the documented results.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('PUMP-A', 'SEAL-001'), ('PUMP-A', 'BEARING-X'), ('PUMP-A', 'MOTOR-M1'),
+  ('PUMP-B', 'SEAL-001'), ('PUMP-B', 'BEARING-X'), ('PUMP-B', 'MOTOR-M1'), ('PUMP-B', 'GASKET-Y'),
+  ('PUMP-C', 'FILTER-F1'), ('PUMP-C', 'VALVE-V2');
+
+query TRII
+SELECT material_id, similarity, shared_components, total_components
+FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items')
+ORDER BY similarity DESC;
+----
+PUMP-B	0.75	3	4
+PUMP-C	0.0	0	5
+
+# ------------------------------------------------------------------------------
+# README "Detecting Predecessors" — the corrected example must run (bom_items +
+# goods_movements present, positional material id, min_overlapping_weeks lowered).
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE pred_bom (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO pred_bom VALUES
+  ('OLD-PUMP','SEAL-001'),('OLD-PUMP','BEARING-X'),('OLD-PUMP','MOTOR-M1'),
+  ('NEW-PUMP','SEAL-001'),('NEW-PUMP','BEARING-X'),('NEW-PUMP','MOTOR-M1');
+
+statement ok
+CREATE TABLE pred_mov (material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+INSERT INTO pred_mov VALUES
+  ('OLD-PUMP', DATE '2023-01-15', 100.0), ('OLD-PUMP', DATE '2023-03-15', 80.0),
+  ('OLD-PUMP', DATE '2023-06-15', 40.0), ('OLD-PUMP', DATE '2023-09-15', 10.0),
+  ('NEW-PUMP', DATE '2023-06-01', 20.0), ('NEW-PUMP', DATE '2023-09-01', 60.0),
+  ('NEW-PUMP', DATE '2023-12-01', 100.0);
+
+statement ok
+SELECT predecessor_id, confidence, correlation, overlapping_weeks
+FROM infer_predecessors('NEW-PUMP', bom_table := 'pred_bom', movements_table := 'pred_mov',
+                        min_confidence := 0.5, min_overlapping_weeks := 2)
+ORDER BY confidence DESC;
+
+# ------------------------------------------------------------------------------
+# README "Finding Analogs" — cold_start_analogs with positional k.
+# ------------------------------------------------------------------------------
+statement ok
+SELECT material_id, similarity, history_months, first_usage, last_usage
+FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 0,
+                        bom_table := 'pred_bom', movements_table := 'pred_mov');
+
+# ------------------------------------------------------------------------------
+# API_REFERENCE core-algorithm examples.
+# ------------------------------------------------------------------------------
+query R
+SELECT jaccard_similarity(['A', 'B', 'C'], ['A', 'B', 'D']);
+----
+0.5
+
+query I
+SELECT wl_kernel_similarity('PUMP-A', 'PUMP-B', iterations := 5, bom_table := 'bom_items') BETWEEN 0.0 AND 1.0;
+----
+true
+
+# aggregate_material_components helper (documented) with a material filter list.
+query I
+SELECT COUNT(*) FROM aggregate_material_components('bom_items', ['PUMP-A', 'PUMP-B']);
+----
+2
+
+# filter_recent_movements documented helper on the documented 3-column schema.
+query I
+SELECT COUNT(*) >= 0 FROM filter_recent_movements('pred_mov', 365, 0);
+----
+true
+
+# Dependency-check macros are always safe to call.
+query II
+SELECT check_anofox_forecast_available(), check_duckpgq_available();
+----
+false	false

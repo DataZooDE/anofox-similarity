@@ -209,7 +209,10 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 	auto &provider_validity = FlatVector::Validity(provider_vector);
 	auto &config_validity = FlatVector::Validity(config_vector);
 
-	// Get child vector for list entries
+	// Reserve the child vector to hold count*384 floats BEFORE taking a pointer into it. Without
+	// this reserve, any batch whose count*384 exceeds the child's initial STANDARD_VECTOR_SIZE
+	// capacity overflowed the heap (SIGSEGV). Reserve may reallocate, so child_data is taken after.
+	ListVector::Reserve(result, count * 384);
 	auto &child = ListVector::GetEntry(result);
 	ListVector::SetListSize(result, count * 384);
 
@@ -265,12 +268,18 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	auto embedding_backend_function =
 	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                   LogicalType::LIST(LogicalType::FLOAT), EmbeddingBackendFunction, EmbeddingBackendBind);
+	// SPECIAL_HANDLING so the function is still invoked when provider_config is NULL, instead of
+	// DuckDB short-circuiting the whole result to NULL. This is why compute_textual_embeddings used
+	// to return NULL for every row on its documented default (provider_config := NULL).
+	embedding_backend_function.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 
 	CreateScalarFunctionInfo info(embedding_backend_function);
 	FunctionDescription desc;
-	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384]) for the given text using the "
-	                   "specified inference provider. provider_config is a JSON string for provider-specific "
-	                   "options (api_key, endpoint, etc.). Supported providers: 'gemma-local', 'gemini-api'.";
+	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384]) for the given text. "
+	                   "provider selects the backend and provider_config is a JSON string of provider-specific "
+	                   "options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO "
+	                   "model or a real API backend is configured, all providers return a deterministic, "
+	                   "hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).";
 	desc.examples    = {"SELECT embedding_backend('diesel pump', 'gemma-local', '{}');",
 	                    "SELECT embedding_backend('valve seat', 'gemini-api', '{\"api_key\": \"...\"}');"};
 	desc.categories  = {"embeddings", "textual"};
@@ -286,20 +295,30 @@ void RegisterTextualEmbeddingMacros(Connection &conn) {
 			makt_table := 'sap_makt',
 			language := 'EN',
 			provider := 'gemma-local',
-			provider_config := NULL
+			provider_config := ''
 		) AS TABLE
 		WITH descriptions AS (
+			-- One row per material: collapse multiple MAKT rows per (matnr, spras) (real MAKT
+			-- repeats per MANDT/client) so a material is not fanned out into duplicate embeddings.
 			SELECT
-				TRIM(matnr) AS material_id,
-				CONCAT_WS(' ', TRIM(maktx), TRIM(maktg)) AS full_text
-			FROM query_table(makt_table)
-			WHERE spras = language
-				AND (TRIM(maktx) IS NOT NULL OR TRIM(maktg) IS NOT NULL)
+				material_id,
+				ANY_VALUE(full_text) AS full_text
+			FROM (
+				SELECT
+					TRIM(matnr) AS material_id,
+					CONCAT_WS(' ', TRIM(maktx), TRIM(maktg)) AS full_text
+				FROM query_table(makt_table)
+				WHERE spras = COALESCE(language, 'EN')
+					AND (TRIM(maktx) IS NOT NULL OR TRIM(maktg) IS NOT NULL)
+			)
+			GROUP BY material_id
 		),
 		embeddings AS (
 			SELECT
 				material_id,
-				embedding_backend(full_text, provider, provider_config) AS textual_embedding
+				-- COALESCE(provider, 'gemma-local'): a NULL provider falls back to the default backend
+				-- instead of nulling out every embedding.
+				embedding_backend(full_text, COALESCE(provider, 'gemma-local'), provider_config) AS textual_embedding
 			FROM descriptions
 		)
 		SELECT * FROM embeddings

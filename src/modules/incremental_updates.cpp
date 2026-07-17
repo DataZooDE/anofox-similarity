@@ -5,102 +5,28 @@
 namespace duckdb {
 namespace anofox {
 
+// NOTE ON DIRTY-TRACKING / INCREMENTAL UPDATES
+// --------------------------------------------
+// DuckDB has no CREATE TRIGGER support, and table macros (CREATE MACRO ... AS TABLE) may not
+// contain DML (UPDATE/DELETE/INSERT). The previous implementation of this module relied on both,
+// so its triggers and its refresh_transactional_embeddings / clear_dirty_materials /
+// refresh_dirty_embeddings macros always failed to register — silently, because the failures were
+// swallowed. There was therefore no mechanism that could ever populate material_embeddings_dirty,
+// making the whole subsystem inert. Rather than ship functions that never register, we no longer
+// create them. Callers who need incremental refresh should recompute embeddings for the changed
+// materials explicitly (e.g. INSERT OR REPLACE INTO material_embeddings SELECT ... FROM
+// compute_transactional_embeddings(...)). These entry points are retained as no-ops so the
+// extension load sequence is unchanged.
+
 void CreateIncrementalUpdateTriggers(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_insert_trigger
-		AFTER INSERT ON bom_items
-		FOR EACH ROW
-		BEGIN
-			INSERT INTO material_embeddings_dirty (material_id, reason)
-			VALUES (NEW.parent_id, 'insert')
-			ON CONFLICT (material_id) DO UPDATE SET
-				marked_at = CURRENT_TIMESTAMP;
-		END
-	)");
-	// Continue even if trigger creation fails (may not be supported in test context)
-
-	result = conn.Query(R"(
-		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_update_trigger
-		AFTER UPDATE ON bom_items
-		FOR EACH ROW
-		BEGIN
-			INSERT INTO material_embeddings_dirty (material_id, reason)
-			VALUES (NEW.parent_id, 'update')
-			ON CONFLICT (material_id) DO UPDATE SET
-				marked_at = CURRENT_TIMESTAMP;
-		END
-	)");
-
-	result = conn.Query(R"(
-		CREATE OR REPLACE TRIGGER IF NOT EXISTS bom_items_delete_trigger
-		AFTER DELETE ON bom_items
-		FOR EACH ROW
-		BEGIN
-			INSERT INTO material_embeddings_dirty (material_id, reason)
-			VALUES (OLD.parent_id, 'delete')
-			ON CONFLICT (material_id) DO UPDATE SET
-				marked_at = CURRENT_TIMESTAMP;
-		END
-	)");
+	// Intentionally a no-op: DuckDB does not support CREATE TRIGGER.
+	(void)conn;
 }
 
 void RegisterIncrementalUpdateMacros(Connection &conn) {
-	// Phase 2D: Refresh embeddings for dirty materials (incremental updates)
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO refresh_transactional_embeddings() AS TABLE
-		WITH dirty_materials AS (
-			-- Get all materials marked as dirty
-			SELECT DISTINCT material_id
-			FROM material_embeddings_dirty
-			WHERE material_id IS NOT NULL
-		),
-		fresh_embeddings AS (
-			-- Compute fresh embeddings only for dirty materials
-			SELECT material_id, transactional_embedding
-			FROM compute_transactional_embeddings()
-			WHERE material_id IN (SELECT material_id FROM dirty_materials)
-		)
-		UPDATE material_embeddings
-		SET transactional_embedding = fe.transactional_embedding,
-			updated_at = CURRENT_TIMESTAMP
-		FROM fresh_embeddings fe
-		WHERE material_embeddings.material_id = fe.material_id
-		RETURNING material_embeddings.material_id, transactional_embedding AS updated_embedding;
-	)");
-	CheckQueryResult(result, "create refresh_transactional_embeddings macro", FailureMode::OPTIONAL);
-
-	// Phase 2D: Macro to clear dirty materials after refresh
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO clear_dirty_materials(
-			material_ids := NULL
-		) AS TABLE
-		WITH deleted AS (
-			DELETE FROM material_embeddings_dirty
-			WHERE material_ids IS NULL OR material_id = ANY(material_ids)
-			RETURNING material_id, reason, marked_at
-		)
-		SELECT material_id, reason, marked_at FROM deleted;
-	)");
-	CheckQueryResult(result, "create clear_dirty_materials macro", FailureMode::OPTIONAL);
-
-	// Phase 2D: Helper macro to refresh and clear dirty materials
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO refresh_dirty_embeddings(bom_table := 'bom_items') AS TABLE
-		WITH
-			dirty_materials AS (
-				SELECT material_id FROM material_embeddings_dirty
-			),
-			material_components AS (
-				-- Use centralized helper and filter for dirty materials
-				SELECT * FROM aggregate_material_components(bom_table)
-				WHERE material_id IN (SELECT material_id FROM dirty_materials)
-			)
-		DELETE FROM material_embeddings_dirty
-		WHERE material_id IN (SELECT material_id FROM material_components)
-		RETURNING material_id
-	)");
-	// Triggers and refresh macros are optional - continue if they fail
-	CheckQueryResult(result, "create refresh_dirty_embeddings macro", FailureMode::OPTIONAL);
+	// Intentionally a no-op: DuckDB table macros cannot contain DML, so dirty-tracking refresh
+	// macros cannot be expressed here. See the note above.
+	(void)conn;
 }
 
 } // namespace anofox

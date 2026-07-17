@@ -158,7 +158,9 @@ void RegisterBOMConversionMacros(Connection &conn) {
 			c.quantity_per AS quantity
 		FROM query_table(header_table) h
 		JOIN query_table(component_table) c ON h.bom_id = c.bom_id
-		WHERE h.is_approved = TRUE
+		-- All BOM rows are returned. (Previously this silently dropped every row whose header
+		-- is_approved was not TRUE — including the schema's own DEFAULT FALSE — which lost data.
+		-- Filter on is_approved yourself if you only want approved BOMs.)
 	)");
 	CheckQueryResult(result, "create bom_to_items macro");
 
