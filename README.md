@@ -1,6 +1,6 @@
 # anofox-similarity
 
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://opensource.org/licenses/BSL-1.0)
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![DuckDB: ≥ v1.0.0](https://img.shields.io/badge/DuckDB-≥%20v1.0.0-blue)](https://duckdb.org)
 [![Tests](https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml/badge.svg)](https://github.com/DataZooDE/anofox-similarity/actions)
 
