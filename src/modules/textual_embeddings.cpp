@@ -14,6 +14,7 @@
 #include <memory>
 #include <map>
 #include <nlohmann/json.hpp>
+#include "anofox_similarity_banner.hpp"
 
 using json = nlohmann::json;
 
@@ -267,7 +268,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	// Note: Returns LIST(FLOAT) - dimension (384) is enforced at runtime
 	auto embedding_backend_function =
 	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
-	                   LogicalType::LIST(LogicalType::FLOAT), EmbeddingBackendFunction, EmbeddingBackendBind);
+	                   LogicalType::LIST(LogicalType::FLOAT), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendFunction), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendBind));
 	// SPECIAL_HANDLING so the function is still invoked when provider_config is NULL, instead of
 	// DuckDB short-circuiting the whole result to NULL. This is why compute_textual_embeddings used
 	// to return NULL for every row on its documented default (provider_config := NULL).

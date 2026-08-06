@@ -1,0 +1,32 @@
+# name: test/sql/feedback.test
+# description: Feedback banner wiring: the opt-out knob exists, and errors DuckDB
+#              raises before dispatch are not annotated.
+# group: [anofox_similarity]
+
+require anofox_similarity
+
+# --- Errors DuckDB raises before dispatch (binder, catalog, arity) are
+#     deliberately NOT annotated -- they are not ours, and claiming them would
+#     send users to the wrong tracker.
+statement error
+SELECT jaccard_similarity();
+----
+Binder Error
+
+# NOTE: unlike the other extensions in this rollout, there is no assertion here
+# that a guarded entry point produces the issue footer. The scalars this
+# extension exposes are lenient by design -- jaccard_similarity returns NULL on
+# NULL input, and the embedding functions synthesise a vector rather than
+# failing -- so there is no error path reachable from SQL to assert against.
+# The DATAZOO_GUARD wrappers are in place on those functions; they simply have
+# nothing to catch today. Add an assertion here if one of them gains a real
+# failure mode.
+
+# --- The opt-out knob exists and is settable. The banner itself cannot be
+#     observed from a .test file at all -- stderr is not a tty here, which is
+#     precisely the guarantee that keeps this suite's expected output unchanged.
+statement ok
+SET datazoo_banner = false;
+
+statement ok
+SET datazoo_banner = true;

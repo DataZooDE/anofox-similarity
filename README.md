@@ -425,3 +425,17 @@ If you use anofox-similarity in research or production, please cite:
 ---
 
 **Made with ❤️ by [DataZoo](https://data-zoo.de)** for manufacturing excellence.
+
+## Feedback
+
+If `anofox_similarity` misbehaves or a similarity score looks wrong, please
+[open an issue](https://github.com/DataZooDE/anofox-similarity/issues). Matching quality
+depends on real material masters and BOM structures we cannot reproduce here, so a
+report with your data shape is the fastest path to a fix.
+
+If it saved you time, a star on the repo helps other people find it.
+
+The first time you load the extension in an interactive terminal each day, a small
+banner says the same thing. It never prints when output is piped, in notebooks, or in
+CI. Silence it with `SET datazoo_banner = false;` or `DATAZOO_NO_BANNER=1`.
+

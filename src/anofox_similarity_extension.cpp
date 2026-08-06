@@ -22,6 +22,12 @@
 #include "duckdb.hpp"
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
+#include "anofox_similarity_banner.hpp"
+
+// Deliberately outside namespace duckdb: the banner library is DuckDB-agnostic
+// and the guard macro refers to this object from every guarded source file.
+const datazoo::BannerInfo ANOFOX_SIMILARITY_BANNER {
+    "anofox_similarity", "0.1.0", "https://github.com/DataZooDE/anofox-similarity"};
 
 namespace duckdb {
 
@@ -162,6 +168,11 @@ static void LoadInternal(ExtensionLoader &loader) {
 		anofox::CreateIncrementalUpdateTriggers(conn);
 		anofox::RegisterIncrementalUpdateMacros(conn);
 	}
+
+	datazoo::RegisterBannerOption(loader);
+	// Last, so a load that fails earlier never advertises itself. Silent unless
+	// stderr is a terminal and the ~/.duckdb stamp is over a day old.
+	datazoo::ShowBanner(ANOFOX_SIMILARITY_BANNER);
 }
 
 void AnofoxSimilarityExtension::Load(ExtensionLoader &db) {

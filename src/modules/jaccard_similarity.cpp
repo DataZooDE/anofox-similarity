@@ -8,6 +8,7 @@
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 
 #include <unordered_set>
+#include "anofox_similarity_banner.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -138,7 +139,7 @@ static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, Sc
 void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	auto jaccard_similarity_function =
 	    ScalarFunction("jaccard_similarity", {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
-	                   LogicalType::DOUBLE, JaccardSimilarityFun, JaccardSimilarityBind);
+	                   LogicalType::DOUBLE, DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, JaccardSimilarityFun), JaccardSimilarityBind);
 
 	CreateScalarFunctionInfo info(jaccard_similarity_function);
 	FunctionDescription desc;

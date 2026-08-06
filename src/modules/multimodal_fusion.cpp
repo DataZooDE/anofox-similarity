@@ -7,6 +7,7 @@
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include <algorithm>
 #include <cmath>
+#include "anofox_similarity_banner.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -230,7 +231,7 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	                    LogicalType::STRUCT({{"structural", LogicalType::FLOAT},
 	                                         {"textual", LogicalType::FLOAT},
 	                                         {"transactional", LogicalType::FLOAT}})},
-	                   LogicalType::LIST(LogicalType::FLOAT), FuseEmbeddingsFunction, FuseEmbeddingsBind);
+	                   LogicalType::LIST(LogicalType::FLOAT), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsFunction), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsBind));
 	// SPECIAL_HANDLING so the function is invoked even when a modality vector is NULL; the body
 	// decides per-modality whether a NULL is acceptable (it is, when that modality's weight is 0).
 	// With default handling DuckDB would short-circuit the whole result to NULL, which is why a
