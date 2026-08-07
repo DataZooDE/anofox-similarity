@@ -45,6 +45,16 @@ set(EXTENSION_SOURCES
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
+# Feedback banner (header-only). Telemetry ON so a printed banner counts as a
+# banner_shown event through the instance configured below; the include dir is
+# carried explicitly because posthog-telemetry's own path is PRIVATE here.
+set(DATAZOO_BANNER_TELEMETRY ON CACHE BOOL "" FORCE)
+set(DATAZOO_BANNER_TELEMETRY_INCLUDE_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/posthog-telemetry/include CACHE PATH "" FORCE)
+add_subdirectory(datazoo-banner)
+target_link_libraries(${EXTENSION_NAME} datazoo_banner)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} datazoo_banner)
+
 # --- PostHog Telemetry ---
 find_package(OpenSSL REQUIRED)
 
