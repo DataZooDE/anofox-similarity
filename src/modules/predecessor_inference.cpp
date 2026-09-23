@@ -251,7 +251,12 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	                    "SELECT * FROM infer_predecessors('NEW-PART', lookback_months := 24, min_similarity := 0.5, "
 	                    "min_confidence := 0.6, lag_weeks := 4);"};
 	desc.categories  = {"similarity", "predecessor", "lifecycle"};
-	desc.parameter_names = {"material_id"};
+	// Named parameters must be listed too: a non-empty parameter_names replaces the
+	// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
+	// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
+	// test/sql/extension/function_documentation.test pins the rendered lists.
+	desc.parameter_names = {"material_id", "movements_table", "bom_table", "min_overlapping_weeks",
+	                        "lag_weeks", "min_confidence", "min_similarity", "lookback_months"};
 	desc.parameter_types = {LogicalType::VARCHAR};
 	info.descriptions.push_back(std::move(desc));
 	loader.RegisterFunction(std::move(info));
