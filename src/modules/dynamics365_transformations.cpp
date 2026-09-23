@@ -1,16 +1,19 @@
 #include "modules/dynamics365_transformations.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
 
-void RegisterDynamics365TransformationMacros(Connection &conn) {
-	// Macro: dynamics365_to_materials - Convert D365 InventTable to universal materials
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO dynamics365_to_materials(
-			invent_table := 'InventTable'
-		) AS TABLE
+static const DefaultTableMacro DYNAMICS365_TO_MATERIALS_MACRO = {
+    DEFAULT_SCHEMA,
+    "dynamics365_to_materials",
+    {nullptr},
+    {{"invent_table", "'InventTable'"}, {nullptr, nullptr}},
+    R"(
 		SELECT
 			ItemId AS material_id,
 			ItemId AS material_number,
@@ -29,16 +32,14 @@ void RegisterDynamics365TransformationMacros(Connection &conn) {
 			'DYNAMICS365' AS source_system,
 			TRUE AS is_active,
 			CURRENT_TIMESTAMP AS created_at
-		FROM query_table(invent_table)
-	)");
-	CheckQueryResult(result, "create dynamics365_to_materials macro");
+		FROM query_table(invent_table))"};
 
-	// Macro: dynamics365_to_bom_header - Convert D365 BOMTable/BOMVersion to universal bom_header
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO dynamics365_to_bom_header(
-			bom_table := 'BOMTable',
-			bom_version := 'BOMVersion'
-		) AS TABLE
+static const DefaultTableMacro DYNAMICS365_TO_BOM_HEADER_MACRO = {
+    DEFAULT_SCHEMA,
+    "dynamics365_to_bom_header",
+    {nullptr},
+    {{"bom_table", "'BOMTable'"}, {"bom_version", "'BOMVersion'"}, {nullptr, nullptr}},
+    R"(
 		SELECT
 			bt.BOMId AS bom_id,
 			'DYNAMICS365' AS source_system,
@@ -56,15 +57,14 @@ void RegisterDynamics365TransformationMacros(Connection &conn) {
 			CURRENT_TIMESTAMP AS created_at
 		FROM query_table(bom_table) bt
 		LEFT JOIN query_table(bom_version) bv ON bt.BOMId = bv.BOMId
-		WHERE bt.Status = 0
-	)");
-	CheckQueryResult(result, "create dynamics365_to_bom_header macro");
+		WHERE bt.Status = 0)"};
 
-	// Macro: dynamics365_to_bom_component - Convert D365 BOM to universal bom_component
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO dynamics365_to_bom_component(
-			bom_lines := 'BOM'
-		) AS TABLE
+static const DefaultTableMacro DYNAMICS365_TO_BOM_COMPONENT_MACRO = {
+    DEFAULT_SCHEMA,
+    "dynamics365_to_bom_component",
+    {nullptr},
+    {{"bom_lines", "'BOM'"}, {nullptr, nullptr}},
+    R"(
 		SELECT
 			'COMP_' || BOMId || '_' || LineNum::VARCHAR AS component_id,
 			BOMId AS bom_id,
@@ -82,9 +82,22 @@ void RegisterDynamics365TransformationMacros(Connection &conn) {
 			FALSE AS is_alternative,
 			NULL AS alternative_group,
 			CURRENT_TIMESTAMP AS created_at
-		FROM query_table(bom_lines)
-	)");
-	CheckQueryResult(result, "create dynamics365_to_bom_component macro");
+		FROM query_table(bom_lines))"};
+
+void RegisterDynamics365TransformationMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "erp"});
+	reg.RegisterTableMacro(DYNAMICS365_TO_MATERIALS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Maps a Dynamics 365 InventTable to the universal materials shape. Reads ItemId, ItemName and ItemType (0/1/2) and returns the full materials column set. Projects a shape; it does not write an output table.")
+	                .Example("SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable')")});
+	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_HEADER_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus).")
+	                .Example("SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')")});
+	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_COMPONENT_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Maps Dynamics 365 BOM lines into the universal bom_component shape (singular) \u2014 note this is not the flat bom_items form. Reads BOMId, LineNum, ItemId, Quantity and ScrapPercent.")
+	                .Example("SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM')")});
 }
 
 } // namespace anofox

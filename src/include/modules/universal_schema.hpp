@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/main/connection.hpp"
 
 namespace duckdb {
@@ -21,7 +22,7 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing = false);
 // Macros:
 //   bom_to_items(header_table, component_table) - Converts universal to flat format
 //   items_to_bom(items_table, source_system) - Converts flat to universal format
-void RegisterBOMConversionMacros(Connection &conn);
+void RegisterBOMConversionMacros(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

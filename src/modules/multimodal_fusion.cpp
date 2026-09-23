@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <cmath>
 #include "anofox_similarity_banner.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
@@ -257,14 +260,12 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(std::move(info));
 }
 
-void RegisterFusionMacros(Connection &conn) {
-	// Register compute_fused_embeddings macro for batch fusion
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO compute_fused_embeddings(
-			weights_structural := 0.5,
-			weights_textual := 0.5,
-			weights_transactional := 0.0
-		) AS TABLE
+static const DefaultTableMacro COMPUTE_FUSED_EMBEDDINGS_MACRO = {
+    DEFAULT_SCHEMA,
+    "compute_fused_embeddings",
+    {nullptr},
+    {{"weights_structural", "0.5"}, {"weights_textual", "0.5"}, {"weights_transactional", "0.0"}, {nullptr, nullptr}},
+    R"(
 		WITH raw_weights AS (
 			-- COALESCE each weight to its documented default so an explicit NULL falls back instead of
 			-- poisoning the whole computation (a NULL operand would make the normalized weights NULL
@@ -305,10 +306,14 @@ void RegisterFusionMacros(Connection &conn) {
 			  AND (wt = 0 OR me.textual_embedding IS NOT NULL)
 			  AND (wx = 0 OR me.transactional_embedding IS NOT NULL)
 		)
-		SELECT * FROM fused
-	)");
+		SELECT * FROM fused)"};
 
-	CheckQueryResult(result, "create compute_fused_embeddings macro");
+void RegisterFusionMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
+	reg.RegisterTableMacro(COMPUTE_FUSED_EMBEDDINGS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Combines the structural, textual and transactional embedding of every material in material_embeddings into one fused vector, returning (material_id, combined_embedding, fusion_weights). Weights are normalised to sum to 1, matching what fuse_embeddings applies internally, and a modality's vector is only required when its weight is above zero.")
+	                .Example("SELECT * FROM compute_fused_embeddings(weights_structural := 0.6, weights_textual := 0.4)")});
 }
 
 } // namespace anofox

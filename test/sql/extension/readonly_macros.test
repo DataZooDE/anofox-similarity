@@ -1,0 +1,58 @@
+# name: test/sql/extension/readonly_macros.test
+# description: The SQL macro API exists on a read-only database
+# group: [extension]
+
+require anofox_similarity
+
+# ============================================================================
+# Why this test exists
+#
+# Every macro used to be created by executing CREATE OR REPLACE MACRO against a
+# connection, which mutates the catalog. On a read-only database that throws,
+# and being REQUIRED it aborted the ENTIRE extension load -- so LoadInternal
+# guards the whole conn-based block with `if (!read_only)`. The consequence was
+# that on a read-only database all 27 macros silently did not exist, and nothing
+# tested that.
+#
+# Registering them as DefaultMacros puts them in the SYSTEM catalog, which needs
+# no writable user catalog, so they are now registered unconditionally. This
+# pins that. The genuinely catalog-mutating work next to them -- embedding
+# tables, HNSW indexes, VSS setup -- still correctly stays behind the guard.
+# ============================================================================
+
+load __TEST_DIR__/similarity_readonly.db
+
+statement ok
+CREATE TABLE seed(x INTEGER);
+
+statement ok
+INSERT INTO seed VALUES (1);
+
+# Reopen the same file read-only.
+load __TEST_DIR__/similarity_readonly.db readonly
+
+statement ok
+LOAD anofox_similarity
+
+# A table macro, a scalar macro, and a C++ scalar function: all present.
+query I
+SELECT count(DISTINCT function_name) FROM duckdb_functions()
+WHERE function_name IN ('bom_explosion_1level', 'sap_to_bom_items', 'embed_text',
+                        'wl_kernel_similarity', 'jaccard_similarity');
+----
+5
+
+# ...and still documented.
+query I
+SELECT count(*) FROM duckdb_functions()
+WHERE function_name IN ('bom_explosion_1level', 'embed_text')
+  AND (description IS NULL OR description = '');
+----
+0
+
+# The database really is read-only, so this is not accidentally testing the
+# writable path.
+statement error
+CREATE TABLE proof_readonly(x INTEGER);
+----
+read-only

@@ -6,6 +6,9 @@
 #include "duckdb/common/types/vector.hpp"
 #include "telemetry.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 #ifdef DUCKDB_OPENVINO_AVAILABLE
 #include "openvino/openvino.hpp"
@@ -290,14 +293,12 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(std::move(info));
 }
 
-void RegisterTextualEmbeddingMacros(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO compute_textual_embeddings(
-			makt_table := 'sap_makt',
-			language := 'EN',
-			provider := 'gemma-local',
-			provider_config := ''
-		) AS TABLE
+static const DefaultTableMacro COMPUTE_TEXTUAL_EMBEDDINGS_MACRO = {
+    DEFAULT_SCHEMA,
+    "compute_textual_embeddings",
+    {nullptr},
+    {{"makt_table", "'sap_makt'"}, {"language", "'EN'"}, {"provider", "'gemma-local'"}, {"provider_config", "''"}, {nullptr, nullptr}},
+    R"(
 		WITH descriptions AS (
 			-- One row per material: collapse multiple MAKT rows per (matnr, spras) (real MAKT
 			-- repeats per MANDT/client) so a material is not fanned out into duplicate embeddings.
@@ -322,19 +323,29 @@ void RegisterTextualEmbeddingMacros(Connection &conn) {
 				embedding_backend(full_text, COALESCE(provider, 'gemma-local'), provider_config) AS textual_embedding
 			FROM descriptions
 		)
-		SELECT * FROM embeddings
-	)");
+		SELECT * FROM embeddings)"};
 
-	CheckQueryResult(result, "create compute_textual_embeddings macro");
+void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
+	reg.RegisterTableMacro(COMPUTE_TEXTUAL_EMBEDDINGS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Generates a semantic embedding per material from its description text, returning (material_id, textual_embedding). Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.")
+	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN')")});
 }
 
-void RegisterEmbedTextLambdas(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO embed_text(description := '')
-		AS embedding_backend(description, 'gemma-local', '')
-	)");
+static const DefaultMacro EMBED_TEXT_MACRO = {
+    DEFAULT_SCHEMA,
+    "embed_text",
+    {nullptr},
+    {{"description", "''"}, {nullptr, nullptr}},
+    R"( embedding_backend(description, 'gemma-local', ''))"};
 
-	CheckQueryResult(result, "create embed_text macro function");
+void RegisterEmbedTextLambdas(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
+	reg.RegisterMacro(EMBED_TEXT_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Embeds a single piece of text with the default local backend \u2014 shorthand for embedding_backend(description, 'gemma-local', '').")
+	                .Example("SELECT embed_text('centrifugal pump seal kit')")});
 }
 
 } // namespace anofox

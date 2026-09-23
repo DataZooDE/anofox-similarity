@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/main/connection.hpp"
 
 namespace duckdb {
@@ -22,7 +23,7 @@ namespace anofox {
 //
 // Parameters:
 //   conn - DuckDB connection for macro registration
-void RegisterDynamics365TransformationMacros(Connection &conn);
+void RegisterDynamics365TransformationMacros(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

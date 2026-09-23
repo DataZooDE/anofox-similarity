@@ -93,3 +93,59 @@ query II
 SELECT check_anofox_forecast_available(), check_duckpgq_available();
 ----
 false	false
+
+# ------------------------------------------------------------------------------
+# The examples now carried in duckdb_functions().examples must actually run.
+#
+# --check-examples in the doc audit only PARSES a table-macro example (binding one
+# would do I/O), so the examples for these macros are only really verified here,
+# against fixtures. An example that does not run is the usual shape of one that is
+# wrong, and a wrong example is worse than none because an agent will act on it.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE bom_header (bom_id VARCHAR, source_system VARCHAR, parent_material_id VARCHAR);
+
+statement ok
+INSERT INTO bom_header VALUES ('B1', 'SAP', 'PUMP-A'), ('B2', 'SAP', 'SEAL-001');
+
+statement ok
+CREATE TABLE bom_component (bom_id VARCHAR, child_material_id VARCHAR, quantity_per DOUBLE);
+
+statement ok
+INSERT INTO bom_component VALUES ('B1', 'SEAL-001', 1.0), ('B1', 'BEARING-X', 2.0), ('B2', 'ORING-9', 4.0);
+
+# bom_explosion_1level — the immediate level only, so SEAL-001's own child is excluded.
+query I
+SELECT count(*) FROM bom_explosion_1level(query_material_id := 'PUMP-A');
+----
+2
+
+# bom_explosion_multilevel — reaches ORING-9 through SEAL-001.
+query I
+SELECT count(*) >= 3 FROM bom_explosion_multilevel(query_material_id := 'PUMP-A', max_depth := 5);
+----
+true
+
+# bom_where_used — the reverse direction.
+query I
+SELECT parent_material_id FROM bom_where_used(child_material_id := 'BEARING-X');
+----
+PUMP-A
+
+# bom_common_components — PUMP-A against itself shares every component with itself.
+query I
+SELECT count(*) > 0 FROM bom_common_components(material_1 := 'PUMP-A', material_2 := 'PUMP-A');
+----
+true
+
+# create_bom_property_graph — the summary counts, for one source system.
+query I
+SELECT num_nodes > 0 FROM create_bom_property_graph(source_system := 'SAP');
+----
+true
+
+# bom_to_items — flatten the universal pair into the algorithms' edge-list shape.
+query I
+SELECT count(*) FROM bom_to_items(header_table := 'bom_header', component_table := 'bom_component');
+----
+3

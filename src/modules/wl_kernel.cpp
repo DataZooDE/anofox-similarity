@@ -1,19 +1,19 @@
 #include "modules/wl_kernel.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
 
-void RegisterWLKernelMacros(Connection &conn) {
-	// Helper macro: bom_dfs_neighborhood - Reusable BOM depth-first traversal
-	// Extracts all descendant components within specified depth limit
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO bom_dfs_neighborhood(
-			root_material_id := '',
-			max_depth := 3,
-			bom_table := 'bom_items'
-		) AS TABLE
+static const DefaultTableMacro BOM_DFS_NEIGHBORHOOD_MACRO = {
+    DEFAULT_SCHEMA,
+    "bom_dfs_neighborhood",
+    {nullptr},
+    {{"root_material_id", "''"}, {"max_depth", "3"}, {"bom_table", "'bom_items'"}, {nullptr, nullptr}},
+    R"(
 		-- UNION (not UNION ALL) makes this set-based: the recursive engine only feeds NEW
 		-- (component, depth) rows forward, so multiple paths that reach a component at the same depth
 		-- collapse to one — no exponential blow-up on diamond BOMs. The depth gate is clamped to a
@@ -34,25 +34,14 @@ void RegisterWLKernelMacros(Connection &conn) {
 			-- COALESCE handles max_depth := NULL; LEAST(...,64) bounds cyclic traversal.
 			WHERE dfs.depth < LEAST(COALESCE(max_depth, 3), 64)
 		)
-		SELECT DISTINCT component FROM dfs
-	)");
-	CheckQueryResult(result, "create bom_dfs_neighborhood helper macro");
+		SELECT DISTINCT component FROM dfs)"};
 
-	// Helper: depth-expanded component fingerprint for one material, as component -> #distinct depths.
-	// This is written as a NON-recursive, bounded-depth (0..4) expansion on purpose. DuckDB cannot
-	// decorrelate a recursive CTE that lives inside a correlated scalar subquery, which is exactly how
-	// wl_kernel_similarity is used ("fixed query material vs a candidate COLUMN"); the recursive form
-	// threw an INTERNAL Error at any real scale. Each depth level is gated by `level < iterations`, so
-	// iterations 1..5 are exact; iterations > 5 are capped at depth 5 (documented). Depth 5 already
-	// captures the structure the WL kernel needs in practice.
-	//
-	// Each level is a SEPARATE CTE that DISTINCTs the reachable-component set BEFORE joining to the
-	// next level (rather than one long e0..e4 join chain). COUNT(DISTINCT depth) only needs the SET
-	// of components reachable at each depth, not how many paths reach them, so this is exactly
-	// equivalent — but it is O(depth * edges) instead of O(fanout^depth): on a dense/complete BOM the
-	// undeduped join chain reproduced every path (up to out-degree^4 rows at level 4), which hung.
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO wl_fingerprint(root, iters, bom_table) AS TABLE
+static const DefaultTableMacro WL_FINGERPRINT_MACRO = {
+    DEFAULT_SCHEMA,
+    "wl_fingerprint",
+    {"root", "iters", "bom_table", nullptr},
+    {{nullptr, nullptr}},
+    R"(
 		WITH
 			level0 AS (
 				SELECT DISTINCT child_id AS component, 0 AS depth
@@ -84,20 +73,14 @@ void RegisterWLKernelMacros(Connection &conn) {
 			SELECT * FROM level0 UNION ALL SELECT * FROM level1 UNION ALL SELECT * FROM level2
 			UNION ALL SELECT * FROM level3 UNION ALL SELECT * FROM level4
 		)
-		GROUP BY component
-	)");
-	CheckQueryResult(result, "create wl_fingerprint helper macro");
+		GROUP BY component)"};
 
-	// wl_kernel_similarity: Weisfeiler-Lehman kernel for graph-structural similarity.
-	// Similarity is the bounded weighted Jaccard sum(min)/sum(max) over the union of the two
-	// materials' depth-expanded fingerprints; it lies in [0, 1] and equals 1 for a material vs itself.
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO wl_kernel_similarity(
-			material_a,
-			material_b,
-			iterations := 3,
-			bom_table := 'bom_items'
-		) AS (
+static const DefaultMacro WL_KERNEL_SIMILARITY_MACRO = {
+    DEFAULT_SCHEMA,
+    "wl_kernel_similarity",
+    {"material_a", "material_b", nullptr},
+    {{"iterations", "3"}, {"bom_table", "'bom_items'"}, {nullptr, nullptr}},
+    R"( (
 			WITH
 				fingerprint_a AS (SELECT * FROM wl_fingerprint(material_a, GREATEST(COALESCE(iterations, 3), 1), bom_table)),
 				fingerprint_b AS (SELECT * FROM wl_fingerprint(material_b, GREATEST(COALESCE(iterations, 3), 1), bom_table)),
@@ -117,10 +100,22 @@ void RegisterWLKernelMacros(Connection &conn) {
 				ELSE (SELECT total_intersection FROM totals)
 				     / (SELECT total_a + total_b - total_intersection FROM totals)
 			END
-		)
-	)");
+		))"};
 
-	CheckQueryResult(result, "create wl_kernel_similarity macro");
+void RegisterWLKernelMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "bom"});
+	reg.RegisterTableMacro(BOM_DFS_NEIGHBORHOOD_MACRO,
+	           {ddoc::Doc()
+	                .Describe("All descendant components of a root material within a depth limit, as a reusable depth-first BOM traversal over a (parent_id, child_id) edge table.")
+	                .Example("SELECT * FROM bom_dfs_neighborhood(root_material_id := 'PUMP-A', max_depth := 3)")});
+	reg.RegisterTableMacro(WL_FINGERPRINT_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Depth-expanded component fingerprint of one material, as component -> number of distinct depths at which it is reachable. Written as a non-recursive bounded expansion on purpose: DuckDB cannot decorrelate a recursive CTE inside a correlated scalar subquery, which is exactly how wl_kernel_similarity uses it. Iterations 1-5 are exact; higher values are capped at depth 5.")
+	                .Example("SELECT * FROM wl_fingerprint('PUMP-A', 3, 'bom_items')")});
+	reg.RegisterMacro(WL_KERNEL_SIMILARITY_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Weisfeiler-Lehman kernel similarity between two materials' BOM structures, comparing their depth-expanded component fingerprints. Returns a score in [0, 1] where 1 means structurally identical. Iterations 1-5 are exact; higher values are capped at depth 5.")
+	                .Example("SELECT wl_kernel_similarity('PUMP-A', 'PUMP-B')")});
 }
 
 } // namespace anofox

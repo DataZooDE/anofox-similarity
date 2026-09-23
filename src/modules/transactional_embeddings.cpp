@@ -9,6 +9,9 @@
 #include "duckdb/main/connection.hpp"
 #include "telemetry.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
@@ -33,16 +36,23 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 // Soft Dependency Checking
 //------------------------------------------------------------------------------
 
-void RegisterCheckAnofoxForecastMacro(Connection &conn) {
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO check_anofox_forecast_available() AS (
+static const DefaultMacro CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO = {
+    DEFAULT_SCHEMA,
+    "check_anofox_forecast_available",
+    {nullptr},
+    {{nullptr, nullptr}},
+    R"( (
 			SELECT COUNT(*) > 0
 			FROM duckdb_functions()
 			WHERE function_name = 'anofox_fcst_ts_features'
-		)
-	)");
+		))"};
 
-	CheckQueryResult(result, "create check_anofox_forecast_available macro");
+void RegisterCheckAnofoxForecastMacro(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
+	reg.RegisterMacro(CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Returns true when the anofox_forecast extension is loaded, so a caller can choose the richer time-series feature path over the built-in one. anofox_forecast is an optional soft dependency and is never auto-installed.")
+	                .Example("SELECT check_anofox_forecast_available()")});
 }
 
 //------------------------------------------------------------------------------
