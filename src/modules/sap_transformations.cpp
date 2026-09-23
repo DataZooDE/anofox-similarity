@@ -1,18 +1,19 @@
 #include "modules/sap_transformations.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
 
-void RegisterSAPTransformationMacros(Connection &conn) {
-	// sap_to_materials: Extract materials from MARA table
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO sap_to_materials(
-			mara_table,
-			makt_table := NULL,
-			language := 'E'
-		) AS TABLE
+static const DefaultTableMacro SAP_TO_MATERIALS_MACRO = {
+    DEFAULT_SCHEMA,
+    "sap_to_materials",
+    {"mara_table", nullptr},
+    {{"makt_table", "NULL"}, {"language", "'E'"}, {nullptr, nullptr}},
+    R"(
 		SELECT
 			TRIM(matnr) AS material_id,
 			mtart AS material_type,
@@ -20,18 +21,14 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 			'' AS description,
 			TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE AS created_date
 		FROM query_table(mara_table)
-		WHERE lvorm IS NULL OR lvorm = '' OR lvorm = ' '
-	)");
+		WHERE lvorm IS NULL OR lvorm = '' OR lvorm = ' ')"};
 
-	CheckQueryResult(result, "create sap_to_materials macro");
-
-	// sap_to_materials_with_desc: Join MARA with MAKT for descriptions
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO sap_to_materials_with_desc(
-			mara_table,
-			makt_table,
-			language := 'E'
-		) AS TABLE
+static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
+    DEFAULT_SCHEMA,
+    "sap_to_materials_with_desc",
+    {"mara_table", "makt_table", nullptr},
+    {{"language", "'E'"}, {nullptr, nullptr}},
+    R"(
 		SELECT
 			m.material_id,
 			m.material_type,
@@ -45,17 +42,14 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 			SELECT material_id, ANY_VALUE(maktx) AS maktx
 			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE spras = COALESCE(language, 'E'))
 			GROUP BY material_id
-		) k ON m.material_id = k.material_id
-	)");
+		) k ON m.material_id = k.material_id)"};
 
-	CheckQueryResult(result, "create sap_to_materials_with_desc macro");
-
-	// extract_material_descriptions: Extract and combine material descriptions from MAKT
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO extract_material_descriptions(
-			makt_table := 'sap_makt',
-			language := 'EN'
-		) AS TABLE
+static const DefaultTableMacro EXTRACT_MATERIAL_DESCRIPTIONS_MACRO = {
+    DEFAULT_SCHEMA,
+    "extract_material_descriptions",
+    {nullptr},
+    {{"makt_table", "'sap_makt'"}, {"language", "'EN'"}, {nullptr, nullptr}},
+    R"(
 		WITH descriptions AS (
 			-- Collapse multiple MAKT rows per (matnr, spras) to a single description so a material
 			-- is not duplicated (real MAKT repeats per MANDT/client).
@@ -74,21 +68,14 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 			FROM descriptions
 			WHERE description IS NOT NULL OR short_text IS NOT NULL
 		)
-		SELECT * FROM combined_text
-	)");
+		SELECT * FROM combined_text)"};
 
-	CheckQueryResult(result, "create extract_material_descriptions macro");
-
-	// sap_to_bom_items: Extract BOMs from MAST/STKO/STPO tables
-	result = conn.Query(R"(
-		CREATE OR REPLACE MACRO sap_to_bom_items(
-			mast_table,
-			stko_table,
-			stpo_table,
-			bom_alternative := '01',
-			reference_date := '9999-12-31',
-			bom_usage := NULL
-		) AS TABLE
+static const DefaultTableMacro SAP_TO_BOM_ITEMS_MACRO = {
+    DEFAULT_SCHEMA,
+    "sap_to_bom_items",
+    {"mast_table", "stko_table", "stpo_table", nullptr},
+    {{"bom_alternative", "'01'"}, {"reference_date", "'9999-12-31'"}, {"bom_usage", "NULL"}, {nullptr, nullptr}},
+    R"(
 		SELECT * FROM (
 			WITH
 				-- Step 1: Get current BOM header with validity (JOIN MAST + STKO)
@@ -149,10 +136,26 @@ void RegisterSAPTransformationMacros(Connection &conn) {
 				valid_to,
 				bom_version
 			FROM bom_joined
-		)
-	)");
+		))"};
 
-	CheckQueryResult(result, "create sap_to_bom_items macro");
+void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "erp"});
+	reg.RegisterTableMacro(SAP_TO_MATERIALS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT.")
+	                .Example("SELECT * FROM sap_to_materials('MARA')")});
+	reg.RegisterTableMacro(SAP_TO_MATERIALS_WITH_DESC_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language' (SAP single-character language key, e.g. 'E').")
+	                .Example("SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E')")});
+	reg.RegisterTableMacro(EXTRACT_MATERIAL_DESCRIPTIONS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, description).")
+	                .Example("SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')")});
+	reg.RegisterTableMacro(SAP_TO_BOM_ITEMS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Converts the SAP MAST/STKO/STPO trio into the universal BOM shape. 'bom_alternative' picks the alternative BOM, 'reference_date' selects the version valid on that date, and 'bom_usage' filters by usage (NULL means any). Quantity passes through the source MENGE column's type, which is DECIMAL in SAP -- cast if you need DOUBLE.")
+	                .Example("SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01')")});
 }
 
 } // namespace anofox

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -10,7 +11,7 @@ namespace anofox {
 //------------------------------------------------------------------------------
 
 // Registers SAP transformation macros for materials, BOMs, and descriptive data
-void RegisterSAPTransformationMacros(Connection &conn);
+void RegisterSAPTransformationMacros(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

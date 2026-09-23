@@ -1,23 +1,19 @@
 #include "modules/embedding_statistics.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
+#include "datazoo_function_doc.hpp"
+
+namespace ddoc = datazoo::doc;
 
 namespace duckdb {
 namespace anofox {
 
-void RegisterStatisticsMacros(Connection &conn) {
-	// Create shared macro for time series feature extraction (Issue #9: Performance Optimization)
-	// This eliminates triple computation of expensive anofox_fcst_ts_features() calls
-	// Benefits: ~3x speedup from single CTE computation instead of 3 independent computations
-	// Supports batch processing for large-scale embedding computation
-	auto extract_result = conn.Query(R"(
-		CREATE OR REPLACE MACRO extract_ts_features(
-			movements_table := 'goods_movements',
-			time_window_days := 365,
-			min_observations := 3,
-			batch_size := NULL,
-			batch_offset := 0
-		) AS TABLE
+static const DefaultTableMacro EXTRACT_TS_FEATURES_MACRO = {
+    DEFAULT_SCHEMA,
+    "extract_ts_features",
+    {nullptr},
+    {{"movements_table", "'goods_movements'"}, {"time_window_days", "365"}, {"min_observations", "3"}, {"batch_size", "NULL"}, {"batch_offset", "0"}, {nullptr, nullptr}},
+    R"(
 		WITH filtered_materials AS (
 			-- Apply batch filtering if specified (Incremental Update Optimization)
 			-- Use centralized helper to filter recent movements
@@ -36,21 +32,14 @@ void RegisterStatisticsMacros(Connection &conn) {
 		FROM filter_recent_movements(movements_table, time_window_days, 0) gm
 		INNER JOIN filtered_materials fm ON gm.material_id = fm.material_id
 		GROUP BY gm.material_id
-		HAVING COUNT(*) >= COALESCE(min_observations, 3)
-	)");
-	CheckQueryResult(extract_result, "create extract_ts_features shared macro");
+		HAVING COUNT(*) >= COALESCE(min_observations, 3))"};
 
-	// Core Time Series Features: Recompute transactional embedding statistics from current data
-	// Parameters:
-	//   time_window_days: Historical window for feature extraction (default: 365 days)
-	//   min_observations: Minimum data points required (default: 3)
-	// Split into two string literals to stay under MSVC's 16KB string literal limit (C2026)
-	auto result = conn.Query(R"(
-		CREATE OR REPLACE MACRO recompute_embedding_statistics(
-			time_window_days := 365,
-			min_observations := 3,
-			movements_table := 'goods_movements'
-		) AS TABLE
+static const DefaultTableMacro RECOMPUTE_EMBEDDING_STATISTICS_MACRO = {
+    DEFAULT_SCHEMA,
+    "recompute_embedding_statistics",
+    {nullptr},
+    {{"time_window_days", "365"}, {"min_observations", "3"}, {"movements_table", "'goods_movements'"}, {nullptr, nullptr}},
+    R"(
 		WITH all_features AS (
 			-- Passing the table as a macro parameter (rather than a literal) defers binding of the
 			-- nested extract_ts_features() call to call time, so this macro registers at load even
@@ -458,21 +447,14 @@ void RegisterStatisticsMacros(Connection &conn) {
 		SELECT
 			feature_name, feature_index, feature_category, mean_value, std_value,
 			min_value, max_value, num_samples
-		FROM feature_stats
-	)");
-	CheckQueryResult(result, "create recompute_embedding_statistics macro", FailureMode::REQUIRED);
+		FROM feature_stats)"};
 
-	// Domain-Specific ERP Features: Compute advanced domain-specific features (movement type, day-of-week, lifecycle)
-	result = conn.Query(R"(
-		-- The movements table must use the canonical column names material_id, movement_date,
-		-- quantity, movement_type. (A SQL macro cannot use a string parameter as a column
-		-- identifier, so the previous material_column/date_column/... parameters had no effect and
-		-- have been removed rather than silently ignored.)
-		CREATE OR REPLACE MACRO compute_domain_specific_statistics(
-			movements_table := 'goods_movements',
-			time_window_days := 365,
-			min_observations := 3
-		) AS TABLE
+static const DefaultTableMacro COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO = {
+    DEFAULT_SCHEMA,
+    "compute_domain_specific_statistics",
+    {nullptr},
+    {{"movements_table", "'goods_movements'"}, {"time_window_days", "365"}, {"min_observations", "3"}, {nullptr, nullptr}},
+    R"(
 		WITH
 		-- Aggregate goods_movements by material and compute Domain-Specific ERP feature values
 		movement_features AS (
@@ -608,9 +590,22 @@ void RegisterStatisticsMacros(Connection &conn) {
 		SELECT
 			feature_name, feature_index, feature_category, mean_value, std_value,
 			min_value, max_value, num_samples
-		FROM domain_stats
-	)");
-	CheckQueryResult(result, "create compute_domain_specific_statistics macro", FailureMode::REQUIRED);
+		FROM domain_stats)"};
+
+void RegisterStatisticsMacros(ExtensionLoader &loader) {
+	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
+	reg.RegisterTableMacro(EXTRACT_TS_FEATURES_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Shared time-series feature extraction over a goods-movement table, computed once as a CTE so callers do not each re-run the expensive per-material feature computation. 'batch_size' and 'batch_offset' page through large material sets; NULL batch_size means all of them.")
+	                .Example("SELECT * FROM extract_ts_features(movements_table := 'goods_movements', time_window_days := 365)")});
+	reg.RegisterTableMacro(RECOMPUTE_EMBEDDING_STATISTICS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Recomputes the transactional embedding statistics from current movement data, returning the per-feature normalisation statistics the embedding pipeline uses. 'time_window_days' is the historical window and 'min_observations' the minimum data points a material needs to qualify.")
+	                .Example("SELECT * FROM recompute_embedding_statistics(time_window_days := 365, min_observations := 3)")});
+	reg.RegisterTableMacro(COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO,
+	           {ddoc::Doc()
+	                .Describe("Computes the advanced domain-specific ERP features \u2014 movement type mix, day-of-week pattern and lifecycle position \u2014 used alongside the core time-series features.")
+	                .Example("SELECT * FROM compute_domain_specific_statistics(movements_table := 'goods_movements')")});
 }
 
 } // namespace anofox

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -19,7 +20,7 @@ namespace anofox {
 // Registers check_anofox_forecast_available() SQL macro
 // Returns: BOOLEAN - true if anofox_fcst_ts_features function is available
 // Purpose: Allows graceful fallback when anofox-forecast extension not loaded
-void RegisterCheckAnofoxForecastMacro(Connection &conn);
+void RegisterCheckAnofoxForecastMacro(ExtensionLoader &loader);
 
 // Registers compute_transactional_embeddings as a TableFunction with telemetry
 // (

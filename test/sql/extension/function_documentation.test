@@ -1,45 +1,118 @@
 # name: test/sql/extension/function_documentation.test
-# description: Verify duckdb_functions() returns complete documentation metadata for all registered functions
+# description: Every function anofox_similarity registers is present and documents itself
 # group: [extension]
 
 # tier: tier1
 
 require anofox_similarity
 
-# All 10 registered public functions must appear in duckdb_functions()
-query I
-SELECT COUNT(*) FROM duckdb_functions()
-WHERE function_name IN (
-    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
-    'compute_jaccard_embeddings', 'check_statistics_freshness',
-    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
-    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
-);
-----
-10
+statement ok
+LOAD anofox_similarity
 
-# All 10 must have non-empty descriptions
-query I
-SELECT COUNT(*) FROM duckdb_functions()
-WHERE function_name IN (
-    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
-    'compute_jaccard_embeddings', 'check_statistics_freshness',
-    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
-    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
-)
-AND description IS NOT NULL AND description != '';
-----
-10
+# ============================================================================
+# The complete registered surface
+#
+# This test used to assert "10 of 10 documented" against a hardcoded list of
+# TEN names while the extension registered 37 -- so it reported green at 10/37
+# real coverage. A partial allow-list passes for exactly the functions someone
+# remembered to add to it, which is the opposite of what a coverage test does.
+#
+# The list below is COMPLETE, and the assertions that follow check every entry
+# in it. Adding a function means updating this list, which is the point: the
+# author has to state the new surface, and the coverage assertions then apply
+# to it automatically.
+#
+# The enumerating check that needs no list at all -- diffing duckdb_functions()
+# across the LOAD -- lives in datazoo-banner/audit-function-docs.sh, which a
+# sqllogictest cannot do because `require` has already loaded the extension by
+# the time the first query runs.
+# ============================================================================
 
-# All 10 must have non-empty categories
+statement ok
+CREATE TEMP VIEW ours AS
+SELECT * FROM duckdb_functions() WHERE function_name IN (
+  'aggregate_material_components','bom_common_components','bom_dfs_neighborhood',
+  'bom_explosion_1level','bom_explosion_multilevel','bom_to_items','bom_where_used',
+  'check_anofox_forecast_available','check_duckpgq_available','check_statistics_freshness',
+  'cold_start_analogs','compute_domain_specific_statistics','compute_fused_embeddings',
+  'compute_jaccard_embeddings','compute_textual_embeddings','compute_transactional_embeddings',
+  'create_bom_property_graph','dynamics365_to_bom_component','dynamics365_to_bom_header',
+  'dynamics365_to_materials','embed_text','embedding_backend','extract_material_descriptions',
+  'extract_ts_features','filter_recent_movements','find_similar_materials_jaccard',
+  'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors','items_to_bom',
+  'jaccard_similarity','recompute_embedding_statistics','sap_to_bom_items','sap_to_materials',
+  'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity');
+
+# Every name above resolves. A dropped registration is the SILENT failure mode
+# of the DefaultMacro conversion: the macro struct stays defined, the file still
+# compiles, and the function simply is not there any more. That happened once
+# during the conversion -- rewriting RegisterBOMTraversalMacros dropped the
+# bom_explosion_1level call while its struct stayed put -- and only a count
+# caught it.
 query I
-SELECT COUNT(*) FROM duckdb_functions()
-WHERE function_name IN (
-    'jaccard_similarity', 'embedding_backend', 'fuse_embeddings',
-    'compute_jaccard_embeddings', 'check_statistics_freshness',
-    'find_similar_materials_jaccard', 'find_similar_materials_wl_kernel',
-    'cold_start_analogs', 'infer_predecessors', 'compute_transactional_embeddings'
-)
-AND len(categories) > 0;
+SELECT count(DISTINCT function_name) FROM ours;
 ----
-10
+37
+
+# ============================================================================
+# ...and every one of them is documented
+# ============================================================================
+
+query I
+SELECT count(*) FROM ours
+WHERE description IS NULL OR description = ''
+   OR len(examples) = 0
+   OR len(categories) = 0
+   OR list_contains(parameters, 'col0');
+----
+0
+
+# ============================================================================
+# Macros are registered internally, not written into the user's database
+#
+# They used to be created by EXECUTING "CREATE OR REPLACE MACRO ..." against a
+# connection, which persisted extension-owned definitions into whatever database
+# file the user had open, where they would go stale against a future version of
+# the extension. Registering them through the loader puts them in the system
+# catalog instead -- which is also why they now work on a read-only database,
+# where the whole conn-based block is skipped.
+# ============================================================================
+
+query I
+SELECT count(*) = 0 FROM ours
+WHERE function_type IN ('macro', 'table_macro') AND NOT internal;
+----
+true
+
+query I
+SELECT count(*) FROM ours WHERE function_type = 'table_macro';
+----
+23
+
+query I
+SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';
+----
+4
+
+# ============================================================================
+# Parameter names survive
+#
+# A macro already reports its real parameter names, so documenting one must not
+# set parameter_names -- a non-empty parameter_names replaces the WHOLE rendered
+# list and would overwrite these with col1, col2, ...
+# ============================================================================
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'bom_explosion_1level';
+----
+[query_material_id, header_table, component_table]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'sap_to_bom_items';
+----
+[mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
+----
+[material_a, material_b, iterations, bom_table]

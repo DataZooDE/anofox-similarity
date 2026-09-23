@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -19,7 +20,7 @@ namespace anofox {
 // Macros Registered:
 //   - recompute_embedding_statistics(): Computes mean/stddev for all 98 features
 //   - compute_domain_specific_statistics(): Advanced domain-specific features (indices 92-97)
-void RegisterStatisticsMacros(Connection &conn);
+void RegisterStatisticsMacros(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

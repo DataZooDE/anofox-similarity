@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -35,7 +36,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader);
 //   - Outputs: material_id, textual_embedding (FLOAT[384])
 //   - Uses configured provider backend for embedding generation
 //   - Supports batch processing with vectorized execution
-void RegisterTextualEmbeddingMacros(Connection &conn);
+void RegisterTextualEmbeddingMacros(ExtensionLoader &loader);
 
 // Registers the embed_text lambda function for user convenience
 // Parameters:
@@ -44,7 +45,7 @@ void RegisterTextualEmbeddingMacros(Connection &conn);
 // Lambda: embed_text(description VARCHAR) -> FLOAT[384]
 //   - User-friendly function wrapping embedding_backend with 'gemma-local' provider
 //   - Can be overridden by users to use different providers
-void RegisterEmbedTextLambdas(Connection &conn);
+void RegisterEmbedTextLambdas(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

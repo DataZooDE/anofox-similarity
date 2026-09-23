@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 namespace duckdb {
 namespace anofox {
@@ -38,7 +39,7 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader);
 //   - Batch fusion of materials from material_embeddings table
 //   - Outputs: material_id, combined_embedding (FLOAT[768]), fusion_weights
 //   - Default: equal weight to structural and textual, zero weight to transactional
-void RegisterFusionMacros(Connection &conn);
+void RegisterFusionMacros(ExtensionLoader &loader);
 
 } // namespace anofox
 } // namespace duckdb

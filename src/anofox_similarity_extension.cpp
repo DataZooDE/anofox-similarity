@@ -126,43 +126,43 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterEmbeddingFunctions(loader);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);
 
+	// Macros registered as DefaultMacros go through the loader into the system
+	// catalog, so they need no writable user catalog and belong here rather than
+	// behind the read-only guard below.
+	anofox::RegisterCheckDuckPGQMacro(loader);
+	anofox::RegisterBOMUtilityMacros(loader);
+	anofox::RegisterTextualEmbeddingMacros(loader);
+	anofox::RegisterEmbedTextLambdas(loader);
+	anofox::RegisterFusionMacros(loader);
+	anofox::RegisterCheckAnofoxForecastMacro(loader);
+	anofox::RegisterBOMConversionMacros(loader);
+	anofox::RegisterWLKernelMacros(loader);
+	anofox::RegisterDynamics365TransformationMacros(loader);
+	anofox::RegisterSAPTransformationMacros(loader);
+	anofox::RegisterStatisticsMacros(loader);
+	anofox::RegisterPropertyGraphMacros(loader);
+	anofox::RegisterBOMTraversalMacros(loader);
+
 	// --- Catalog-mutating (conn-based) registrations: SQL macros, infra tables, indexes ---
 	// These define most of the SQL-macro API and require a writable catalog.
 	if (!read_only) {
 		anofox::InitializeVSSIntegration(conn);
 
-		// ERP Integration: Universal BOM schema and conversion macros
-		anofox::RegisterBOMConversionMacros(conn);
 
-		// BOM Utilities: Helper macros for common BOM and movement filtering patterns
-		anofox::RegisterBOMUtilityMacros(conn);
 
 		// Statistics Functions: Infrastructure for efficient z-score normalization
 		anofox::RegisterStatisticsFunctions(conn);
 
 		// Graph Analysis (Optional): DuckPGQ property graph macros for BOM traversal
-		anofox::RegisterCheckDuckPGQMacro(conn);
 		anofox::InitializeDuckPGQIntegration(conn);
-		anofox::RegisterPropertyGraphMacros(conn);
-		anofox::RegisterBOMTraversalMacros(conn);
 
 		// Embedding Storage: Create tables and HNSW indexes for vector search
 		anofox::CreateEmbeddingTables(conn);
 		anofox::CreateHNSWIndexes(conn);
 
 		// Similarity-search helper macros and inference macros
-		anofox::RegisterWLKernelMacros(conn);
-		anofox::RegisterSAPTransformationMacros(conn);
-		anofox::RegisterDynamics365TransformationMacros(conn);
-		anofox::RegisterTextualEmbeddingMacros(conn);
-		anofox::RegisterEmbedTextLambdas(conn);
-		anofox::RegisterFusionMacros(conn);
 
-		// Transactional Embeddings (Optional): integration with anofox-forecast
-		anofox::RegisterCheckAnofoxForecastMacro(conn);
 
-		// Feature Normalization: embedding statistics computation
-		anofox::RegisterStatisticsMacros(conn);
 
 		// Incremental Updates (no-ops today; DuckDB has no triggers / DML-in-macro)
 		anofox::CreateIncrementalUpdateTriggers(conn);
