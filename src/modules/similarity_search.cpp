@@ -358,7 +358,11 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		desc.examples    = {"SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);",
 		                    "SELECT * FROM find_similar_materials_jaccard('MAT-001', 20, min_similarity := 0.3);"};
 		desc.categories  = {"similarity", "search"};
-		desc.parameter_names = {"material_id", "k"};
+		// Named parameters must be listed too: a non-empty parameter_names replaces the
+		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
+		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
+		// test/sql/extension/function_documentation.test pins the rendered lists.
+		desc.parameter_names = {"material_id", "k", "bom_table", "min_similarity"};
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
 		info.descriptions.push_back(std::move(desc));
 		loader.RegisterFunction(std::move(info));
@@ -381,7 +385,11 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		desc.examples    = {"SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);",
 		                    "SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := 0.2);"};
 		desc.categories  = {"similarity", "search", "graph"};
-		desc.parameter_names = {"material_id", "k"};
+		// Named parameters must be listed too: a non-empty parameter_names replaces the
+		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
+		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
+		// test/sql/extension/function_documentation.test pins the rendered lists.
+		desc.parameter_names = {"material_id", "k", "bom_table", "min_similarity", "iterations"};
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
 		info.descriptions.push_back(std::move(desc));
 		loader.RegisterFunction(std::move(info));
@@ -404,7 +412,11 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		desc.examples    = {"SELECT * FROM cold_start_analogs('NEW-PART', 5);",
 		                    "SELECT * FROM cold_start_analogs('NEW-PART', 10, min_history_months := 12, min_similarity := 0.4);"};
 		desc.categories  = {"similarity", "search", "forecasting"};
-		desc.parameter_names = {"material_id", "k"};
+		// Named parameters must be listed too: a non-empty parameter_names replaces the
+		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
+		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
+		// test/sql/extension/function_documentation.test pins the rendered lists.
+		desc.parameter_names = {"material_id", "k", "movements_table", "bom_table", "min_similarity", "min_history_months"};
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
 		info.descriptions.push_back(std::move(desc));
 		loader.RegisterFunction(std::move(info));

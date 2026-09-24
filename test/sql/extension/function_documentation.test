@@ -63,7 +63,10 @@ SELECT count(*) FROM ours
 WHERE description IS NULL OR description = ''
    OR len(examples) = 0
    OR len(categories) = 0
-   OR list_contains(parameters, 'col0');
+   -- ANY colN, not just col0: DuckDB pads parameter_names positionally, so a list
+   -- covering only the first arguments renders as (a, b, col2, col3) -- named at the
+   -- front, placeholders at the back. Checking col0 alone passes exactly that case.
+   OR list_has_any(parameters, ['col0','col1','col2','col3','col4','col5','col6','col7','col8','col9']);
 ----
 0
 
@@ -116,3 +119,37 @@ query I
 SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
 ----
 [material_a, material_b, iterations, bom_table]
+
+# ============================================================================
+# The C++ table functions name their named parameters too
+#
+# These four had parameter_names covering only their POSITIONAL arguments, so
+# duckdb_functions() padded the rest: (material_id, k, col2, col3, col4). That
+# is documented at the front and placeholders at the back, and it slipped past
+# the first version of the doc audit because that only looked for `col0` --
+# which these do not have, since the first argument IS named.
+#
+# The named parameters come out in case_insensitive_map_t order, which is
+# neither sorted nor guaranteed stable. Pinning the rendered list is what makes
+# the order in the source trustworthy rather than a guess that happened to work.
+# ============================================================================
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_jaccard';
+----
+[material_id, k, bom_table, min_similarity]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
+----
+[material_id, k, bom_table, min_similarity, iterations]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'cold_start_analogs';
+----
+[material_id, k, movements_table, bom_table, min_similarity, min_history_months]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'infer_predecessors';
+----
+[material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months]
