@@ -1,7 +1,7 @@
 # anofox-similarity
 
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
-[![DuckDB: ≥ v1.0.0](https://img.shields.io/badge/DuckDB-≥%20v1.0.0-blue)](https://duckdb.org)
+[![DuckDB: 1.5.6 and 2.0](https://img.shields.io/badge/DuckDB-1.5.6%20%7C%202.0-blue)](https://duckdb.org)
 [![Tests](https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml/badge.svg)](https://github.com/DataZooDE/anofox-similarity/actions)
 
 **Multi-modal product similarity detection for manufacturing supply chain planning**
@@ -50,6 +50,10 @@ LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extensi
 -- Verify installation
 SELECT 1 AS test;  -- Should return 1
 ```
+
+### Named arguments
+
+On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 
 ### Finding Similar Materials
 

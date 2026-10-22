@@ -1,5 +1,7 @@
 # Multi-Modal Product Similarity Detection from Enterprise Master Data
 
+
+On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 ## A Practical Framework for Manufacturing SMEs
 
 **Authors:** Datazoo Research Team  

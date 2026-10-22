@@ -1,7 +1,7 @@
 # API Reference
 
 **Version:** 2.0.0
-**DuckDB Compatibility:** ≥ v1.0.0
+**DuckDB Compatibility:** v1.5.6 and v2.0
 **License:** Business Source License 1.1 (BSL 1.1)
 
 ---
@@ -40,6 +40,8 @@ The anofox-similarity extension provides 40+ functions across 8 functional categ
 - **Helper Macros** (prefix `check_`, `create_`, `bom_`) - Infrastructure utilities
 
 ### Parameterization Pattern
+
+On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 
 All macros support default parameters with `:=` syntax:
 

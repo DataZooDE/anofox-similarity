@@ -1,0 +1,139 @@
+# name: test/sql/port_compatibility.test
+# description: Value-sensitive named parameter compatibility across DuckDB lines
+# group: [extension]
+require anofox_similarity
+
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+ ('A','X'), ('A','Y'), ('B','X'), ('X','Z'),
+ ('S','K1'), ('S','K2'), ('P','K1'), ('P','K2');
+
+statement ok
+CREATE TABLE alt_bom(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO alt_bom VALUES ('A','ONLY');
+
+statement ok
+CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+INSERT INTO goods_movements VALUES
+ ('A', DATE '2024-01-01', 1),
+ ('B', DATE '2024-01-01', 1), ('B', DATE '2024-03-01', 1),
+ ('S', DATE '2024-01-08', 1), ('S', DATE '2024-01-15', 2), ('S', DATE '2024-01-22', 3),
+ ('P', DATE '2024-01-01', 3), ('P', DATE '2024-01-08', 2), ('P', DATE '2024-01-15', 1);
+
+statement ok
+CREATE TABLE alt_moves(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+statement ok
+INSERT INTO alt_moves VALUES ('A', DATE '2024-01-01', 1), ('A', DATE '2024-01-03', 2);
+
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('A', 5);
+----
+4
+
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('A', 5, min_similarity := 0.99);
+----
+0
+
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('A', 5, bom_table := 'alt_bom');
+----
+0
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('A', 5, bom_table := 'nope');
+----
+nope
+
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('A', 5, min_similarity := 0.6, iterations := 1);
+----
+0
+
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('A', 5, min_similarity := 0.6, iterations := 2);
+----
+1
+
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('A', 5, bom_table := 'alt_bom');
+----
+0
+
+query I
+SELECT count(*) FROM cold_start_analogs('A', 5, min_similarity := 0.4);
+----
+1
+
+query I
+SELECT count(*) FROM cold_start_analogs('A', 5, min_similarity := 0.4, min_history_months := 3);
+----
+0
+
+query I
+SELECT count(*) FROM cold_start_analogs('A', 5, bom_table := 'alt_bom');
+----
+0
+
+query I
+SELECT count(*) FROM cold_start_analogs('A', 5, min_similarity := 0.4, min_history_months := 1, movements_table := 'alt_moves');
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 1, min_overlapping_weeks := 3, min_similarity := 0.5, min_confidence := 0);
+----
+1
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 4, min_overlapping_weeks := 3, min_similarity := 0.5, min_confidence := 0);
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 1, min_overlapping_weeks := 4, min_similarity := 0.5, min_confidence := 0);
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 1, min_overlapping_weeks := 3, lookback_months := 0, min_similarity := 0.5, min_confidence := 0);
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 1, min_overlapping_weeks := 3, min_similarity := 0.5, min_confidence := 0, bom_table := 'alt_bom');
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors('S', lag_weeks := 1, min_overlapping_weeks := 3, min_similarity := 0.5, min_confidence := 0, movements_table := 'alt_moves');
+----
+0
+
+query I
+SELECT count(*) FROM filter_recent_movements(movements_table := 'alt_moves', time_window_days := 0);
+----
+1
+
+query I
+SELECT count(*) FROM filter_recent_movements(movements_table := 'alt_moves', time_window_days := 3);
+----
+2
+
+query I
+SELECT count(*) FROM compute_jaccard_embeddings(bom_table := 'alt_bom');
+----
+128
+
+statement error
+SELECT * FROM compute_transactional_embeddings(time_window_days := 7, batch_size := 1, batch_offset := 0);
+----
+<REGEX>:.*anofox.forecast.*

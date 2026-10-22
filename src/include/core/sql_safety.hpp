@@ -1,4 +1,5 @@
 #pragma once
+#include "duckdb_compat.hpp"
 
 #include "duckdb.hpp"
 #include "duckdb/catalog/catalog.hpp"
@@ -95,11 +96,11 @@ inline void ValidateTableColumns(ClientContext &context, const string &table_pat
 
 	optional_ptr<CatalogEntry> entry;
 	try {
-		EntryLookupInfo lookup_info(CatalogType::TABLE_ENTRY, table_name);
-		entry = Catalog::GetEntry(context, catalog_name, schema_name, lookup_info, OnEntryNotFound::RETURN_NULL);
+		EntryLookupInfo lookup_info(CatalogType::TABLE_ENTRY, duckdb_compat::EntryName(table_name));
+		entry = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup_info, OnEntryNotFound::RETURN_NULL);
 		if (!entry && parts.size() == 2) {
 			// two-part paths can also mean catalog.table (binder semantics)
-			entry = Catalog::GetEntry(context, parts[0], INVALID_SCHEMA, lookup_info, OnEntryNotFound::RETURN_NULL);
+			entry = Catalog::GetEntry(context, duckdb_compat::Ident(parts[0]), duckdb_compat::Ident(INVALID_SCHEMA), lookup_info, OnEntryNotFound::RETURN_NULL);
 		}
 	} catch (...) {
 		return; // ambiguous/odd paths: defer to the inner query's own error
@@ -110,7 +111,7 @@ inline void ValidateTableColumns(ClientContext &context, const string &table_pat
 	auto &table_entry = entry->Cast<TableCatalogEntry>();
 	string missing;
 	for (auto &column : required) {
-		if (!table_entry.ColumnExists(column)) {
+		if (!table_entry.ColumnExists(duckdb_compat::Ident(column))) {
 			if (!missing.empty()) {
 				missing += ", ";
 			}

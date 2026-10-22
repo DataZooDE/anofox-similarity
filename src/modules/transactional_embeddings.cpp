@@ -1,4 +1,6 @@
 #include "modules/transactional_embeddings.hpp"
+#include "duckdb_compat.hpp"
+#include "core/named_parameters.hpp"
 #include "core/error_handling.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -10,6 +12,7 @@
 #include "telemetry.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 #include "datazoo_function_doc.hpp"
+#include "compat_anofox/macro_doc.hpp"
 
 namespace ddoc = datazoo::doc;
 
@@ -20,13 +23,12 @@ namespace anofox {
 // Helper: Parse SQL to SubqueryRef
 //------------------------------------------------------------------------------
 
-static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
-	Parser parser(options);
-	parser.ParseQuery(query);
-	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &err_msg) {
+	auto statements = duckdb_compat::ParseStatements(context, query);
+	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
 		throw ParserException(err_msg);
 	}
-	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto &select_stmt = statements[0]->Cast<SelectStatement>();
 	auto new_stmt = make_uniq<SelectStatement>();
 	new_stmt->node = std::move(select_stmt.node);
 	return make_uniq<SubqueryRef>(std::move(new_stmt));
@@ -36,23 +38,17 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 // Soft Dependency Checking
 //------------------------------------------------------------------------------
 
-static const DefaultMacro CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO = {
-    DEFAULT_SCHEMA,
-    "check_anofox_forecast_available",
-    {nullptr},
-    {{nullptr, nullptr}},
-    R"( (
+static const char *CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO = R"(() AS (
 			SELECT COUNT(*) > 0
 			FROM duckdb_functions()
 			WHERE function_name = 'anofox_fcst_ts_features'
-		))"};
+		))";
 
 void RegisterCheckAnofoxForecastMacro(ExtensionLoader &loader) {
-	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
-	reg.RegisterMacro(CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO,
+	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "check_anofox_forecast_available", CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO),
 	           {ddoc::Doc()
 	                .Describe("Returns true when the anofox_forecast extension is loaded, so a caller can choose the richer time-series feature path over the built-in one. anofox_forecast is an optional soft dependency and is never auto-installed.")
-	                .Example("SELECT check_anofox_forecast_available()")});
+	                .Example("SELECT check_anofox_forecast_available()")}, {"similarity", "embeddings"});
 }
 
 //------------------------------------------------------------------------------
@@ -74,8 +70,8 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	string batch_size = "NULL";
 	int64_t batch_offset = 0;
 
-	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
-		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "movements_table"); value && !value->IsNull()) {
+		movements_table = (*value).GetValue<string>();
 	}
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
@@ -112,14 +108,14 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 		has_movement_type = false;
 	}
 	const char *movement_type_expr = has_movement_type ? "movement_type" : "NULL::VARCHAR";
-	if (input.named_parameters.count("time_window_days") && !input.named_parameters.at("time_window_days").IsNull()) {
-		time_window_days = input.named_parameters.at("time_window_days").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "time_window_days"); value && !value->IsNull()) {
+		time_window_days = (*value).GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("batch_size") && !input.named_parameters.at("batch_size").IsNull()) {
-		batch_size = std::to_string(input.named_parameters.at("batch_size").GetValue<int64_t>());
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "batch_size"); value && !value->IsNull()) {
+		batch_size = std::to_string((*value).GetValue<int64_t>());
 	}
-	if (input.named_parameters.count("batch_offset") && !input.named_parameters.at("batch_offset").IsNull()) {
-		batch_offset = input.named_parameters.at("batch_offset").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "batch_offset"); value && !value->IsNull()) {
+		batch_offset = (*value).GetValue<int64_t>();
 	}
 
 	// Build the complex SQL query
@@ -326,7 +322,7 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	                                movements_table, time_window_days, batch_size, batch_offset, movement_type_expr,
 	                                movements_table, movements_table, time_window_days);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_transactional_embeddings query");
+	return ParseSubquery(sql, context, "Failed to parse compute_transactional_embeddings query");
 }
 
 //------------------------------------------------------------------------------
@@ -337,12 +333,6 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	// compute_transactional_embeddings
 	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
 	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
-	compute_trans.named_parameters["movements_table"] = LogicalType::VARCHAR;
-	compute_trans.named_parameters["time_window_days"] = LogicalType::BIGINT;
-	compute_trans.named_parameters["batch_size"] = LogicalType::BIGINT;
-	compute_trans.named_parameters["batch_offset"] = LogicalType::BIGINT;
-
-	CreateTableFunctionInfo info(compute_trans);
 	FunctionDescription desc;
 	desc.description = "Computes 128-dimensional transactional embeddings from goods movement data and upserts "
 	                   "them into material_embeddings. Features include demand velocity, seasonality, frequency, "
@@ -352,7 +342,12 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	                    "SELECT * FROM compute_transactional_embeddings(movements_table := 'sap_mseg', time_window_days := 365);",
 	                    "SELECT * FROM compute_transactional_embeddings(batch_size := 1000, batch_offset := 0);"};
 	desc.categories  = {"embeddings", "transactional"};
+	AddDocumentedNamedParameters(compute_trans, desc, {},
+	                             {{"movements_table", LogicalType::VARCHAR}, {"time_window_days", LogicalType::BIGINT},
+	                              {"batch_size", LogicalType::BIGINT}, {"batch_offset", LogicalType::BIGINT}});
+	CreateTableFunctionInfo info(compute_trans);
 	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameFunctionsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 

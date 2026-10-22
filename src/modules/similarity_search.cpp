@@ -1,4 +1,6 @@
 #include "modules/similarity_search.hpp"
+#include "duckdb_compat.hpp"
+#include "core/named_parameters.hpp"
 #include "core/error_handling.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -16,13 +18,12 @@ namespace anofox {
 // Helper: Parse SQL to SubqueryRef
 //------------------------------------------------------------------------------
 
-static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
-	Parser parser(options);
-	parser.ParseQuery(query);
-	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &err_msg) {
+	auto statements = duckdb_compat::ParseStatements(context, query);
+	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
 		throw ParserException(err_msg);
 	}
-	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto &select_stmt = statements[0]->Cast<SelectStatement>();
 	auto new_stmt = make_uniq<SelectStatement>();
 	new_stmt->node = std::move(select_stmt.node);
 	return make_uniq<SubqueryRef>(std::move(new_stmt));
@@ -60,11 +61,11 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	double min_similarity = 0.0;
 	string bom_table = "bom_items";
 
-	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
-		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
+		min_similarity = (*value).GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
-		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
+		bom_table = (*value).GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
@@ -102,7 +103,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	)",
 	                                bom_table, query_material_id_sql, query_material_id_sql, min_similarity, k);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_jaccard query");
+	return ParseSubquery(sql, context, "Failed to parse find_similar_materials_jaccard query");
 }
 
 //------------------------------------------------------------------------------
@@ -140,19 +141,19 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	string bom_table = "bom_items";
 
 	// A NULL iterations (like any NULL named tuning param) falls back to the default.
-	if (input.named_parameters.count("iterations") && !input.named_parameters.at("iterations").IsNull()) {
-		iterations = input.named_parameters.at("iterations").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "iterations"); value && !value->IsNull()) {
+		iterations = (*value).GetValue<int64_t>();
 	}
 	// Clamp to at least 1 so iterations <= 0 means "direct children only", consistent with the
 	// wl_kernel_similarity scalar macro (which likewise treats <1 as 1).
 	if (iterations < 1) {
 		iterations = 1;
 	}
-	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
-		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
+		min_similarity = (*value).GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
-		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
+		bom_table = (*value).GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
@@ -222,7 +223,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	                                bom_table, bom_table, iterations, query_material_id_sql, query_material_id_sql,
 	                                query_material_id_sql, min_similarity, k);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse find_similar_materials_wl_kernel query");
+	return ParseSubquery(sql, context, "Failed to parse find_similar_materials_wl_kernel query");
 }
 
 //------------------------------------------------------------------------------
@@ -260,17 +261,17 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	string bom_table = "bom_items";
 	string movements_table = "goods_movements";
 
-	if (input.named_parameters.count("min_history_months") && !input.named_parameters.at("min_history_months").IsNull()) {
-		min_history_months = input.named_parameters.at("min_history_months").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_history_months"); value && !value->IsNull()) {
+		min_history_months = (*value).GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
-		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
+		min_similarity = (*value).GetValue<double>();
 	}
-	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
-		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
+		bom_table = (*value).GetValue<string>();
 	}
-	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
-		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "movements_table"); value && !value->IsNull()) {
+		movements_table = (*value).GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
@@ -334,7 +335,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	                                bom_table, query_material_id_sql, query_material_id_sql, movements_table, min_similarity,
 	                                min_history_months, k);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse cold_start_analogs query");
+	return ParseSubquery(sql, context, "Failed to parse cold_start_analogs query");
 }
 
 //------------------------------------------------------------------------------
@@ -347,10 +348,6 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		TableFunction find_similar_jaccard("find_similar_materials_jaccard",
 		                                   {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
 		find_similar_jaccard.bind_replace = FindSimilarMaterialsJaccardBindReplace;
-		find_similar_jaccard.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-		find_similar_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
-
-		CreateTableFunctionInfo info(find_similar_jaccard);
 		FunctionDescription desc;
 		desc.description = "Finds the k most structurally similar materials to a query material using exact "
 		                   "Jaccard similarity on BOM component sets. Returns material_id, similarity, "
@@ -362,9 +359,12 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
 		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
 		// test/sql/extension/function_documentation.test pins the rendered lists.
-		desc.parameter_names = {"material_id", "k", "bom_table", "min_similarity"};
+		AddDocumentedNamedParameters(find_similar_jaccard, desc, {"material_id", "k"},
+		                             {{"bom_table", LogicalType::VARCHAR}, {"min_similarity", LogicalType::DOUBLE}});
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		CreateTableFunctionInfo info(find_similar_jaccard);
 		info.descriptions.push_back(std::move(desc));
+		duckdb_compat::NameFunctionsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
 
@@ -373,11 +373,6 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		TableFunction find_similar_wl("find_similar_materials_wl_kernel",
 		                              {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
 		find_similar_wl.bind_replace = FindSimilarMaterialsWLKernelBindReplace;
-		find_similar_wl.named_parameters["iterations"] = LogicalType::BIGINT;
-		find_similar_wl.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-		find_similar_wl.named_parameters["bom_table"] = LogicalType::VARCHAR;
-
-		CreateTableFunctionInfo info(find_similar_wl);
 		FunctionDescription desc;
 		desc.description = "Finds the k most structurally similar materials using the Weisfeiler-Lehman graph "
 		                   "kernel, which captures multi-hop BOM structure beyond direct component overlap. "
@@ -389,9 +384,13 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
 		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
 		// test/sql/extension/function_documentation.test pins the rendered lists.
-		desc.parameter_names = {"material_id", "k", "bom_table", "min_similarity", "iterations"};
+		AddDocumentedNamedParameters(find_similar_wl, desc, {"material_id", "k"},
+		                             {{"bom_table", LogicalType::VARCHAR}, {"min_similarity", LogicalType::DOUBLE},
+		                              {"iterations", LogicalType::BIGINT}});
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		CreateTableFunctionInfo info(find_similar_wl);
 		info.descriptions.push_back(std::move(desc));
+		duckdb_compat::NameFunctionsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
 
@@ -399,12 +398,6 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	{
 		TableFunction cold_start("cold_start_analogs", {LogicalType::VARCHAR, LogicalType::BIGINT}, nullptr, nullptr);
 		cold_start.bind_replace = ColdStartAnalogsBindReplace;
-		cold_start.named_parameters["min_history_months"] = LogicalType::BIGINT;
-		cold_start.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-		cold_start.named_parameters["bom_table"] = LogicalType::VARCHAR;
-		cold_start.named_parameters["movements_table"] = LogicalType::VARCHAR;
-
-		CreateTableFunctionInfo info(cold_start);
 		FunctionDescription desc;
 		desc.description = "Finds structural analogs for a cold-start material (one with little or no demand "
 		                   "history). Returns established materials that are structurally similar and have at "
@@ -416,9 +409,13 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
 		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
 		// test/sql/extension/function_documentation.test pins the rendered lists.
-		desc.parameter_names = {"material_id", "k", "movements_table", "bom_table", "min_similarity", "min_history_months"};
+		AddDocumentedNamedParameters(cold_start, desc, {"material_id", "k"},
+		                             {{"movements_table", LogicalType::VARCHAR}, {"bom_table", LogicalType::VARCHAR},
+		                              {"min_similarity", LogicalType::DOUBLE}, {"min_history_months", LogicalType::BIGINT}});
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
+		CreateTableFunctionInfo info(cold_start);
 		info.descriptions.push_back(std::move(desc));
+		duckdb_compat::NameFunctionsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
 }
