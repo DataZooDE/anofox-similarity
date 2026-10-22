@@ -1,4 +1,8 @@
 #include "modules/multimodal_fusion.hpp"
+#include "duckdb_compat.hpp"
+#include "duckdb_compat/list_vector.hpp"
+#include "duckdb_compat/struct_vector.hpp"
+#include "compat_anofox/scalar_bind.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
@@ -44,10 +48,10 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	UnifiedVectorFormat textual_vdata;
 	UnifiedVectorFormat transactional_vdata;
 	UnifiedVectorFormat weights_vdata;
-	structural_vector.ToUnifiedFormat(count, structural_vdata);
-	textual_vector.ToUnifiedFormat(count, textual_vdata);
-	transactional_vector.ToUnifiedFormat(count, transactional_vdata);
-	weights_vector.ToUnifiedFormat(count, weights_vdata);
+	duckdb_compat::ToUnifiedFormat(structural_vector, count, structural_vdata);
+	duckdb_compat::ToUnifiedFormat(textual_vector, count, textual_vdata);
+	duckdb_compat::ToUnifiedFormat(transactional_vector, count, transactional_vdata);
+	duckdb_compat::ToUnifiedFormat(weights_vector, count, weights_vdata);
 
 	auto structural_data = UnifiedVectorFormat::GetData<list_entry_t>(structural_vdata);
 	auto textual_data = UnifiedVectorFormat::GetData<list_entry_t>(textual_vdata);
@@ -67,35 +71,35 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	UnifiedVectorFormat structural_child_vdata;
 	UnifiedVectorFormat textual_child_vdata;
 	UnifiedVectorFormat transactional_child_vdata;
-	structural_child.ToUnifiedFormat(ListVector::GetListSize(structural_vector), structural_child_vdata);
-	textual_child.ToUnifiedFormat(ListVector::GetListSize(textual_vector), textual_child_vdata);
-	transactional_child.ToUnifiedFormat(ListVector::GetListSize(transactional_vector), transactional_child_vdata);
+	duckdb_compat::ToUnifiedFormat(structural_child, ListVector::GetListSize(structural_vector), structural_child_vdata);
+	duckdb_compat::ToUnifiedFormat(textual_child, ListVector::GetListSize(textual_vector), textual_child_vdata);
+	duckdb_compat::ToUnifiedFormat(transactional_child, ListVector::GetListSize(transactional_vector), transactional_child_vdata);
 
 	auto structural_child_data = UnifiedVectorFormat::GetData<float>(structural_child_vdata);
 	auto textual_child_data = UnifiedVectorFormat::GetData<float>(textual_child_vdata);
 	auto transactional_child_data = UnifiedVectorFormat::GetData<float>(transactional_child_vdata);
-	auto result_child_data = FlatVector::GetData<float>(result_child);
+	auto result_child_data = duckdb_compat::FlatData<float>(result_child);
 
 	// Parse weights struct entries: {structural, textual, transactional}
 	auto &weight_entries = StructVector::GetEntries(weights_vector);
-	auto &structural_weight_vec = *weight_entries[0];
-	auto &textual_weight_vec = *weight_entries[1];
-	auto &transactional_weight_vec = *weight_entries[2];
+	auto &structural_weight_vec = duckdb_compat::StructChild(weight_entries[0]);
+	auto &textual_weight_vec = duckdb_compat::StructChild(weight_entries[1]);
+	auto &transactional_weight_vec = duckdb_compat::StructChild(weight_entries[2]);
 
 	UnifiedVectorFormat structural_weight_vdata;
 	UnifiedVectorFormat textual_weight_vdata;
 	UnifiedVectorFormat transactional_weight_vdata;
-	structural_weight_vec.ToUnifiedFormat(count, structural_weight_vdata);
-	textual_weight_vec.ToUnifiedFormat(count, textual_weight_vdata);
-	transactional_weight_vec.ToUnifiedFormat(count, transactional_weight_vdata);
+	duckdb_compat::ToUnifiedFormat(structural_weight_vec, count, structural_weight_vdata);
+	duckdb_compat::ToUnifiedFormat(textual_weight_vec, count, textual_weight_vdata);
+	duckdb_compat::ToUnifiedFormat(transactional_weight_vec, count, transactional_weight_vdata);
 
 	auto structural_weight_data = UnifiedVectorFormat::GetData<float>(structural_weight_vdata);
 	auto textual_weight_data = UnifiedVectorFormat::GetData<float>(textual_weight_vdata);
 	auto transactional_weight_data = UnifiedVectorFormat::GetData<float>(transactional_weight_vdata);
 
 	ListVector::SetListSize(result, count * COMBINED_DIM);
-	auto result_entries = FlatVector::GetData<list_entry_t>(result);
-	auto &result_validity = FlatVector::Validity(result);
+	auto result_entries = duckdb_compat::FlatData<list_entry_t>(result);
+	auto &result_validity = duckdb_compat::MutableValidity(result);
 
 	for (idx_t i = 0; i < count; i++) {
 		auto struct_idx = structural_vdata.sel->get_index(i);
@@ -214,8 +218,7 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 // Telemetry Bind Function
 //------------------------------------------------------------------------------
 
-static unique_ptr<FunctionData> FuseEmbeddingsBind(ClientContext &context, ScalarFunction &bound_function,
-                                                   vector<unique_ptr<Expression>> &arguments) {
+static unique_ptr<FunctionData> FuseEmbeddingsBind() {
 	PostHogTelemetry::Instance().RecordFunctionCall("fuse_embeddings");
 	return nullptr;
 }
@@ -229,18 +232,19 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	// Returns: fused embedding (LIST(FLOAT))
 	auto fuse_embeddings_function =
 	    ScalarFunction("fuse_embeddings",
-	                   {LogicalType::LIST(LogicalType::FLOAT), LogicalType::LIST(LogicalType::FLOAT),
-	                    LogicalType::LIST(LogicalType::FLOAT),
-	                    LogicalType::STRUCT({{"structural", LogicalType::FLOAT},
-	                                         {"textual", LogicalType::FLOAT},
-	                                         {"transactional", LogicalType::FLOAT}})},
-	                   LogicalType::LIST(LogicalType::FLOAT), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsFunction), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsBind));
+	                   {LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
+	                    LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
+	                    LogicalType::STRUCT({{"structural", LogicalType(LogicalTypeId::FLOAT)},
+	                                         {"textual", LogicalType(LogicalTypeId::FLOAT)},
+	                                         {"transactional", LogicalType(LogicalTypeId::FLOAT)}})},
+	                   LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsBind)>());
 	// SPECIAL_HANDLING so the function is invoked even when a modality vector is NULL; the body
 	// decides per-modality whether a NULL is acceptable (it is, when that modality's weight is 0).
 	// With default handling DuckDB would short-circuit the whole result to NULL, which is why a
 	// NULL transactional vector used to null out compute_fused_embeddings on its default weights.
-	fuse_embeddings_function.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	duckdb_compat::SetNullHandling(fuse_embeddings_function, FunctionNullHandling::SPECIAL_HANDLING);
 
+	duckdb_compat::SetFallible(fuse_embeddings_function);
 	CreateScalarFunctionInfo info(fuse_embeddings_function);
 	FunctionDescription desc;
 	desc.description = "Fuses structural (FLOAT[256]), textual (FLOAT[384]), and transactional (FLOAT[128]) "
@@ -250,13 +254,14 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	                    "FROM material_embeddings;"};
 	desc.categories  = {"embeddings", "fusion"};
 	desc.parameter_names = {"structural_embedding", "textual_embedding", "transactional_embedding", "weights"};
-	desc.parameter_types = {LogicalType::LIST(LogicalType::FLOAT),
-	                         LogicalType::LIST(LogicalType::FLOAT),
-	                         LogicalType::LIST(LogicalType::FLOAT),
-	                         LogicalType::STRUCT({{"structural", LogicalType::FLOAT},
-	                                              {"textual", LogicalType::FLOAT},
-	                                              {"transactional", LogicalType::FLOAT}})};
+	desc.parameter_types = {LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
+	                         LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
+	                         LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
+	                         LogicalType::STRUCT({{"structural", LogicalType(LogicalTypeId::FLOAT)},
+	                                              {"textual", LogicalType(LogicalTypeId::FLOAT)},
+	                                              {"transactional", LogicalType(LogicalTypeId::FLOAT)}})};
 	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameArgumentsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 

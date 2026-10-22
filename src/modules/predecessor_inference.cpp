@@ -1,4 +1,6 @@
 #include "modules/predecessor_inference.hpp"
+#include "duckdb_compat.hpp"
+#include "core/named_parameters.hpp"
 #include "core/error_handling.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -16,13 +18,12 @@ namespace anofox {
 // Helper: Parse SQL to SubqueryRef
 //------------------------------------------------------------------------------
 
-static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
-	Parser parser(options);
-	parser.ParseQuery(query);
-	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &err_msg) {
+	auto statements = duckdb_compat::ParseStatements(context, query);
+	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
 		throw ParserException(err_msg);
 	}
-	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto &select_stmt = statements[0]->Cast<SelectStatement>();
 	auto new_stmt = make_uniq<SelectStatement>();
 	new_stmt->node = std::move(select_stmt.node);
 	return make_uniq<SubqueryRef>(std::move(new_stmt));
@@ -63,26 +64,26 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	string bom_table = "bom_items";
 	string movements_table = "goods_movements";
 
-	if (input.named_parameters.count("lookback_months") && !input.named_parameters.at("lookback_months").IsNull()) {
-		lookback_months = input.named_parameters.at("lookback_months").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "lookback_months"); value && !value->IsNull()) {
+		lookback_months = (*value).GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_similarity") && !input.named_parameters.at("min_similarity").IsNull()) {
-		min_similarity = input.named_parameters.at("min_similarity").GetValue<double>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
+		min_similarity = (*value).GetValue<double>();
 	}
-	if (input.named_parameters.count("min_confidence") && !input.named_parameters.at("min_confidence").IsNull()) {
-		min_confidence = input.named_parameters.at("min_confidence").GetValue<double>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_confidence"); value && !value->IsNull()) {
+		min_confidence = (*value).GetValue<double>();
 	}
-	if (input.named_parameters.count("lag_weeks") && !input.named_parameters.at("lag_weeks").IsNull()) {
-		lag_weeks = input.named_parameters.at("lag_weeks").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "lag_weeks"); value && !value->IsNull()) {
+		lag_weeks = (*value).GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("min_overlapping_weeks") && !input.named_parameters.at("min_overlapping_weeks").IsNull()) {
-		min_overlapping_weeks = input.named_parameters.at("min_overlapping_weeks").GetValue<int64_t>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_overlapping_weeks"); value && !value->IsNull()) {
+		min_overlapping_weeks = (*value).GetValue<int64_t>();
 	}
-	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
-		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
+		bom_table = (*value).GetValue<string>();
 	}
-	if (input.named_parameters.count("movements_table") && !input.named_parameters.at("movements_table").IsNull()) {
-		movements_table = input.named_parameters.at("movements_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "movements_table"); value && !value->IsNull()) {
+		movements_table = (*value).GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
@@ -222,7 +223,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		                                movements_table, query_material_id_sql, query_material_id_sql, min_similarity, bom_table,
 		                                movements_table, lookback_months, lag_weeks, min_overlapping_weeks, min_confidence);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse infer_predecessors query");
+	return ParseSubquery(sql, context, "Failed to parse infer_predecessors query");
 }
 
 //------------------------------------------------------------------------------
@@ -233,15 +234,6 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	// infer_predecessors
 	TableFunction infer_pred("infer_predecessors", {LogicalType::VARCHAR}, nullptr, nullptr);
 	infer_pred.bind_replace = InferPredecessorsBindReplace;
-	infer_pred.named_parameters["lookback_months"] = LogicalType::BIGINT;
-	infer_pred.named_parameters["min_similarity"] = LogicalType::DOUBLE;
-	infer_pred.named_parameters["min_confidence"] = LogicalType::DOUBLE;
-	infer_pred.named_parameters["lag_weeks"] = LogicalType::BIGINT;
-	infer_pred.named_parameters["min_overlapping_weeks"] = LogicalType::BIGINT;
-	infer_pred.named_parameters["bom_table"] = LogicalType::VARCHAR;
-	infer_pred.named_parameters["movements_table"] = LogicalType::VARCHAR;
-
-	CreateTableFunctionInfo info(infer_pred);
 	FunctionDescription desc;
 	desc.description = "Identifies predecessor (superseded) materials for a given successor by combining BOM "
 	                   "structural similarity with anti-correlated consumption patterns. Returns predecessor "
@@ -255,10 +247,15 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 	// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
 	// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
 	// test/sql/extension/function_documentation.test pins the rendered lists.
-	desc.parameter_names = {"material_id", "movements_table", "bom_table", "min_overlapping_weeks",
-	                        "lag_weeks", "min_confidence", "min_similarity", "lookback_months"};
+	AddDocumentedNamedParameters(infer_pred, desc, {"material_id"},
+	                             {{"movements_table", LogicalType::VARCHAR}, {"bom_table", LogicalType::VARCHAR},
+	                              {"min_overlapping_weeks", LogicalType::BIGINT}, {"lag_weeks", LogicalType::BIGINT},
+	                              {"min_confidence", LogicalType::DOUBLE}, {"min_similarity", LogicalType::DOUBLE},
+	                              {"lookback_months", LogicalType::BIGINT}});
 	desc.parameter_types = {LogicalType::VARCHAR};
+	CreateTableFunctionInfo info(infer_pred);
 	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameFunctionsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 

@@ -9,6 +9,7 @@ set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
 include_directories(src/include)
+include_directories(BEFORE compat-anofox/include duckdb-compat/include)
 
 # Optional: Find OpenVINO for textual embeddings support
 find_package(OpenVINO QUIET)
@@ -21,7 +22,6 @@ find_package(nlohmann_json CONFIG REQUIRED)
 set(EXTENSION_SOURCES
     src/anofox_similarity_extension.cpp
     src/core/constants.cpp
-    src/core/error_handling.cpp
     src/modules/jaccard_similarity.cpp
     src/modules/similarity_search.cpp
     src/modules/wl_kernel.cpp
@@ -44,6 +44,8 @@ set(EXTENSION_SOURCES
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
+target_compile_features(${EXTENSION_NAME} PRIVATE cxx_std_17)
+target_compile_features(${LOADABLE_EXTENSION_NAME} PRIVATE cxx_std_17)
 
 # Feedback banner (header-only). Telemetry ON so a printed banner counts as a
 # banner_shown event through the instance configured below; the include dir is
@@ -91,8 +93,8 @@ endif()
 
 # Link IOKit/CoreFoundation on macOS for GetMachineId (used by telemetry for the distinct id)
 if(APPLE)
-    target_link_libraries(${EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation")
-    target_link_libraries(${LOADABLE_EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(${EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation" "-framework Security")
+    target_link_libraries(${LOADABLE_EXTENSION_NAME} "-framework IOKit" "-framework CoreFoundation" "-framework Security")
 endif()
 
 target_link_libraries(${EXTENSION_NAME} nlohmann_json::nlohmann_json)

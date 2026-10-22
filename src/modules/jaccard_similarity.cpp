@@ -1,4 +1,7 @@
 #include "modules/jaccard_similarity.hpp"
+#include "duckdb_compat.hpp"
+#include "duckdb_compat/list_vector.hpp"
+#include "compat_anofox/scalar_bind.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/binary_executor.hpp"
@@ -47,21 +50,21 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 
 	// Flatten vectors for uniform access
 	UnifiedVectorFormat vdata_a, vdata_b;
-	list_a.ToUnifiedFormat(count, vdata_a);
-	list_b.ToUnifiedFormat(count, vdata_b);
+	duckdb_compat::ToUnifiedFormat(list_a, count, vdata_a);
+	duckdb_compat::ToUnifiedFormat(list_b, count, vdata_b);
 
 	UnifiedVectorFormat child_vdata_a, child_vdata_b;
 	auto child_count_a = ListVector::GetListSize(list_a);
 	auto child_count_b = ListVector::GetListSize(list_b);
-	child_a.ToUnifiedFormat(child_count_a, child_vdata_a);
-	child_b.ToUnifiedFormat(child_count_b, child_vdata_b);
+	duckdb_compat::ToUnifiedFormat(child_a, child_count_a, child_vdata_a);
+	duckdb_compat::ToUnifiedFormat(child_b, child_count_b, child_vdata_b);
 
 	auto list_entries_a = UnifiedVectorFormat::GetData<list_entry_t>(vdata_a);
 	auto list_entries_b = UnifiedVectorFormat::GetData<list_entry_t>(vdata_b);
 
 	result.SetVectorType(VectorType::FLAT_VECTOR);
-	auto result_data = FlatVector::GetData<double>(result);
-	auto &result_validity = FlatVector::Validity(result);
+	auto result_data = duckdb_compat::FlatData<double>(result);
+	auto &result_validity = duckdb_compat::MutableValidity(result);
 
 	for (idx_t i = 0; i < count; i++) {
 		auto idx_a = vdata_a.sel->get_index(i);
@@ -87,7 +90,7 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 		for (idx_t j = 0; j < entry_a.length; j++) {
 			auto child_idx = child_vdata_a.sel->get_index(entry_a.offset + j);
 			if (child_vdata_a.validity.RowIsValid(child_idx)) {
-				set_a.insert(child_a.GetValue(child_idx));
+				set_a.insert(child_a.GetValue(entry_a.offset + j));
 			}
 		}
 
@@ -96,7 +99,7 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 		for (idx_t j = 0; j < entry_b.length; j++) {
 			auto child_idx = child_vdata_b.sel->get_index(entry_b.offset + j);
 			if (child_vdata_b.validity.RowIsValid(child_idx)) {
-				set_b.insert(child_b.GetValue(child_idx));
+				set_b.insert(child_b.GetValue(entry_b.offset + j));
 			}
 		}
 
@@ -126,8 +129,7 @@ static void JaccardSimilarityFun(DataChunk &args, ExpressionState &state, Vector
 // Telemetry Bind Function
 //------------------------------------------------------------------------------
 
-static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, ScalarFunction &bound_function,
-                                                      vector<unique_ptr<Expression>> &arguments) {
+static unique_ptr<FunctionData> JaccardSimilarityBind() {
 	PostHogTelemetry::Instance().RecordFunctionCall("jaccard_similarity");
 	return nullptr;
 }
@@ -139,8 +141,9 @@ static unique_ptr<FunctionData> JaccardSimilarityBind(ClientContext &context, Sc
 void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	auto jaccard_similarity_function =
 	    ScalarFunction("jaccard_similarity", {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)},
-	                   LogicalType::DOUBLE, DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, JaccardSimilarityFun), JaccardSimilarityBind);
+	                   LogicalType::DOUBLE, DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, JaccardSimilarityFun), compat_anofox::ScalarBind<&JaccardSimilarityBind>());
 
+	duckdb_compat::SetFallible(jaccard_similarity_function);
 	CreateScalarFunctionInfo info(jaccard_similarity_function);
 	FunctionDescription desc;
 	desc.description = "Computes the Jaccard similarity coefficient between two lists treated as sets. "
@@ -153,6 +156,7 @@ void RegisterJaccardFunctions(ExtensionLoader &loader) {
 	desc.parameter_names = {"list_a", "list_b"};
 	desc.parameter_types = {LogicalType::LIST(LogicalType::ANY), LogicalType::LIST(LogicalType::ANY)};
 	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameArgumentsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 

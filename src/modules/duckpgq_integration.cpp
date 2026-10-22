@@ -1,6 +1,8 @@
 #include "modules/duckpgq_integration.hpp"
+#include "duckdb_compat.hpp"
 #include "core/error_handling.hpp"
 #include "datazoo_function_doc.hpp"
+#include "compat_anofox/macro_doc.hpp"
 #include "duckdb/main/connection.hpp"
 
 namespace ddoc = datazoo::doc;
@@ -9,22 +11,19 @@ namespace duckdb {
 namespace anofox {
 
 // Macro: check_duckpgq_available - Check if DuckPGQ extension is loaded
-static const DefaultMacro CHECK_DUCKPGQ_AVAILABLE_MACRO = {
-    DEFAULT_SCHEMA, "check_duckpgq_available", {nullptr}, {{nullptr, nullptr}},
-    R"( (
+static const char *CHECK_DUCKPGQ_AVAILABLE_MACRO = R"(() AS (
 			SELECT COUNT(*) > 0
 			FROM duckdb_functions()
 			WHERE function_name LIKE '%GRAPH_TABLE%'
-		))"};
+		))";
 
 void RegisterCheckDuckPGQMacro(ExtensionLoader &loader) {
-	ddoc::Registrar reg(loader, {"similarity", "graph"});
-	reg.RegisterMacro(CHECK_DUCKPGQ_AVAILABLE_MACRO,
+	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "check_duckpgq_available", CHECK_DUCKPGQ_AVAILABLE_MACRO),
 	                  {ddoc::Doc()
 	                       .Describe("Returns true when the DuckPGQ extension is loaded, so a caller can "
 	                                 "choose the graph-based BOM traversal path over the SQL fallback. "
 	                                 "DuckPGQ is an optional soft dependency and is never auto-installed.")
-	                       .Example("SELECT check_duckpgq_available()")});
+	                       .Example("SELECT check_duckpgq_available()")}, {"similarity", "graph"});
 }
 
 void InitializeDuckPGQIntegration(Connection &conn) {

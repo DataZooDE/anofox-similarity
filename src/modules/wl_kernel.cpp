@@ -1,7 +1,9 @@
 #include "modules/wl_kernel.hpp"
+#include "duckdb_compat.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
 #include "datazoo_function_doc.hpp"
+#include "compat_anofox/macro_doc.hpp"
 
 namespace ddoc = datazoo::doc;
 
@@ -75,12 +77,7 @@ static const DefaultTableMacro WL_FINGERPRINT_MACRO = {
 		)
 		GROUP BY component)"};
 
-static const DefaultMacro WL_KERNEL_SIMILARITY_MACRO = {
-    DEFAULT_SCHEMA,
-    "wl_kernel_similarity",
-    {"material_a", "material_b", nullptr},
-    {{"iterations", "3"}, {"bom_table", "'bom_items'"}, {nullptr, nullptr}},
-    R"( (
+static const char *WL_KERNEL_SIMILARITY_MACRO = R"((material_a, material_b, iterations := 3, bom_table := 'bom_items') AS (
 			WITH
 				fingerprint_a AS (SELECT * FROM wl_fingerprint(material_a, GREATEST(COALESCE(iterations, 3), 1), bom_table)),
 				fingerprint_b AS (SELECT * FROM wl_fingerprint(material_b, GREATEST(COALESCE(iterations, 3), 1), bom_table)),
@@ -100,10 +97,11 @@ static const DefaultMacro WL_KERNEL_SIMILARITY_MACRO = {
 				ELSE (SELECT total_intersection FROM totals)
 				     / (SELECT total_a + total_b - total_intersection FROM totals)
 			END
-		))"};
+		))";
 
 void RegisterWLKernelMacros(ExtensionLoader &loader) {
-	ddoc::Registrar reg(loader, {"similarity", "bom"});
+	const auto categories = duckdb::vector<duckdb::string> {"similarity", "bom"};
+	ddoc::Registrar reg(loader, categories);
 	reg.RegisterTableMacro(BOM_DFS_NEIGHBORHOOD_MACRO,
 	           {ddoc::Doc()
 	                .Describe("All descendant components of a root material within a depth limit, as a reusable depth-first BOM traversal over a (parent_id, child_id) edge table.")
@@ -112,10 +110,10 @@ void RegisterWLKernelMacros(ExtensionLoader &loader) {
 	           {ddoc::Doc()
 	                .Describe("Depth-expanded component fingerprint of one material, as component -> number of distinct depths at which it is reachable. Written as a non-recursive bounded expansion on purpose: DuckDB cannot decorrelate a recursive CTE inside a correlated scalar subquery, which is exactly how wl_kernel_similarity uses it. Iterations 1-5 are exact; higher values are capped at depth 5.")
 	                .Example("SELECT * FROM wl_fingerprint('PUMP-A', 3, 'bom_items')")});
-	reg.RegisterMacro(WL_KERNEL_SIMILARITY_MACRO,
+	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "wl_kernel_similarity", WL_KERNEL_SIMILARITY_MACRO),
 	           {ddoc::Doc()
 	                .Describe("Weisfeiler-Lehman kernel similarity between two materials' BOM structures, comparing their depth-expanded component fingerprints. Returns a score in [0, 1] where 1 means structurally identical. Iterations 1-5 are exact; higher values are capped at depth 5.")
-	                .Example("SELECT wl_kernel_similarity('PUMP-A', 'PUMP-B')")});
+	                .Example("SELECT wl_kernel_similarity('PUMP-A', 'PUMP-B')")}, categories);
 }
 
 } // namespace anofox

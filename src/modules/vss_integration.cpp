@@ -1,4 +1,6 @@
 #include "modules/vss_integration.hpp"
+#include "duckdb_compat.hpp"
+#include "core/named_parameters.hpp"
 #include "core/error_handling.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -17,13 +19,12 @@ namespace anofox {
 // Helper: Parse SQL to SubqueryRef
 //------------------------------------------------------------------------------
 
-static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOptions &options, const string &err_msg) {
-	Parser parser(options);
-	parser.ParseQuery(query);
-	if (parser.statements.size() != 1 || parser.statements[0]->type != StatementType::SELECT_STATEMENT) {
+static unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &err_msg) {
+	auto statements = duckdb_compat::ParseStatements(context, query);
+	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
 		throw ParserException(err_msg);
 	}
-	auto &select_stmt = parser.statements[0]->Cast<SelectStatement>();
+	auto &select_stmt = statements[0]->Cast<SelectStatement>();
 	auto new_stmt = make_uniq<SelectStatement>();
 	new_stmt->node = std::move(select_stmt.node);
 	return make_uniq<SubqueryRef>(std::move(new_stmt));
@@ -36,17 +37,21 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, const ParserOp
 void InitializeVSSIntegration(Connection &conn) {
 	// Best-effort loading strategy for restricted/offline environments:
 	// 1) Try loading an already-installed extension.
-	// 2) If that fails, try installing from repository, then load again.
+	// 2) If it is missing locally, try installing from repository, then load again.
 	// All steps are optional to avoid hard-failing extension load.
 	auto vss_result = conn.Query("LOAD vss;");
 	if (vss_result->HasError()) {
 		CheckQueryResult(vss_result, "load VSS extension", FailureMode::OPTIONAL);
 
-		auto install_result = conn.Query("INSTALL vss;");
-		CheckQueryResult(install_result, "install VSS extension", FailureMode::OPTIONAL);
-
-		vss_result = conn.Query("LOAD vss;");
-		CheckQueryResult(vss_result, "load VSS extension after install", FailureMode::OPTIONAL);
+		const auto error = StringUtil::Lower(vss_result->GetError());
+		if (error.find("not found") != string::npos || error.find("no such file") != string::npos) {
+			auto install_result = conn.Query("INSTALL vss;");
+			CheckQueryResult(install_result, "install VSS extension", FailureMode::OPTIONAL);
+			if (!install_result->HasError()) {
+				vss_result = conn.Query("LOAD vss;");
+				CheckQueryResult(vss_result, "load VSS extension after install", FailureMode::OPTIONAL);
+			}
+		}
 	}
 
 	// HNSW persistence is experimental - continue if unavailable
@@ -119,7 +124,7 @@ void CreateEmbeddingTables(Connection &conn) {
 		return;
 	}
 
-	if (migration_check->GetValue(0, 0).GetValue<int64_t>() > 0) {
+	if (duckdb_compat::ResultValue(*migration_check, 0, 0).GetValue<int64_t>() > 0) {
 		auto migration_result = conn.Query(R"(
 			UPDATE material_embeddings
 			SET structural_embedding = wl_embedding
@@ -178,8 +183,8 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 
 	string bom_table = "bom_items";
 
-	if (input.named_parameters.count("bom_table") && !input.named_parameters.at("bom_table").IsNull()) {
-		bom_table = input.named_parameters.at("bom_table").GetValue<string>();
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
+		bom_table = (*value).GetValue<string>();
 	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
@@ -218,7 +223,7 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 	)",
 	                                bom_table);
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse compute_jaccard_embeddings query");
+	return ParseSubquery(sql, context, "Failed to parse compute_jaccard_embeddings query");
 }
 
 //------------------------------------------------------------------------------
@@ -239,7 +244,7 @@ static unique_ptr<TableRef> CheckStatisticsFreshnessBindReplace(ClientContext &c
 		FROM transactional_embedding_statistics
 	)";
 
-	return ParseSubquery(sql, context.GetParserOptions(), "Failed to parse check_statistics_freshness query");
+	return ParseSubquery(sql, context, "Failed to parse check_statistics_freshness query");
 }
 
 //------------------------------------------------------------------------------
@@ -251,9 +256,6 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 	{
 		TableFunction compute_jaccard("compute_jaccard_embeddings", {}, nullptr, nullptr);
 		compute_jaccard.bind_replace = ComputeJaccardEmbeddingsBindReplace;
-		compute_jaccard.named_parameters["bom_table"] = LogicalType::VARCHAR;
-
-		CreateTableFunctionInfo info(compute_jaccard);
 		FunctionDescription desc;
 		desc.description = "Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed) from "
 		                   "BOM component sets; it does not write to material_embeddings — aggregate and upsert the "
@@ -262,7 +264,10 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 		desc.examples    = {"SELECT * FROM compute_jaccard_embeddings();",
 		                    "SELECT * FROM compute_jaccard_embeddings(bom_table := 'sap_stpo');"};
 		desc.categories  = {"embeddings", "structural"};
+		AddDocumentedNamedParameters(compute_jaccard, desc, {}, {{"bom_table", LogicalType::VARCHAR}});
+		CreateTableFunctionInfo info(compute_jaccard);
 		info.descriptions.push_back(std::move(desc));
+		duckdb_compat::NameFunctionsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
 
@@ -279,6 +284,7 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 		desc.examples    = {"SELECT * FROM check_statistics_freshness();"};
 		desc.categories  = {"embeddings", "transactional", "diagnostics"};
 		info.descriptions.push_back(std::move(desc));
+		duckdb_compat::NameFunctionsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
 }

@@ -1,4 +1,7 @@
 #include "modules/textual_embeddings.hpp"
+#include "duckdb_compat.hpp"
+#include "duckdb_compat/list_vector.hpp"
+#include "compat_anofox/scalar_bind.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
@@ -7,6 +10,7 @@
 #include "telemetry.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include "datazoo_function_doc.hpp"
+#include "compat_anofox/macro_doc.hpp"
 
 namespace ddoc = datazoo::doc;
 
@@ -220,9 +224,9 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 	auto &child = ListVector::GetEntry(result);
 	ListVector::SetListSize(result, count * 384);
 
-	auto result_entries = FlatVector::GetData<list_entry_t>(result);
-	auto child_data = FlatVector::GetData<float>(child);
-	auto &result_validity = FlatVector::Validity(result);
+	auto result_entries = duckdb_compat::FlatData<list_entry_t>(result);
+	auto child_data = duckdb_compat::FlatData<float>(child);
+	auto &result_validity = duckdb_compat::MutableValidity(result);
 
 	// Fill embeddings
 	for (idx_t i = 0; i < count; i++) {
@@ -257,8 +261,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 // Telemetry Bind Function
 //------------------------------------------------------------------------------
 
-static unique_ptr<FunctionData> EmbeddingBackendBind(ClientContext &context, ScalarFunction &bound_function,
-                                                     vector<unique_ptr<Expression>> &arguments) {
+static unique_ptr<FunctionData> EmbeddingBackendBind() {
 	PostHogTelemetry::Instance().RecordFunctionCall("embedding_backend");
 	return nullptr;
 }
@@ -271,12 +274,13 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	// Note: Returns LIST(FLOAT) - dimension (384) is enforced at runtime
 	auto embedding_backend_function =
 	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
-	                   LogicalType::LIST(LogicalType::FLOAT), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendFunction), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendBind));
+	                   LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendBind)>());
 	// SPECIAL_HANDLING so the function is still invoked when provider_config is NULL, instead of
 	// DuckDB short-circuiting the whole result to NULL. This is why compute_textual_embeddings used
 	// to return NULL for every row on its documented default (provider_config := NULL).
-	embedding_backend_function.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
+	duckdb_compat::SetNullHandling(embedding_backend_function, FunctionNullHandling::SPECIAL_HANDLING);
 
+	duckdb_compat::SetFallible(embedding_backend_function);
 	CreateScalarFunctionInfo info(embedding_backend_function);
 	FunctionDescription desc;
 	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384]) for the given text. "
@@ -290,6 +294,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	desc.parameter_names = {"text", "provider", "provider_config"};
 	desc.parameter_types = {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR};
 	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameArgumentsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 
@@ -333,19 +338,13 @@ void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN')")});
 }
 
-static const DefaultMacro EMBED_TEXT_MACRO = {
-    DEFAULT_SCHEMA,
-    "embed_text",
-    {nullptr},
-    {{"description", "''"}, {nullptr, nullptr}},
-    R"( embedding_backend(description, 'gemma-local', ''))"};
+static const char *EMBED_TEXT_MACRO = R"((description := '') AS embedding_backend(description, 'gemma-local', ''))";
 
 void RegisterEmbedTextLambdas(ExtensionLoader &loader) {
-	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
-	reg.RegisterMacro(EMBED_TEXT_MACRO,
+	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "embed_text", EMBED_TEXT_MACRO),
 	           {ddoc::Doc()
 	                .Describe("Embeds a single piece of text with the default local backend \u2014 shorthand for embedding_backend(description, 'gemma-local', '').")
-	                .Example("SELECT embed_text('centrifugal pump seal kit')")});
+	                .Example("SELECT embed_text('centrifugal pump seal kit')")}, {"similarity", "embeddings"});
 }
 
 } // namespace anofox
