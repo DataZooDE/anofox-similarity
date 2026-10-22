@@ -153,3 +153,13 @@ query I
 SELECT parameters FROM ours WHERE function_name = 'infer_predecessors';
 ----
 [material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'compute_transactional_embeddings';
+----
+[movements_table, time_window_days, batch_size, batch_offset]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'compute_jaccard_embeddings';
+----
+[bom_table]

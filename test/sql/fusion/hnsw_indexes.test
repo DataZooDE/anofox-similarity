@@ -1,0 +1,27 @@
+# name: test/sql/fusion/hnsw_indexes.test
+# description: VSS-backed HNSW indexes are created when the extension loads
+# group: [fusion]
+require anofox_similarity
+
+require vss
+
+query I
+SELECT count(*) FROM duckdb_indexes()
+WHERE index_name IN ('hnsw_structural_idx', 'hnsw_textual_idx', 'hnsw_combined_idx');
+----
+3
+
+statement ok
+CREATE INDEX IF NOT EXISTS hnsw_structural_idx ON material_embeddings USING HNSW(structural_embedding) WITH (metric = 'l2sq');
+
+statement ok
+CREATE INDEX IF NOT EXISTS hnsw_textual_idx ON material_embeddings USING HNSW(textual_embedding) WITH (metric = 'cosine');
+
+statement ok
+CREATE INDEX IF NOT EXISTS hnsw_combined_idx ON material_embeddings USING HNSW(combined_embedding) WITH (metric = 'cosine');
+
+query I
+SELECT count(*) FROM duckdb_indexes()
+WHERE index_name IN ('hnsw_structural_idx', 'hnsw_textual_idx', 'hnsw_combined_idx');
+----
+3

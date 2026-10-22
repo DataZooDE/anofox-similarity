@@ -1,0 +1,39 @@
+# name: test/sql/named_arguments.test
+# description: Scalar positional and named calls agree on supported DuckDB lines
+# group: [extension]
+require anofox_similarity
+
+statement ok
+CREATE TABLE named_arg_values(text VARCHAR, provider VARCHAR, provider_config VARCHAR);
+
+statement ok
+INSERT INTO named_arg_values VALUES ('x', 'p', '');
+
+query I
+SELECT embedding_backend('x', 'p', '') = embedding_backend(text := 'x', provider := 'p', provider_config := '');
+----
+true
+
+query I
+SELECT jaccard_similarity(['a', 'b'], ['a']) = jaccard_similarity(list_a := ['a', 'b'], list_b := ['a']);
+----
+true
+
+query I
+SELECT embedding_backend(text, provider, provider_config) =
+       embedding_backend(text := text, provider := provider, provider_config := provider_config)
+FROM named_arg_values;
+----
+true
+
+# sqllogictest onlyif/skipif select a runner system or loop variable, not a DuckDB
+# version. A SQL CASE on version() gates the assertion while keeping one test file
+# legal on both lines. On 1.5.6 the reversed call is bound positionally; on 2.0
+# the ELSE branch checks that name-based binding gives the positional result.
+query I
+SELECT CASE WHEN starts_with(version(), 'v1.5.6') THEN true ELSE
+       embedding_backend('x', 'p', '') =
+       embedding_backend(provider := 'p', text := 'x', provider_config := '') END;
+----
+true
+

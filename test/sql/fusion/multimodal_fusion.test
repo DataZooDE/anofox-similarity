@@ -108,27 +108,6 @@ SELECT fuse_embeddings(
 );
 
 # ============================================================================
-# Test 11: Verify HNSW index for structural embeddings was created
-# ============================================================================
-
-statement ok
-CREATE INDEX IF NOT EXISTS hnsw_structural_idx ON material_embeddings USING HNSW(structural_embedding) WITH (metric = 'l2sq');
-
-# ============================================================================
-# Test 12: Verify HNSW index for textual embeddings was created
-# ============================================================================
-
-statement ok
-CREATE INDEX IF NOT EXISTS hnsw_textual_idx ON material_embeddings USING HNSW(textual_embedding) WITH (metric = 'cosine');
-
-# ============================================================================
-# Test 13: Verify HNSW index for combined embeddings was created
-# ============================================================================
-
-statement ok
-CREATE INDEX IF NOT EXISTS hnsw_combined_idx ON material_embeddings USING HNSW(combined_embedding) WITH (metric = 'cosine');
-
-# ============================================================================
 # Test 14: Verify no old wl_embedding column
 # ============================================================================
 
@@ -199,7 +178,7 @@ WHERE material_id IN ('MAT-001', 'MAT-002', 'MAT-003')
 # ✅ Test 5-7: Test data insertion successful
 # ✅ Test 8-9: fuse_embeddings and compute_fused_embeddings functions exist
 # ✅ Test 10: fuse_embeddings handles NULL transactional embeddings
-# ✅ Test 11-13: HNSW indexes created for structural, textual, and combined embeddings
+# ✅ HNSW index checks run separately in hnsw_indexes.test when VSS is available
 # ✅ Test 14: Old wl_embedding column removed (no backward compat issue)
 # ✅ Test 15: New schema has correct number of columns (9)
 # ✅ Test 16-17: compute_fused_embeddings macro works with default and custom weights
@@ -219,4 +198,4 @@ WHERE material_id IN ('MAT-001', 'MAT-002', 'MAT-003')
 # - Late fusion formula support: ✓
 #
 # Vector Similarity Search:
-# - HNSW indexes: structural (L2), textual (cosine), combined (cosine) ✓
+# - HNSW indexes: see hnsw_indexes.test
