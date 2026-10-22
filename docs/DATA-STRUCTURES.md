@@ -1,5 +1,7 @@
 # Data Structures Architecture for anofox-similarity
 
+
+On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 Multi-modal product similarity detection in DuckDB requires a carefully designed schema that abstracts ERP-specific BOM representations, leverages native columnar storage for embeddings, and integrates graph structures for structural similarity. This architecture enables **Mittelstand-scale** deployments (10,000-50,000 materials) to perform Jaccard, Weisfeiler-Lehman kernel, and embedding-based similarity computations within a single DuckDB instance.
 
 The design centers on three pillars: a universal BOM abstraction layer accepting data from SAP, Dynamics 365, Oracle, and other ERPs; native DuckDB data structures optimized for **FLOAT[N] embedding storage** with HNSW indexing; and graph representations using DuckPGQ property graphs with CSR-backed traversal. Total memory footprint for 50,000 materials with multi-modal embeddings is approximately **200-250 MB**, well within single-node constraints.
