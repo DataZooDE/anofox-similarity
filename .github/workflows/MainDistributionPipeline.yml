@@ -14,29 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  duckdb-stable-build:
-    name: Build extension binaries (DuckDB v1.4.5 LTS)
-    # No extension-ci-tools tag is compatible with DuckDB v1.4.5 on current runners:
-    # the v1.4 line (v1.4.4 / v1.4-andium) ships an OpenSSL vcpkg baseline that fails
-    # to build under MinGW and won't link under vs2019comp on Windows-2025, and forcing
-    # the newer baseline breaks the v1.4 Docker images on Linux. Pin to the current
-    # extension-ci-tools main commit, whose Docker images, vcpkg baseline (84bab45d) and
-    # Windows-2025 fixes are mutually consistent and build OpenSSL on all platforms.
-    # Pinned to a SHA (not the moving main branch) for reproducibility.
-    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@a00c74e02aefbfa3fd31a4c74c4b6bc260af0de7
-    with:
-      duckdb_version: v1.4.5
-      ci_tools_version: a00c74e02aefbfa3fd31a4c74c4b6bc260af0de7
-      extension_name: anofox_similarity
-      # macOS gating: build osx_amd64/osx_arm64 ONLY on tag (release) pushes. On PRs /
-      # branch pushes / main the two osx archs are excluded -- macOS runners are the
-      # dominant CI cost and don't need to run on every change. On a tag the exclude is
-      # empty, so both osx archs build natively on macos-latest -- a real Mac, never
-      # mocked (the live acceptance gate). Unfiltered `push:` above already fires on tags,
-      # so no trigger change is needed. Linux/Windows stay on the default GitHub-hosted
-      # runners (free for this public repo).
-      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
-
   duckdb-v156-build:
     name: Build extension binaries (DuckDB v1.5.6)
     # extension-ci-tools branch matching the v1.5.6 duckdb release
@@ -45,16 +22,13 @@ jobs:
       duckdb_version: v1.5.6
       ci_tools_version: v1.5.6
       extension_name: anofox_similarity
-      # macOS gating -- see the v1.4.5 job above. osx builds only on tag (release) pushes.
-      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
-
-  duckdb-stable-smoke-test:
-    name: Smoke test (v1.4.5)
-    needs: duckdb-stable-build
-    uses: ./.github/workflows/_extension_smoke_test.yml
-    with:
-      duckdb_version: v1.4.5
-      extension_name: anofox_similarity
+      # macOS gating: build osx_amd64/osx_arm64 ONLY on tag (release) pushes. On PRs /
+      # branch pushes / main the two osx archs are excluded -- macOS runners are the
+      # dominant CI cost and don't need to run on every change. On a tag the exclude is
+      # empty, so both osx archs build natively on macos-latest -- a real Mac, never
+      # mocked (the live acceptance gate). Unfiltered `push:` above already fires on tags,
+      # so no trigger change is needed. Linux/Windows stay on the default GitHub-hosted
+      # runners (free for this public repo).
       exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
 
   duckdb-v156-smoke-test:
