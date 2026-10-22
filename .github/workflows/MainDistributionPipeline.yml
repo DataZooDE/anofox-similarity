@@ -27,9 +27,12 @@ jobs:
       # dominant CI cost and don't need to run on every change. On a tag the exclude is
       # empty, so both osx archs build natively on macos-latest -- a real Mac, never
       # mocked (the live acceptance gate). Unfiltered `push:` above already fires on tags,
+      # NOTE: `cond && '' || x` always yields x in GitHub expressions ('' is falsy), so the
+      # tag branch must be a non-empty string; windows_amd64_rtools (R-only) is excluded on
+      # every ref and serves as that value.
       # so no trigger change is needed. Linux/Windows stay on the default GitHub-hosted
       # runners (free for this public repo).
-      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
+      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && 'windows_amd64_rtools' || 'osx_amd64;osx_arm64;windows_amd64_rtools' }}
 
   duckdb-next-build:
     name: Build extension binaries (DuckDB v2.0.0)
@@ -38,7 +41,7 @@ jobs:
       duckdb_version: d54cbbe3df17e8e5ce68312f483b4155836112aa
       ci_tools_version: v2.0-cyanoptera
       extension_name: anofox_similarity
-      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
+      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && 'windows_amd64_rtools' || 'osx_amd64;osx_arm64;windows_amd64_rtools' }}
 
   duckdb-v156-smoke-test:
     name: Smoke test (v1.5.6)
@@ -47,4 +50,4 @@ jobs:
     with:
       duckdb_version: v1.5.6
       extension_name: anofox_similarity
-      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && '' || 'osx_amd64;osx_arm64' }}
+      exclude_archs: ${{ startsWith(github.ref, 'refs/tags/') && 'windows_amd64_rtools' || 'osx_amd64;osx_arm64;windows_amd64_rtools' }}
