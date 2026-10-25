@@ -76,12 +76,12 @@ const Value *Field(const Value &v, const char *name) {
 	return nullptr;
 }
 
-string Str(const Value &v, const char *name) {
+string FieldText(const Value &v, const char *name) {
 	auto f = Field(v, name);
 	return f && !f->IsNull() ? f->ToString() : string();
 }
 
-bool Num(const Value &v, const char *name, double &out) {
+bool FieldNumber(const Value &v, const char *name, double &out) {
 	auto f = Field(v, name);
 	if (!f || f->IsNull()) {
 		return false;
@@ -244,15 +244,15 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 			continue;
 		}
 		KAttr k;
-		k.id = Str(a, "attr_id");
-		k.name = Str(a, "name");
-		k.dimension = Str(a, "dimension");
-		k.unit = Str(a, "unit");
-		k.has_lo = Num(a, "lo", k.lo);
-		k.has_hi = Num(a, "hi", k.hi);
-		k.bound = Str(a, "bound");
-		k.default_bound = Str(a, "default_bound");
-		k.category = Str(a, "category");
+		k.id = FieldText(a, "attr_id");
+		k.name = FieldText(a, "name");
+		k.dimension = FieldText(a, "dimension");
+		k.unit = FieldText(a, "unit");
+		k.has_lo = FieldNumber(a, "lo", k.lo);
+		k.has_hi = FieldNumber(a, "hi", k.hi);
+		k.bound = FieldText(a, "bound");
+		k.default_bound = FieldText(a, "default_bound");
+		k.category = FieldText(a, "category");
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -273,14 +273,14 @@ vector<RawNode> ReadRawNodes(const Value &list) {
 			continue;
 		}
 		RawNode r;
-		r.id = Str(entry, "node_id");
+		r.id = FieldText(entry, "node_id");
 		if (r.id.empty() || !seen.insert(r.id).second) {
 			continue;
 		}
-		r.parent = Str(entry, "parent_id");
-		r.kind = Str(entry, "node_kind");
-		r.edge = StringUtil::Upper(Str(entry, "edge_type"));
-		r.cls = Str(entry, "class_id");
+		r.parent = FieldText(entry, "parent_id");
+		r.kind = FieldText(entry, "node_kind");
+		r.edge = StringUtil::Upper(FieldText(entry, "edge_type"));
+		r.cls = FieldText(entry, "class_id");
 		if (auto cnt = Field(entry, "count"); cnt && !cnt->IsNull()) {
 			r.count = cnt->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			if (!std::isfinite(r.count) || r.count <= 0) {
@@ -405,17 +405,17 @@ Options LoadOptions(const Value &v) {
 	if (v.IsNull()) {
 		return o;
 	}
-	auto labels = Str(v, "labels");
+	auto labels = FieldText(v, "labels");
 	o.soft = labels.empty() || StringUtil::Lower(labels) != "hard";
-	auto assignment = Str(v, "assignment");
+	auto assignment = FieldText(v, "assignment");
 	if (!assignment.empty()) {
 		o.assignment = StringUtil::Lower(assignment);
 	}
-	Num(v, "label_weight", o.label_weight);
-	Num(v, "mu", o.mu);
-	Num(v, "partition_gate", o.partition_gate);
-	Num(v, "count_gate", o.count_gate);
-	Num(v, "name_floor", o.name_floor);
+	FieldNumber(v, "label_weight", o.label_weight);
+	FieldNumber(v, "mu", o.mu);
+	FieldNumber(v, "partition_gate", o.partition_gate);
+	FieldNumber(v, "count_gate", o.count_gate);
+	FieldNumber(v, "name_floor", o.name_floor);
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
 	auto error = KernelSettingsError(StringUtil::Lower(labels), o.assignment, o.label_weight, o.mu, o.partition_gate,
@@ -427,8 +427,8 @@ Options LoadOptions(const Value &v) {
 	if (rules && !rules->IsNull()) {
 		for (auto &r : ListValue::GetChildren(*rules)) {
 			double score = 0;
-			if (!r.IsNull() && Num(r, "score", score)) {
-				o.rules[std::make_tuple(Str(r, "dimension"), Str(r, "required"), Str(r, "provided"))] = score;
+			if (!r.IsNull() && FieldNumber(r, "score", score)) {
+				o.rules[std::make_tuple(FieldText(r, "dimension"), FieldText(r, "required"), FieldText(r, "provided"))] = score;
 			}
 		}
 	}
@@ -480,7 +480,7 @@ double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 		}
 		if (nx > 0 && ny > 0) {
 			double cos = dot / std::sqrt(nx * ny);
-			double floor = o.name_floor >= 1 ? 0.999999 : o.name_floor;
+			double floor = o.name_floor; // validated to [0, 1)
 			return MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor)));
 		}
 	}
@@ -499,7 +499,7 @@ double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 	return double(inter) / double(sa.size() + sb.size() - inter);
 }
 
-string Fmt(double v) {
+string FormatNumber(double v) {
 	return StringUtil::Format("%g", v);
 }
 
@@ -516,7 +516,7 @@ string ValueText(const KAttr &a, bool requirement, const string &bound) {
 		return s + "?";
 	}
 	double lo = a.has_lo ? a.lo : a.hi, hi = a.has_hi ? a.hi : a.lo;
-	s += lo == hi ? Fmt(lo) : Fmt(lo) + ".." + Fmt(hi);
+	s += lo == hi ? FormatNumber(lo) : FormatNumber(lo) + ".." + FormatNumber(hi);
 	if (!a.unit.empty() && a.unit != "1") {
 		s += " " + a.unit;
 	}
@@ -590,15 +590,15 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	return best;
 }
 
-struct Pair {
+struct ItemScore {
 	double label = 0;
 	double a = 1;
 	double score = 0;
 	vector<AttrMatch> attrs;
 };
 
-Pair Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
-	Pair p;
+ItemScore Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
+	ItemScore p;
 	p.label = LabelSim(q, c, o);
 	if (p.label <= 0) {
 		p.a = 0;
@@ -633,7 +633,7 @@ bool Compatible(const KItem &a, const KItem &b) {
 struct ReqResult {
 	const KItem *q = nullptr;
 	const KItem *matched = nullptr;
-	Pair pair;
+	ItemScore pair;
 	double count_available = 0;
 	double count_factor = 0;
 	double score = 0;
@@ -708,10 +708,10 @@ LogicalType KernelResultType() {
 	return LogicalType::STRUCT(c);
 }
 
-Value Opt(const string &s) {
+Value TextOrNull(const string &s) {
 	return s.empty() ? Value(LogicalType::VARCHAR) : Value(s);
 }
-Value OptD(bool has, double v) {
+Value DoubleOrNull(bool has, double v) {
 	return has ? Value::DOUBLE(v) : Value(LogicalType::DOUBLE);
 }
 
@@ -720,7 +720,7 @@ Value OptD(bool has, double v) {
 //! below 1.
 void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Options &o) {
 	const KItem *best = nullptr;
-	Pair best_pair;
+	ItemScore best_pair;
 	for (auto c : pool) {
 		auto p = Score(*r.q, *c, o, false);
 		if (p.label <= 0) {
@@ -812,15 +812,15 @@ Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	v.emplace_back("matched_node_id", r.matched ? Value(r.matched->id) : Value(LogicalType::VARCHAR));
 	v.emplace_back("matched_path", r.matched ? Value(r.matched->path) : Value(LogicalType::VARCHAR));
 	v.emplace_back("label_sim", r.matched ? Value::DOUBLE(r.pair.label) : Value::DOUBLE(0.0));
-	v.emplace_back("attr_id", m ? Opt(m->req->id) : Value(LogicalType::VARCHAR));
-	v.emplace_back("attr_name", m ? Opt(m->req->name) : Value(LogicalType::VARCHAR));
+	v.emplace_back("attr_id", m ? TextOrNull(m->req->id) : Value(LogicalType::VARCHAR));
+	v.emplace_back("attr_name", m ? TextOrNull(m->req->name) : Value(LogicalType::VARCHAR));
 	v.emplace_back("req_value", m ? Value(ValueText(*m->req, true, m->bound)) : Value(LogicalType::VARCHAR));
 	v.emplace_back("prov_value", m && m->prov ? Value(ValueText(*m->prov, false, "")) : Value(LogicalType::VARCHAR));
 	v.emplace_back("gate", m ? Value::BOOLEAN(m->gate) : Value(LogicalType::BOOLEAN));
 	v.emplace_back("name_sim", m && !m->gate ? Value::DOUBLE(m->name_sim) : Value(LogicalType::DOUBLE));
 	v.emplace_back("value_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->value_score) : Value(LogicalType::DOUBLE));
-	v.emplace_back("distance", m ? OptD(!m->gate && m->has_distance, m->distance) : Value(LogicalType::DOUBLE));
-	v.emplace_back("rule", m ? Opt(m->rule) : Value(LogicalType::VARCHAR));
+	v.emplace_back("distance", m ? DoubleOrNull(!m->gate && m->has_distance, m->distance) : Value(LogicalType::DOUBLE));
+	v.emplace_back("rule", m ? TextOrNull(m->rule) : Value(LogicalType::VARCHAR));
 	v.emplace_back("attr_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->score) : Value(LogicalType::DOUBLE));
 	v.emplace_back("count_needed", Value::DOUBLE(r.q->count));
 	v.emplace_back("count_available", Value::DOUBLE(r.count_available));
@@ -943,7 +943,7 @@ unique_ptr<FunctionData> CoverageKernelBind() {
 
 
 
-struct CoverageParams {
+struct TreeCoverageParams {
 	vector<string> query_ids;
 	bool has_candidates = false;
 	vector<string> candidates;
@@ -966,7 +966,7 @@ struct CoverageParams {
 
 
 //! The query and candidate trees: ids, tables, class sources (validated).
-void ReadTreeSides(const CoverageParamReader &r, TableFunctionBindInput &input, CoverageParams &p, bool stage2,
+void ReadTreeSides(const CoverageParamReader &r, TableFunctionBindInput &input, TreeCoverageParams &p, bool stage2,
                    bool fit) {
 	if (!fit) {
 		if (input.inputs.empty() || input.inputs[0].IsNull()) {
@@ -1012,7 +1012,7 @@ void ReadTreeSides(const CoverageParamReader &r, TableFunctionBindInput &input, 
 }
 
 //! Kernel and stage-1 settings (validated as for the coverage_kernel scalar).
-void ReadKernelSettings(const CoverageParamReader &r, CoverageParams &p) {
+void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.labels = StringUtil::Lower(r.Str("labels", p.labels));
 	p.assignment = StringUtil::Lower(r.Str("assignment", p.assignment));
 	if (p.labels.empty()) {
@@ -1044,7 +1044,7 @@ void ReadKernelSettings(const CoverageParamReader &r, CoverageParams &p) {
 }
 
 //! The optional side tables: catalogue templates, compatibility rules, name vectors, the index.
-void ReadSideTables(const CoverageParamReader &r, CoverageParams &p) {
+void ReadSideTables(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.default_bounds = StringUtil::Lower(r.Str("default_bounds"));
 	if (!p.default_bounds.empty() && p.default_bounds != "catalogue") {
 		throw BinderException("%s: default_bounds must be NULL or 'catalogue'", r.fn);
@@ -1065,10 +1065,10 @@ void ReadSideTables(const CoverageParamReader &r, CoverageParams &p) {
 	p.multiset_has_reviewed = !p.multiset_table.empty() && r.Has(p.multiset_table, "reviewed");
 }
 
-CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
+TreeCoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
                                   bool stage2, bool fit = false) {
 	CoverageParamReader reader {context, input.named_parameters, fn};
-	CoverageParams p;
+	TreeCoverageParams p;
 	ReadTreeSides(reader, input, p, stage2, fit);
 	ReadKernelSettings(reader, p);
 	ReadSideTables(reader, p);
@@ -1076,7 +1076,7 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 }
 
 //! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
-string Stage1SQL(const CoverageParams &p) {
+string Stage1SQL(const TreeCoverageParams &p) {
 	// a query is not its own candidate when both come from the same table
 	string self = !p.has_candidates && p.same_nodes_table ? " AND c.tree_id <> q.tree_id" : "";
 	// explicit candidates are all scored; otherwise only candidates sharing a class can score > 0
@@ -1158,7 +1158,7 @@ string Stage1SQL(const CoverageParams &p) {
 }
 
 //! Attributes of one side, packed per node, with default bounds and name vectors.
-string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSource &src, const string &nodes_cte,
+string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeSource &src, const string &nodes_cte,
                 bool query_side) {
 	if (src.attrs_table.empty()) {
 		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL AS attrs WHERE false";
@@ -1226,7 +1226,7 @@ string PackedSQL(const string &nodes_cte, const string &attrs_cte, const string 
 
 //! The packed trees of both sides, as CTEs over qn/cn and q_ids/c_ids: attributes (qa, ca),
 //! soft labels (ql, cl) and the node lists the kernel reads (qp, cp).
-string PackedSidesSQL(ClientContext &context, const CoverageParams &p) {
+string PackedSidesSQL(ClientContext &context, const TreeCoverageParams &p) {
 	return StringUtil::Format("qa AS (%s),\n\t\tca AS (%s),\n\t\tql AS (%s),\n\t\tcl AS (%s),\n\t\tqp AS (%s),\n\t\tcp AS (%s),",
 	                          AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
 	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
@@ -1234,7 +1234,7 @@ string PackedSidesSQL(ClientContext &context, const CoverageParams &p) {
 }
 
 //! The kernel's options STRUCT; label_weight and mu as SQL expressions (literals or grid columns).
-string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weight, const string &mu) {
+string OptionsSQL(const TreeCoverageParams &p, bool trace, const string &label_weight, const string &mu) {
 	string rules = p.rules_table.empty()
 	                   ? "NULL"
 	                   : StringUtil::Format("(SELECT list(struct_pack(dimension := CAST(dimension AS VARCHAR), required "
@@ -1248,7 +1248,7 @@ string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weigh
 	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), trace ? "true" : "false", rules);
 }
 
-string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
+string KernelSQL(ClientContext &context, const TreeCoverageParams &p, bool trace) {
 	// with an index, stage 1 did not resolve the candidate trees: resolve the top k only
 	string candidate_nodes =
 	    p.multiset_table.empty()
@@ -1304,6 +1304,8 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 	return CoverageSubquery(sql, context, "tree_coverage_trace");
 }
 
+constexpr idx_t MAX_GRID_VALUES = 20;
+
 //! fit_coverage_weights: the kernel over reviewed pairs for every grid point (HLD §4.8, BR-52).
 unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("fit_coverage_weights");
@@ -1326,6 +1328,9 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 		if (out.empty()) {
 			throw BinderException("%s: %s must not be empty", fn, name);
 		}
+		if (out.size() > MAX_GRID_VALUES) {
+			throw BinderException("%s: at most 20 values per grid axis", fn);
+		}
 		string list;
 		for (auto d : out) {
 			list += (list.empty() ? "" : ", ") + DoubleLiteral(d);
@@ -1334,9 +1339,6 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 	};
 	auto label_weights = grid("label_weights", {0.0, 0.1, 0.2, 0.3, 0.5});
 	auto mus = grid("mus", {0.0, 0.1, 0.2, 0.3});
-	if (std::count(label_weights.begin(), label_weights.end(), ',') >= 20 || std::count(mus.begin(), mus.end(), ',') >= 20) {
-		throw BinderException("%s: at most 20 values per grid axis", fn);
-	}
 	auto sql = StringUtil::Format(R"(
 		WITH top AS (
 			SELECT DISTINCT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id,

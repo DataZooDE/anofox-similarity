@@ -28,7 +28,7 @@ void ValidateColumnName(const string &column, const string &param_name) {
 
 
 
-struct CoverageParams {
+struct SearchParams {
 	int64_t k = 0;
 	string mode = "containment";
 	double alpha = 1.0;
@@ -42,8 +42,8 @@ struct CoverageParams {
 	string weight_col = "weight";
 };
 
-CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input, const string &fn) {
-	CoverageParams p;
+SearchParams ReadParams(ClientContext &context, TableFunctionBindInput &input, const string &fn) {
+	SearchParams p;
 	if (input.inputs.size() < 2) {
 		throw BinderException("%s requires 2 arguments: query, k", fn.c_str());
 	}
@@ -130,7 +130,7 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 
 //! The feature multiset CTE: one row per (entity, feature) with a summed,
 //! non-negative weight (NULL counts as 1); weight 1 when unweighted.
-string FeatureMultisetSQL(const CoverageParams &p) {
+string FeatureMultisetSQL(const SearchParams &p) {
 	auto entity = "\"" + p.entity_col + "\"";
 	auto feature = "\"" + p.feature_col + "\"";
 	auto table = QuotedIdentifier(p.feature_table);
@@ -156,7 +156,7 @@ string FeatureMultisetSQL(const CoverageParams &p) {
 }
 
 //! Rank candidates against the query CTE `q(feature_id, weight)`.
-string RankingSQL(const CoverageParams &p, const string &query_cte, const string &exclude_entity_sql) {
+string RankingSQL(const SearchParams &p, const string &query_cte, const string &exclude_entity_sql) {
 	string measure;
 	if (p.mode == "containment") {
 		measure = ContainmentSQL("shared_weight", "query_weight");
