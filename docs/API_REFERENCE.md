@@ -1695,12 +1695,17 @@ SELECT * FROM apply_vocabulary_review('review', overrides_table := 'vocabulary_o
 CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
        attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
        name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
-COPY (SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
-      texts_table := 'item_texts', catalogue_table := 'catalogue_classes')) TO 'to_review.jsonl' (HEADER false, QUOTE '');
--- answers: (tree_id, node_id, class_id)
-CREATE TABLE request_labels AS SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(
-       items_table := 'request_items', catalogue_table := 'catalogue', decisions_table := 'answers', ...);
-SELECT * FROM tree_coverage(..., label_table := 'request_labels');
+-- one JSON object per row, ready for an LLM or a colleague
+SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
+       texts_table := 'item_texts', catalogue_table := 'catalogue_classes');
+-- write the answers (tree_id, node_id, class_id) back and classify again
+CREATE TABLE request_labels AS
+SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items',
+       catalogue_table := 'catalogue', attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'), decisions_table := 'answers');
+SELECT * FROM tree_coverage('R07', k := 20, nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', label_table := 'request_labels');
 ```
 
 **Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after
