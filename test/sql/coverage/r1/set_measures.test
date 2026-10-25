@@ -1,0 +1,181 @@
+# name: test/sql/coverage/r1/set_measures.test
+# description: Directional and weighted set measures (HLD §4.1): tversky_similarity,
+#              containment, weighted_jaccard, weighted_containment, weighted_tversky.
+#              Expected values are computed by hand in the comment above each query.
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- tversky_similarity
+
+# q={a,b,c}, c={b,c,d}: |q∩c|=2, |q\c|=1, |c\q|=1
+# default alpha=beta=1: 2/(2+1+1) = 0.5, the same as jaccard_similarity
+query RR
+SELECT tversky_similarity(['a','b','c'], ['b','c','d']),
+       jaccard_similarity(['a','b','c'], ['b','c','d']);
+----
+0.5	0.5
+
+# alpha=1, beta=0 is containment: 2/(2+1) = 0.6667
+query R
+SELECT round(tversky_similarity(['a','b','c'], ['b','c','d'], 1.0, 0.0), 4);
+----
+0.6667
+
+# alpha=beta=0.5 (Dice): 2/(2+0.5+0.5) = 0.6667
+query R
+SELECT round(tversky_similarity(['a','b','c'], ['b','c','d'], 0.5, 0.5), 4);
+----
+0.6667
+
+# a richer candidate is only mildly penalised with a small beta:
+# q={a,b}, c={a,b,c,d}: 2/(2 + 1*0 + 0.25*2) = 0.8
+query R
+SELECT tversky_similarity(['a','b'], ['a','b','c','d'], 1.0, 0.25);
+----
+0.8
+
+# named arguments in the documented order (DuckDB 1.5.6 binds them by position)
+query I
+SELECT tversky_similarity(query := ['a','b'], candidate := ['a','b','c','d'], alpha := 1.0, beta := 0.25)
+     = tversky_similarity(['a','b'], ['a','b','c','d'], 1.0, 0.25);
+----
+true
+
+# conventions: NULL in -> NULL out; both empty -> 0.0 (as jaccard_similarity);
+# empty query with beta = 0 has a zero denominator -> NULL
+query RRRR
+SELECT tversky_similarity(NULL::VARCHAR[], ['a']),
+       tversky_similarity([]::VARCHAR[], []::VARCHAR[]),
+       tversky_similarity([]::VARCHAR[], ['a'], 1.0, 0.0),
+       tversky_similarity(['a'], ['a'], NULL, 1.0);
+----
+NULL	0.0	NULL	NULL
+
+statement error
+SELECT tversky_similarity(['a'], ['b'], -1.0, 0.0);
+----
+alpha and beta must be non-negative
+
+# ---------------------------------------------------------------- containment
+
+# containment(q, c) = |q∩c| / |q|
+# {a,b,c} in {b,c,d}: 2/3; {a,b} in {a,b,c,d}: 2/2 = 1.0; duplicates collapse: {a,b} in {a}: 1/2
+query RRR
+SELECT round(containment(['a','b','c'], ['b','c','d']), 4),
+       containment(['a','b'], ['a','b','c','d']),
+       containment(['a','a','b'], ['a']);
+----
+0.6667	1.0	0.5
+
+# integer elements work like strings
+query R
+SELECT round(containment([1, 2, 3], [2, 3, 9]), 4);
+----
+0.6667
+
+# the measure is directional: containment(q, c) <> containment(c, q)
+query RR
+SELECT containment(['a','b'], ['a','b','c','d']), containment(['a','b','c','d'], ['a','b']);
+----
+1.0	0.5
+
+# empty request -> NULL (not 1); empty candidate -> 0.0; NULL -> NULL
+query RRR
+SELECT containment([]::VARCHAR[], ['a']), containment(['a'], []::VARCHAR[]), containment(['a'], NULL::VARCHAR[]);
+----
+NULL	0.0	NULL
+
+query I
+SELECT containment(query := ['a','b'], candidate := ['a']) = containment(['a','b'], ['a']);
+----
+true
+
+# ---------------------------------------------------------------- weighted measures
+
+# q = {heating:2, massage:4}, c = {heating:4, ventilation:2}
+# Σmin = min(2,4) + min(4,0) + min(0,2) = 2
+# Σmax = 4 + 4 + 2 = 10 -> weighted_jaccard = 0.2
+# Σq = 6 -> weighted_containment = 2/6 = 0.3333
+query RR
+SELECT weighted_jaccard(MAP {'heating': 2.0, 'massage': 4.0}, MAP {'heating': 4.0, 'ventilation': 2.0}),
+       round(weighted_containment(MAP {'heating': 2.0, 'massage': 4.0}, MAP {'heating': 4.0, 'ventilation': 2.0}), 4);
+----
+0.2	0.3333
+
+# HANDOVER §4 example: containment = (min(3,2) + min(1,1)) / (3 + 1) = 0.75
+query R
+SELECT weighted_containment(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'b': 5});
+----
+0.75
+
+# counts matter (BR-02): 4 massage zones are not covered by a 2-zone module
+# q={massage:4}, c={massage:2}: 2/4 = 0.5, while the unweighted containment is 1.0
+query RR
+SELECT weighted_containment(MAP {'massage': 4}, MAP {'massage': 2}), containment(['massage'], ['massage']);
+----
+0.5	1.0
+
+# weighted_tversky(q, c, a, b) = Σmin / (Σmin + a*Σ(q-c)+ + b*Σ(c-q)+)
+# q={a:3,b:1}, c={a:2,c:2}: Σmin=2, Σ(q-c)+ = 1+1 = 2, Σ(c-q)+ = 2
+# a=b=0.5: 2/(2+1+1) = 0.5; a=1,b=0: 2/(2+2) = 0.5 (= weighted_containment 2/4)
+query RRR
+SELECT weighted_tversky(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2}, 0.5, 0.5),
+       weighted_tversky(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2}, 1.0, 0.0),
+       weighted_containment(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2});
+----
+0.5	0.5	0.5
+
+# default alpha=beta=1 equals weighted_jaccard: Σmin/(Σmin+Σ(q-c)+ +Σ(c-q)+) = Σmin/Σmax
+query I
+SELECT weighted_tversky(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2})
+     = weighted_jaccard(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2});
+----
+true
+
+# a zero weight contributes nothing: q={a:2,b:0}, c={a:1}: 1/2
+query R
+SELECT weighted_containment(MAP {'a': 2.0, 'b': 0.0}, MAP {'a': 1.0});
+----
+0.5
+
+# a NULL weight counts as 1, as in a feature table: q={a:1,b:2}, c={a:1,b:1}: (1+1)/3
+query R
+SELECT round(weighted_containment(MAP {'a': NULL::DOUBLE, 'b': 2.0}, MAP {'a': 1.0, 'b': 1.0}), 4);
+----
+0.6667
+
+# empty request -> NULL; both empty -> 0.0; NULL -> NULL
+query RRR
+SELECT weighted_containment(MAP {}::MAP(VARCHAR, DOUBLE), MAP {'a': 1.0}),
+       weighted_jaccard(MAP {}::MAP(VARCHAR, DOUBLE), MAP {}::MAP(VARCHAR, DOUBLE)),
+       weighted_jaccard(NULL::MAP(VARCHAR, DOUBLE), MAP {'a': 1.0});
+----
+NULL	0.0	NULL
+
+statement error
+SELECT weighted_containment(MAP {'a': -1.0}, MAP {'a': 1.0});
+----
+weights must be non-negative
+
+query I
+SELECT weighted_tversky(query := MAP {'a': 3}, candidate := MAP {'a': 2}, alpha := 1.0, beta := 0.0)
+     = weighted_tversky(MAP {'a': 3}, MAP {'a': 2}, 1.0, 0.0);
+----
+true
+
+# column inputs, not only constants: one row per candidate
+statement ok
+CREATE TABLE offers AS SELECT * FROM (VALUES
+    ('O1', MAP {'heating': 2.0, 'massage': 4.0, 'memory': 1.0}),
+    ('O2', MAP {'heating': 2.0}),
+    ('O3', NULL::MAP(VARCHAR, DOUBLE))) t(offer_id, features);
+
+# request {heating:2, massage:4}: O1 2+4/6 = 1.0, O2 2/6 = 0.3333, O3 NULL
+query TR
+SELECT offer_id, round(weighted_containment(MAP {'heating': 2.0, 'massage': 4.0}, features), 4)
+FROM offers ORDER BY offer_id;
+----
+O1	1.0
+O2	0.3333
+O3	NULL

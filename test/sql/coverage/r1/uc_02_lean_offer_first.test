@@ -1,0 +1,51 @@
+# name: test/sql/coverage/r1/uc_02_lean_offer_first.test
+# description: Several past programmes fully cover a request. The offer should reuse the
+#              leanest one, not the most over-specified (BR-03). The surplus column
+#              tells the engineer what each candidate brings on top.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE prog_classes AS
+SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+# Request: a seat memory module (1). Programmes with a memory module:
+#   S5 = {track 1, memory 1}            surplus 1, jaccard 1/2
+#   S2 = {..., memory 1}                surplus 7, jaccard 1/8
+#   S1 = {..., memory 1, track 1}       surplus 8, jaccard 1/9
+#   S6 = {..., memory 1}                surplus 11, jaccard 1/12
+query TRRR
+SELECT entity_id, containment, surplus_weight, round(jaccard, 4)
+FROM find_covering_entities_for(MAP {'memory_module': 1}, 4, feature_table := 'prog_classes');
+----
+S5	1.0	1.0	0.5
+S2	1.0	7.0	0.125
+S1	1.0	8.0	0.1111
+S6	1.0	11.0	0.0833
+
+# Plain symmetric similarity would rank the same candidates by overlap only and give a
+# lean partial match the same treatment as a full cover; containment does not:
+# request {heating 2, massage 4}: S3 = {heat 2, massage 2, headrest 1} is a partial match
+#   containment S3 = (2+2)/6 = 0.667, jaccard S3 = 4/(6+5-4) = 0.571
+#   containment S2 = 6/6 = 1,         jaccard S2 = 6/(6+8-6) = 0.75
+#   containment S6 = 1,               jaccard S6 = 6/(6+12-6) = 0.5
+query TRR
+SELECT entity_id, round(containment, 3), round(jaccard, 3)
+FROM find_covering_entities_for(MAP {'seat_heating': 2, 'massage': 4}, 6, feature_table := 'prog_classes')
+WHERE entity_id IN ('S2', 'S3', 'S6')
+ORDER BY score DESC;
+----
+S2	1.0	0.75
+S6	1.0	0.5
+S3	0.667	0.571
+
+# Under Jaccard, the partial S3 would outrank the complete S6:
+query T
+SELECT entity_id FROM find_covering_entities_for(MAP {'seat_heating': 2, 'massage': 4}, 6,
+                                                 mode := 'jaccard', feature_table := 'prog_classes')
+WHERE entity_id IN ('S3', 'S6')
+ORDER BY score DESC;
+----
+S3
+S6

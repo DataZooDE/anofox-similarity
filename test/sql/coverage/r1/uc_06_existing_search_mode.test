@@ -1,0 +1,44 @@
+# name: test/sql/coverage/r1/uc_06_existing_search_mode.test
+# description: A user of the existing BOM search asks the directional question on the
+#              same table: "which existing designs contain all components of my design?"
+#              They switch mode on find_similar_materials_jaccard; nothing else changes.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR, quantity DOUBLE);
+
+# A new 2nd-row seat design and three archived designs
+statement ok
+INSERT INTO bom_items VALUES
+    ('NEW-2R', 'frame', 1), ('NEW-2R', 'fold mechanism', 1), ('NEW-2R', 'headrest', 2), ('NEW-2R', 'trim', 1),
+    ('ARC-01', 'frame', 1), ('ARC-01', 'fold mechanism', 1), ('ARC-01', 'headrest', 2), ('ARC-01', 'trim', 1),
+    ('ARC-01', 'armrest', 1), ('ARC-01', 'heating', 1), ('ARC-01', 'easy entry', 1),
+    ('ARC-02', 'frame', 1), ('ARC-02', 'headrest', 2), ('ARC-02', 'trim', 1),
+    ('ARC-03', 'frame', 1), ('ARC-03', 'trim', 1);
+
+# Jaccard from NEW-2R (4 components):
+#   ARC-01 4/7 = 0.5714; ARC-02 3/4 = 0.75; ARC-03 2/4 = 0.5 -> ARC-02 first, although it lacks
+#   the fold mechanism
+query TR
+SELECT material_id, round(similarity, 4) FROM find_similar_materials_jaccard('NEW-2R', 3);
+----
+ARC-02	0.75
+ARC-01	0.5714
+ARC-03	0.5
+
+# Containment of NEW-2R: ARC-01 4/4 = 1.0; ARC-02 3/4 = 0.75; ARC-03 2/4 = 0.5
+query TRII
+SELECT material_id, round(similarity, 4), shared_components, total_components
+FROM find_similar_materials_jaccard('NEW-2R', 3, mode := 'containment');
+----
+ARC-01	1.0	4	7
+ARC-02	0.75	3	4
+ARC-03	0.5	2	4
+
+# Named arguments in the documented order
+query T
+SELECT material_id FROM find_similar_materials_jaccard('NEW-2R', 1, min_similarity := 0.9, mode := 'containment');
+----
+ARC-01

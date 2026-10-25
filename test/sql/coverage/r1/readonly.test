@@ -1,0 +1,38 @@
+# name: test/sql/coverage/r1/readonly.test
+# description: The coverage search functions inline their SQL, so they work on a
+#              read-only database (HLD §6).
+# group: [coverage]
+
+require anofox_similarity
+
+load __TEST_DIR__/coverage_r1_readonly.db
+
+statement ok
+CREATE TABLE feature_multiset AS SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+load __TEST_DIR__/coverage_r1_readonly.db readonly
+
+statement ok
+LOAD anofox_similarity
+
+statement error
+CREATE TABLE proof_readonly(x INTEGER);
+----
+read-only
+
+query TR
+SELECT entity_id, round(containment, 3) FROM find_covering_entities('S2', 2);
+----
+S1	1.0
+S6	1.0
+
+query TR
+SELECT entity_id, round(score, 3)
+FROM find_covering_entities_for(MAP {'seat_track': 1, 'memory_module': 1}, 1);
+----
+S5	1.01
+
+query R
+SELECT weighted_containment(MAP {'a': 1}, MAP {'a': 2});
+----
+1.0
