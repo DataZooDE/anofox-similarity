@@ -3,6 +3,8 @@
 #include "core/error_handling.hpp"
 #include "modules/jaccard_similarity.hpp"
 #include "modules/similarity_search.hpp"
+#include "modules/set_measures.hpp"
+#include "modules/coverage_search.hpp"
 #include "modules/wl_kernel.hpp"
 #include "modules/predecessor_inference.hpp"
 #include "modules/sap_transformations.hpp"
@@ -122,6 +124,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterTextualEmbeddingFunctions(loader);
 	anofox::RegisterMultimodalFusionFunctions(loader);
 	anofox::RegisterSimilaritySearchFunctions(loader);
+	anofox::RegisterSetMeasureFunctions(loader);
+	anofox::RegisterCoverageSearchFunctions(loader);
 	anofox::RegisterPredecessorInferenceFunctions(loader);
 	anofox::RegisterEmbeddingFunctions(loader);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);
