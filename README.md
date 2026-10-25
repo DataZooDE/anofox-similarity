@@ -30,6 +30,7 @@ Mid-sized manufacturers face a persistent planning challenge: *"How do I forecas
 | **Text Embedding Search** | Find similar products by description | Medium |
 | **Temporal Analysis** | Identify predecessor-successor relationships | Medium |
 | **Multi-modal Fusion** | Combine multiple similarity signals | High |
+| **Coverage Matching (directional)** | Which offers or past solutions contain everything a request asks for, counts included | Low |
 
 ---
 
@@ -187,6 +188,10 @@ The extension provides 40+ functions organized into 8 functional categories:
 - **Transactional Embeddings** - Time-series feature extraction (98+ features)
 - **Multi-modal Fusion** - Combine multiple similarity signals
 
+### Coverage Matching
+- **Directional set measures** - containment, Tversky, weighted (count-aware) variants
+- **Covering search** - rank past solutions by how much of a request they cover (`find_covering_entities[_for]`)
+
 ### Infrastructure
 - **Vector Search (HNSW)** - Approximate nearest neighbor search
 - **Statistics & Normalization** - Z-score normalization and caching
@@ -314,8 +319,9 @@ The extension implements a **tiered similarity approach**:
 | **[API_REFERENCE.md](docs/API_REFERENCE.md)** | Complete function documentation with examples |
 | **[CONCEPT.md](docs/CONCEPT.md)** | Algorithmic background and theory |
 | **[DATA-STRUCTURES.md](docs/DATA-STRUCTURES.md)** | Schema definitions and data models |
-| **[requirements-matching/BRD.md](docs/requirements-matching/BRD.md)** | Proposed: business requirements for requirement-to-offer coverage matching (draft) |
-| **[requirements-matching/HLD.md](docs/requirements-matching/HLD.md)** | Proposed: high-level design for coverage matching (draft) |
+| **[requirements-matching/BRD.md](docs/requirements-matching/BRD.md)** | Business requirements for requirement-to-offer coverage matching |
+| **[requirements-matching/HLD.md](docs/requirements-matching/HLD.md)** | High-level design for coverage matching, with the amendments decided during implementation (§11) |
+| **[test/data/coverage/README.md](test/data/coverage/README.md)** | The seating-systems benchmark: schema, oracle semantics, KPI feasibility |
 | **[SAP_BOM_Explosion_Technical_Memo.md](docs/SAP_BOM_Explosion_Technical_Memo.md)** | SAP integration specifics |
 | **[Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md](docs/Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md)** | Dynamics 365 integration specifics |
 

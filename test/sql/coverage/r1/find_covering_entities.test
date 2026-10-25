@@ -347,3 +347,64 @@ query T
 SELECT entity_id FROM find_covering_entities('S2', 1);
 ----
 S1
+
+# ---------------------------------------------------------------- review fixes (R1-2)
+
+# the weight columns are DOUBLE in every mode
+query TT
+SELECT DISTINCT typeof(shared_weight), typeof(candidate_weight)
+FROM find_covering_entities('S2', 3, weighted := false, feature_table := 'ms');
+----
+DOUBLE	DOUBLE
+
+# a candidate that shares only zero-weight features is not a candidate
+statement ok
+CREATE TABLE zero AS SELECT * FROM (VALUES ('A', 'x', 2.0), ('B', 'y', 3.0), ('Q', 'x', 1.0), ('Q', 'y', 0.0))
+    t(entity_id, feature_id, weight);
+
+query T
+SELECT entity_id FROM find_covering_entities('Q', 5, feature_table := 'zero');
+----
+A
+
+# non-finite parameters and weights are rejected
+statement error
+SELECT * FROM find_covering_entities('S2', 3, mode := 'tversky', alpha := 'nan'::DOUBLE, feature_table := 'ms');
+----
+must be finite
+
+statement error
+SELECT * FROM find_covering_entities('S2', 3, min_score := 'inf'::DOUBLE, feature_table := 'ms');
+----
+must be finite
+
+statement error
+SELECT * FROM find_covering_entities_for(MAP {'massage': 'inf'::DOUBLE}, 3, feature_table := 'ms');
+----
+weights must be finite
+
+statement ok
+CREATE TABLE inf_weights AS SELECT * FROM (VALUES ('E1', 'f', 'inf'::DOUBLE), ('E2', 'f', 1.0)) t(entity_id, feature_id, weight);
+
+statement error
+SELECT * FROM find_covering_entities('E2', 3, feature_table := 'inf_weights');
+----
+weights must be finite
+
+# a reserved word as table name
+statement ok
+CREATE TABLE "order"(entity_id VARCHAR, feature_id VARCHAR, weight DOUBLE);
+
+statement ok
+INSERT INTO "order" VALUES ('O1', 'a', 1), ('O2', 'a', 1);
+
+query T
+SELECT entity_id FROM find_covering_entities('O1', 1, feature_table := 'order');
+----
+O2
+
+# asking for weights without a weight column is a contradiction
+statement error
+SELECT * FROM find_covering_entities('S2', 3, weighted := true, weight_col := NULL, feature_table := 'ms');
+----
+weighted := true needs a weight_col

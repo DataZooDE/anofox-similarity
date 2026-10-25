@@ -546,3 +546,15 @@ precedence over the text above.
    passenger-seat requirement of the same class), the candidate item goes to the tied
    request item with the largest remaining count deficit, then to the lowest node id.
    Assignment stays at class level; seats or other scopes are context only.
+5. **Stage-1 tie-break stays additive** (decided 2026-10-25): `score = measure +
+   tie_break × jaccard`, which can exceed 1. A nearly complete partial cover can outrank a
+   full but much larger cover. This is documented as a known limitation and pinned by a
+   test; `min_score` applies to the measure itself.
+6. **Conventions of the R1 functions** (not a semantic change; recorded so the tests have a
+   source). Scalar parameters are named `query` and `candidate`. `weighted_tversky` defaults
+   to α = β = 1, while the `tversky` mode of `find_covering_entities` defaults to α = 1,
+   β = 0, as in §4.1. A zero denominator gives NULL, except that two empty inputs give 0.0
+   (`containment` with an empty query is always NULL). In maps, a NULL weight counts as 1,
+   weights must be finite and non-negative, and a zero weight means "absent".
+   `weight_col := NULL` means unit weights. Ties are broken by `entity_id`. A negative or
+   non-finite weight anywhere in the feature table raises an error.

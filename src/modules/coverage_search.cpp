@@ -9,6 +9,8 @@
 #include "duckdb/main/client_context.hpp"
 #include "telemetry.hpp"
 
+#include <cmath>
+
 namespace duckdb {
 namespace anofox {
 
@@ -32,6 +34,16 @@ string QuotedColumn(const string &column, const string &param_name) {
 		throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), column.c_str());
 	}
 	return "\"" + column + "\"";
+}
+
+//! A validated (dot-separated) identifier path with every segment double-quoted, so
+//! reserved words such as "order" work as table names.
+string QuotedPath(const string &path) {
+	string out = "\"";
+	for (auto ch : path) {
+		out += ch == '.' ? string("\".\"") : string(1, ch);
+	}
+	return out + "\"";
 }
 
 string FormatDouble(double value) {
@@ -78,6 +90,9 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 	if (auto v = duckdb_compat::FindNamedParameter(named, "beta"); v && !v->IsNull()) {
 		p.beta = v->GetValue<double>();
 	}
+	if (!std::isfinite(p.alpha) || !std::isfinite(p.beta)) {
+		throw BinderException("%s: alpha and beta must be finite", fn.c_str());
+	}
 	if (p.alpha < 0 || p.beta < 0) {
 		throw BinderException("%s: alpha and beta must be non-negative", fn.c_str());
 	}
@@ -90,6 +105,9 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 	if (auto v = duckdb_compat::FindNamedParameter(named, "min_score"); v && !v->IsNull()) {
 		p.min_score = v->GetValue<double>();
 	}
+	if (!std::isfinite(p.tie_break) || !std::isfinite(p.min_score)) {
+		throw BinderException("%s: tie_break and min_score must be finite", fn.c_str());
+	}
 	if (auto v = duckdb_compat::FindNamedParameter(named, "feature_table"); v && !v->IsNull()) {
 		p.feature_table = v->GetValue<string>();
 	}
@@ -101,6 +119,10 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 	}
 	if (auto v = duckdb_compat::FindNamedParameter(named, "weight_col"); v) {
 		if (v->IsNull()) {
+			auto w = duckdb_compat::FindNamedParameter(named, "weighted");
+			if (w && !w->IsNull() && w->GetValue<bool>()) {
+				throw BinderException("%s: weighted := true needs a weight_col", fn.c_str());
+			}
 			p.weighted = false; // no weight column: every (entity, feature) weighs 1
 		} else {
 			p.weight_col = v->GetValue<string>();
@@ -123,17 +145,17 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 string FeatureMultisetSQL(const CoverageParams &p) {
 	auto entity = "\"" + p.entity_col + "\"";
 	auto feature = "\"" + p.feature_col + "\"";
-	string weight = "1.0";
+	string weight = "1.0::DOUBLE";
 	if (p.weighted) {
-		auto col = "\"" + p.weight_col + "\"";
-		weight = StringUtil::Format(
-		    "SUM(CASE WHEN CAST(%s AS DOUBLE) < 0 THEN error('weights must be non-negative') "
-		    "ELSE COALESCE(CAST(%s AS DOUBLE), 1.0) END)",
-		    col, col);
+		auto col = "CAST(\"" + p.weight_col + "\" AS DOUBLE)";
+		weight = StringUtil::Format("SUM(CASE WHEN NOT isfinite(%s) THEN error('weights must be finite') "
+		                            "WHEN %s < 0 THEN error('weights must be non-negative') "
+		                            "ELSE COALESCE(%s, 1.0::DOUBLE) END)",
+		                            col, col, col);
 	}
 	return StringUtil::Format("SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, %s AS weight "
 	                          "FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL GROUP BY ALL",
-	                          entity, feature, weight, p.feature_table, entity, feature);
+	                          entity, feature, weight, QuotedPath(p.feature_table), entity, feature);
 }
 
 //! Rank candidates against the query CTE `q(feature_id, weight)`.
@@ -158,7 +180,7 @@ string RankingSQL(const CoverageParams &p, const string &query_cte, const string
 			shared AS (
 				SELECT fm.entity_id, SUM(LEAST(fm.weight, q.weight)) AS shared_weight
 				FROM fm JOIN q USING (feature_id)
-				WHERE true%s
+				WHERE fm.weight > 0 AND q.weight > 0%s
 				GROUP BY fm.entity_id
 			),
 			totals AS (
@@ -220,8 +242,14 @@ unique_ptr<TableRef> FindCoveringEntitiesForBindReplace(ClientContext &context, 
 				}
 				w = kv[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			}
+			if (!std::isfinite(w)) {
+				throw BinderException("%s: weights must be finite", fn.c_str());
+			}
 			if (w < 0) {
 				throw BinderException("%s: weights must be non-negative", fn.c_str());
+			}
+			if (w == 0) {
+				continue; // a zero-weight request entry asks for nothing
 			}
 			if (!p.weighted) {
 				w = 1.0;

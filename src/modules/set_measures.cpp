@@ -1,5 +1,8 @@
 #include "modules/set_measures.hpp"
 #include "duckdb_compat.hpp"
+#include "duckdb_compat/list_vector.hpp"
+#include "duckdb_compat/struct_vector.hpp"
+#include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "compat_anofox/scalar_bind.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/types/value.hpp"
@@ -7,6 +10,7 @@
 #include "telemetry.hpp"
 #include "anofox_similarity_banner.hpp"
 
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -15,100 +19,154 @@ namespace anofox {
 
 namespace {
 
-struct ValueHash {
-	size_t operator()(const Value &val) const {
-		return val.Hash();
-	}
-};
-
-struct ValueEqual {
-	bool operator()(const Value &a, const Value &b) const {
-		return a == b;
-	}
-};
-
-using ValueSet = std::unordered_set<Value, ValueHash, ValueEqual>;
-using WeightMap = std::unordered_map<Value, double, ValueHash, ValueEqual>;
-
-//! The overlap of a query and a candidate: Σmin, Σ(q-c)+ and Σ(c-q)+, plus the
-//! totals. For sets every element weighs 1.
+//! The overlap of a query and a candidate. For sets every distinct element weighs 1.
+//! missing = Σ(q-c)+ = Σq - Σmin and surplus = Σ(c-q)+ = Σc - Σmin.
 struct Overlap {
 	double shared = 0;
-	double missing = 0;
-	double surplus = 0;
 	double query_total = 0;
 	double candidate_total = 0;
+	double Missing() const {
+		return query_total - shared;
+	}
+	double Surplus() const {
+		return candidate_total - shared;
+	}
 };
 
-ValueSet ToSet(const Value &list) {
-	ValueSet set;
-	for (auto &child : ListValue::GetChildren(list)) {
-		if (!child.IsNull()) {
-			set.insert(child);
+//! Per-chunk access to the elements of a LIST or MAP argument without building a
+//! Value per row. Elements are compared by their text form, read straight from the
+//! string data for VARCHAR keys.
+class Elements {
+public:
+	Elements(Vector &input, idx_t count, bool weighted) : input(input), weighted(weighted) {
+		duckdb_compat::ToUnifiedFormat(input, count, list_format);
+		if (input.GetType().id() == LogicalTypeId::SQLNULL) {
+			all_null = true; // an untyped NULL literal
+			return;
 		}
-	}
-	return set;
-}
-
-Overlap SetOverlap(const Value &query, const Value &candidate) {
-	auto q = ToSet(query);
-	auto c = ToSet(candidate);
-	Overlap o;
-	for (auto &v : q) {
-		if (c.count(v)) {
-			o.shared += 1;
-		}
-	}
-	o.query_total = static_cast<double>(q.size());
-	o.candidate_total = static_cast<double>(c.size());
-	o.missing = o.query_total - o.shared;
-	o.surplus = o.candidate_total - o.shared;
-	return o;
-}
-
-WeightMap ToWeights(const Value &map) {
-	if (map.type().id() != LogicalTypeId::MAP) {
-		throw InvalidInputException("weighted set measures expect MAP arguments, got %s", map.type().ToString());
-	}
-	WeightMap weights;
-	for (auto &entry : ListValue::GetChildren(map)) {
-		auto &kv = StructValue::GetChildren(entry);
-		auto &key = kv[0];
-		auto &weight = kv[1];
-		if (key.IsNull()) {
-			continue;
-		}
-		double w = 1.0;
-		if (!weight.IsNull()) {
-			if (!weight.type().IsNumeric()) {
-				throw InvalidInputException("weights must be numeric, got '%s'", weight.ToString());
+		auto size = ListVector::GetListSize(input);
+		auto &child = ListVector::GetEntry(input);
+		if (weighted) {
+			if (input.GetType().id() != LogicalTypeId::MAP) {
+				throw InvalidInputException("weighted set measures expect MAP arguments, got %s",
+				                            input.GetType().ToString());
 			}
-			w = weight.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+			auto &entries = StructVector::GetEntries(child);
+			keys = &duckdb_compat::StructChild(entries[0]);
+			auto &values = duckdb_compat::StructChild(entries[1]);
+			if (!values.GetType().IsNumeric()) {
+				throw InvalidInputException("weights must be numeric, got %s", values.GetType().ToString());
+			}
+			weights = make_uniq<Vector>(LogicalType::DOUBLE, MaxValue<idx_t>(size, 1));
+			VectorOperations::DefaultCast(values, *weights, size);
+			duckdb_compat::ToUnifiedFormat(*weights, size, weight_format);
+		} else {
+			keys = &child;
+		}
+		duckdb_compat::ToUnifiedFormat(*keys, size, key_format);
+		varchar_keys = keys->GetType().InternalType() == PhysicalType::VARCHAR;
+	}
+
+	bool IsNull(idx_t row) const {
+		return all_null || !list_format.validity.RowIsValid(list_format.sel->get_index(row));
+	}
+	const list_entry_t &Entry(idx_t row) const {
+		return UnifiedVectorFormat::GetData<list_entry_t>(list_format)[list_format.sel->get_index(row)];
+	}
+	//! The key at child position i, or false for a NULL key.
+	bool Key(idx_t i, string &out) const {
+		auto idx = key_format.sel->get_index(i);
+		if (!key_format.validity.RowIsValid(idx)) {
+			return false;
+		}
+		if (varchar_keys) {
+			auto &str = UnifiedVectorFormat::GetData<string_t>(key_format)[idx];
+			out.assign(str.GetData(), str.GetSize());
+		} else {
+			out = keys->GetValue(i).ToString();
+		}
+		return true;
+	}
+	//! The weight at child position i: NULL counts as 1; must be finite and non-negative.
+	double Weight(idx_t i) const {
+		auto idx = weight_format.sel->get_index(i);
+		if (!weight_format.validity.RowIsValid(idx)) {
+			return 1.0;
+		}
+		auto w = UnifiedVectorFormat::GetData<double>(weight_format)[idx];
+		if (!std::isfinite(w)) {
+			throw InvalidInputException("weights must be finite, got %g", w);
 		}
 		if (w < 0) {
 			throw InvalidInputException("weights must be non-negative, got %g", w);
 		}
-		weights[key] += w;
+		return w;
 	}
-	return weights;
+
+	Vector &input;
+	bool weighted;
+
+private:
+	UnifiedVectorFormat list_format;
+	UnifiedVectorFormat key_format;
+	UnifiedVectorFormat weight_format;
+	Vector *keys = nullptr;
+	unique_ptr<Vector> weights;
+	bool varchar_keys = false;
+	bool all_null = false;
+};
+
+using WeightMap = std::unordered_map<string, double>;
+
+//! The query side as a weight map (sets: weight 1 per distinct element).
+WeightMap QueryWeights(const Elements &q, idx_t row) {
+	WeightMap out;
+	auto &entry = q.Entry(row);
+	string key;
+	for (idx_t j = 0; j < entry.length; j++) {
+		auto i = entry.offset + j;
+		if (!q.Key(i, key)) {
+			continue;
+		}
+		if (q.weighted) {
+			out[key] += q.Weight(i);
+		} else {
+			out[key] = 1.0;
+		}
+	}
+	return out;
 }
 
-Overlap WeightedOverlap(const Value &query, const Value &candidate) {
-	auto q = ToWeights(query);
-	auto c = ToWeights(candidate);
+Overlap Compare(const WeightMap &query, const Elements &c, idx_t row) {
 	Overlap o;
-	for (auto &kv : q) {
-		auto it = c.find(kv.first);
-		double cw = it == c.end() ? 0.0 : it->second;
-		o.shared += std::min(kv.second, cw);
-		o.missing += std::max(kv.second - cw, 0.0);
+	for (auto &kv : query) {
 		o.query_total += kv.second;
 	}
-	for (auto &kv : c) {
-		auto it = q.find(kv.first);
-		double qw = it == q.end() ? 0.0 : it->second;
-		o.surplus += std::max(kv.second - qw, 0.0);
-		o.candidate_total += kv.second;
+	auto &entry = c.Entry(row);
+	string key;
+	if (c.weighted) {
+		WeightMap candidate;
+		for (idx_t j = 0; j < entry.length; j++) {
+			auto i = entry.offset + j;
+			if (c.Key(i, key)) {
+				candidate[key] += c.Weight(i);
+			}
+		}
+		for (auto &kv : candidate) {
+			o.candidate_total += kv.second;
+			auto it = query.find(kv.first);
+			if (it != query.end()) {
+				o.shared += std::min(it->second, kv.second);
+			}
+		}
+	} else {
+		std::unordered_set<string> seen;
+		for (idx_t j = 0; j < entry.length; j++) {
+			if (c.Key(entry.offset + j, key) && seen.insert(key).second) {
+				o.candidate_total += 1;
+				o.shared += query.count(key) ? 1 : 0;
+			}
+		}
 	}
 	return o;
 }
@@ -124,7 +182,7 @@ bool Compute(const Overlap &o, Measure measure, double alpha, double beta, doubl
 		out = o.shared / o.query_total;
 		return true;
 	}
-	double denominator = o.shared + alpha * o.missing + beta * o.surplus;
+	double denominator = o.shared + alpha * o.Missing() + beta * o.Surplus();
 	if (denominator == 0) {
 		if (o.query_total == 0 && o.candidate_total == 0) {
 			out = 0.0; // two empty inputs: the jaccard_similarity convention
@@ -136,37 +194,64 @@ bool Compute(const Overlap &o, Measure measure, double alpha, double beta, doubl
 	return true;
 }
 
-template <Overlap (*OVERLAP)(const Value &, const Value &), Measure MEASURE>
+template <bool WEIGHTED, Measure MEASURE>
 void SetMeasureFun(DataChunk &args, ExpressionState &, Vector &result) {
 	auto count = args.size();
-	bool with_weights = args.ColumnCount() == 4;
+	Elements query(args.data[0], count, WEIGHTED);
+	Elements candidate(args.data[1], count, WEIGHTED);
+	bool with_parameters = args.ColumnCount() == 4;
+	UnifiedVectorFormat alpha_format, beta_format;
+	if (with_parameters) {
+		duckdb_compat::ToUnifiedFormat(args.data[2], count, alpha_format);
+		duckdb_compat::ToUnifiedFormat(args.data[3], count, beta_format);
+	}
+	// a constant query (the usual case: one request against many rows) is read once
+	bool constant_query = args.data[0].GetVectorType() == VectorType::CONSTANT_VECTOR;
+	WeightMap cached;
+	bool cached_ready = false;
+
 	result.SetVectorType(VectorType::FLAT_VECTOR);
 	auto result_data = duckdb_compat::FlatData<double>(result);
 	auto &validity = duckdb_compat::MutableValidity(result);
-	for (idx_t i = 0; i < count; i++) {
-		auto query = args.data[0].GetValue(i);
-		auto candidate = args.data[1].GetValue(i);
+	for (idx_t row = 0; row < count; row++) {
 		double alpha = 1.0, beta = 1.0;
-		bool null_parameter = false;
-		if (with_weights) {
-			auto a = args.data[2].GetValue(i);
-			auto b = args.data[3].GetValue(i);
-			null_parameter = a.IsNull() || b.IsNull();
-			if (!null_parameter) {
-				alpha = a.GetValue<double>();
-				beta = b.GetValue<double>();
-				if (alpha < 0 || beta < 0) {
-					throw InvalidInputException("alpha and beta must be non-negative");
-				}
+		if (with_parameters) {
+			auto ai = alpha_format.sel->get_index(row);
+			auto bi = beta_format.sel->get_index(row);
+			if (!alpha_format.validity.RowIsValid(ai) || !beta_format.validity.RowIsValid(bi)) {
+				validity.SetInvalid(row);
+				continue;
+			}
+			alpha = UnifiedVectorFormat::GetData<double>(alpha_format)[ai];
+			beta = UnifiedVectorFormat::GetData<double>(beta_format)[bi];
+			if (!std::isfinite(alpha) || !std::isfinite(beta)) {
+				throw InvalidInputException("alpha and beta must be finite");
+			}
+			if (alpha < 0 || beta < 0) {
+				throw InvalidInputException("alpha and beta must be non-negative");
 			}
 		}
-		double value;
-		if (query.IsNull() || candidate.IsNull() || null_parameter ||
-		    !Compute(OVERLAP(query, candidate), MEASURE, alpha, beta, value)) {
-			validity.SetInvalid(i);
+		if (query.IsNull(row) || candidate.IsNull(row)) {
+			validity.SetInvalid(row);
 			continue;
 		}
-		result_data[i] = value;
+		WeightMap local;
+		const WeightMap *q = &local;
+		if (constant_query) {
+			if (!cached_ready) {
+				cached = QueryWeights(query, row);
+				cached_ready = true;
+			}
+			q = &cached;
+		} else {
+			local = QueryWeights(query, row);
+		}
+		double value;
+		if (!Compute(Compare(*q, candidate, row), MEASURE, alpha, beta, value)) {
+			validity.SetInvalid(row);
+			continue;
+		}
+		result_data[row] = value;
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -174,16 +259,16 @@ void SetMeasureFun(DataChunk &args, ExpressionState &, Vector &result) {
 }
 
 void TverskyFun(DataChunk &args, ExpressionState &state, Vector &result) {
-	SetMeasureFun<SetOverlap, Measure::TVERSKY>(args, state, result);
+	SetMeasureFun<false, Measure::TVERSKY>(args, state, result);
 }
 void ContainmentFun(DataChunk &args, ExpressionState &state, Vector &result) {
-	SetMeasureFun<SetOverlap, Measure::CONTAINMENT>(args, state, result);
+	SetMeasureFun<false, Measure::CONTAINMENT>(args, state, result);
 }
 void WeightedTverskyFun(DataChunk &args, ExpressionState &state, Vector &result) {
-	SetMeasureFun<WeightedOverlap, Measure::TVERSKY>(args, state, result);
+	SetMeasureFun<true, Measure::TVERSKY>(args, state, result);
 }
 void WeightedContainmentFun(DataChunk &args, ExpressionState &state, Vector &result) {
-	SetMeasureFun<WeightedOverlap, Measure::CONTAINMENT>(args, state, result);
+	SetMeasureFun<true, Measure::CONTAINMENT>(args, state, result);
 }
 
 static unique_ptr<FunctionData> TverskyBind() {

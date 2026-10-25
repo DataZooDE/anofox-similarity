@@ -81,3 +81,53 @@ precision@0.9 0.985.
 **Other open questions from the crew.** at_most is judged on `p_lo` ("configurable down
 to"), as HLD §4.2 states; no change. Source programmes stay in the archive. Precision at
 0.9 counts a top-1 pick whose true coverage is ≥ 0.9.
+
+---
+
+## R1-1 — 2026-10-25 — after R1 red batch
+
+- **Crew:** correctness (claude), testing (codex), design (claude), usability (codex).
+  Verdict: REQUEST_CHANGES.
+- **Unit:** `test/sql/coverage/r1/` at its first red commit.
+
+Every member recomputed every expected value: all correct (one comment typo).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | The additive tie-break can rank a partial cover above a full cover (BR-03), and the score exceeds 1 | **Escalated (HANDOVER §8).** Decision: keep the additive form as written in the HLD; document it as a known limitation and pin it with a regression test (HLD §11.5) |
+| F2 | med | min_score boundary untested | Fixed: `min_score := 0.63` excludes S3 (measure 0.625, score 0.631) |
+| F3 | med | uc_04 breaks on a repeated class | Fixed: GROUP BY class with sum(count); front-row spec with driver/passenger items |
+| F4 | med | Scalar parameter names | Decided: `query`/`candidate`; 1.5.6 skip trap documented (API reference, HLD §11.6) |
+| F5 | med | Zero-denominator and empty conventions | Fixed: one rule (HLD §11.6) plus a test row per case |
+| F6 | med | function_documentation pin would change in green | Fixed in a separate `test:` commit (9964ff5) |
+| F7 | med | NULL map weight semantics, weighted_tversky defaults | Decided: NULL → 1, α = β = 1 for the scalar (HLD §11.6) |
+| F8 | med | No test for a table without a weight column | Fixed: `weight_col := NULL` means unit weights |
+| F9 | med | MAP keys inlined into SQL | Fixed/tested: hostile key, table still intact; keys go through `QuoteSQLStringLiteral` |
+| F10 | low | Hidden tie order, weak uc_01 cross-check | Fixed: symmetric cross-check, distinct count, surplus identity; ties by entity_id documented |
+| F11 | low | α/β swap undetectable | Fixed: asymmetric example |
+| F12 | low | Old vs new search differences | Fixed: uc_06 shows presence-only counting next to the weighted call; API reference explains the difference |
+| F13 | low | Missing edge cases | Fixed (76c5a32) |
+| F14 | low | getvariable() binding | Verified on 1.5.6 and 2.0 |
+| F15 | low | Comment typo | Fixed |
+
+## R1-2 — 2026-10-25 — after R1 green step
+
+- **Crew:** correctness (claude), security (codex), performance (claude), design (codex).
+  Verdict: REQUEST_CHANGES.
+- **Unit:** diff of 0eab733.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | The Value-based scalars take 4–6 s per 10⁵ rows | Fixed: vectorised element access, VARCHAR keys read from string data, map weights cast once per chunk, constant query read once. Now 0.14 s per 10⁵ rows for the weighted scalars and 0.17 s for containment (jaccard_similarity: 0.71 s) |
+| F2 | med | Unweighted mode returns DECIMAL weight columns | Fixed: `1.0::DOUBLE`; typeof test |
+| F3 | med | Candidates sharing only zero-weight features come back | Fixed: shared features need weight > 0 on both sides; zero-weight request keys are skipped; repro test |
+| F4 | med | Non-finite weights and parameters accepted | Fixed: finite checks in table functions, MAP loop, feature SQL and scalars; tests |
+| F5 | low | Reversed named arguments swap α/β on 1.5.6 | Documented (API reference); 2.0 binds by name |
+| F6 | low | find_similar_materials_jaccard containment cross-joins every material | Deferred: kept the existing cross-join pattern of that function (the default path must stay unchanged); with the faster scalars it is no longer bound by them. Revisit with R5 sub-linear recall |
+| F7 | low | The whole feature table is materialised per call | Deferred to R5 (scale): meets BR-40 (0.15–0.2 s at 10⁵ entities / 1.5 M rows on 1.5.6 and 2.0) |
+| F8 | low | Table path inlined unquoted | Fixed: every path segment quoted; test with a table called `order` |
+| F9 | low | Type-sensitive key matching | Now compared by text form (1 and '1' match); documented |
+| F10 | low | weight_col := NULL overrides weighted := true silently | Fixed: error |
+
+The fixes were implemented together with their regression tests in one commit and were not
+written test-first. Logged here as a deviation from HANDOVER §4.

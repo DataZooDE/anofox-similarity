@@ -206,6 +206,27 @@ Expected product family clusters:
 - **Cross-category** (phone vs laptop): Low similarity (<0.3)
 - **Gaming consoles** (PlayStation vs Xbox): Medium similarity (>0.5)
 
+## Coverage Matching Tests
+
+Tests for the coverage-matching feature set
+([docs/requirements-matching](../docs/requirements-matching/HLD.md)) live in
+`test/sql/coverage/<release>/`. Unit tests use the hand-made fixture in
+`test/data/coverage/mini/`, with expected values computed by hand in comments. KPI and
+workflow tests use the seating-systems benchmark in `test/data/coverage/`; its schema,
+oracle and KPI feasibility are described in
+[test/data/coverage/README.md](data/coverage/README.md). Scenario tests are called
+`uc_<nn>_<story>.test` and read like the SQL a user would write.
+
+| Release | Directory | What it covers |
+|---|---|---|
+| R0 | `test/sql/coverage/r0/` | The dataset loads and is consistent (trees, gold labels, vectors) |
+| R0 | `scripts/tests/` (`cd scripts && uv run pytest`) | Generator: determinism, size, leakage, noise rates, vector calibration, oracle, BRD KPI feasibility |
+| R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_07` |
+
+The dataset is regenerated with
+`cd scripts && uv run generate-coverage-data --seed 7 --output ../test/data/coverage/`, and
+`uv run pytest` checks that the committed files match.
+
 ## Generated Data Format
 
 ### materials.csv
