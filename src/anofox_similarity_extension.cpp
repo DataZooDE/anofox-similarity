@@ -5,6 +5,7 @@
 #include "modules/similarity_search.hpp"
 #include "modules/set_measures.hpp"
 #include "modules/coverage_search.hpp"
+#include "modules/quantity.hpp"
 #include "modules/wl_kernel.hpp"
 #include "modules/predecessor_inference.hpp"
 #include "modules/sap_transformations.hpp"
@@ -126,6 +127,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterSimilaritySearchFunctions(loader);
 	anofox::RegisterSetMeasureFunctions(loader);
 	anofox::RegisterCoverageSearchFunctions(loader);
+	anofox::RegisterQuantityFunctions(loader);
 	anofox::RegisterPredecessorInferenceFunctions(loader);
 	anofox::RegisterEmbeddingFunctions(loader);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);

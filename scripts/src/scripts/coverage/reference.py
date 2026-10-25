@@ -187,9 +187,10 @@ def value_satisfies(bound: str | None, r_lo: float, r_hi: float, p_lo: float, p_
         d = max(0.0, (p_lo - r_hi) / abs(r_hi))
         return soften(d), d
     if bound == "equals":
+        # equals is relative on every scale (HLD §4.2 '(relative)', §11.7)
         p = p_lo if abs(p_lo - r_lo) >= abs(p_hi - r_lo) else p_hi
         d = abs(r_lo - p) / abs(r_lo)
-        return soften(d), d
+        return (1.0 if d <= LIN_TOL else max(0.0, 1.0 - (d - LIN_TOL) / SOFT_BAND)), d
     if bound is None:  # unqualified point: within [v, v] widened
         if log:
             r_lo, r_hi = r_lo * 10 ** -POINT_WIDEN, r_hi * 10 ** POINT_WIDEN

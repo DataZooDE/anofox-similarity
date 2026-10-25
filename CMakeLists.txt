@@ -26,6 +26,7 @@ set(EXTENSION_SOURCES
     src/modules/similarity_search.cpp
     src/modules/set_measures.cpp
     src/modules/coverage_search.cpp
+    src/modules/quantity.cpp
     src/modules/wl_kernel.cpp
     src/modules/wl_kernel_cpp.cpp
     src/modules/jaccard_cpp.cpp
