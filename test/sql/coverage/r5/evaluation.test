@@ -289,10 +289,10 @@ statement ok
 CREATE TABLE tied_ranks AS SELECT * FROM (VALUES ('qt', 'Y', 1), ('qt', 'X', 1)) t(query_id, candidate_id, rank);
 
 statement ok
-CREATE TABLE tied_gold AS SELECT * FROM (VALUES ('qt', 'X', 0.9::DOUBLE), ('qt', 'Y', 0.2)) t(query_id, candidate_id, true_coverage);
+CREATE TABLE tied_rank_gold AS SELECT * FROM (VALUES ('qt', 'X', 0.9::DOUBLE), ('qt', 'Y', 0.2)) t(query_id, candidate_id, true_coverage);
 
 query RRR
-SELECT top_k_accuracy, mrr, mean_regret FROM eval_ranking('tied_ranks', 'tied_gold', k := [1]);
+SELECT top_k_accuracy, mrr, mean_regret FROM eval_ranking('tied_ranks', 'tied_rank_gold', k := [1]);
 ----
 1.0	1.0	0.0
 

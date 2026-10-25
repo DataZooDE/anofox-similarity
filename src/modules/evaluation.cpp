@@ -17,40 +17,50 @@ EvalInput ReadEvalInput(const CoverageParamReader &p, TableFunctionBindInput &in
 	EvalInput e;
 	e.results = p.Positional(input, 0, "results", {"query_id", "candidate_id"});
 	e.gold = p.Positional(input, 1, "gold", {"query_id", "candidate_id", "true_coverage"});
-	auto rank_col = p.Str("rank_col", "rank");
-	auto score_col = p.Str("score_col", "coverage");
-	bool has_rank = !rank_col.empty() && p.Has(e.results, rank_col.c_str());
-	bool has_score = !score_col.empty() && p.Has(e.results, score_col.c_str());
-	if (has_score) {
-		e.score_expr = "CAST(" + p.Column(e.results, "score_col", "coverage") + " AS DOUBLE)";
+	// a column named explicitly must exist; the defaults are used when present
+	auto column = [&](const char *param, const char *fallback) -> string {
+		auto v = p.Get(param);
+		if (v && !v->IsNull()) {
+			return p.Column(e.results, param, fallback);
+		}
+		if (v || !p.Has(e.results, fallback)) {
+			return string();
+		}
+		return QuotedIdentifier(fallback);
+	};
+	auto rank_col = column("rank_col", "rank");
+	auto score_col = column("score_col", "coverage");
+	if (!score_col.empty()) {
+		e.score_expr = "CAST(" + score_col + " AS DOUBLE)";
 	}
-	if (has_rank) {
-		e.rank_expr = "CAST(" + p.Column(e.results, "rank_col", "rank") + " AS BIGINT)";
-	} else if (has_score) {
-		// no rank column: the score orders the candidates, highest first
-		e.rank_expr = "row_number() OVER (PARTITION BY CAST(query_id AS VARCHAR) ORDER BY " + e.score_expr +
-		              " DESC NULLS LAST, CAST(candidate_id AS VARCHAR))";
+	if (!rank_col.empty()) {
+		e.rank_expr = "CAST(" + rank_col + " AS BIGINT)";
 	}
-	if (need_rank && e.rank_expr.empty()) {
+	if (need_rank && rank_col.empty() && score_col.empty()) {
 		throw BinderException("%s: results needs a rank column (rank_col) or a score column (score_col)", p.fn);
 	}
-	if (need_score && e.score_expr.empty()) {
-		throw BinderException("%s: results needs the score column '%s' (score_col)", p.fn, score_col);
+	if (need_score && score_col.empty()) {
+		throw BinderException("%s: results needs a score column (score_col, default 'coverage')", p.fn);
 	}
 	return e;
 }
 
-string EvalCTEs(const EvalInput &e) {
+//! r: one row per (query, candidate) with a strict position: the given rank (ties by candidate
+//! id) or the score (highest first, ties by candidate id). g: gold, the best row per pair.
+string EvalCTEs(const EvalInput &e, const string &fn) {
+	string order = e.rank_expr.empty() ? "score DESC NULLS LAST, candidate_id" : "rank_in, candidate_id";
 	return StringUtil::Format(
-	    "r_all AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, %s AS rank, "
-	    "%s AS score FROM %s), "
-	    // duplicate rows of a pair keep the best rank
-	    "r AS (SELECT * FROM r_all QUALIFY row_number() OVER (PARTITION BY query_id, candidate_id ORDER BY rank NULLS LAST, "
-	    "score DESC NULLS LAST) = 1), "
+	    "r_raw AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, %s AS "
+	    "rank_in, %s AS score FROM %s), "
+	    "r_dedup AS (SELECT query_id, candidate_id, min(rank_in) AS rank_in, max(score) AS score FROM r_raw GROUP BY ALL), "
+	    "rank_guard AS (SELECT CASE WHEN EXISTS (SELECT 1 FROM r_dedup WHERE rank_in < 1) THEN error('%s: rank must be "
+	    "at least 1') END AS g), "
+	    "r AS (SELECT query_id, candidate_id, score, row_number() OVER (PARTITION BY query_id ORDER BY %s) AS rank "
+	    "FROM r_dedup, rank_guard WHERE rank_guard.g IS NULL), "
 	    "g AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, "
 	    "max(CAST(true_coverage AS DOUBLE)) AS t FROM %s GROUP BY ALL)",
 	    e.rank_expr.empty() ? "NULL::BIGINT" : e.rank_expr, e.score_expr.empty() ? "NULL::DOUBLE" : e.score_expr,
-	    QuotedIdentifier(e.results), QuotedIdentifier(e.gold));
+	    QuotedIdentifier(e.results), fn, order, QuotedIdentifier(e.gold));
 }
 
 //------------------------------------------------------------------------------
@@ -112,7 +122,7 @@ unique_ptr<TableRef> EvalRankingBindReplace(ClientContext &context, TableFunctio
 		FROM per LEFT JOIN regret rg USING (query_id)
 		GROUP BY per.k ORDER BY per.k
 	)",
-	                              EvalCTEs(e), k_list);
+	                              EvalCTEs(e, p.fn), k_list);
 	return CoverageSubquery(sql, context, p.fn);
 }
 
@@ -141,7 +151,7 @@ unique_ptr<TableRef> EvalCalibrationBindReplace(ClientContext &context, TableFun
 		       CASE WHEN stddev_pop(rp) > 0 AND stddev_pop(rt) > 0 THEN corr(rp, rt) END AS spearman
 		FROM ranked
 	)",
-	                              EvalCTEs(e));
+	                              EvalCTEs(e, p.fn));
 	return CoverageSubquery(sql, context, p.fn);
 }
 
@@ -157,6 +167,9 @@ unique_ptr<TableRef> ThresholdBindReplace(ClientContext &context, TableFunctionB
 	double good = p.Dbl("good", 0.9);
 	if (target < 0 || target > 1) {
 		throw BinderException("%s: target_precision must be between 0 and 1", p.fn);
+	}
+	if (good < 0 || good > 1) {
+		throw BinderException("%s: good must be between 0 and 1", p.fn);
 	}
 	// over the top-1 picks: the lowest threshold whose precision meets the target (the largest
 	// auto-accept share); tied scores enter together
@@ -180,7 +193,7 @@ unique_ptr<TableRef> ThresholdBindReplace(ClientContext &context, TableFunctionB
 		                    ORDER BY threshold DESC) FROM cum) AS curve
 		FROM chosen c LEFT JOIN cum k ON k.threshold = c.threshold
 	)",
-	                              EvalCTEs(e), DoubleLiteral(good), DoubleLiteral(target));
+	                              EvalCTEs(e, p.fn), DoubleLiteral(good), DoubleLiteral(target));
 	return CoverageSubquery(sql, context, p.fn);
 }
 
