@@ -32,7 +32,7 @@ struct Json {
 	enum class Kind { NUL, BOOL, NUMBER, STRING, ARRAY, OBJECT } kind = Kind::NUL;
 	bool boolean = false;
 	double number = 0;
-	string text;
+	string text; // a string's value, or a number as written
 	vector<Json> items;
 	vector<std::pair<string, Json>> fields;
 
@@ -65,6 +65,8 @@ public:
 private:
 	const string &s;
 	idx_t pos = 0;
+	idx_t depth = 0;
+	static constexpr idx_t MAX_JSON_DEPTH = 2 * MAX_TREE_DEPTH + 16;
 
 	[[noreturn]] void Fail(const string &what) {
 		throw InvalidInputException("tree_from_json: invalid JSON at position %llu: %s", (unsigned long long)pos, what);
@@ -89,7 +91,84 @@ private:
 		}
 		Json v;
 		char c = s[pos];
-		if (c == '{') {
+		if (c == '{' || c == '[') {
+			if (++depth > MAX_JSON_DEPTH) {
+				Fail("nested too deeply");
+			}
+			auto parsed = c == '{' ? Object() : Array();
+			depth--;
+			return parsed;
+		}
+		if (c == '"') {
+			v.kind = Json::Kind::STRING;
+			v.text = String();
+			return v;
+		}
+		if (Consume("true")) {
+			v.kind = Json::Kind::BOOL;
+			v.boolean = true;
+			return v;
+		}
+		if (Consume("false")) {
+			v.kind = Json::Kind::BOOL;
+			return v;
+		}
+		if (Consume("null")) {
+			return v;
+		}
+		if (c == '-' || (c >= '0' && c <= '9')) {
+			return Number();
+		}
+		Fail(string("unexpected character '") + c + "'");
+	}
+	Json Number() {
+		// -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
+		Json v;
+		idx_t start = pos;
+		auto digits = [&]() {
+			idx_t b = pos;
+			while (pos < s.size() && isdigit((unsigned char)s[pos])) {
+				pos++;
+			}
+			return pos > b;
+		};
+		if (s[pos] == '-') {
+			pos++;
+		}
+		if (pos < s.size() && s[pos] == '0') {
+			pos++;
+		} else if (!digits()) {
+			Fail("bad number");
+		}
+		if (pos < s.size() && s[pos] == '.') {
+			pos++;
+			if (!digits()) {
+				Fail("bad number");
+			}
+		}
+		if (pos < s.size() && (s[pos] == 'e' || s[pos] == 'E')) {
+			pos++;
+			if (pos < s.size() && (s[pos] == '+' || s[pos] == '-')) {
+				pos++;
+			}
+			if (!digits()) {
+				Fail("bad number");
+			}
+		}
+		if (pos < s.size() && (isalnum((unsigned char)s[pos]) || s[pos] == '.')) {
+			Fail("bad number");
+		}
+		v.kind = Json::Kind::NUMBER;
+		v.text = s.substr(start, pos - start);
+		v.number = std::strtod(v.text.c_str(), nullptr);
+		if (!std::isfinite(v.number)) {
+			Fail("number out of range");
+		}
+		return v;
+	}
+	Json Object() {
+		Json v;
+		{
 			pos++;
 			v.kind = Json::Kind::OBJECT;
 			Space();
@@ -121,7 +200,10 @@ private:
 				Fail("expected ',' or '}'");
 			}
 		}
-		if (c == '[') {
+	}
+	Json Array() {
+		Json v;
+		{
 			pos++;
 			v.kind = Json::Kind::ARRAY;
 			Space();
@@ -143,35 +225,6 @@ private:
 				Fail("expected ',' or ']'");
 			}
 		}
-		if (c == '"') {
-			v.kind = Json::Kind::STRING;
-			v.text = String();
-			return v;
-		}
-		if (Consume("true")) {
-			v.kind = Json::Kind::BOOL;
-			v.boolean = true;
-			return v;
-		}
-		if (Consume("false")) {
-			v.kind = Json::Kind::BOOL;
-			return v;
-		}
-		if (Consume("null")) {
-			return v;
-		}
-		if (c == '-' || (c >= '0' && c <= '9')) {
-			idx_t start = pos;
-			pos++;
-			while (pos < s.size() && (isdigit((unsigned char)s[pos]) || s[pos] == '.' || s[pos] == 'e' ||
-			                          s[pos] == 'E' || s[pos] == '+' || s[pos] == '-')) {
-				pos++;
-			}
-			v.kind = Json::Kind::NUMBER;
-			v.number = std::strtod(s.substr(start, pos - start).c_str(), nullptr);
-			return v;
-		}
-		Fail(string("unexpected character '") + c + "'");
 	}
 	static void AppendUtf8(string &out, uint32_t cp) {
 		if (cp < 0x80) {
@@ -218,6 +271,9 @@ private:
 			if (c == '"') {
 				return out;
 			}
+			if ((unsigned char)c < 0x20) {
+				Fail("control character in a string");
+			}
 			if (c != '\\') {
 				out += c;
 				continue;
@@ -249,9 +305,18 @@ private:
 				break;
 			case 'u': {
 				uint32_t cp = Hex4();
-				if (cp >= 0xD800 && cp <= 0xDBFF && pos + 6 <= s.size() && s[pos] == '\\' && s[pos + 1] == 'u') {
+				if (cp >= 0xDC00 && cp <= 0xDFFF) {
+					Fail("lone low surrogate");
+				}
+				if (cp >= 0xD800 && cp <= 0xDBFF) {
+					if (!(pos + 6 <= s.size() && s[pos] == '\\' && s[pos + 1] == 'u')) {
+						Fail("lone high surrogate");
+					}
 					pos += 2;
 					uint32_t low = Hex4();
+					if (low < 0xDC00 || low > 0xDFFF) {
+						Fail("invalid surrogate pair");
+					}
 					cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
 				}
 				AppendUtf8(out, cp);
@@ -273,8 +338,7 @@ string JsonString(const Json *v) {
 		return v->text;
 	}
 	if (v->kind == Json::Kind::NUMBER) {
-		auto n = v->number;
-		return n == std::floor(n) && std::fabs(n) < 1e15 ? std::to_string((long long)n) : StringUtil::Format("%g", n);
+		return v->text; // as written: large integer ids keep their digits
 	}
 	if (v->kind == Json::Kind::BOOL) {
 		return v->boolean ? "true" : "false";
@@ -333,12 +397,8 @@ struct JsonTreeContext {
 	std::unordered_set<string> seen;
 };
 
-Value AttributeFromJson(const Json &a, idx_t index, const string &node_id, const JsonTreeContext &ctx) {
+Value AttributeFromJson(const Json &a, const string &attr_id, const string &node_id, const JsonTreeContext &ctx) {
 	auto &units = *ctx.units;
-	string attr_id = JsonString(a.Get("attr_id"));
-	if (attr_id.empty()) {
-		attr_id = "a" + std::to_string(index + 1);
-	}
 	string text = JsonString(a.Get("text"));
 	if (text.empty()) {
 		text = JsonString(a.Get("value_text"));
@@ -349,8 +409,7 @@ Value AttributeFromJson(const Json &a, idx_t index, const string &node_id, const
 	if (role.empty()) {
 		role = ctx.role;
 	}
-	auto bound_field = a.Get("bound");
-	string bound = JsonString(bound_field);
+	string bound = JsonString(a.Get("bound"));
 	double lo = 0, hi = 0;
 	bool has_lo = JsonNumber(a.Get("lo"), lo);
 	bool has_hi = JsonNumber(a.Get("hi"), hi);
@@ -380,6 +439,9 @@ Value AttributeFromJson(const Json &a, idx_t index, const string &node_id, const
 		} else {
 			unit = unit_written; // unknown: never guessed
 		}
+		if (bound.empty() && !text.empty()) {
+			bound = ParseQuantity(text, ctx.langs, units).bound; // the text states the bound
+		}
 	} else if (category.empty() && !text.empty()) {
 		auto q = ParseQuantity(text, ctx.langs, units);
 		if (q.has_value) {
@@ -390,7 +452,7 @@ Value AttributeFromJson(const Json &a, idx_t index, const string &node_id, const
 			unit = q.unit;
 		}
 		category = q.category;
-		if (!bound_field) {
+		if (bound.empty()) {
 			bound = q.bound; // the text states the bound when the extraction gave none
 		}
 	}
@@ -413,8 +475,9 @@ Value AttributeFromJson(const Json &a, idx_t index, const string &node_id, const
 
 void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, idx_t depth) {
 	string where = parent_id.empty() ? "under the root" : "under node '" + parent_id + "'";
-	if (depth > 256) {
-		throw InvalidInputException("tree_from_json: the tree is nested more than 256 levels deep (%s)", where);
+	if (depth > MAX_TREE_DEPTH) {
+		throw InvalidInputException("tree_from_json: the tree is deeper than %llu levels (%s)",
+		                            (unsigned long long)MAX_TREE_DEPTH, where);
 	}
 	if (n.kind != Json::Kind::OBJECT) {
 		throw InvalidInputException("tree_from_json: every node must be a JSON object (%s)", where);
@@ -436,6 +499,12 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 		bool has_children = children && children->kind == Json::Kind::ARRAY && !children->items.empty();
 		kind = has_children ? "container" : "item";
 	}
+	kind = StringUtil::Lower(kind);
+	if (kind != "container" && kind != "item" && kind != "variant_group") {
+		throw InvalidInputException("tree_from_json: node '%s': kind must be container, item or variant_group, got "
+		                            "'%s'",
+		                            node_id, kind);
+	}
 	string edge = JsonString(n.Get("edge"));
 	if (edge.empty()) {
 		edge = JsonString(n.Get("edge_type"));
@@ -449,7 +518,7 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	}
 	double count = 1;
 	auto count_field = n.Get("count");
-	if (count_field && !count_field->IsNull() && !JsonNumber(count_field, count)) {
+	if (count_field && !count_field->IsNull() && (!JsonNumber(count_field, count) || !std::isfinite(count))) {
 		throw InvalidInputException("tree_from_json: node '%s': count must be a number", node_id);
 	}
 	string source = JsonString(n.Get("source"));
@@ -458,8 +527,24 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	}
 	vector<Value> attrs;
 	if (attributes && attributes->kind == Json::Kind::ARRAY) {
+		// given ids must be unique; missing ones become a<n>, skipping ids already in use
+		std::unordered_set<string> used;
+		for (auto &item : attributes->items) {
+			auto given = JsonString(item.Get("attr_id"));
+			if (!given.empty() && !used.insert(given).second) {
+				throw InvalidInputException("tree_from_json: node '%s': duplicate attr_id '%s'", node_id, given);
+			}
+		}
+		idx_t next = 1;
 		for (idx_t i = 0; i < attributes->items.size(); i++) {
-			attrs.push_back(AttributeFromJson(attributes->items[i], i, node_id, ctx));
+			auto attr_id = JsonString(attributes->items[i].Get("attr_id"));
+			if (attr_id.empty()) {
+				do {
+					attr_id = "a" + std::to_string(next++);
+				} while (used.count(attr_id));
+				used.insert(attr_id);
+			}
+			attrs.push_back(AttributeFromJson(attributes->items[i], attr_id, node_id, ctx));
 		}
 	}
 	child_list_t<Value> v;
@@ -562,6 +647,7 @@ void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 			double count;
 		};
 		vector<N> nodes;
+		string tree_id;
 		for (auto &entry : ListValue::GetChildren(list)) {
 			auto &types = StructType::GetChildTypes(entry.type());
 			auto &vals = StructValue::GetChildren(entry);
@@ -574,6 +660,8 @@ void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 				}
 				if (name == "node_id") {
 					n.id = v.ToString();
+				} else if (name == "tree_id") {
+					tree_id = v.ToString();
 				} else if (name == "parent_id") {
 					n.parent = v.ToString();
 				} else if (name == "node_kind") {
@@ -588,55 +676,80 @@ void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 			}
 			nodes.push_back(n);
 		}
+		// first occurrence of a node id wins; only nodes reachable from a root (no parent)
+		// count, so stage 1 sees exactly the items stage 2 (tree_anchors) sees
 		std::unordered_map<string, idx_t> index;
+		vector<bool> keep(nodes.size(), false);
 		for (idx_t i = 0; i < nodes.size(); i++) {
-			index[nodes[i].id] = i;
+			if (index.emplace(nodes[i].id, i).second) {
+				keep[i] = true;
+			}
 		}
 		std::unordered_map<string, vector<idx_t>> children;
 		vector<idx_t> roots;
 		for (idx_t i = 0; i < nodes.size(); i++) {
-			if (nodes[i].parent.empty() || !index.count(nodes[i].parent)) {
+			if (!keep[i]) {
+				continue;
+			}
+			if (nodes[i].parent.empty()) {
 				roots.push_back(i);
 			} else {
 				children[nodes[i].parent].push_back(i);
 			}
 		}
-		vector<bool> visiting(nodes.size(), false);
-		std::function<Multiset(idx_t)> ms = [&](idx_t i) -> Multiset {
-			Multiset out;
-			if (visiting[i]) {
-				return out; // a cycle contributes nothing
-			}
-			visiting[i] = true;
-			auto &n = nodes[i];
-			if (n.kind == "item" && !n.cls.empty()) {
-				out[n.cls] += 1.0;
-			}
-			Multiset alternatives;
-			for (auto c : children[n.id]) {
-				auto sub = ms(c);
-				if (nodes[c].edge == "OR") {
-					for (auto &kv : sub) {
-						alternatives[kv.first] = MaxValue(alternatives[kv.first], kv.second);
-					}
-				} else {
-					for (auto &kv : sub) {
-						out[kv.first] += kv.second;
-					}
-				}
-			}
-			for (auto &kv : alternatives) {
-				out[kv.first] += kv.second;
-			}
-			for (auto &kv : out) {
-				kv.second *= n.count;
-			}
-			visiting[i] = false;
-			return out;
-		};
+		// iterative post-order: own unit, plus AND children summed, plus the elementwise
+		// maximum over OR children, all times the node's count
+		vector<Multiset> sums(nodes.size());
 		Multiset total;
+		struct Frame {
+			idx_t node;
+			idx_t depth;
+			bool expanded;
+		};
 		for (auto r : roots) {
-			for (auto &kv : ms(r)) {
+			vector<Frame> stack {{r, 0, false}};
+			while (!stack.empty()) {
+				auto frame = stack.back();
+				stack.pop_back();
+				auto &n = nodes[frame.node];
+				if (!frame.expanded) {
+					if (frame.depth > MAX_TREE_DEPTH) {
+						throw InvalidInputException("tree_multiset: tree '%s' is deeper than %llu levels", tree_id,
+						                            (unsigned long long)MAX_TREE_DEPTH);
+					}
+					stack.push_back({frame.node, frame.depth, true});
+					for (auto c : children[n.id]) {
+						stack.push_back({c, frame.depth + 1, false});
+					}
+					continue;
+				}
+				Multiset out;
+				if (n.kind == "item" && !n.cls.empty()) {
+					out[n.cls] += 1.0;
+				}
+				Multiset alternatives;
+				for (auto c : children[n.id]) {
+					auto &sub = sums[c];
+					if (nodes[c].edge == "OR") {
+						for (auto &kv : sub) {
+							alternatives[kv.first] = MaxValue(alternatives[kv.first], kv.second);
+						}
+					} else {
+						for (auto &kv : sub) {
+							out[kv.first] += kv.second;
+						}
+					}
+					sub.clear();
+				}
+				for (auto &kv : alternatives) {
+					out[kv.first] += kv.second;
+				}
+				for (auto &kv : out) {
+					kv.second *= n.count;
+				}
+				sums[frame.node] = std::move(out);
+			}
+			for (auto &kv : sums[r]) {
 				total[kv.first] += kv.second;
 			}
 		}
@@ -721,6 +834,13 @@ string QuotedList(const vector<string> &values) {
 	return out + "]";
 }
 
+//! ' WHERE tree_id IN (...)' for a TreeSource with tree_ids, else ''.
+string TreeFilter(const TreeSource &src) {
+	return src.tree_ids.empty()
+	           ? string()
+	           : " WHERE CAST(tree_id AS VARCHAR) IN (SELECT unnest(" + QuotedList(src.tree_ids) + "))";
+}
+
 vector<string> StringListParameter(const Value &value, const string &name) {
 	vector<string> out;
 	if (value.IsNull()) {
@@ -761,7 +881,7 @@ void ValidateTreeSource(ClientContext &context, TreeSource &src, const string &f
 }
 
 string ResolvedNodesSQL(const TreeSource &src) {
-	string where = src.tree_ids.empty() ? "" : " WHERE CAST(tree_id AS VARCHAR) IN (SELECT unnest(" + QuotedList(src.tree_ids) + "))";
+	string where = TreeFilter(src);
 	string base = StringUtil::Format(
 	    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 	    "CAST(parent_id AS VARCHAR) AS parent_id, CAST(node_kind AS VARCHAR) AS node_kind, "
@@ -780,15 +900,18 @@ string ResolvedNodesSQL(const TreeSource &src) {
 	                    : "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 	                      "first(CAST(class_id AS VARCHAR) ORDER BY CAST(p AS DOUBLE) DESC, CAST(class_id AS VARCHAR)) "
 	                      "AS class_id FROM " +
-	                          Quoted(src.label_table) + " GROUP BY ALL";
+	                          Quoted(src.label_table) + where + " GROUP BY ALL";
 	return StringUtil::Format(
 	    "SELECT n.tree_id, n.node_id, n.parent_id, n.node_kind, n.edge_type, n.label, n.context, n.source, n.count, "
 	    "COALESCE(n.given_class, o.class_id, l.class_id) AS class_id, "
-	    "(n.given_class IS NOT NULL OR o.class_id IS NOT NULL) AS reviewed "
+	    "(n.given_class IS NOT NULL OR o.class_id IS NOT NULL) AS reviewed, "
+	    "CASE WHEN n.given_class IS NOT NULL THEN 'class_id' WHEN o.class_id IS NOT NULL THEN 'vocabulary' "
+	    "     WHEN l.class_id IS NOT NULL THEN 'label' END AS class_origin "
 	    "FROM (%s) n "
 	    "LEFT JOIN (%s) o ON o.wording = n.label AND (o.source IS NULL OR o.source = n.source) "
 	    "LEFT JOIN (%s) l ON l.tree_id = n.tree_id AND l.node_id = n.node_id "
-	    "QUALIFY row_number() OVER (PARTITION BY n.tree_id, n.node_id ORDER BY o.source IS NULL, o.class_id) = 1",
+	    "QUALIFY row_number() OVER (PARTITION BY n.tree_id, n.node_id ORDER BY o.source IS NULL, o.class_id, "
+	    "n.parent_id, n.label, n.node_kind, n.given_class) = 1",
 	    base, overrides, labels);
 }
 
@@ -805,10 +928,10 @@ unique_ptr<TableRef> TreeAnchorsBindReplace(ClientContext &context, TableFunctio
 	                         ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, 0 AS n WHERE false"
 	                         : "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 	                           "count(*) AS n FROM " +
-	                               Quoted(src.attrs_table) + " GROUP BY ALL";
+	                               Quoted(src.attrs_table) + TreeFilter(src) + " GROUP BY ALL";
 	auto sql = StringUtil::Format(R"(
 		WITH RECURSIVE
-			n AS (%s),
+			n AS MATERIALIZED (%s),
 			walk AS (
 				SELECT tree_id, node_id, node_kind, edge_type, label, context, source, class_id, reviewed, count,
 				       0 AS depth, []::VARCHAR[] AS anchor_path,
@@ -821,7 +944,7 @@ unique_ptr<TableRef> TreeAnchorsBindReplace(ClientContext &context, TableFunctio
 				       CASE WHEN c.edge_type = 'OR' THEN list_append(w.variant_path, c.node_id) ELSE w.variant_path END,
 				       w.effective_count * c.count
 				FROM walk w JOIN n c ON c.tree_id = w.tree_id AND c.parent_id = w.node_id
-				WHERE w.depth < 255
+				WHERE w.depth < %llu
 			),
 			attr_counts AS (%s)
 		SELECT w.tree_id, w.node_id, w.label, w.class_id, w.reviewed, w.count, w.effective_count, w.depth,
@@ -830,7 +953,7 @@ unique_ptr<TableRef> TreeAnchorsBindReplace(ClientContext &context, TableFunctio
 		WHERE w.node_kind = 'item'
 		ORDER BY w.tree_id, w.node_id
 	)",
-	                              ResolvedNodesSQL(src), attr_counts);
+	                              ResolvedNodesSQL(src), (unsigned long long)MAX_TREE_DEPTH, attr_counts);
 	return ParseSubquery(sql, context, "tree_anchors");
 }
 
@@ -841,7 +964,7 @@ unique_ptr<TableRef> TreeClassMultisetBindReplace(ClientContext &context, TableF
 		WITH n AS (%s),
 		packed AS (
 			SELECT tree_id, bool_and(reviewed) FILTER (WHERE node_kind = 'item') AS reviewed,
-			       tree_multiset(list(struct_pack(node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
+			       tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
 			FROM n GROUP BY tree_id
 		)
 		SELECT tree_id AS entity_id, unnest(map_keys(m)) AS feature_id, unnest(map_values(m)) AS weight,
@@ -871,7 +994,7 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		    has_name ? "CAST(name AS VARCHAR)" : "NULL::VARCHAR",
 		    has_dimension ? "CAST(dimension AS VARCHAR)" : "NULL::VARCHAR", has_lo ? "CAST(lo AS DOUBLE)" : "NULL::DOUBLE",
 		    has_hi ? "CAST(hi AS DOUBLE)" : "NULL::DOUBLE", has_category ? "CAST(category AS VARCHAR)" : "NULL::VARCHAR",
-		    has_bound ? "CAST(bound AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.attrs_table));
+		    has_bound ? "CAST(bound AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT a.tree_id, a.node_id, a.attr_id, 'attribute_on_container', 'error', 'attributes belong to item nodes'
@@ -910,15 +1033,35 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 				       CAST(edge_type AS VARCHAR) AS edge_type, CAST("count" AS DOUBLE) AS count, %s AS source
 				FROM %s%s
 			),
-			n AS (SELECT DISTINCT ON (tree_id, node_id) * FROM raw),
+			n AS MATERIALIZED (SELECT DISTINCT ON (tree_id, node_id) * FROM raw ORDER BY tree_id, node_id, parent_id, node_kind),
+			reach AS (
+				SELECT tree_id, node_id, 0 AS depth FROM n WHERE parent_id IS NULL
+				UNION ALL
+				SELECT c.tree_id, c.node_id, r.depth + 1
+				FROM reach r JOIN n c ON c.tree_id = r.tree_id AND c.parent_id = r.node_id
+				WHERE r.depth < %llu
+			),
+			reached AS MATERIALIZED (SELECT tree_id, node_id, max(depth) AS depth FROM reach GROUP BY ALL),
+			too_deep AS (
+				SELECT r.tree_id, r.node_id FROM reached r
+				WHERE r.depth >= %llu AND EXISTS (SELECT 1 FROM n c WHERE c.tree_id = r.tree_id AND c.parent_id = r.node_id)
+			),
+			-- unreachable nodes whose parent exists: on a cycle, below one, or below too_deep
+			stuck AS MATERIALIZED (
+				SELECT n.* FROM n
+				WHERE n.parent_id IS NOT NULL
+				  AND NOT EXISTS (SELECT 1 FROM reached r WHERE r.tree_id = n.tree_id AND r.node_id = n.node_id)
+				  AND EXISTS (SELECT 1 FROM n p WHERE p.tree_id = n.tree_id AND p.node_id = n.parent_id)
+				  AND n.tree_id NOT IN (SELECT tree_id FROM too_deep)
+			),
 			up AS (
-				SELECT tree_id, node_id AS start, parent_id AS cur, [node_id] AS path, 0 AS d
-				FROM n WHERE parent_id IS NOT NULL
+				SELECT tree_id, node_id AS start, parent_id AS cur, [node_id] AS path, 0 AS d FROM stuck
 				UNION ALL
 				SELECT u.tree_id, u.start, p.parent_id, list_append(u.path, u.cur), u.d + 1
-				FROM up u JOIN n p ON p.tree_id = u.tree_id AND p.node_id = u.cur
-				WHERE u.cur IS NOT NULL AND NOT list_contains(u.path, u.cur) AND u.d < 255
+				FROM up u JOIN stuck p ON p.tree_id = u.tree_id AND p.node_id = u.cur
+				WHERE u.cur IS NOT NULL AND NOT list_contains(u.path, u.cur) AND u.d < %llu
 			),
+			cycles AS (SELECT DISTINCT tree_id, start AS node_id FROM up WHERE cur = start),
 			checks AS (
 				SELECT tree_id, node_id, NULL::VARCHAR AS attr_id, 'duplicate_node' AS issue, 'error' AS severity,
 				       'node_id used more than once' AS detail
@@ -944,8 +1087,15 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 				       count(*) FILTER (WHERE parent_id IS NULL) || ' nodes without a parent'
 				FROM n GROUP BY tree_id HAVING count(*) FILTER (WHERE parent_id IS NULL) > 1
 				UNION ALL
-				SELECT DISTINCT tree_id, start, NULL, 'cycle', 'error', 'the node is its own ancestor'
-				FROM up WHERE cur = start
+				SELECT tree_id, node_id, NULL, 'cycle', 'error', 'the node is its own ancestor'
+				FROM cycles
+				UNION ALL
+				SELECT s.tree_id, s.node_id, NULL, 'unreachable', 'error', 'no path to a root (below a cycle)'
+				FROM stuck s WHERE NOT EXISTS (SELECT 1 FROM cycles c WHERE c.tree_id = s.tree_id AND c.node_id = s.node_id)
+				UNION ALL
+				SELECT tree_id, node_id, NULL, 'too_deep', 'error',
+				       'the tree is deeper than ' || %llu || ' levels below this node'
+				FROM too_deep
 				UNION ALL
 				SELECT tree_id, parent_id, NULL, 'mixed_edge_types', 'warning', 'children joined by both AND and OR'
 				FROM n WHERE parent_id IS NOT NULL GROUP BY tree_id, parent_id
@@ -955,11 +1105,9 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		%s
 		ORDER BY tree_id, issue, node_id, attr_id
 	)",
-	                              source_col, Quoted(src.nodes_table),
-	                              src.tree_ids.empty() ? ""
-	                                                   : " WHERE CAST(tree_id AS VARCHAR) IN (SELECT unnest(" +
-	                                                         QuotedList(src.tree_ids) + "))",
-	                              attr_checks);
+	                              source_col, Quoted(src.nodes_table), TreeFilter(src),
+	                              (unsigned long long)MAX_TREE_DEPTH, (unsigned long long)MAX_TREE_DEPTH,
+	                              (unsigned long long)MAX_TREE_DEPTH, (unsigned long long)MAX_TREE_DEPTH, attr_checks);
 	return ParseSubquery(sql, context, "validate_trees");
 }
 

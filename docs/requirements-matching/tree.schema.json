@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/DataZooDE/anofox-similarity/docs/requirements-matching/tree.schema.json",
+  "title": "Property tree for tree_from_json",
+  "description": "A request or offer tree as delivered by upstream extraction (HLD §3.2, §11.8). tree_from_json(json, tree_id, lang, unit_table) turns it into tree_nodes and tree_attributes rows. A bare node object (without the envelope) is accepted as the root.",
+  "type": "object",
+  "properties": {
+    "tree_id": {"type": ["string", "number"], "description": "Defaults to the root's node_id; the tree_id argument overrides it."},
+    "source": {"type": "string", "description": "Source system or document family; inherited by every node (used for per-source centring)."},
+    "lang": {
+      "description": "Language of the texts ('en', 'de' or a list, first entry decides ambiguous number separators). The lang argument overrides it.",
+      "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]
+    },
+    "role": {"type": "string", "description": "Default role of every attribute, e.g. 'required' or 'provided'."},
+    "root": {"$ref": "#/$defs/node"}
+  },
+  "required": ["root"],
+  "$defs": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "node_id": {"type": ["string", "number"], "description": "Unique within the tree. Numbers keep their digits as written."},
+        "kind": {"enum": ["container", "item", "variant_group", "Container", "Item", "Variant_group"], "description": "Lower-cased. Default: container when the node has children, item otherwise."},
+        "edge": {"enum": ["AND", "OR", "and", "or"], "description": "Edge to the parent: AND composes, OR is an alternative. Default AND."},
+        "label": {"type": "string"},
+        "context": {"type": "string", "description": "E.g. the enclosing heading."},
+        "class_id": {"type": "string", "description": "Reviewed or known class; otherwise resolved later (vocabulary, classifier)."},
+        "count": {"type": "number", "description": "Extensive multiplicity, default 1. Counts multiply along the path."},
+        "source": {"type": "string", "description": "Overrides the document's source for this node."},
+        "attributes": {"type": "array", "items": {"$ref": "#/$defs/attribute"}},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/node"}}
+      },
+      "required": ["node_id"]
+    },
+    "attribute": {
+      "type": "object",
+      "properties": {
+        "attr_id": {"type": ["string", "number"], "description": "Unique within the node; missing ids become a1, a2, ... skipping ids in use."},
+        "name": {"type": "string"},
+        "text": {"type": "string", "description": "The value as written. Parsed with parse_quantity when no lo/hi are given; its bound is used when bound is missing or null."},
+        "lo": {"type": "number", "description": "In the given unit; converted to the base unit."},
+        "hi": {"type": "number"},
+        "unit": {"type": "string", "description": "Customer unit as written (mm, cm, mA, °C, EUR ...). Unknown units keep the number and give dimension NULL."},
+        "bound": {"enum": ["at_least", "at_most", "within", "equals", null]},
+        "category": {"type": "string", "description": "Ordinal or categorical value (e.g. IP54) instead of lo/hi."},
+        "qualifier": {"type": "string"},
+        "role": {"type": "string"}
+      }
+    }
+  }
+}

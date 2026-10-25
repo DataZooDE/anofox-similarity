@@ -4,6 +4,8 @@
 #include "duckdb.hpp"
 #include "duckdb/catalog/catalog.hpp"
 #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
+#include "duckdb/catalog/catalog_entry/view_catalog_entry.hpp"
+#include "duckdb/common/string_util.hpp"
 #include "duckdb/catalog/entry_lookup_info.hpp"
 #include "duckdb/common/exception.hpp"
 #include <cctype>
@@ -162,10 +164,33 @@ inline bool TableHasColumn(ClientContext &context, const string &table_path, con
 	} catch (...) {
 		return true;
 	}
-	if (!entry || entry->type != CatalogType::TABLE_ENTRY) {
-		return true;
+	if (entry && entry->type == CatalogType::TABLE_ENTRY) {
+		return entry->Cast<TableCatalogEntry>().ColumnExists(duckdb_compat::Ident(column));
 	}
-	return entry->Cast<TableCatalogEntry>().ColumnExists(duckdb_compat::Ident(column));
+	// a view: compare against its column names (or aliases)
+	try {
+		EntryLookupInfo view_lookup(CatalogType::VIEW_ENTRY, duckdb_compat::EntryName(parts.back()));
+		auto view = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name),
+		                              view_lookup, OnEntryNotFound::RETURN_NULL);
+		if (view && view->type == CatalogType::VIEW_ENTRY) {
+			auto &v = view->Cast<ViewCatalogEntry>();
+			v.BindView(context);
+			auto info = v.GetColumnInfo();
+			if (!info) {
+				return true;
+			}
+			for (idx_t i = 0; i < info->names.size(); i++) {
+				const string &name = i < v.aliases.size() ? static_cast<const string &>(v.aliases[i])
+				                                          : static_cast<const string &>(info->names[i]);
+				if (StringUtil::CIEquals(name, column)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	} catch (...) {
+	}
+	return true;
 }
 
 } // namespace anofox

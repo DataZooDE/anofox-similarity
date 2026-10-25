@@ -9,6 +9,11 @@ namespace anofox {
 // Property-tree store (coverage matching, HLD §3.2 and §4.3)
 //------------------------------------------------------------------------------
 
+//! The deepest tree any function follows (levels below the root). tree_from_json,
+//! tree_multiset and tree_class_multiset reject deeper trees; tree_anchors stops there;
+//! validate_trees reports too_deep.
+constexpr idx_t MAX_TREE_DEPTH = 1000;
+
 //! Where the nodes of a set of trees come from and how their classes resolve.
 struct TreeSource {
 	string nodes_table;
