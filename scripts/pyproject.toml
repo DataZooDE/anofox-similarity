@@ -10,8 +10,20 @@ dependencies = [
     "pandas>=2.0",
     "openpyxl>=3.1",
     "xlrd>=2.0.2",
+    "numpy>=2.4.0",
 ]
+
+[project.scripts]
+generate-coverage-data = "scripts.coverage.generate:main"
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
