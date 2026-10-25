@@ -1,0 +1,44 @@
+# name: test/sql/coverage/r3/uc_03_one_fitting_variant.test
+# description: The module library offers a seat track in three variants. Only one meets the
+#              request's travel and noise limits. The variant counts, not the average (BR-05),
+#              and the trace says which one to quote.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# Q2: travel >= 0.24 m, noise <= 38 dB(A). Module M1:
+#   C1.A1 0.22 m / 35 dB(A): travel misses by 8.3 % -> 0.2335; noise ok   -> 0.617
+#   C1.A2 0.26 m / 41 dB(A): travel ok; noise misses by 7.9 % -> 0         -> 0.5
+#   C2.A1 0.25 m / 36 dB(A): both ok                                     -> 1.0  (chosen)
+# The average of the variants (0.706) would hide that one fits.
+query TR
+SELECT matched_node_id, min(value_score) FROM tree_coverage_trace('Q2', candidates := ['M1'], mu := 0.0)
+GROUP BY matched_node_id;
+----
+M1.C2.A1	1.0
+
+query R
+SELECT coverage FROM tree_coverage('Q2', candidates := ['M1'], mu := 0.0);
+----
+1.0
+
+# Counts never add across variants: a requirement for two seat tracks is half covered by M1
+statement ok
+CREATE TABLE two_tracks AS SELECT * FROM (VALUES
+    ('T2', 'T2', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('T2', 'T2.1', 'T2', 'item', 'AND', '2 seat tracks', 'seat_track', 2.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query RR
+SELECT coverage, (SELECT count_available FROM tree_coverage_trace('T2', candidates := ['M1'], nodes_table := 'two_tracks',
+                  attrs_table := NULL, candidate_nodes_table := 'tree_nodes', candidate_attrs_table := NULL))
+FROM tree_coverage('T2', candidates := ['M1'], nodes_table := 'two_tracks', attrs_table := NULL,
+                   candidate_nodes_table := 'tree_nodes', candidate_attrs_table := NULL);
+----
+0.5	1.0

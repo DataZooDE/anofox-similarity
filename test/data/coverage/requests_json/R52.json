@@ -1,0 +1,539 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R52.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 7.4,
+            "lo": 7.4,
+            "name": "height stroke",
+            "text": "not less than 7.4 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 1500.0,
+            "lo": 1500.0,
+            "name": "adjustment time",
+            "text": "not more than 1500 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Supplier shall deliver vertical cushion adjustment with height stroke not less than 7.4 cm and adjustment time not more than 1500 ms.",
+          "node_id": "R52.r03"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 118.0,
+            "lo": 118.0,
+            "name": "height stroke",
+            "text": "at least 118 mm",
+            "unit": "mm"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver height pumping mechanism with height stroke at least 118 mm.",
+          "node_id": "R52.r15"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R52.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 height adjuster",
+      "node_id": "R52.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver a backrest recliner.",
+        "node_id": "R52.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "operating noise",
+          "text": "up to 17 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.2 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver seat back angle adjustment with operating noise up to 17 dB(A).",
+        "node_id": "R52.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 recliner",
+      "node_id": "R52.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 180.0,
+          "lo": 180.0,
+          "name": "target price",
+          "text": "max. 180 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.3 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver seat structure with target price max. 180 EUR.",
+        "node_id": "R52.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 seat frame / structure",
+      "node_id": "R52.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 22.0,
+        "lo": 14.0,
+        "name": "speed",
+        "text": "14 to 22 mm/s",
+        "unit": "mm/s"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 17.0,
+        "lo": 17.0,
+        "name": "noise level",
+        "text": "not more than 17 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_least",
+        "hi": 10.5,
+        "lo": 10.5,
+        "name": "holding load",
+        "text": "not less than 10.5 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver a seat slide track with speed 14 to 22 mm/s and noise level not more than 17 dB(A) and holding load not less than 10.5 kN.",
+      "node_id": "R52.r08"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 36500.0,
+        "lo": 36500.0,
+        "name": "retention load",
+        "text": "minimum 36500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver a longitudinal seat adjuster with retention load minimum 36500 N.",
+      "node_id": "R52.r21"
+     },
+     {
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver seat upholstery.",
+      "node_id": "R52.r11"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 145000.0,
+        "lo": 145000.0,
+        "name": "Martindale",
+        "text": "≥ 145,000 cycles",
+        "unit": "cycles"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver trim cover set with Martindale ≥ 145,000 cycles.",
+      "node_id": "R52.r24"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 600.0,
+            "lo": 600.0,
+            "name": "hardness",
+            "text": "600 N",
+            "unit": "N"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver foam cushion pad with hardness 600 N.",
+          "node_id": "R52.r14"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R52.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 foam pad",
+      "node_id": "R52.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R52.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 4.2,
+          "lo": 4.2,
+          "name": "heat-up time",
+          "text": "not more than 4.2 min",
+          "unit": "min"
+         }
+        ],
+        "context": "2.1 Requirement",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver 4 × heater mats with heat-up time not more than 4.2 min.",
+        "node_id": "R52.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 250.0,
+          "lo": 250.0,
+          "name": "heat-up time",
+          "text": "max. 250 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.1 Requirement",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver 4 × seat heating with heat-up time max. 250 s.",
+        "node_id": "R52.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Requirement",
+      "node_id": "R52.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 0.6,
+          "lo": 0.6,
+          "name": "supply current",
+          "text": "0.6 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 Requirement",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver 2 × cooling fans in the seat with supply current 0.6 A.",
+        "node_id": "R52.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 1000.0,
+          "lo": 260.0,
+          "name": "airflow",
+          "text": "260 to 1000 l/min",
+          "unit": "l/min"
+         }
+        ],
+        "context": "2.2 Requirement",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver 2 × cooling fans in the seat with airflow 260 to 1000 l/min.",
+        "node_id": "R52.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Requirement",
+      "node_id": "R52.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R52.c2.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2700.0,
+          "lo": 2700.0,
+          "name": "vertical load",
+          "text": "≥ 2700 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver folding centre armrest with vertical load ≥ 2700 N.",
+        "node_id": "R52.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 armrest",
+      "node_id": "R52.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "2.4 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver adjustable lower-back support.",
+        "node_id": "R52.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 lumbar support",
+      "node_id": "R52.c2.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R52.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R52.c3.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 0.32,
+          "lo": 0.32,
+          "name": "seam strength",
+          "text": "min. 0.32 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver airbag tear seam with seam strength min. 0.32 kN.",
+        "node_id": "R52.r10"
+       },
+       {
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver airbag chute.",
+        "node_id": "R52.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 side airbag integration",
+      "node_id": "R52.c3.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 3000.0,
+        "lo": 3000.0,
+        "name": "detection threshold",
+        "text": "≤ 3000 g",
+        "unit": "g"
+       }
+      ],
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver occupant detection with detection threshold ≤ 3000 g.",
+      "node_id": "R52.r17"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R52.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "min. IP54"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver wiring loom with protection class min. IP54.",
+        "node_id": "R52.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "current rating",
+          "text": "minimum 18 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver seat cabling and connectors with current rating minimum 18 A.",
+        "node_id": "R52.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R52.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R52.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification BRH-R52",
+  "node_id": "R52"
+ },
+ "source": "brennholt",
+ "tree_id": "R52"
+}

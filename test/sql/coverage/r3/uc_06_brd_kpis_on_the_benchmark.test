@@ -1,0 +1,126 @@
+# name: test/sql/coverage/r3/uc_06_brd_kpis_on_the_benchmark.test
+# description: The team proves the pipeline on the seating benchmark before trusting it:
+#              stage-1 recall, stage-2 ranking and calibration for all 80 open requests at
+#              once, against the BRD §6 targets (reviewed vocabulary).
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests, values parsed from the text. Until R4's classifier, the items' classes come
+# from the benchmark's labels, standing in for an upstream labelling step (README: gold files)
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+# stage 2 over the stage-1 top 20 of every request
+statement ok
+CREATE TABLE results AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+query II
+SELECT count(DISTINCT query_id), count(*) FROM results;
+----
+80	1600
+
+statement ok
+CREATE TABLE scored AS
+SELECT r.*, g.true_coverage, q.best_coverage, q.is_unmeetable
+FROM results r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id;
+
+# every evaluated pair has ground truth, so no KPI denominator shrinks silently
+query II
+SELECT count(DISTINCT query_id), count(*) FROM scored;
+----
+80	1600
+
+# recall@20 of a best candidate >= 0.90
+query I
+SELECT avg((SELECT bool_or(true_coverage >= best_coverage - 1e-9) FROM scored s2 WHERE s2.query_id = s.query_id)::INT) >= 0.90
+FROM (SELECT DISTINCT query_id FROM scored) s;
+----
+true
+
+# top-1 is a best candidate for >= 85 % of the requests; mean regret <= 0.01
+query II
+SELECT avg((true_coverage >= best_coverage - 1e-9)::INT) >= 0.85, avg(best_coverage - true_coverage) <= 0.01
+FROM scored WHERE rank = 1;
+----
+true	true
+
+# mean absolute error of the predicted coverage over all evaluated pairs <= 0.05 (HLD §11.2)
+query I
+SELECT avg(abs(coverage - true_coverage)) <= 0.05 FROM scored;
+----
+true
+
+# unmeetable requests are flagged (top-1 score < 0.95) >= 95 %
+query I
+SELECT avg((coverage < 0.95)::INT) >= 0.95 FROM scored WHERE rank = 1 AND is_unmeetable;
+----
+true
+
+# precision at the auto-accept threshold 0.9 >= 95 %
+query I
+SELECT avg((true_coverage >= 0.9)::INT) >= 0.95 FROM scored WHERE rank = 1 AND coverage >= 0.9;
+----
+true
+
+# the reviewed archive uses partition everywhere
+query T
+SELECT DISTINCT assignment_used FROM results;
+----
+partition

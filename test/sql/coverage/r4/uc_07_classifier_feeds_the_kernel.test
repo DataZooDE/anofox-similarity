@@ -1,0 +1,181 @@
+# name: test/sql/coverage/r4/uc_07_classifier_feeds_the_kernel.test
+# description: The whole pipeline without benchmark labels on the request side: the pivot
+#              classifier labels the request items (soft labels) and the archive is reviewed.
+#              The classifier alone misreads about 5 % of the items, which costs recall and
+#              regret; forcing partition on these noisy labels breaks calibration (risk R2), so
+#              'auto' uses best match (HLD §11.12). Reviewing the 15 % lowest-margin items
+#              (BR-33) brings all BRD §6 KPIs back.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests as extracted: no classes; values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec', sample := 20000));
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+# the classifier labels the request items: centred, with the attribute-template bonus
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE request_items AS
+SELECT tree_id, node_id, source, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
+
+statement ok
+CREATE TABLE req_labels AS
+SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'req_attrs', templates_table := 'templates', name_vectors := 'name_vectors',
+       name_floor := getvariable('name_floor'));
+
+# ground truth of the item classes, for checking only
+statement ok
+CREATE TABLE gold_item AS SELECT * FROM read_csv_auto('test/data/coverage/gold_item_class.csv.gz');
+
+query I
+SELECT avg((l.class_id = g.class_id)::INT) >= 0.95
+FROM req_labels l JOIN gold_item g USING (tree_id, node_id)
+WHERE l.p = (SELECT max(p) FROM req_labels m WHERE m.tree_id = l.tree_id AND m.node_id = l.node_id);
+----
+true
+
+statement ok
+CREATE MACRO kpis(t) AS TABLE
+WITH s AS (SELECT r.*, g.true_coverage, q.best_coverage, q.is_unmeetable FROM query_table(t) r
+           JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+           JOIN gold_requests q ON q.request_id = r.query_id)
+SELECT (SELECT count(DISTINCT query_id) FROM s) AS n_requests, (SELECT count(*) FROM s) AS n_pairs,
+       (SELECT avg(h::INT) FROM (SELECT bool_or(true_coverage >= best_coverage - 1e-9) AS h FROM s GROUP BY query_id)) AS recall,
+       (SELECT avg((true_coverage >= best_coverage - 1e-9)::INT) FROM s WHERE rank = 1) AS top1,
+       (SELECT avg(best_coverage - true_coverage) FROM s WHERE rank = 1) AS regret,
+       (SELECT avg(abs(coverage - true_coverage)) FROM s) AS mae,
+       (SELECT bool_and(coverage < 0.95) FROM s WHERE rank = 1 AND is_unmeetable) AS flagged,
+       (SELECT avg((true_coverage >= 0.9)::INT) FROM s WHERE rank = 1 AND coverage >= 0.9) AS precision;
+
+# ---------------------------------------------------------------- the classifier alone
+
+statement ok
+CREATE TABLE classifier_only AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', label_table := 'req_labels', assignment := 'auto',
+       default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+# the requests are not reviewed, so 'auto' uses best match
+query T
+SELECT DISTINCT assignment_used FROM classifier_only;
+----
+best_match
+
+# measured: recall 0.8625, top-1 0.85, regret 0.022, MAE 0.038. Recall and regret miss the BRD
+# targets (0.90, 0.01): 71 misread items in 41 requests
+query IIIIII
+SELECT n_requests, n_pairs, recall >= 0.85, top1 >= 0.85, regret <= 0.025, mae <= 0.05 FROM kpis('classifier_only');
+----
+80	1600	true	true	true	true
+
+# forcing partition on the noisy request labels breaks calibration (MAE 0.19, risk R2)
+statement ok
+CREATE TABLE forced_partition AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', label_table := 'req_labels', assignment := 'partition',
+       default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+query II
+SELECT (SELECT mae FROM kpis('forced_partition')) > 0.1,
+       (SELECT mae FROM kpis('forced_partition')) > (SELECT mae FROM kpis('classifier_only'));
+----
+true	true
+
+# ---------------------------------------------------------------- with the review of uncertain items
+
+# the 15 % lowest-margin items go to a reviewer (ground truth plays the reviewer); they hold
+# most of the classifier's errors
+statement ok
+CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'req_attrs', templates_table := 'templates', name_vectors := 'name_vectors',
+       name_floor := getvariable('name_floor'));
+
+statement ok
+CREATE TABLE export AS SELECT * FROM uncertain_decisions(decisions := 'decided', share := 0.15);
+
+statement ok
+CREATE TABLE answers AS SELECT e.tree_id, e.node_id, g.class_id FROM export e JOIN gold_item g USING (tree_id, node_id);
+
+query II
+SELECT count(*), (SELECT count(*) FROM decided d JOIN gold_item g USING (tree_id, node_id) WHERE d.rank = 1 AND d.class_id <> g.class_id
+                  AND (d.tree_id, d.node_id) IN (SELECT (tree_id, node_id) FROM export)) >= 50
+FROM export;
+----
+228	true
+
+statement ok
+CREATE TABLE reviewed_labels AS SELECT tree_id, node_id, class_id, p
+FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue', attrs_table := 'req_attrs',
+       templates_table := 'templates', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'),
+       answers_table := 'answers');
+
+statement ok
+CREATE TABLE with_review AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', label_table := 'reviewed_labels', assignment := 'auto',
+       default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+# all six BRD §6 KPIs (measured: recall 0.9125, top-1 0.9125, regret 0.0099, MAE 0.035, precision 0.985)
+query IIIIII
+SELECT recall >= 0.90, top1 >= 0.85, regret <= 0.01, mae <= 0.05, flagged, precision >= 0.95 FROM kpis('with_review');
+----
+true	true	true	true	true	true

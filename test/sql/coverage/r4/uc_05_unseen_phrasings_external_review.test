@@ -1,0 +1,77 @@
+# name: test/sql/coverage/r4/uc_05_unseen_phrasings_external_review.test
+# description: The team classifies 200 unseen requirement phrasings, sends the 15 % with the
+#              lowest margin to an external reviewer as JSON (an LLM or a colleague), writes the
+#              answers back as per-item decisions and classifies again (HLD §4.4, BR-33).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE unseen AS
+SELECT item_id AS node_id, source, vec::FLOAT[] AS vec, tokens::FLOAT[][] AS tokens
+FROM read_csv_auto('test/data/coverage/unseen_vectors.csv.gz');
+
+statement ok
+CREATE TABLE unseen_texts AS SELECT item_id AS node_id, text FROM read_csv_auto('test/data/coverage/unseen_requirements.csv.gz');
+
+statement ok
+CREATE TABLE classes AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_classes.csv.gz');
+
+statement ok
+CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue',
+       mode := 'late_interaction');
+
+statement ok
+CREATE TABLE export AS SELECT * FROM uncertain_decisions(decisions := 'decided', share := 0.15, top := 3,
+       texts_table := 'unseen_texts', catalogue_table := 'classes');
+
+# 15 % of 200 = 30 requests, each with its text and three candidates with definitions
+query II
+SELECT count(*), count(*) FILTER (WHERE request LIKE '{"tree_id":null,"node_id":"U%","text":"%' AND
+                                        len(string_split(request, '"class_id"')) = 4 AND request LIKE '%"definition":"%')
+FROM export;
+----
+30	30
+
+# ground truth plays the external reviewer
+statement ok
+CREATE TABLE gold_unseen AS SELECT item_id AS node_id, class_id FROM read_csv_auto('test/data/coverage/gold_unseen.csv.gz');
+
+# the exported items are the doubtful ones: their error rate is above the overall one
+query I
+SELECT avg((d.class_id <> g.class_id)::INT) FILTER (WHERE d.node_id IN (SELECT node_id FROM export)) >
+       avg((d.class_id <> g.class_id)::INT)
+FROM decided d JOIN gold_unseen g USING (node_id) WHERE d.rank = 1;
+----
+true
+
+statement ok
+CREATE TABLE answers AS SELECT NULL::VARCHAR AS tree_id, e.node_id, g.class_id FROM export e JOIN gold_unseen g USING (node_id);
+
+statement ok
+CREATE TABLE redecided AS SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue',
+       mode := 'late_interaction', answers_table := 'answers');
+
+# the answered items are now right and marked as overridden; overall accuracy does not drop
+query III
+SELECT avg((r.class_id = g.class_id)::INT) FILTER (WHERE r.overridden), count(*) FILTER (WHERE r.overridden),
+       avg((r.class_id = g.class_id)::INT) >= (SELECT avg((d.class_id = g2.class_id)::INT) FROM decided d
+                                                JOIN gold_unseen g2 USING (node_id) WHERE d.rank = 1)
+FROM redecided r JOIN gold_unseen g USING (node_id) WHERE r.rank = 1;
+----
+1.0	30	true
+
+# nothing is left to ask about below the old cut
+statement ok
+SET VARIABLE cut = (SELECT max(margin) FROM export) + 1e-9;
+
+query I
+SELECT count(*) FROM uncertain_decisions(decisions := 'redecided', threshold := getvariable('cut'))
+WHERE node_id IN (SELECT node_id FROM export);
+----
+0

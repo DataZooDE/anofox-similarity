@@ -1,0 +1,175 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R77.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "Umlegezeit",
+          "text": "höchstens 3500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "Bedienkraft",
+          "text": "90 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Tumble-Funktion mit Umlegezeit höchstens 3500 ms und Bedienkraft 90 N.",
+        "node_id": "R77.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Anforderung",
+      "node_id": "R77.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 55.0,
+          "lo": 55.0,
+          "name": "Crashlast",
+          "text": "≥ 55 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 205.0,
+          "lo": 205.0,
+          "name": "Zielpreis",
+          "text": "205 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.2 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Lehnen- und Kissenrahmen mit Crashlast ≥ 55 kN und Zielpreis 205 EUR.",
+        "node_id": "R77.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzstruktur",
+      "node_id": "R77.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "Martindale",
+          "text": "25000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F1"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 85.0,
+          "lo": 85.0,
+          "name": "Stückpreis",
+          "text": "bis zu 85 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.3 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Polsterbezug mit Martindale 25000 Zyklen und Brennbarkeitsklasse mindestens F1 und Stückpreis bis zu 85 €.",
+        "node_id": "R77.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzbezug",
+      "node_id": "R77.c1.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R77.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "mindestens IP54"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Steckverbinder mit Schutzart mindestens IP54.",
+        "node_id": "R77.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R77.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R77.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage CAL-R77",
+  "node_id": "R77"
+ },
+ "source": "calvento",
+ "tree_id": "R77"
+}

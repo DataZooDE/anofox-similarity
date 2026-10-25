@@ -1,0 +1,228 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R57.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "Härte",
+          "text": "260 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1.7,
+          "lo": 1.7,
+          "name": "Masse",
+          "text": "höchstens 1,7 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Polsterschaum mit Härte 260 N und Masse höchstens 1,7 kg enthalten.",
+        "node_id": "R57.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Anforderung",
+      "node_id": "R57.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50000.0,
+          "lo": 50000.0,
+          "name": "Martindale",
+          "text": "minimal 50.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.2 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Lederbezüge mit Martindale minimal 50.000 Zyklen enthalten.",
+        "node_id": "R57.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzbezug",
+      "node_id": "R57.c1.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R57.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.2,
+            "lo": 1.2,
+            "name": "Vertikallast",
+            "text": "min. 1,2 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "Schwenkwinkel",
+            "text": "10 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss Ellbogenauflage mit Vertikallast min. 1,2 kN und Schwenkwinkel 10 ° enthalten.",
+          "node_id": "R57.r01"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R57.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R57.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R57.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "Höhenverstellweg",
+          "text": "75 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Positionen",
+          "text": "4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Kopfstütze mit Rasten mit Höhenverstellweg 75 mm und Positionen 4 enthalten.",
+        "node_id": "R57.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Anforderung",
+      "node_id": "R57.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R57.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 16.0,
+          "lo": 16.0,
+          "name": "Strombelastbarkeit",
+          "text": "minimal 16 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "IP40 oder besser"
+         }
+        ],
+        "context": "4.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Kabelsatz Sitz mit Strombelastbarkeit minimal 16 A und Schutzart IP40 oder besser enthalten.",
+        "node_id": "R57.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R57.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R57.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage DRV-R57",
+  "node_id": "R57"
+ },
+ "source": "dravik",
+ "tree_id": "R57"
+}

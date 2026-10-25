@@ -1,0 +1,320 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R74.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 250.0,
+          "lo": 250.0,
+          "name": "hardness",
+          "text": "nominal 250 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1900.0,
+          "lo": 1900.0,
+          "name": "mass",
+          "text": "1900 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide cushion foam with hardness nominal 250 N and mass 1900 g.",
+        "node_id": "R74.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R74.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 5500.0,
+          "lo": 5500.0,
+          "name": "folding time",
+          "text": "5500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 55.0,
+          "lo": 55.0,
+          "name": "operating force",
+          "text": "not more than 55 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide flat-folding backrest with folding time 5500 ms and operating force not more than 55 N.",
+        "node_id": "R74.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R74.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "angle range",
+          "text": "≥ 38 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "operating noise",
+          "text": "45 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide recliner fittings with angle range ≥ 38 ° and operating noise 45 dB(A).",
+        "node_id": "R74.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R74.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "crash load",
+          "text": "50 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.4 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide seat structure with crash load 50 kN.",
+        "node_id": "R74.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Requirement",
+      "node_id": "R74.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 24.5,
+          "lo": 24.5,
+          "name": "adjustment travel",
+          "text": "24.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 28.0,
+          "lo": 14.0,
+          "name": "speed",
+          "text": "14 to 28 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 39.0,
+          "lo": 39.0,
+          "name": "noise",
+          "text": "39 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_least",
+          "hi": 20000.0,
+          "lo": 20000.0,
+          "name": "retention load",
+          "text": "not less than 20000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.5 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide a seat slide track with adjustment travel 24.5 cm and speed 14 to 28 mm/s and noise 39 dB(A) and retention load not less than 20000 N.",
+        "node_id": "R74.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat track",
+      "node_id": "R74.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R74.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 0.8,
+            "lo": 0.8,
+            "name": "vertical load",
+            "text": "min. 0.8 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "pivot angle",
+            "text": "10 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "The seat shall provide arm support with vertical load min. 0.8 kN and pivot angle 10 °.",
+          "node_id": "R74.r01"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Performance",
+        "node_id": "R74.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Requirement",
+      "node_id": "R74.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R74.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 60.0,
+            "lo": 60.0,
+            "name": "height travel",
+            "text": "not less than 60 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "detent positions",
+            "text": "min. 3",
+            "unit": ""
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "The seat shall provide mechanical head support with height travel not less than 60 mm and detent positions min. 3.",
+          "node_id": "R74.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R74.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Requirement",
+      "node_id": "R74.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R74.c3"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification AUR-R74",
+  "node_id": "R74"
+ },
+ "source": "aurivon",
+ "tree_id": "R74"
+}

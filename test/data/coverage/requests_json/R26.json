@@ -1,0 +1,589 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R26.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature cushion foam.",
+        "node_id": "R26.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.7,
+          "lo": 0.7,
+          "name": "mass",
+          "text": "up to 0.7 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature seat padding with mass up to 0.7 kg.",
+        "node_id": "R26.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R26.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R26.c1.s2.n1"
+       },
+       {
+        "context": "1.2 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature recliner fittings.",
+        "node_id": "R26.r10"
+       },
+       {
+        "context": "1.2 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature backrest tilt fitting.",
+        "node_id": "R26.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 recliner",
+      "node_id": "R26.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Seat assembly to feature seat structure.",
+          "node_id": "R26.r11"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Performance",
+        "node_id": "R26.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Requirement",
+      "node_id": "R26.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature sliding rails for the seat.",
+        "node_id": "R26.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 2.7,
+          "lo": 1.9,
+          "name": "speed",
+          "text": "1.9 to 2.7 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 39.0,
+          "lo": 39.0,
+          "name": "noise",
+          "text": "≤ 39 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature track adjuster fore/aft with speed 1.9 to 2.7 cm/s and noise ≤ 39 dB(A).",
+        "node_id": "R26.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat track",
+      "node_id": "R26.c1.s4"
+     },
+     {
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature seat upholstery.",
+      "node_id": "R26.r18"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 5.2,
+            "lo": 5.2,
+            "name": "vertical travel",
+            "text": "min. 5.2 cm",
+            "unit": "cm"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Seat assembly to feature height pumping mechanism with vertical travel min. 5.2 cm.",
+          "node_id": "R26.r25"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R26.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 height adjuster",
+      "node_id": "R26.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R26.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Seat assembly to feature arm support.",
+          "node_id": "R26.r01"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.5,
+            "lo": 1.5,
+            "name": "vertical load",
+            "text": "not less than 1.5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Seat assembly to feature elbow rest with vertical load not less than 1.5 kN.",
+          "node_id": "R26.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Performance",
+        "node_id": "R26.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Requirement",
+      "node_id": "R26.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R26.c2.s2.n1"
+       },
+       {
+        "context": "2.2 cushion length extension",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature thigh rest.",
+        "node_id": "R26.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 cushion length extension",
+      "node_id": "R26.c2.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 1.8,
+        "lo": 1.8,
+        "name": "supply current",
+        "text": "1.8 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature lumbar basket with supply current 1.8 A.",
+      "node_id": "R26.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 3.0,
+        "lo": 3.0,
+        "name": "lumbar travel",
+        "text": "≥ 3 cm",
+        "unit": "cm"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Seat assembly to feature adjustable lower-back support with lumbar travel ≥ 3 cm.",
+      "node_id": "R26.r26"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Seat assembly to feature side support adjustment.",
+          "node_id": "R26.r17"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 3500.0,
+            "lo": 3500.0,
+            "name": "adjustment time",
+            "text": "not more than 3500 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "2.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Seat assembly to feature side support adjustment with adjustment time not more than 3500 ms.",
+          "node_id": "R26.r36"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.4.1 Performance",
+        "node_id": "R26.c2.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 side bolster adjustment",
+      "node_id": "R26.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "2.5 massage",
+        "count": 8.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 8 × massage programmes in the backrest.",
+        "node_id": "R26.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 massage",
+      "node_id": "R26.c2.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 2.6,
+          "lo": 2.6,
+          "name": "time to 37 °C",
+          "text": "at most 2.6 min",
+          "unit": "min"
+         }
+        ],
+        "context": "2.6 seat heating",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 4 × heater mats with time to 37 °C at most 2.6 min.",
+        "node_id": "R26.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 seat heating",
+      "node_id": "R26.c2.s6"
+     },
+     {
+      "children": [
+       {
+        "context": "2.7 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 2 × active seat climate airflow.",
+        "node_id": "R26.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 seat ventilation",
+      "node_id": "R26.c2.s7"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R26.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 460.0,
+          "lo": 460.0,
+          "name": "seam strength",
+          "text": "min. 460 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature airbag tear seam with seam strength min. 460 N.",
+        "node_id": "R26.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 side airbag integration",
+      "node_id": "R26.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature a belt buckle presenter.",
+        "node_id": "R26.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 seat-belt buckle presenter",
+      "node_id": "R26.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 34.0,
+          "lo": 34.0,
+          "name": "detection threshold",
+          "text": "up to 34 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "3.3 occupant detection mat",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature occupancy detection pad with detection threshold up to 34 kg.",
+        "node_id": "R26.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 occupant detection mat",
+      "node_id": "R26.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R26.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 140.0,
+          "lo": 140.0,
+          "name": "response time",
+          "text": "at most 140 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "4.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature memory control unit with response time at most 140 ms.",
+        "node_id": "R26.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Requirement",
+      "node_id": "R26.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "noise level",
+          "text": "at most 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 Requirement",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature 2 × seat adjustment motors with noise level at most 43 dB(A).",
+        "node_id": "R26.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Requirement",
+      "node_id": "R26.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "protection class",
+          "text": "IP40 or better"
+         }
+        ],
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature wiring loom with protection class IP40 or better.",
+        "node_id": "R26.r19"
+       },
+       {
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature wiring loom.",
+        "node_id": "R26.r38"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 wiring and connectors",
+      "node_id": "R26.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R26.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification EST-R26",
+  "node_id": "R26"
+ },
+ "source": "estrelo",
+ "tree_id": "R26"
+}

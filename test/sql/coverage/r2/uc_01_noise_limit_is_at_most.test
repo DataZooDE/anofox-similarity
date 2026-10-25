@@ -1,0 +1,30 @@
+# name: test/sql/coverage/r2/uc_01_noise_limit_is_at_most.test
+# description: A request says "adjust noise max. 38 dB(A)". A track at 35 dB(A) passes,
+#              one at 41 dB(A) fails and reports how far off it is.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE attrs AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# The seat-track applications of module M1 and their noise
+statement ok
+CREATE TABLE applications AS
+SELECT node_id AS application_id, lo AS noise_lo, hi AS noise_hi
+FROM attrs WHERE tree_id = 'M1' AND attr_id = 'noise';
+
+# max. 38 dB(A), linear scale:
+#   M1.C1.A1 35 dB(A) -> 1, distance 0
+#   M1.C1.A2 41 dB(A) -> d 3/38 = 0.0789, beyond the 2 % tolerance and 5 % band -> 0
+#   M1.C2.A1 36 dB(A) -> 1
+query TRR
+SELECT application_id, v.score, round(v.distance, 3)
+FROM applications a,
+     LATERAL (SELECT value_satisfies(parse_quantity('max. 38 dB(A)'),
+                                     {'lo': a.noise_lo, 'hi': a.noise_hi, 'dimension': 'sound_level'}) AS v)
+ORDER BY application_id;
+----
+M1.C1.A1	1.0	0.0
+M1.C1.A2	0.0	0.079
+M1.C2.A1	1.0	0.0

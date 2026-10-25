@@ -1,0 +1,97 @@
+# name: test/sql/coverage/r5/readonly.test
+# description: The R5 table functions inline their SQL, so they work on a read-only database,
+#              also with qualified table paths.
+# group: [coverage]
+
+require anofox_similarity
+
+load __TEST_DIR__/coverage_r5_readonly.db
+
+statement ok
+CREATE TABLE results AS SELECT * FROM (VALUES ('q1', 'c1', 1, 0.9::DOUBLE), ('q1', 'c2', 2, 0.5)) t(query_id, candidate_id, rank, coverage);
+
+statement ok
+CREATE TABLE gold AS SELECT * FROM (VALUES ('q1', 'c1', 1.0::DOUBLE), ('q1', 'c2', 0.4)) t(query_id, candidate_id, true_coverage);
+
+statement ok
+CREATE TABLE per_query AS SELECT * FROM (VALUES ('m1', 1.0::DOUBLE), ('m2', 0.0)) t(maker, hit);
+
+statement ok
+CREATE TABLE feature_multiset AS SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+statement ok
+CREATE TABLE idx AS SELECT * FROM minhash_index(feature_table := 'feature_multiset', num_hashes := 64);
+
+statement ok
+CREATE TABLE bands AS SELECT * FROM minhash_bands('idx');
+
+statement ok
+CREATE TABLE queries AS SELECT 'S2' AS query_id, feature_id, weight FROM feature_multiset WHERE entity_id = 'S2';
+
+statement ok
+CREATE TABLE pairs AS SELECT * FROM (VALUES ('a', 'b', 0.9::DOUBLE)) t(a, b, score);
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+statement ok
+CREATE TABLE reviewed AS SELECT 'Q1' AS query_id, 'S1' AS candidate_id, 1.0 AS true_coverage;
+
+load __TEST_DIR__/coverage_r5_readonly.db readonly
+
+statement ok
+LOAD anofox_similarity
+
+statement error
+CREATE TABLE proof_readonly(x INTEGER);
+----
+read-only
+
+query I
+SELECT top_k_accuracy FROM eval_ranking('coverage_r5_readonly.main.results', 'coverage_r5_readonly.main.gold', k := [1]);
+----
+1.0
+
+query I
+SELECT n_pairs FROM eval_calibration('results', 'gold');
+----
+2
+
+query I
+SELECT n_queries FROM threshold_at_precision('results', 'gold');
+----
+1
+
+query I
+SELECT n_clusters FROM bootstrap_ci('per_query', 'maker', n := 10);
+----
+2
+
+query I
+SELECT n_pairs FROM fit_coverage_weights('reviewed', label_weights := [0.0], mus := [0.0]);
+----
+1
+
+query I
+SELECT count(*) > 0 FROM minhash_index(feature_table := 'coverage_r5_readonly.main.feature_multiset', num_hashes := 64);
+----
+true
+
+query I
+SELECT count(*) > 0 FROM minhash_bands('idx');
+----
+true
+
+query TT
+SELECT bool_or(entity_id = 'S2'), bool_or(entity_id = 'S2')
+FROM find_covering_entities_lsh('queries', 'idx', k := 3, bands_table := 'bands');
+----
+true	true
+
+query I
+SELECT count(*) FROM cluster_matches('pairs');
+----
+2

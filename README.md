@@ -30,6 +30,7 @@ Mid-sized manufacturers face a persistent planning challenge: *"How do I forecas
 | **Text Embedding Search** | Find similar products by description | Medium |
 | **Temporal Analysis** | Identify predecessor-successor relationships | Medium |
 | **Multi-modal Fusion** | Combine multiple similarity signals | High |
+| **Coverage Matching (directional)** | Which offers or past solutions contain everything a request asks for, counts included | Low |
 
 ---
 
@@ -170,7 +171,7 @@ FROM sap_to_materials_with_desc(
 
 ## 📚 API Reference
 
-The extension provides 40+ functions organized into 8 functional categories:
+The extension provides about 87 functions organized into 9 functional categories:
 
 ### Core Similarity Algorithms
 - **Jaccard Similarity** - Component overlap detection (O(n) time)
@@ -186,6 +187,15 @@ The extension provides 40+ functions organized into 8 functional categories:
 - **Textual Embeddings** - Semantic similarity from descriptions
 - **Transactional Embeddings** - Time-series feature extraction (98+ features)
 - **Multi-modal Fusion** - Combine multiple similarity signals
+
+### Coverage Matching
+- **Directional set measures** - containment, Tversky, weighted (count-aware) variants
+- **Covering search** - rank past solutions by how much of a request they cover (`find_covering_entities[_for]`)
+- **Quantities** - parse EN/DE limits with units (`parse_quantity`), normalise them, and check them with a direction (`value_satisfies`); ordinal classes via curated rules (`compat_score`)
+- **Property trees** - load extracted specs from JSON (`tree_from_json`), flatten, validate and summarise them (`tree_anchors`, `validate_trees`, `tree_class_multiset`)
+- **Pivot classifier and vocabulary review** - map items onto a catalogue with your own vectors (`classify_to_catalogue`, `maxsim`, `calibrated_cosine`), review the few wordings that matter most (`vocabulary_review_queue`, `apply_vocabulary_review`), and send uncertain items to an external reviewer as JSON (`uncertain_decisions`)
+- **Evaluation and scale** - recall@k, MRR, regret, calibration, the 95 %-precision threshold, cluster bootstrap intervals and a weight fit (`eval_ranking`, `eval_calibration`, `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`); weighted MinHash and size-partitioned LSH (`minhash_index`, `minhash_bands`, `find_covering_entities_lsh`); duplicate clustering (`cluster_matches`)
+- **Explainable coverage** - "80 % covered, these 3 gaps": stage-1 recall plus a stage-2 kernel with partition or best match, OR variants and a per-requirement trace (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`)
 
 ### Infrastructure
 - **Vector Search (HNSW)** - Approximate nearest neighbor search
@@ -314,6 +324,9 @@ The extension implements a **tiered similarity approach**:
 | **[API_REFERENCE.md](docs/API_REFERENCE.md)** | Complete function documentation with examples |
 | **[CONCEPT.md](docs/CONCEPT.md)** | Algorithmic background and theory |
 | **[DATA-STRUCTURES.md](docs/DATA-STRUCTURES.md)** | Schema definitions and data models |
+| **[requirements-matching/BRD.md](docs/requirements-matching/BRD.md)** | Business requirements for requirement-to-offer coverage matching |
+| **[requirements-matching/HLD.md](docs/requirements-matching/HLD.md)** | High-level design for coverage matching, with the amendments decided during implementation (§11) |
+| **[test/data/coverage/README.md](test/data/coverage/README.md)** | The seating-systems benchmark: schema, oracle semantics, KPI feasibility |
 | **[SAP_BOM_Explosion_Technical_Memo.md](docs/SAP_BOM_Explosion_Technical_Memo.md)** | SAP integration specifics |
 | **[Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md](docs/Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md)** | Dynamics 365 integration specifics |
 

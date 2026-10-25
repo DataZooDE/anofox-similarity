@@ -1,0 +1,86 @@
+# name: test/sql/coverage/r4/uc_03_review_queue_finds_the_misleading_wordings.test
+# description: The archive uses a closed internal vocabulary of 50 wordings; four of them mislead
+#              ("Klimapaket Heizung" is a ventilation module). The classifier gets them wrong,
+#              confidently but not quite: the review queue (impact = trees affected x
+#              (1 - margin)) puts them first, so a reviewer fixes most of the archive with a
+#              handful of confirmations (HLD §4.5, BR-31).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+# the closed internal vocabulary, one vector per wording and source
+statement ok
+CREATE TABLE wordings AS
+SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec, tokens::FLOAT[][] AS tokens
+FROM read_csv_auto('test/data/coverage/vocabulary_vectors.csv.gz');
+
+statement ok
+CREATE TABLE wording_decisions AS
+SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+
+# ground truth, for checking only
+statement ok
+CREATE TABLE gold_vocabulary AS SELECT * FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# the classifier reads 46 of 50 wordings right; the four misleading ones go to their apparent class
+query II
+SELECT count(*), sum((d.class_id = g.class_id)::INT)
+FROM wording_decisions d JOIN gold_vocabulary g ON g.wording = d.node_id AND g.source = d.source
+WHERE d.rank = 1;
+----
+50	46
+
+statement ok
+CREATE TABLE queue AS SELECT row_number() OVER (ORDER BY impact DESC, wording, source) AS pos, * FROM vocabulary_review_queue(trees_table := 'prog_nodes',
+       decisions := 'wording_decisions');
+
+query I
+SELECT count(*) FROM queue;
+----
+50
+
+# the four misleading wordings are the first four entries
+query I
+SELECT list(q.wording ORDER BY q.pos) FILTER (WHERE g.is_misleading) = list(q.wording ORDER BY q.pos) FILTER (WHERE q.pos <= 4)
+FROM queue q JOIN gold_vocabulary g ON g.wording = q.wording AND g.source = q.source;
+----
+true
+
+# their runner-up is the true class, so the reviewer usually only confirms the second choice
+query I
+SELECT count(*) FROM queue q JOIN gold_vocabulary g ON g.wording = q.wording AND g.source = q.source
+WHERE q.pos <= 4 AND q.top2 = g.class_id;
+----
+4
+
+# between them they touch more than 60 % of the programmes
+query I
+SELECT count(DISTINCT n.tree_id) > 0.6 * (SELECT count(DISTINCT tree_id) FROM prog_nodes)
+FROM prog_nodes n JOIN queue q ON q.wording = n.label AND q.source = n.source WHERE q.pos <= 4;
+----
+true
+
+# the reviewer confirms the top 4 (here: the true classes); the queue then starts elsewhere
+statement ok
+CREATE TABLE review AS
+SELECT q.wording, q.source, g.class_id, 'reviewer' AS reviewed_by
+FROM queue q JOIN gold_vocabulary g ON g.wording = q.wording AND g.source = q.source WHERE q.pos <= 4;
+
+statement ok
+CREATE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review', overrides_table := NULL);
+
+query II
+SELECT count(*), bool_or(g.is_misleading)
+FROM vocabulary_review_queue(trees_table := 'prog_nodes', decisions := 'wording_decisions',
+                             overrides_table := 'vocabulary_overrides') q
+JOIN gold_vocabulary g ON g.wording = q.wording AND g.source = q.source;
+----
+46	false

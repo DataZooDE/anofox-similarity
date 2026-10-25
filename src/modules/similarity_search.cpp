@@ -67,8 +67,52 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
 		bom_table = (*value).GetValue<string>();
 	}
+	string mode = "jaccard";
+	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "mode"); value && !value->IsNull()) {
+		mode = StringUtil::Lower((*value).GetValue<string>());
+	}
+	if (mode != "jaccard" && mode != "containment") {
+		throw BinderException("find_similar_materials_jaccard: mode must be one of 'jaccard', 'containment', got '%s'",
+		                      mode.c_str());
+	}
 	bom_table = ValidateSQLIdentifierPath(bom_table, "bom_table");
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
+
+	if (mode == "containment") {
+		// Directional variant (coverage matching, HLD §4.1): the share of the query's components
+		// found in each material; Jaccard breaks ties so the leaner material comes first.
+		string sql = StringUtil::Format(R"(
+			WITH
+				material_components AS MATERIALIZED (
+					SELECT parent_id AS material_id, list(child_id ORDER BY child_id) AS components
+					FROM query_table('%s')
+					WHERE parent_id IS NOT NULL AND child_id IS NOT NULL
+					GROUP BY parent_id
+				),
+				query_mat AS (
+					SELECT components AS query_components
+					FROM material_components
+					WHERE material_id = %s
+				),
+				computed_similarity AS (
+					SELECT
+						mc.material_id,
+						containment(qm.query_components, mc.components) AS similarity,
+						jaccard_similarity(qm.query_components, mc.components) AS jaccard,
+						len(list_intersect(qm.query_components, mc.components))::BIGINT AS shared_components,
+						len(list_distinct(list_concat(qm.query_components, mc.components)))::BIGINT AS total_components
+					FROM material_components mc, query_mat qm
+					WHERE mc.material_id != %s
+				)
+			SELECT material_id, similarity, shared_components, total_components
+			FROM computed_similarity
+			WHERE similarity >= %.17g
+			ORDER BY similarity DESC, jaccard DESC, material_id
+			LIMIT %lld
+		)",
+		                                bom_table, query_material_id_sql, query_material_id_sql, min_similarity, k);
+		return ParseSubquery(sql, context, "Failed to parse find_similar_materials_jaccard query");
+	}
 
 	// The component aggregation is inlined (rather than calling the aggregate_material_components
 	// macro) so this function is self-contained and works even on a read-only database, where the
@@ -351,16 +395,20 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description = "Finds the k most structurally similar materials to a query material using exact "
 		                   "Jaccard similarity on BOM component sets. Returns material_id, similarity, "
-		                   "shared_components, and total_components. Filtered by min_similarity threshold.";
+		                   "shared_components, and total_components. Filtered by min_similarity threshold. "
+		                   "mode := 'containment' ranks by the share of the query's components each material "
+		                   "contains instead (default 'jaccard').";
 		desc.examples    = {"SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);",
-		                    "SELECT * FROM find_similar_materials_jaccard('MAT-001', 20, min_similarity := 0.3);"};
+		                    "SELECT * FROM find_similar_materials_jaccard('MAT-001', 20, min_similarity := 0.3);",
+		                    "SELECT * FROM find_similar_materials_jaccard('MAT-001', 10, mode := 'containment');"};
 		desc.categories  = {"similarity", "search"};
 		// Named parameters must be listed too: a non-empty parameter_names replaces the
 		// WHOLE rendered list and pads any shortfall with col2, col3, ... They come out in
 		// case_insensitive_map_t order, which is neither sorted nor guaranteed stable, so
 		// test/sql/extension/function_documentation.test pins the rendered lists.
 		AddDocumentedNamedParameters(find_similar_jaccard, desc, {"material_id", "k"},
-		                             {{"bom_table", LogicalType::VARCHAR}, {"min_similarity", LogicalType::DOUBLE}});
+		                             {{"bom_table", LogicalType::VARCHAR}, {"min_similarity", LogicalType::DOUBLE},
+		                              {"mode", LogicalType::VARCHAR}});
 		desc.parameter_types = {LogicalType::VARCHAR, LogicalType::BIGINT};
 		CreateTableFunctionInfo info(find_similar_jaccard);
 		info.descriptions.push_back(std::move(desc));

@@ -1,0 +1,266 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R06.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 115.0,
+          "lo": 115.0,
+          "name": "forward travel",
+          "text": "min. 115 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "release force",
+          "text": "52 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 easy-entry mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver walk-in lever with forward travel min. 115 mm and release force 52 N.",
+        "node_id": "R06.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 easy-entry mechanism",
+      "node_id": "R06.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 38.0,
+            "lo": 38.0,
+            "name": "crash load",
+            "text": "≥ 38 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 85.0,
+            "lo": 85.0,
+            "name": "target price",
+            "text": "≤ 85 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Supplier shall deliver seat frame structure with crash load ≥ 38 kN and target price ≤ 85 EUR.",
+          "node_id": "R06.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R06.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 seat frame / structure",
+      "node_id": "R06.c1.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R06.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "pivot angle",
+          "text": "45 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver seat armrest with pivot angle 45 °.",
+        "node_id": "R06.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 armrest",
+      "node_id": "R06.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 95.0,
+        "lo": 70.0,
+        "name": "heating power",
+        "text": "between 70 and 95 W",
+        "unit": "W"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 4.8,
+        "lo": 4.8,
+        "name": "time to 37 °C",
+        "text": "4.8 min",
+        "unit": "min"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 9500.0,
+        "lo": 9500.0,
+        "name": "supply current",
+        "text": "not more than 9500 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Supplier shall deliver 2 × heater mats with heating power between 70 and 95 W and time to 37 °C 4.8 min and supply current not more than 9500 mA.",
+      "node_id": "R06.r08"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R06.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "height travel",
+          "text": "min. 6.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "positions",
+          "text": "min. 5",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver a manual headrest with height travel min. 6.5 cm and positions min. 5.",
+        "node_id": "R06.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Requirement",
+      "node_id": "R06.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R06.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 6.0,
+            "lo": 6.0,
+            "name": "current rating",
+            "text": "not less than 6 A",
+            "unit": "A"
+           }
+          ],
+          "context": "4.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Supplier shall deliver electrical harness with current rating not less than 6 A.",
+          "node_id": "R06.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Performance",
+        "node_id": "R06.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Requirement",
+      "node_id": "R06.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R06.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification BRH-R06",
+  "node_id": "R06"
+ },
+ "source": "brennholt",
+ "tree_id": "R06"
+}

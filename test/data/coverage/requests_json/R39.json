@@ -1,0 +1,396 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R39.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 310.0,
+          "lo": 310.0,
+          "name": "Härte",
+          "text": "310 N ± 2 %",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 700.0,
+          "lo": 700.0,
+          "name": "Masse",
+          "text": "max. 700 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Formschaumteile mit Härte 310 N ± 2 % und Masse max. 700 g.",
+        "node_id": "R39.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R39.c1.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 135.0,
+        "lo": 135.0,
+        "name": "Bedienkraft",
+        "text": "höchstens 135 N",
+        "unit": "N"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 16000.0,
+        "lo": 16000.0,
+        "name": "Lebensdauer",
+        "text": "min. 16.000 Zyklen",
+        "unit": "Zyklen"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert eine Umklappfunktion mit Bedienkraft höchstens 135 N und Lebensdauer min. 16.000 Zyklen.",
+      "node_id": "R39.r04"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 2800.0,
+            "lo": 2800.0,
+            "name": "Festigkeit",
+            "text": "≥ 2800 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 36.0,
+            "lo": 36.0,
+            "name": "Geräusch",
+            "text": "36 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert Lehnenbeschläge mit Festigkeit ≥ 2800 N·m und Geräusch 36 dB(A).",
+          "node_id": "R39.r06"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Leistungsdaten",
+        "node_id": "R39.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R39.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 17.0,
+            "lo": 17.0,
+            "name": "Gewicht",
+            "text": "max. 17 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 34.0,
+            "lo": 34.0,
+            "name": "Crashfestigkeit",
+            "text": "nicht weniger als 34 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 125.0,
+            "lo": 125.0,
+            "name": "Zielpreis",
+            "text": "bis zu 125 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.4.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert ein Sitzgestell mit Gewicht max. 17 kg und Crashfestigkeit nicht weniger als 34 kN und Zielpreis bis zu 125 EUR.",
+          "node_id": "R39.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Leistungsdaten",
+        "node_id": "R39.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R39.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 25000.0,
+            "lo": 25000.0,
+            "name": "Martindale",
+            "text": "≥ 25000 Zyklen",
+            "unit": "Zyklen"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F3",
+            "name": "Brennbarkeitsklasse",
+            "text": "mindestens F3"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 95.0,
+            "lo": 95.0,
+            "name": "Stückpreis",
+            "text": "bis zu 95 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert Stoffbezug mit Martindale ≥ 25000 Zyklen und Brennbarkeitsklasse mindestens F3 und Stückpreis bis zu 95 €.",
+          "node_id": "R39.r09"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R39.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R39.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R39.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "Vertikallast",
+          "text": "1500 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "Schwenkwinkel",
+          "text": "min. 50 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Mittelarmlehne klappbar mit Vertikallast 1500 N und Schwenkwinkel min. 50 °.",
+        "node_id": "R39.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R39.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "Aufheizzeit auf 37 °C",
+            "text": "3 min",
+            "unit": "min"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 8.5,
+            "lo": 8.5,
+            "name": "Strom",
+            "text": "maximal 8,5 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.2.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert 2 × eine Sitzheizung mit Aufheizzeit auf 37 °C 3 min und Strom maximal 8,5 A.",
+          "node_id": "R39.r08"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Leistungsdaten",
+        "node_id": "R39.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Sitzheizung",
+      "node_id": "R39.c2.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R39.c2"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 60.0,
+        "lo": 60.0,
+        "name": "Verstellweg",
+        "text": "≥ 60 mm",
+        "unit": "mm"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert mechanische Kopfstütze mit Verstellweg ≥ 60 mm.",
+      "node_id": "R39.r05"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R39.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 11.0,
+          "lo": 11.0,
+          "name": "Strombelastbarkeit",
+          "text": "11 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "IP40 oder besser"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Steckverbinder mit Strombelastbarkeit 11 A und Schutzart IP40 oder besser.",
+        "node_id": "R39.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R39.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R39.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R39",
+  "node_id": "R39"
+ },
+ "source": "brennholt",
+ "tree_id": "R39"
+}

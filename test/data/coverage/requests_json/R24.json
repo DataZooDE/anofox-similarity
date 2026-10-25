@@ -1,0 +1,959 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R24.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R24.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 22.0,
+          "lo": 22.0,
+          "name": "travel",
+          "text": "22 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 2.3,
+          "lo": 1.7,
+          "name": "adjustment speed",
+          "text": "1.7 to 2.3 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 18000.0,
+          "lo": 18000.0,
+          "name": "retention load",
+          "text": "18000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver fore-aft seat rails with travel 22 cm and adjustment speed 1.7 to 2.3 cm/s and retention load 18000 N.",
+        "node_id": "R24.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 2.4,
+          "lo": 1.5,
+          "name": "adjustment speed",
+          "text": "between 1.5 and 2.4 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "noise",
+          "text": "max. 43 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 19500.0,
+          "lo": 19500.0,
+          "name": "retention load",
+          "text": "at least 19500 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver fore-aft seat rails with adjustment speed between 1.5 and 2.4 cm/s and noise max. 43 dB(A) and retention load at least 19500 N.",
+        "node_id": "R24.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 seat track",
+      "node_id": "R24.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 52.0,
+            "lo": 52.0,
+            "name": "height stroke",
+            "text": "not less than 52 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 6.5,
+            "lo": 6.5,
+            "name": "adjustment time",
+            "text": "up to 6.5 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 10500.0,
+            "lo": 10500.0,
+            "name": "holding load",
+            "text": "at least 10500 N",
+            "unit": "N"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Supplier shall deliver vertical cushion adjustment with height stroke not less than 52 mm and adjustment time up to 6.5 s and holding load at least 10500 N.",
+          "node_id": "R24.r04"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 3.4,
+            "lo": 3.4,
+            "name": "vertical travel",
+            "text": "at least 3.4 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "holding load",
+            "text": "≥ 10 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver height pumping mechanism with vertical travel at least 3.4 cm and holding load ≥ 10 kN.",
+          "node_id": "R24.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R24.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 height adjuster",
+      "node_id": "R24.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "indentation hardness",
+          "text": "290 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver cushion foam with indentation hardness 290 N.",
+        "node_id": "R24.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "indentation hardness",
+          "text": "290 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 0.6,
+          "lo": 0.6,
+          "name": "mass",
+          "text": "0.6 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver foam cushion pad with indentation hardness 290 N and mass 0.6 kg.",
+        "node_id": "R24.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R24.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "recline angle",
+          "text": "40 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3300.0,
+          "lo": 3300.0,
+          "name": "locking strength",
+          "text": "not less than 3300 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "noise level",
+          "text": "at most 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver a reclining joint with recline angle 40 ° and locking strength not less than 3300 Nm and noise level at most 43 dB(A).",
+        "node_id": "R24.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "angle range",
+          "text": "≥ 38 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "noise level",
+          "text": "not more than 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver recliner fittings with angle range ≥ 38 ° and noise level not more than 43 dB(A).",
+        "node_id": "R24.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 recliner",
+      "node_id": "R24.c1.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 17000.0,
+        "lo": 17000.0,
+        "name": "mass",
+        "text": "not more than 17000 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 38.0,
+        "lo": 38.0,
+        "name": "crash strength",
+        "text": "38 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver seat frame structure with mass not more than 17000 g and crash strength 38 kN.",
+      "node_id": "R24.r12"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 16000.0,
+        "lo": 16000.0,
+        "name": "mass",
+        "text": "16000 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 40.0,
+        "lo": 40.0,
+        "name": "crash strength",
+        "text": "min. 40 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 130.0,
+        "lo": 130.0,
+        "name": "target price",
+        "text": "not more than 130 EUR",
+        "unit": "EUR"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver backrest and cushion frames with mass 16000 g and crash strength min. 40 kN and target price not more than 130 EUR.",
+      "node_id": "R24.r28"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "Martindale",
+          "text": "45000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "at least F3"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 110.0,
+          "lo": 110.0,
+          "name": "piece price",
+          "text": "110 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.6 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver fabric seat covers with Martindale 45000 cycles and flammability class at least F3 and piece price 110 €.",
+        "node_id": "R24.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R24.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R24.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "height travel",
+          "text": "≥ 5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.4,
+          "lo": 2.4,
+          "name": "fore-aft tilt",
+          "text": "≥ 2.4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 1200.0,
+          "lo": 1200.0,
+          "name": "current draw",
+          "text": "1200 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.1 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver electric head restraint with height travel ≥ 5 cm and fore-aft tilt ≥ 2.4 cm and current draw 1200 mA.",
+        "node_id": "R24.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 powered headrest",
+      "node_id": "R24.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "lumbar travel",
+          "text": "not less than 38 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "ways",
+          "text": "2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 1.2,
+          "lo": 1.2,
+          "name": "supply current",
+          "text": "1.2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver lumbar bladder system with lumbar travel not less than 38 mm and ways 2 and supply current 1.2 A.",
+        "node_id": "R24.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 lumbar support",
+      "node_id": "R24.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "massage programs",
+          "text": "7",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "noise",
+          "text": "at most 48 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "current consumption",
+          "text": "not more than 5.5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 massage",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver 4 × back massage with massage programs 7 and noise at most 48 dB(A) and current consumption not more than 5.5 A.",
+        "node_id": "R24.r10"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "massage programs",
+          "text": "min. 7",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "noise level",
+          "text": "max. 52 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "current consumption",
+          "text": "at most 5.5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 massage",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver 4 × a massage function with massage programs min. 7 and noise level max. 52 dB(A) and current consumption at most 5.5 A.",
+        "node_id": "R24.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 massage",
+      "node_id": "R24.c2.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.5,
+        "lo": 2.5,
+        "name": "bolster travel",
+        "text": "min. 2.5 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 4.0,
+        "lo": 4.0,
+        "name": "adjustment time",
+        "text": "max. 4 s",
+        "unit": "s"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver bolster width adjustment with bolster travel min. 2.5 cm and adjustment time max. 4 s.",
+      "node_id": "R24.r14"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.5,
+        "lo": 2.5,
+        "name": "bolster travel",
+        "text": "minimum 2.5 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 4000.0,
+        "lo": 4000.0,
+        "name": "adjustment time",
+        "text": "not more than 4000 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver side support adjustment with bolster travel minimum 2.5 cm and adjustment time not more than 4000 ms.",
+      "node_id": "R24.r30"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 32.0,
+          "lo": 22.0,
+          "name": "air flow",
+          "text": "22–32 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 49.0,
+          "lo": 49.0,
+          "name": "noise level",
+          "text": "max. 49 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3.4,
+          "lo": 3.4,
+          "name": "supply current",
+          "text": "at most 3.4 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.5 seat ventilation",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver active seat climate airflow with air flow 22–32 m³/h and noise level max. 49 dB(A) and supply current at most 3.4 A.",
+        "node_id": "R24.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 seat ventilation",
+      "node_id": "R24.c2.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R24.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "seam opening time",
+          "text": "up to 8.5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 0.55,
+          "lo": 0.55,
+          "name": "seam strength",
+          "text": "min. 0.55 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver airbag tear seam with seam opening time up to 8.5 ms and seam strength min. 0.55 kN.",
+        "node_id": "R24.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "seam opening time",
+          "text": "at most 8.5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 550.0,
+          "lo": 550.0,
+          "name": "seam strength",
+          "text": "minimum 550 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver airbag tear seam with seam opening time at most 8.5 ms and seam strength minimum 550 N.",
+        "node_id": "R24.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Requirement",
+      "node_id": "R24.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 9.0,
+            "lo": 9.0,
+            "name": "detection threshold",
+            "text": "9 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 0.31,
+            "lo": 0.31,
+            "name": "response time",
+            "text": "max. 0.31 s",
+            "unit": "s"
+           }
+          ],
+          "context": "3.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver seat occupancy sensor with detection threshold 9 kg and response time max. 0.31 s.",
+          "node_id": "R24.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.2.1 Performance",
+        "node_id": "R24.c3.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 occupant detection mat",
+      "node_id": "R24.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R24.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "memorised ways",
+          "text": "at least 8",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 0.17,
+          "lo": 0.17,
+          "name": "response time",
+          "text": "not more than 0.17 s",
+          "unit": "s"
+         }
+        ],
+        "context": "4.1 seat memory module",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver a seat memory module with memorised ways at least 8 and response time not more than 0.17 s.",
+        "node_id": "R24.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat memory module",
+      "node_id": "R24.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "protection class",
+            "text": "at least IP54"
+           }
+          ],
+          "context": "4.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Supplier shall deliver seat cabling and connectors with protection class at least IP54.",
+          "node_id": "R24.r16"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 11.0,
+            "lo": 11.0,
+            "name": "current rating",
+            "text": "11 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "protection class",
+            "text": "min. IP54"
+           }
+          ],
+          "context": "4.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver connector set with current rating 11 A and protection class min. IP54.",
+          "node_id": "R24.r32"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.2.1 Performance",
+        "node_id": "R24.c4.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R24.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 12.5,
+          "lo": 12.5,
+          "name": "current draw",
+          "text": "max. 12.5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.3 Requirement",
+        "count": 3.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver 3 × seat adjustment motors with current draw max. 12.5 A.",
+        "node_id": "R24.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Requirement",
+      "node_id": "R24.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R24.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification BRH-R24",
+  "node_id": "R24"
+ },
+ "source": "brennholt",
+ "tree_id": "R24"
+}

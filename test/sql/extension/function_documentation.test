@@ -41,7 +41,20 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'extract_ts_features','filter_recent_movements','find_similar_materials_jaccard',
   'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors','items_to_bom',
   'jaccard_similarity','recompute_embedding_statistics','sap_to_bom_items','sap_to_materials',
-  'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity');
+  'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity',
+  -- coverage matching (R1)
+  'containment','find_covering_entities','find_covering_entities_for','tversky_similarity',
+  'weighted_containment','weighted_jaccard','weighted_tversky',
+  -- coverage matching (R2)
+  'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies',
+  -- coverage matching (R3)
+  'tree_anchors','tree_class_multiset','tree_from_json','tree_multiset','validate_trees',
+  'coverage_kernel','coverage_recall','tree_coverage','tree_coverage_trace',
+  'maxsim','bhattacharyya','calibrated_cosine','cosine_floor','classify_to_catalogue',
+  'vocabulary_review_queue','apply_vocabulary_review','uncertain_decisions',
+  'eval_ranking','eval_calibration','threshold_at_precision','bootstrap_ci','fit_coverage_weights',
+  'weighted_minhash','minhash_similarity','lsh_bands','minhash_index','find_covering_entities_lsh',
+  'connected_components','cluster_matches','minhash_bands');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -52,7 +65,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-37
+79
 
 # ============================================================================
 # ...and every one of them is documented
@@ -95,7 +108,7 @@ SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';
 ----
-4
+5
 
 # ============================================================================
 # Parameter names survive
@@ -137,7 +150,22 @@ SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_jaccard';
 ----
-[material_id, k, bom_table, min_similarity]
+[material_id, k, bom_table, min_similarity, mode]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_covering_entities';
+----
+[query_entity_id, k, mode, alpha, beta, weighted, tie_break, min_score, feature_table, entity_col, feature_col, weight_col]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_covering_entities_for';
+----
+[query, k, mode, alpha, beta, weighted, tie_break, min_score, feature_table, entity_col, feature_col, weight_col]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'weighted_tversky';
+----
+[[query, candidate], [query, candidate, alpha, beta]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
@@ -163,3 +191,38 @@ query I
 SELECT parameters FROM ours WHERE function_name = 'compute_jaccard_embeddings';
 ----
 [bom_table]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'compat_score';
+----
+[dimension, required, provided, rules_table]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'value_satisfies';
+----
+[[requirement, provided], [requirement, provided, scale], [requirement, provided, scale, tol, soft_band], [requirement, provided, scale, tol, soft_band, default_bound]]
+
+query I
+SELECT list(parameters ORDER BY len(parameters), parameters[2]) FROM ours WHERE function_name = 'tree_anchors';
+----
+[[nodes_table, attrs_table, overrides_table, label_table, tree_ids], [nodes_table, attrs_table, overrides_table, label_table, tree_ids]]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'tree_from_json';
+----
+[[json], [json, tree_id], [json, tree_id, lang], [json, tree_id, lang, unit_table]]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'coverage_recall';
+----
+[query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break, candidate_multiset_table]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'classify_to_catalogue';
+----
+[items_table, catalogue_table, mode, center_by_source, attr_bonus, temperature, overrides_table, answers_table, attrs_table, templates_table, name_vectors, name_floor, top]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'eval_ranking';
+----
+[results, gold, k, rank_col, score_col]

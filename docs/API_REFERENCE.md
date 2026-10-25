@@ -24,19 +24,21 @@
 14. [Vector Search & Indexing](#vector-search--indexing)
 15. [Property Graph Integration](#property-graph-integration)
 16. [Database Infrastructure](#database-infrastructure)
-17. [Function Coverage Matrix](#function-coverage-matrix)
-18. [Parameter Reference](#parameter-reference)
+17. [Coverage Matching](#coverage-matching)
+18. [Function Coverage Matrix](#function-coverage-matrix)
+19. [Parameter Reference](#parameter-reference)
 
 ---
 
 ## Overview
 
-The anofox-similarity extension provides 40+ functions across 8 functional categories for multi-modal product similarity detection. All functions are registered as SQL macros or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 87 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
 - **Table Macros** (prefix `compute_`, `find_`, `infer_`) - Return result sets
 - **Scalar Functions** (prefix `jaccard_`, `wl_kernel_`, `embed_`) - Return single values
+- **Coverage matching** - set measures are named after the measure (`containment`, `tversky_similarity`, `weighted_*`); searches start with `find_`
 - **Helper Macros** (prefix `check_`, `create_`, `bom_`) - Infrastructure utilities
 
 ### Parameterization Pattern
@@ -217,10 +219,11 @@ Finds k most similar materials using Jaccard component overlap.
 **Signature:**
 ```sql
 find_similar_materials_jaccard(
-    query_material_id VARCHAR,
-    k INTEGER,
+    material_id VARCHAR,
+    k BIGINT,
+    bom_table := 'bom_items',
     min_similarity := 0.0,
-    bom_table := 'bom_items'
+    mode := 'jaccard'
 ) → TABLE (
     material_id VARCHAR,
     similarity DOUBLE,
@@ -236,10 +239,11 @@ find_similar_materials_jaccard(
 | `k` | INTEGER | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
+| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](#find_covering_entities--find_covering_entities_for) |
 
 **Returns:**
 - `material_id` - ID of similar material
-- `similarity` - Jaccard similarity score [0.0, 1.0]
+- `similarity` - Jaccard similarity score [0.0, 1.0] (containment with `mode := 'containment'`)
 - `shared_components` - Count of overlapping components
 - `total_components` - Count of unique components in union
 
@@ -1156,7 +1160,12 @@ The extension creates several database objects on load for embedding storage and
 > traversal, SAP/D365 transforms, textual/fused embeddings, statistics, etc. — everything registered
 > via `CREATE MACRO`) is **not** available, since macro registration needs a writable catalog. The
 > core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
-> `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`) and all scalar functions
+> `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`, `find_covering_entities`,
+> `find_covering_entities_for`, `quantity_units`, `tree_anchors`, `tree_class_multiset`, `validate_trees`,
+> `tree_coverage`, `tree_coverage_trace`, `coverage_recall`, `cosine_floor`, `classify_to_catalogue`,
+> `vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`, `eval_ranking`, `eval_calibration`,
+> `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`, `minhash_index`, `minhash_bands`,
+> `find_covering_entities_lsh`, `cluster_matches`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1235,6 +1244,630 @@ Created automatically for vector similarity search:
 
 ---
 
+## Coverage Matching
+
+Asymmetric, explainable matching of a **request** (a specification, a BOM to source, a
+profile) against **offers** (products, past solutions, modules). It answers "does B
+satisfy what A asks for?", where the similarity functions above answer "how alike are A
+and B?". Design: [requirements-matching/HLD.md](requirements-matching/HLD.md) (§11 lists
+the amendments decided during implementation). Test dataset:
+[test/data/coverage](../test/data/coverage/README.md).
+
+On DuckDB 1.5.6, named arguments of **scalar** functions bind by position (the table functions
+bind by name on both lines). For `tversky_similarity` and `weighted_tversky`, pass both `alpha`
+and `beta`, `alpha` first: on 1.5.6 `(…, beta := 0.0, alpha := 1.0)` silently swaps them, and
+passing only one of them does not bind.
+
+### Directional and weighted set measures (scalars)
+
+| Function | Formula | Empty / NULL |
+|---|---|---|
+| `tversky_similarity(query LIST, candidate LIST[, alpha DOUBLE, beta DOUBLE])` | `\|q∩c\| / (\|q∩c\| + α\|q\c\| + β\|c\q\|)`; default α = β = 1 (Jaccard) | both empty → 0.0; other zero denominators → NULL |
+| `containment(query LIST, candidate LIST)` | `\|q∩c\| / \|q\|` | empty query → NULL |
+| `weighted_jaccard(query MAP, candidate MAP)` | `Σ min(q_k, c_k) / Σ max(q_k, c_k)` | both empty → 0.0 |
+| `weighted_containment(query MAP, candidate MAP)` | `Σ min(q_k, c_k) / Σ q_k` | empty or all-zero query → NULL |
+| `weighted_tversky(query MAP, candidate MAP[, alpha, beta])` | `Σmin / (Σmin + α Σ(q−c)⁺ + β Σ(c−q)⁺)`; default α = β = 1 | as `weighted_jaccard` |
+
+- Lists are sets: duplicates collapse and NULL elements are ignored, as in `jaccard_similarity`.
+- Map values are weights (counts, quantities, levels). They must be numeric, finite and
+  non-negative; a NULL weight counts as 1, and a zero weight means "absent". Keys may be of
+  any type and are compared by their text form, so `1` and `'1'` match (in the scalars and in
+  `find_covering_entities_for` against the feature column cast to VARCHAR).
+- NULL arguments give NULL. `alpha` and `beta` must be non-negative.
+- The parameters are called `query` and `candidate` because the measures are directional
+  (`jaccard_similarity` keeps `list_a` / `list_b`).
+
+```sql
+SELECT containment(['a','b'], ['a','b','c','d']);                          -- 1.0
+SELECT containment(['a','b','c','d'], ['a','b']);                          -- 0.5
+SELECT weighted_containment(MAP {'massage': 4}, MAP {'massage': 2});      -- 0.5: counts matter
+SELECT weighted_tversky(MAP {'a': 3}, MAP {'a': 2, 'b': 3}, 1.0, 0.0);    -- 0.6667
+```
+
+### find_covering_entities / find_covering_entities_for
+
+Stage-1 recall: rank the entities of a generic `(entity, feature, weight)` table by how well
+they cover a query. `find_covering_entities` takes an entity of the table as the query;
+`find_covering_entities_for` takes a `MAP(feature, weight)`, e.g. the class multiset of a new
+specification that is not in the table yet.
+
+**Signature:**
+```sql
+find_covering_entities(query_entity_id VARCHAR, k BIGINT, <named>)
+find_covering_entities_for(query MAP, k BIGINT, <named>)
+  → TABLE(entity_id VARCHAR, score DOUBLE, containment DOUBLE, jaccard DOUBLE,
+          shared_weight DOUBLE, query_weight DOUBLE, candidate_weight DOUBLE, surplus_weight DOUBLE)
+```
+
+**Named parameters:**
+| Parameter | Default | Description |
+|---|---|---|
+| `mode` | `'containment'` | `'containment'` (Σmin/Σq), `'jaccard'` (Σmin/Σmax) or `'tversky'`; case-insensitive |
+| `alpha`, `beta` | 1.0, 0.0 | Tversky weights of the missing and the surplus weight; used in mode `'tversky'` only (ignored otherwise) |
+| `weighted` | true | false: every distinct (entity, feature) weighs 1 |
+| `tie_break` | 0.01 | weight of Jaccard added to the score in modes `containment` and `tversky` (BR-03); ignored in mode `'jaccard'` |
+| `min_score` | 0.0 | threshold on the measure itself (before the tie-break) |
+| `feature_table` | `'feature_multiset'` | table or view, optionally schema-qualified |
+| `entity_col`, `feature_col`, `weight_col` | `'entity_id'`, `'feature_id'`, `'weight'` | column mapping, so `bom_items(parent_id, child_id, quantity)` works as is; `weight_col := NULL` means unit weights |
+
+**Returns:** `score` is the ranking key: the measure plus `tie_break × jaccard` (jaccard in mode
+`'jaccard'`). It can exceed 1. `containment` and `jaccard` are the raw measures. `shared_weight`
+= Σmin, `query_weight` = Σq, `candidate_weight` = Σc, `surplus_weight` = Σc − Σmin (what the
+candidate brings on top). Rows are ordered by `score DESC, entity_id`. Only candidates that
+share at least one feature with the query are returned, and the query entity itself is
+excluded.
+
+**Semantics:** weights of repeated (entity, feature) rows add up; a NULL weight counts as 1;
+rows with a NULL entity or feature are ignored. A negative or non-finite weight anywhere in
+the table (also on rows that are ignored) raises an error that names the row. Features
+compare by their text form. `find_covering_entities`: an unknown id returns no rows, a NULL
+id is an error. `find_covering_entities_for`: an empty, NULL, all-zero or unknown query
+returns no rows; zero-weight entries of the query are dropped.
+
+**Known limitation (kept by decision, HLD §4.1):** the tie-break is additive, so a nearly
+complete partial cover can outrank a full but much larger cover (containment 0.995 with
+jaccard 0.995 scores 1.00495; a full cover with jaccard 0.2 scores 1.002). Filter with
+`min_score := 1.0` when only full covers count.
+
+**Read-only databases:** the SQL is inlined, so both functions work where macros cannot be
+created. The query argument must be constant: a literal, a parameter, or
+`getvariable('name')`.
+
+**Performance:** an inverted join on the feature. 100 000 entities with 15 features each
+(1.5 M rows) take about 0.15–0.2 s per query on a laptop.
+
+**Examples:**
+```sql
+-- Which past programmes contain everything a new request asks for, leanest first?
+SELECT entity_id, round(score, 3), round(jaccard, 3)
+FROM find_covering_entities_for(
+       MAP {'seat_heating': 2, 'massage': 4, 'headrest_powered': 1, 'memory_module': 1}, 3,
+       feature_table := 'prog_classes');
+
+-- An existing BOM table, quantities included
+SELECT * FROM find_covering_entities('F-100', 5, feature_table := 'frame_bom',
+       entity_col := 'frame_no', feature_col := 'part_no', weight_col := 'quantity_per');
+
+-- A request tree turned into a class multiset (repeated classes add up)
+SET VARIABLE request = (
+    SELECT map_from_entries(list((class_id, n)))
+    FROM (SELECT class_id, sum(count)::DOUBLE AS n FROM spec_nodes
+          WHERE node_kind = 'item' GROUP BY class_id));
+SELECT * FROM find_covering_entities_for(getvariable('request'), 20);
+```
+
+**Many requests at once.** A table function takes one constant query, and `LATERAL` with a
+column argument is not supported. To rank the archive for many requests, build one map per
+request and per candidate and score all pairs with the scalars:
+
+```sql
+CREATE TABLE requests AS
+SELECT request_id, map_from_entries(list((class_id, n))) AS classes
+FROM (SELECT request_id, class_id, sum(count)::DOUBLE AS n FROM request_items GROUP BY ALL)
+GROUP BY request_id;
+CREATE TABLE candidates AS
+SELECT entity_id, map_from_entries(list((feature_id, weight))) AS classes
+FROM feature_multiset GROUP BY entity_id;
+
+SELECT r.request_id, c.entity_id,
+       weighted_containment(r.classes, c.classes) + 0.01 * weighted_jaccard(r.classes, c.classes) AS score
+FROM requests r, candidates c
+QUALIFY row_number() OVER (PARTITION BY r.request_id ORDER BY score DESC, c.entity_id) <= 20;
+```
+
+The scores equal those of `find_covering_entities_for`. The scalars process about 10⁵ pairs in
+0.15 s.
+
+**Choosing the measure (risk R1 in the BRD):** containment is the right question once the
+candidates' labels are reliable (reviewed vocabulary). On unreviewed labels a mislabelled
+item can make a candidate look complete, and weighted Jaccard recalls the best candidate more
+often (on the benchmark, recall@20 is 0.55 for containment vs 0.64 for Jaccard; with reviewed
+labels it is 0.925 vs 0.85).
+
+
+### Quantities: units, parsing and direction-aware comparison
+
+Numbers need rules, not embeddings (BRD §1): the unit is a hard gate, the value is checked
+with a direction, and the distance to compliance is reported.
+
+**`quantity_units()`**: the built-in, read-only units seed. It returns `symbol, alias
+VARCHAR[], dimension, factor, offset, base_unit` (base = value × factor + offset). It covers SI
+units with prefixes, time (s … year, weeks/Wochen, days/Tage), temperature (K, °C, °F), sound
+level (dB(A)), percent/ppm, counts (cycles/Zyklen, pcs), data and data rates, and ISO-4217
+currencies. Currencies have `factor` NULL and are never converted.
+
+**`parse_quantity(text [, lang [, unit_table]])`** → `STRUCT(lo, hi, unit, dimension, bound, raw,
+source_unit, category)`
+
+| Text | lo, hi (base unit) | bound |
+|---|---|---|
+| `max. 38 dB(A)` | 38, 38 dB(A) | at_most |
+| `mindestens 24 cm` | 0.24, 0.24 m | at_least |
+| `6–18 V`, `40 bis 60 W`, `zwischen 15 und 25 mm/s` | range | within |
+| `220 N ± 2 %`, `Nennwert 220 N` | 220, 220 N | equals |
+| `38 dB(A)` | 38, 38 | NULL (unqualified) |
+| `37 °C` | 310.15 K | NULL |
+| `65.000 Zyklen` with lang `'de'` | 65000 (count) | NULL |
+| `IP54 or better` | NULL; `category` = IP54 | at_least |
+| `12 furlongs` | 12; `dimension` NULL, `unit` = furlongs | NULL |
+
+- `lang` is `'en'`, `'de'` or a list; default `['en', 'de']`. It only decides ambiguous
+  separators (`2.500` is 2500 in German and 2.5 in English); bound words of both languages are
+  always recognised. A comma or dot with one or two digits after it is always a decimal
+  separator.
+- A bare number is a count (`unit` '1'). An unknown unit is never guessed: the number stays as
+  written and `dimension` is NULL, so every comparison with it is a gate.
+- A category is a single upper-case code with digits and no number in front (`IP54`, `F1`,
+  `M8`); `1 F` is one farad.
+- `unit_table` is a LIST of `STRUCT(symbol, alias, dimension, factor, offset)`, e.g.
+  `(SELECT list(u) FROM my_units u)`. It extends the seed, and a symbol that is already in the
+  seed is overridden. The seed itself can be passed back in. Pass `lang` before `unit_table`
+  (on 1.5.6 scalar arguments bind by position).
+
+**`normalize_quantity(value, unit [, unit_table])`** → `STRUCT(value, unit, dimension)`: converts
+to the base unit; an unknown unit returns the input unchanged with `dimension` NULL.
+
+**`value_satisfies(requirement, provided [, scale [, tol, soft_band [, default_bound]]])`** →
+`STRUCT(score, distance, rule)`
+
+Both arguments are structs with `lo`, `hi` and `dimension` (and optionally `unit`); the
+requirement also has `bound`. `parse_quantity` output plugs straight in. A value in a
+non-base unit of its dimension (`{'lo': 250, 'unit': 'mm', 'dimension': 'length'}`) is
+normalised first.
+
+| Rule | Satisfied when | `distance` |
+|---|---|---|
+| `at_least v` | the provided high end `p_hi ≥ v` | `(v − p_hi)/\|v\|` |
+| `at_most v` | the provided low end `p_lo ≤ v` | `(p_lo − v)/\|v\|` |
+| `within [lo, hi]` | the provided range covers the required range (log: share of the decades) | uncovered share |
+| `equals v` | `\|v − p\| ≤ tol` relative, on every scale; `p` is the farther end of a provided range | `\|v − p\|/\|v\|` |
+| `point` (no bound) | the provided value lies within `[v·10⁻⁰·⁰¹, v·10⁰·⁰¹]` (log) or ±1 % (linear) | uncovered share |
+| `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
+| `missing` | no provided value; score 0 | NULL |
+
+- `score` is 1 within `tol` (default 0.02: decades on a log scale, i.e. 4.5 % relative;
+  relative on a linear scale) and falls linearly to 0 across `soft_band` (default 0.05).
+  With `soft_band` 0 the limit is strict.
+- `scale` defaults per dimension: linear for time, currency, percent and sound level, log
+  otherwise; a non-positive value falls back to linear.
+- A limit of 0 uses an absolute distance and a strict score.
+- **Temperature** (stored in K) uses an absolute tolerance of 1 K and a soft band of 2.5 K;
+  its `distance` is in K. `tol` and `soft_band` do not apply.
+- `default_bound` gives an unqualified requirement a direction, typically the bound of its
+  catalogue attribute template (HLD §11.1). A stated bound always wins.
+- Categorical values (`category` set) are rejected; use `compat_score`.
+- `distance` is relative for the limit rules, a share for within and point, and kelvin for
+  temperature. Write "misses by x %" only for the limit rules.
+
+**`compat_score(dimension, required, provided [, rules_table := 'compatibility_rules'])`** →
+DOUBLE: looks up a curated rules table `(dimension, required, provided, score)`. Without a
+rule the result is 1 if the categories are equal, else 0; a NULL category gives NULL. Text
+similarity is never used (BR-15).
+
+```sql
+-- Which seat-track applications meet a German spec in cm and dB(A)?
+SELECT a.node_id
+FROM (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
+JOIN module_attributes a ON a.attr_id = r.attr,
+LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
+GROUP BY a.node_id HAVING min(v.score) = 1;
+
+-- Unqualified values take the direction of their catalogue template
+SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimension': 'sound_level'},
+                       NULL, 0.02, 0.05, 'at_most');               -- score 1
+```
+
+**Performance:** about 0.3 s per 10⁵ values for `parse_quantity` and 0.4 s per 10⁵ pairs for
+`value_satisfies`.
+
+### Property trees
+
+Requests and offers are trees (HLD §3.2): `tree_nodes(tree_id, node_id, parent_id, node_kind,
+edge_type, label, class_id, count[, source, context])` and `tree_attributes(tree_id, node_id,
+attr_id, name, dimension, unit, lo, hi[, bound, category])`, with values in base units. Item
+nodes are compared. Containers and variant groups are transparent, so grouping levels do not
+have to align (BR-04). OR edges mark alternatives, and counts are extensive: they multiply
+down the tree, add across AND siblings and never add across OR alternatives.
+
+| Function | Purpose |
+|---|---|
+| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node |
+| `tree_anchors(nodes_table [, attrs_table], overrides_table, label_table, tree_ids)` | One row per item: class, reviewed, `effective_count`, `depth`, `anchor_path` (ancestors), `variant_path` (OR choices, the item included), `n_attributes` |
+| `tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)` | `(entity_id, feature_id, weight, reviewed)` for stage 1; the elementwise maximum across OR alternatives (an optimistic bound) |
+| `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |
+| `validate_trees(nodes_table [, attrs_table], tree_ids := ...)` | `(tree_id, node_id, attr_id, issue, severity, detail)`. Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, unreachable, too_deep, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (per source and name) |
+
+Examples:
+
+```sql
+SELECT * FROM validate_trees('programme_nodes', 'programme_attributes') WHERE severity = 'error';
+SELECT node_id, class_id, effective_count, anchor_path FROM tree_anchors('programme_nodes', tree_ids := ['P001']);
+CREATE TABLE programme_index AS SELECT * FROM tree_class_multiset('programme_nodes', overrides_table := 'vocabulary_overrides');
+SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content, NULL, 'de')) AS n FROM read_text('specs/*.json'));
+```
+
+**Class resolution** (shared by both stages): `class_id` → `overrides_table` (the reviewed
+vocabulary: `wording` matched exactly against `label`; a NULL `source` matches any source) →
+`label_table` (classifier output `tree_id, node_id, class_id, p`: arg-max, ties to the lowest
+class). A tree is *reviewed* when every item got its class from `class_id` or the vocabulary.
+Trees deeper than 256 levels are rejected (`tree_anchors` stops there); specification trees are
+typically 4–20 levels deep.
+
+### Coverage: tree_coverage, tree_coverage_trace, coverage_recall
+
+```sql
+tree_coverage(query_tree_id VARCHAR | VARCHAR[], <named>)
+  → TABLE(query_id, candidate_id, coverage, stage1_score, rank_score, rank, n_requirements, n_gaps,
+          reviewed, assignment_used)
+tree_coverage_trace(query_tree_id, <named>)
+  → TABLE(query_id, candidate_id, req_node_id, matched_node_id, matched_path, label_sim, attr_id, attr_name,
+          req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score,
+          count_needed, count_available, req_score, is_gap)
+coverage_recall(query_tree_id, <named>)
+  → TABLE(query_id, candidate_id, score, containment, jaccard, reviewed, mode_used, rank)
+```
+
+**Pipeline.** Stage 1 ranks the candidate trees by their class multisets, using containment
+(+ `tie_break` × Jaccard) when every candidate tree is reviewed and weighted Jaccard otherwise
+(BRD risk R1). It keeps the top `k` per query. Stage 2 runs the kernel over those candidates:
+
+```
+attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score     (categorical: compat_score)
+a(q, c)     = mean over q's attributes of the best attr(x, ·)                 (1 without attributes)
+L(q, c)     = Bhattacharyya(p(q), p(c))   or 0/1 with labels := 'hard'
+score(q, c) = label_weight·L + (1 − label_weight)·L·a                         (default label_weight 0)
+req(q)      = best score × min(1, Σ counts of compatible items with L ≥ count_gate / count(q))
+coverage    = mean req(q);  rank_score = coverage + stage1_weight · stage1_score
+```
+
+`assignment := 'partition'` gives each candidate item to the requirement it agrees with most
+(ties: the largest remaining count need, then the lowest node id). An item may then not stand
+in for another function (BR-06), and one item serves one requirement. OR alternatives are
+options: every tied requirement may choose them, and each requirement uses its best variant.
+`'best_match'` lets requirements share items. `'auto'` (default) uses partition for reviewed
+candidate trees.
+
+**Named parameters**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `candidates` | NULL | explicit candidate tree ids; NULL → stage-1 top `k` (the query tree is never its own candidate) |
+| `k` | 20 | stage-1 depth |
+| `nodes_table`, `attrs_table` | `'tree_nodes'`, `'tree_attributes'` | the query trees; `attrs_table := NULL` for none |
+| `candidate_nodes_table`, `candidate_attrs_table` | the query tables | the candidate trees |
+| `overrides_table`, `label_table` | NULL | class resolution (see above) |
+| `labels` | `'soft'` | `'soft'` uses the classifier's probabilities; `'hard'` uses one class |
+| `assignment` | `'auto'` | `'partition'`, `'best_match'`, `'auto'` |
+| `label_weight` | 0.0 | λ: label credit independent of the values (HLD §11.2) |
+| `mu` | 0.2 | weight of the attribute-name similarity (names only discount, BR-16) |
+| `partition_gate`, `count_gate` | 0.3, 0.5 | minimum label agreement for a block / for counting instances |
+| `stage1_weight`, `tie_break` | 0.05, 0.01 | stage-1 score in the rank; Jaccard tie-break in stage 1 |
+| `recall_mode` (`mode` in `coverage_recall`) | `'auto'` | `'containment'`, `'jaccard'`, `'auto'` |
+| `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: an unqualified requirement takes the bound of its template with the same class and dimension (none when ambiguous) |
+| `rules_table` | NULL | compatibility rules for categorical attributes (no rule: equal → 1) |
+| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap |
+| `candidate_multiset_table` | NULL | a precomputed index of the candidate class multisets (`tree_class_multiset` output: `entity_id, feature_id, weight[, reviewed]`). Stage 1 reads it instead of resolving every candidate tree; the results are the same |
+
+**Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
+value below 1. It does not depend on how soft the labels are. A required attribute that the
+matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
+a share for within and point, and in K for temperature.
+
+**Recommended setup.** Calibrate the attribute-name floor once per corpus. It is the median
+cosine between unrelated names:
+
+```sql
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+```
+
+**Example: the gap list of the best programme.** The trace takes the same parameters as the
+ranking, so it explains the same score:
+
+```sql
+SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
+       templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
+    WHERE rank = 1);
+
+SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3) AS distance
+FROM tree_coverage_trace('R07', candidates := [getvariable('top')],
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
+       templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
+WHERE is_gap;
+```
+
+**Request alternatives.** A request may list alternatives (OR edges). The best alternative
+counts. Every node gives (sum of requirement scores, number of requirements); an OR group
+takes the alternative with the best mean; coverage = sum / number. Alternatives that were not
+chosen do not appear in `n_requirements`, `n_gaps` or the trace.
+
+**`coverage_kernel(query, candidate, options)`** is the building block behind the table
+functions: a scalar over two packed node lists. It is public for custom pipelines, and its
+input types are checked.
+
+**Large archives.** Index the archive once and rank against the index:
+
+```sql
+CREATE TABLE programme_index AS
+SELECT * FROM tree_class_multiset('programme_nodes', overrides_table := 'vocabulary_overrides');
+
+SELECT * FROM tree_coverage('R07', k := 20, candidate_nodes_table := 'programme_nodes',
+                            candidate_attrs_table := 'programme_attributes',
+                            overrides_table := 'vocabulary_overrides',
+                            candidate_multiset_table := 'programme_index');
+```
+
+One request against 100 200 trees (2.6 M nodes, laptop): stage 1 takes 0.12 s and stage 2
+0.58 s with the index, and 1.9 s and 12.9 s without it. Building the index takes 1.9 s.
+Rebuild the index when the archive or the vocabulary changes.
+
+**Input checks.** The `coverage_kernel` scalar checks its argument types, so malformed input
+gives an error and does not abort. An empty `candidates` or query list selects nothing.
+Label rows are cleaned: duplicates add up, and NULL classes and probabilities ≤ 0 drop out.
+Soft distributions are normalised to 1.
+
+**Benchmark** (80 requests at once, reviewed vocabulary, catalogue bounds, name vectors):
+recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable
+flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s on a laptop.
+
+
+### Pivot classifier and vocabulary review (R4)
+
+The pivot classifier maps items onto the catalogue as a distribution over classes. The review
+functions turn its uncertainty into a short work list (HLD §4.4, §4.5). The extension ships no
+models: bring your own vectors.
+
+| Function | Purpose |
+|---|---|
+| `maxsim(query_tokens, document_tokens)` | Late-interaction score: mean over query tokens of the best cosine over the document tokens |
+| `bhattacharyya(p MAP, q MAP)` | Σ √(p_k q_k): the soft label agreement used by the kernel |
+| `calibrated_cosine(a, b, floor)` | clip((cos − floor) / (1 − floor), 0, 1) |
+| `cosine_floor(table, column [, sample := 10000, seed := 7])` | `(floor, n_pairs)`: median cosine of distinct pairs. Exact when all pairs fit into `sample`, otherwise a seeded sample |
+| `classify_to_catalogue(...)` | `(tree_id, node_id, source, class_id, p, rank, margin, overridden)`, one row per item and class |
+| `vocabulary_review_queue(trees_table, decisions [, sources, overrides_table])` | `(wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, impact)`, highest impact first |
+| `apply_vocabulary_review(review_table [, overrides_table])` | The merged overrides; the review wins per wording and source |
+| `uncertain_decisions(decisions [, threshold \| share, top, texts_table, catalogue_table])` | `(tree_id, node_id, margin, request)` with `request` as JSON text |
+
+**`classify_to_catalogue` parameters** (all named)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `items_table` | `'item_vectors'` | `node_id, vec[, tree_id, source, label, tokens]`; items without a vector are skipped |
+| `catalogue_table` | `'catalogue_vectors'` | `class_id, vec[, exemplar_tokens]` |
+| `mode` | `'centroid'` | `'centroid'`: cosine to the class vector; `'late_interaction'`: `maxsim(tokens, exemplar_tokens)` |
+| `center_by_source` | true | subtract the mean vector of the item's source (centroid mode) |
+| `attr_bonus` | 1.0 | β × the attribute-template match: mean over the item's attributes of the best same-dimension template |
+| `temperature` | 0.3 | softmax temperature τ |
+| `overrides_table` | NULL | reviewed wordings `(wording, source, class_id)`, matched on the item's `label` |
+| `answers_table` | NULL | per-item answers `([tree_id,] node_id, class_id)`; they beat overrides |
+| `attrs_table`, `templates_table` | NULL | `([tree_id,] node_id, name, dimension)` and `(class_id, dimension[, name, name_en, name_de])` for the bonus |
+| `name_vectors`, `name_floor` | NULL, 0.85 | name similarity for the bonus (calibrated cosine); without vectors a dimension match counts 1 |
+| `top` | NULL | keep the best `top` classes per item |
+
+Pipeline per item: centring → similarity → z-score across the catalogue (+ β × bonus) →
+softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p` and
+`overridden = true`. The output is a `label_table` for `tree_coverage`.
+
+**Workflow: review the archive's vocabulary** (runs on the benchmark files)
+
+```sql
+CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('catalogue_vectors.csv.gz');
+CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('programme_nodes.csv.gz');
+CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec
+FROM read_csv_auto('vocabulary_vectors.csv.gz');
+
+-- classify every wording once; the archive's items take the distribution of their wording
+CREATE TABLE wording_decisions AS SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+CREATE TABLE programme_labels AS
+SELECT n.tree_id, n.node_id, d.class_id, d.p
+FROM programme_nodes n JOIN wording_decisions d ON d.node_id = n.label AND d.source = n.source
+WHERE n.node_kind = 'item';
+
+-- the few wordings that touch most trees, least certain first
+SELECT wording, top1, top2, round(margin, 3) AS margin, n_trees_affected, round(impact, 1) AS impact
+FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wording_decisions') LIMIT 10;
+
+-- the reviewer's answers (wording, source, class_id[, reviewed_by, reviewed_at]); store the merged
+-- overrides (table functions cannot write). Without overrides_table, the review merges into an
+-- existing vocabulary_overrides table, or starts one.
+CREATE TABLE review AS SELECT * FROM (VALUES ('Klimapaket Heizung', 'internal', 'seat_ventilation'))
+    t(wording, source, class_id);
+CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');
+
+-- rank with the reviewed wordings; the rest keep the classifier's soft labels
+SELECT * FROM tree_coverage('R12', k := 20, nodes_table := 'request_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := NULL,
+       overrides_table := 'vocabulary_overrides', label_table := 'programme_labels');
+```
+
+**Workflow: send uncertain items to an external reviewer**
+
+```sql
+CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+-- one JSON object per row, ready for an LLM or a colleague
+SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
+       texts_table := 'item_texts', catalogue_table := 'catalogue_classes');
+-- write the answers (tree_id, node_id, class_id) back and classify again
+CREATE TABLE request_labels AS
+SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items',
+       catalogue_table := 'catalogue', attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'), answers_table := 'answers');
+SELECT * FROM tree_coverage('R07', k := 20, nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', label_table := 'request_labels');
+```
+
+`share` selects the lowest-margin share of the items that are not overridden (ceil(share × n)).
+A tree becomes *reviewed* only through `class_id` or the reviewed vocabulary, not through a
+`label_table`. Once every item of a request is confirmed, write the classes into its nodes to
+let `auto` partition:
+
+```sql
+CREATE TABLE request_nodes_reviewed AS
+SELECT n.* REPLACE (COALESCE(n.class_id, l.class_id) AS class_id)
+FROM request_nodes n LEFT JOIN (SELECT * FROM request_labels WHERE p = 1.0) l USING (tree_id, node_id);
+```
+
+**Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after
+per-source centring and 0.95 with the attribute bonus. On 200 unseen phrasings, late
+interaction beats the centroid by more than 10 points. The review queue puts the four
+misleading archive wordings first. With classifier labels on the request side, the pipeline
+reaches recall@20 0.86 and regret 0.022. After a reviewer answers the 15 % lowest-margin items,
+it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets all BRD
+targets.
+
+**`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
+are reviewed (HLD §11.12). Classifier labels are not reviewed, so `auto` uses best match. The
+`reviewed` output column of `tree_coverage` describes the candidate tree; `assignment_used`
+shows the decision.
+
+**Input checks.** `classify_to_catalogue` rejects an override or decision whose class is not in
+the catalogue, duplicate class ids or items, an empty catalogue, NULL node ids and non-finite
+vector elements. `apply_vocabulary_review` keeps the columns wording, source, class_id,
+reviewed_by and reviewed_at; JSON text escapes quotes, backslashes, \n, \r, \t, \b and \f and
+drops other control characters.
+
+### Evaluation, recall accelerators and entity clustering (R5)
+
+**Evaluation** (HLD §4.8). `results` holds `query_id, candidate_id` and a `rank` (or a score
+column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, true_coverage`.
+
+| Function | Returns |
+|---|---|
+| `eval_ranking(results, gold [, k := [1,5,10,20], rank_col, score_col])` | per k: `n_queries, top_k_accuracy, recall_at_k, mrr, mean_regret, share_regret_le_005` |
+| `eval_calibration(results, gold [, score_col := 'coverage'])` | `n_pairs, mae, bias, pearson, spearman` |
+| `threshold_at_precision(results, gold [, target_precision := 0.95, good := 0.9])` | `threshold, precision, accepted_share, n_queries, curve` |
+| `bootstrap_ci(metric_table, cluster_col [, metrics, n := 1000, seed := 7, level := 0.95])` | per metric: `estimate, lo, hi, n_boot, n_clusters` |
+| `fit_coverage_weights(reviewed_matches [, label_weights, mus, <tree_coverage parameters>])` | per grid point: `label_weight, mu, mae, n_pairs, n_unresolved, rank` (at most 20 values per axis) |
+
+- `eval_ranking` scores the queries that have gold: a query without results counts as a miss
+  with full regret, and results for queries without gold are ignored. Duplicate rows of a pair
+  keep the best rank. Positions follow the given rank (ties by candidate id) or the score
+  (highest first). Ranks start at 1.
+- The best candidates of a query are all gold candidates within 1e-9 of its gold best. A ranked
+  candidate without gold counts as 0. `top_k_accuracy` is the share of queries with a best
+  candidate in the top k (the BRD's "recall@k of the best candidate"). `recall_at_k` is the
+  share of each query's best candidates in the top k; the two differ only with ties.
+- `threshold_at_precision` looks at the top-1 picks. It returns the lowest score threshold whose
+  precision (share of picks with true coverage ≥ `good`) reaches the target, which gives the
+  largest auto-accept share. `target` is a reserved word in DuckDB, hence `target_precision`.
+- `bootstrap_ci` resamples clusters (for example the maker) with replacement and reports the
+  pooled mean with a percentile interval (BR-51). The draws use DuckDB's hash, so the exact
+  bounds can differ between DuckDB versions.
+- `fit_coverage_weights` runs the kernel over the reviewed pairs for each (λ, μ) grid point
+  (BR-52). Tune the classifier's β and τ with `classify_to_catalogue` and `eval_ranking`.
+
+```sql
+-- the benchmark files (test/data/coverage): requests, request_nodes with their classes,
+-- request_attributes parsed with parse_quantity, programme_nodes/_attributes, vocabulary_overrides,
+-- gold_coverage, gold_requests; see r5/uc_01 for the full setup
+CREATE TABLE results AS SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+SELECT * FROM eval_ranking('results', 'gold', k := [1, 20]);
+SELECT mae, spearman FROM eval_calibration('results', 'gold');
+SELECT threshold, precision, accepted_share FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
+
+CREATE TABLE per_request AS
+SELECT r.query_id, q.source AS maker, (g.true_coverage >= b.best_coverage - 1e-9)::DOUBLE AS hit
+FROM results r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests b ON b.request_id = r.query_id JOIN requests q ON q.request_id = r.query_id
+WHERE r.rank = 1;
+SELECT * FROM bootstrap_ci('per_request', 'maker', metrics := ['hit']);
+```
+
+On the benchmark, `eval_ranking` and `eval_calibration` give the same numbers as the BRD
+KPI formulas (r5/uc_01).
+
+**Sub-linear recall** (HLD §4.7). Exact `find_covering_entities` stays the default; these are
+optional accelerators.
+
+| Function | Purpose |
+|---|---|
+| `weighted_minhash(weights MAP, num_hashes [, seed])` | ICWS signature (UBIGINT[]); equal positions estimate weighted Jaccard. Hashing is stable across versions |
+| `minhash_similarity(a, b)` | share of equal positions |
+| `lsh_bands(signature, bands)` | one hash per band |
+| `minhash_index(feature_table [, num_hashes := 128, seed := 7, partitions := 4, entity_col, feature_col, weight_col])` | `entity_id, total_weight, partition, signature, band_hashes, num_hashes, seed` |
+| `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5, bands_table])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
+| `minhash_bands(index_table)` | the band hashes in long form `(entity_id, part, r, j, h, num_hashes, seed)`, for `bands_table`; a band table from another index is an error |
+
+The index works in the LSH-Ensemble style. Entities are split into size partitions, and for
+each query and partition the containment threshold becomes a Jaccard threshold for the
+partition's largest set. The rows per band (1, 2, 4 or 8) are chosen so that the LSH S-curve
+passes below that threshold. The containment estimate is J (|q| + |c|) / ((1 + J) |q|), capped
+at 1. With a pivot vocabulary of about 20 classes the multisets overlap so much that LSH still
+scores about half the candidates (r5/uc_04). It pays off for large raw vocabularies such as BOM
+components. With 20 000 entities over 5 000 features, it scores 80 candidates per query; a
+stored `minhash_bands` table turns the band lookup into a hash join, while without it the
+index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
+`(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
+
+```sql
+CREATE TABLE programme_index AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
+CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');   -- store once
+CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight FROM tree_class_multiset('request_nodes');
+SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_index', k := 20, threshold := 0.9,
+                                         bands_table := 'programme_bands');
+```
+
+**Entity clustering** (HLD §4.9). `cluster_matches(pairs_table [, threshold := 0.8, left_col
+:= 'a', right_col := 'b', score_col := 'score'])` returns `entity_id, cluster_id,
+cluster_size` from a C++ union-find over the pairs at or above the threshold. Every entity of
+the pairs table appears (ids as text), and `cluster_id` is the smallest member id in text order. `connected_components(LIST
+of STRUCT(a, b))` is the scalar behind it. r5/uc_03 shows a customer-master recipe: blocking,
+normalised names, and tax-id and address agreement. It clusters at 0.85, merges all 152 planted
+duplicates and none of the 12 near misses.
+
+**DuckPGQ recipe** (optional, not called by the extension). For graph queries over the matches:
+
+```sql
+INSTALL duckpgq FROM community; LOAD duckpgq;
+SET active_grammar_extensions = ['duckpgq'];   -- DuckDB 2.0, per connection
+CREATE TABLE entities AS SELECT DISTINCT a AS id FROM pairs UNION SELECT DISTINCT b FROM pairs;
+CREATE TABLE strong AS SELECT a, b FROM pairs WHERE score >= 0.85;
+CREATE PROPERTY GRAPH matches VERTEX TABLES (entities)
+    EDGE TABLES (strong SOURCE KEY (a) REFERENCES entities (id) DESTINATION KEY (b) REFERENCES entities (id));
+SELECT * FROM weakly_connected_component(matches, entities, strong);
+```
+
+Extension macros are registered with the default grammar, so no built-in macro embeds PGQ
+syntax (HLD §4.9). The test suite does not load DuckPGQ; check its documentation for the syntax of
+your version.
+
+---
+
 ## Function Coverage Matrix
 
 | Category | Type | Count | Functions |
@@ -1253,7 +1886,8 @@ Created automatically for vector similarity search:
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
 | **Infrastructure** | Macro | 1 | create_bom_property_graph |
-| **TOTAL** | | **~42** | Complete API |
+| **Coverage matching** | Scalar + Table + Macro | 42 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall, maxsim, bhattacharyya, calibrated_cosine, cosine_floor, classify_to_catalogue, vocabulary_review_queue, apply_vocabulary_review, uncertain_decisions, eval_ranking, eval_calibration, threshold_at_precision, bootstrap_ci, fit_coverage_weights, weighted_minhash, minhash_similarity, lsh_bands, minhash_index, minhash_bands, find_covering_entities_lsh, connected_components, cluster_matches |
+| **TOTAL** | | **~84** | Complete API |
 
 ---
 

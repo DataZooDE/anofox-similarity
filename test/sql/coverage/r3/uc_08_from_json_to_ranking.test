@@ -1,0 +1,115 @@
+# name: test/sql/coverage/r3/uc_08_from_json_to_ranking.test
+# description: Five specifications arrive as JSON from the extraction service. The engineer
+#              loads them with one query, ranks the archive for each and checks that the
+#              recommended programme is a best one.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests, values parsed from the text. Until R4's classifier, the items' classes come
+# from the benchmark's labels, standing in for an upstream labelling step (README: gold files)
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+statement ok
+CREATE TABLE json_raw AS
+SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n
+                       FROM read_text('test/data/coverage/requests_json/R0[1-5].json'));
+
+# the extraction service does not classify; the items' classes come from the labelling step
+statement ok
+CREATE TABLE json_nodes AS
+SELECT r.* EXCLUDE (class_id), g.class_id
+FROM json_raw r LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE json_attrs AS SELECT unnest(attributes, recursive := true) FROM json_nodes;
+
+query II
+SELECT count(DISTINCT tree_id), (SELECT count(*) FROM validate_trees('json_nodes', 'json_attrs') WHERE severity = 'error')
+FROM json_nodes;
+----
+5	0
+
+statement ok
+CREATE TABLE ranked AS
+SELECT r.*, g.true_coverage, q.best_coverage
+FROM tree_coverage(['R01', 'R02', 'R03', 'R04', 'R05'], k := 20,
+       nodes_table := 'json_nodes', attrs_table := 'json_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor')) r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id;
+
+# the JSON path ranks exactly like the CSV path
+statement ok
+CREATE TABLE ranked_csv AS
+SELECT * FROM tree_coverage(['R01', 'R02', 'R03', 'R04', 'R05'], k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+query II
+SELECT (SELECT count(*) FROM (SELECT query_id, candidate_id, round(coverage, 9), rank FROM ranked
+                              EXCEPT SELECT query_id, candidate_id, round(coverage, 9), rank FROM ranked_csv)),
+       (SELECT count(*) FROM (SELECT query_id, candidate_id, round(coverage, 9), rank FROM ranked_csv
+                              EXCEPT SELECT query_id, candidate_id, round(coverage, 9), rank FROM ranked));
+----
+0	0
+
+# the recommended programme is a best one for at least 4 of the 5
+query I
+SELECT sum((true_coverage >= best_coverage - 1e-9)::INT) >= 4 FROM ranked WHERE rank = 1;
+----
+true

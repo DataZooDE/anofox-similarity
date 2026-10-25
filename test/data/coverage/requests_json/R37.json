@@ -1,0 +1,240 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R37.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "Härte",
+          "text": "260 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1.6,
+          "lo": 1.6,
+          "name": "Gewicht",
+          "text": "1,6 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Formschaumteile mit Härte 260 N und Gewicht 1,6 kg.",
+        "node_id": "R37.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R37.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 6500.0,
+          "lo": 6500.0,
+          "name": "Klappzeit",
+          "text": "≤ 6500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 80.0,
+          "lo": 80.0,
+          "name": "Bedienkraft",
+          "text": "höchstens 80 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 26000.0,
+          "lo": 26000.0,
+          "name": "Dauerhaltbarkeit",
+          "text": "minimal 26000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit eine Umklappfunktion mit Klappzeit ≤ 6500 ms und Bedienkraft höchstens 80 N und Dauerhaltbarkeit minimal 26000 Zyklen.",
+        "node_id": "R37.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R37.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 13.5,
+          "lo": 13.5,
+          "name": "Masse",
+          "text": "13,5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Crashfestigkeit",
+          "text": "42 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit tragende Sitzstruktur mit Masse 13,5 kg und Crashfestigkeit 42 kN.",
+        "node_id": "R37.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Anforderung",
+      "node_id": "R37.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 35000.0,
+          "lo": 35000.0,
+          "name": "Martindale",
+          "text": "min. 35.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Lederbezüge mit Martindale min. 35.000 Zyklen.",
+        "node_id": "R37.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R37.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R37.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Höhenverstellweg",
+          "text": "mindestens 6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "minimal 4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Kopfstütze mit Rasten mit Höhenverstellweg mindestens 6 cm und Raststellungen minimal 4.",
+        "node_id": "R37.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R37.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R37.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "category": "IP40",
+        "name": "Schutzart",
+        "text": "min. IP40"
+       }
+      ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit Sitzverkabelung mit Schutzart min. IP40.",
+      "node_id": "R37.r06"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R37.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R37",
+  "node_id": "R37"
+ },
+ "source": "estrelo",
+ "tree_id": "R37"
+}

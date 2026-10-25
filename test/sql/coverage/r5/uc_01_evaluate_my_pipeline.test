@@ -1,0 +1,108 @@
+# name: test/sql/coverage/r5/uc_01_evaluate_my_pipeline.test
+# description: The team evaluates its matching pipeline on the benchmark before going live:
+#              recall@k and MRR of a best programme, regret of the pick, calibration of the
+#              predicted coverage, and the auto-accept threshold for 95 % precision (HLD §4.8).
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests with reviewed classes (the benchmark labels stand in for a finished review, as in
+# R3 uc_06; R4 uc_07 runs the classifier path), values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+# stage 1 + 2 over all 80 requests
+statement ok
+CREATE TABLE results AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+# eval_ranking computes the same KPIs as the hand-written formulas of R3 uc_06
+statement ok
+CREATE TABLE scored AS
+SELECT r.*, g.true_coverage, q.best_coverage FROM results r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id JOIN gold_requests q ON q.request_id = r.query_id;
+
+query TTT
+SELECT abs(e1.top_k_accuracy - (SELECT avg((true_coverage >= best_coverage - 1e-9)::INT) FROM scored WHERE rank = 1)) < 1e-12,
+       abs(e1.mean_regret - (SELECT avg(best_coverage - true_coverage) FROM scored WHERE rank = 1)) < 1e-12,
+       abs(e20.top_k_accuracy - (SELECT avg(h::INT) FROM (SELECT bool_or(true_coverage >= best_coverage - 1e-9) AS h FROM scored GROUP BY query_id))) < 1e-12
+FROM eval_ranking('results', 'gold', k := [1]) e1, eval_ranking('results', 'gold', k := [20]) e20;
+----
+true	true	true
+
+# at k = 1 the MRR equals the top-1 accuracy
+query T
+SELECT mrr = top_k_accuracy FROM eval_ranking('results', 'gold', k := [1]);
+----
+true
+
+# a best programme is in the top 20 for >= 90 % of the requests; the pick is a best one for >= 85 %
+query TT
+SELECT (SELECT top_k_accuracy FROM eval_ranking('results', 'gold', k := [20])) >= 0.90,
+       (SELECT top_k_accuracy FROM eval_ranking('results', 'gold', k := [1])) >= 0.85;
+----
+true	true
+
+# calibration over all evaluated pairs (BRD §6: MAE <= 0.05)
+query ITT
+SELECT n_pairs, mae <= 0.05, spearman > 0.8 FROM eval_calibration('results', 'gold');
+----
+1600	true	true
+
+# the auto-accept threshold for 95 % precision (a pick is good at true coverage >= 0.9)
+query TTT
+SELECT threshold IS NOT NULL, precision >= 0.95, accepted_share >= 0.5 FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
+----
+true	true	true

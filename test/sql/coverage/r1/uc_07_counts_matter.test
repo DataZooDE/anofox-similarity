@@ -1,0 +1,50 @@
+# name: test/sql/coverage/r1/uc_07_counts_matter.test
+# description: A request asks for 4 massage zones and 4 seat motors. A programme with the
+#              same functions but fewer zones and motors must not look complete (BR-02).
+#              The engineer compares weighted and unweighted coverage of the archive.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE prog_classes(entity_id VARCHAR, feature_id VARCHAR, weight DOUBLE);
+
+statement ok
+INSERT INTO prog_classes VALUES
+    ('P-A', 'massage', 4), ('P-A', 'seat_motor', 4),
+    ('P-B', 'massage', 2), ('P-B', 'seat_motor', 2),
+    ('P-C', 'massage', 8), ('P-C', 'seat_motor', 6), ('P-C', 'seat_ventilation', 2);
+
+# weighted, request Σq = 8:
+#   P-A Σmin 4+4 = 8 -> 1.0, jaccard 8/8 = 1;   P-C Σmin 8 -> 1.0, jaccard 8/16 = 0.5
+#   P-B Σmin 2+2 = 4 -> 0.5, jaccard 4/8 = 0.5
+query TRR
+SELECT entity_id, containment, jaccard
+FROM find_covering_entities_for(MAP {'massage': 4, 'seat_motor': 4}, 3, feature_table := 'prog_classes');
+----
+P-A	1.0	1.0
+P-C	1.0	0.5
+P-B	0.5	0.5
+
+# unweighted, every programme has both functions: all contain the request fully
+query TR
+SELECT entity_id, containment
+FROM find_covering_entities_for(MAP {'massage': 4, 'seat_motor': 4}, 3, weighted := false,
+                                feature_table := 'prog_classes')
+ORDER BY entity_id;
+----
+P-A	1.0
+P-B	1.0
+P-C	1.0
+
+# zero-count rows are kept but contribute nothing: P-D lists ventilation with weight 0
+statement ok
+INSERT INTO prog_classes VALUES ('P-D', 'massage', 4), ('P-D', 'seat_ventilation', 0);
+
+# request {massage 4, seat_ventilation 2}, Σq 6: P-D Σmin 4 + 0 = 4 -> 0.6667
+query TR
+SELECT entity_id, round(containment, 4)
+FROM find_covering_entities_for(MAP {'massage': 4, 'seat_ventilation': 2}, 5, feature_table := 'prog_classes')
+WHERE entity_id = 'P-D';
+----
+P-D	0.6667

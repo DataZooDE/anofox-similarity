@@ -1,0 +1,135 @@
+# name: test/sql/coverage/r0/dataset_integrity.test
+# description: The seating-systems benchmark loads in DuckDB as a user would load it, and
+#              its tables are consistent: trees are rooted, items reference the catalogue
+#              through the gold labels, vectors cast to FLOAT[] / FLOAT[][], and the mini
+#              fixture's class multiset matches its trees.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_classes.csv.gz');
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
+
+statement ok
+CREATE TABLE req_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz');
+
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE mod_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/module_nodes.csv.gz');
+
+statement ok
+CREATE TABLE gold_class AS SELECT * FROM read_csv_auto('test/data/coverage/gold_item_class.csv.gz');
+
+# Volumes: 23 classes, 300 programmes, 80 requests, 40 base modules, 150 applications
+query IIIII
+SELECT (SELECT count(*) FROM catalogue),
+       (SELECT count(DISTINCT tree_id) FROM prog_nodes),
+       (SELECT count(DISTINCT tree_id) FROM req_nodes),
+       (SELECT count(*) FROM mod_nodes WHERE parent_id IS NULL),
+       (SELECT count(*) FROM mod_nodes WHERE application_id IS NOT NULL);
+----
+23	300	80	40	150
+
+# Every tree has exactly one root, and every parent exists in the same tree
+query I
+SELECT count(*) FROM (
+    SELECT tree_id FROM req_nodes GROUP BY tree_id HAVING count(*) FILTER (WHERE parent_id IS NULL) <> 1
+    UNION ALL
+    SELECT tree_id FROM prog_nodes GROUP BY tree_id HAVING count(*) FILTER (WHERE parent_id IS NULL) <> 1
+);
+----
+0
+
+query I
+SELECT count(*) FROM req_nodes c
+WHERE c.parent_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM req_nodes p WHERE p.tree_id = c.tree_id AND p.node_id = c.parent_id);
+----
+0
+
+# Attributes hang on items only
+query I
+SELECT count(*) FROM req_attrs a JOIN req_nodes n USING (tree_id, node_id) WHERE n.node_kind <> 'item';
+----
+0
+
+query I
+SELECT count(*) FROM prog_attrs a JOIN prog_nodes n USING (tree_id, node_id) WHERE n.node_kind <> 'item';
+----
+0
+
+# Matchers see no classes; every item has a gold class from the catalogue
+query I
+SELECT count(*) FROM req_nodes WHERE class_id IS NOT NULL;
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT tree_id, node_id FROM req_nodes WHERE node_kind = 'item'
+                      UNION ALL SELECT tree_id, node_id FROM prog_nodes WHERE node_kind = 'item') i
+LEFT JOIN gold_class g USING (tree_id, node_id)
+LEFT JOIN catalogue c ON c.class_id = g.class_id
+WHERE c.class_id IS NULL;
+----
+0
+
+# Provided values on programme items use the template's dimension
+query I
+SELECT count(*) FROM prog_attrs a
+JOIN gold_class g USING (tree_id, node_id)
+LEFT JOIN templates t ON t.class_id = g.class_id AND t.attr_key = a.attr_id
+WHERE t.dimension IS DISTINCT FROM a.dimension;
+----
+0
+
+# Vectors cast as a user would cast them: 64-d, unit length, 3-12 tokens
+query III
+SELECT min(len(vec::FLOAT[])), max(len(vec::FLOAT[])),
+       bool_and(abs(list_dot_product(vec::FLOAT[], vec::FLOAT[]) - 1) < 0.004)
+FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
+----
+64	64	true
+
+query II
+SELECT min(len(tokens::FLOAT[][])) >= 3, max(len(tokens::FLOAT[][])) <= 12
+FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
+----
+true	true
+
+# Gold coverage is complete: one row per (request, programme)
+query II
+SELECT count(*), count(DISTINCT (query_id, candidate_id))
+FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+----
+24000	24000
+
+# Mini fixture: the class multiset of S1..S6 is sum(count) per class over the items
+statement ok
+CREATE TABLE mini_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE mini_ms AS SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+query I
+SELECT count(*) FROM (
+    (SELECT tree_id AS entity_id, class_id AS feature_id, sum(count) AS weight
+     FROM mini_nodes WHERE node_kind = 'item' AND tree_id LIKE 'S%' GROUP BY ALL
+     EXCEPT SELECT entity_id, feature_id, weight FROM mini_ms)
+    UNION ALL
+    (SELECT entity_id, feature_id, weight FROM mini_ms
+     EXCEPT SELECT tree_id, class_id, sum(count) FROM mini_nodes
+            WHERE node_kind = 'item' AND tree_id LIKE 'S%' GROUP BY ALL)
+);
+----
+0

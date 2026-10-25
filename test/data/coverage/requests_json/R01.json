@@ -1,0 +1,252 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R01.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R01.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.4,
+          "lo": 0.4,
+          "name": "Gewicht",
+          "text": "bis zu 0,4 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss PU-Schaumpolster mit Gewicht bis zu 0,4 kg enthalten.",
+        "node_id": "R01.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Anforderung",
+      "node_id": "R01.c1.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 7.0,
+        "lo": 7.0,
+        "name": "Umlegezeit",
+        "text": "≤ 7 s",
+        "unit": "s"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 25.0,
+        "lo": 25.0,
+        "name": "Bedienkraft",
+        "text": "bis zu 25 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Das System muss Tumble-Funktion mit Umlegezeit ≤ 7 s und Bedienkraft bis zu 25 N enthalten.",
+      "node_id": "R01.r02"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "Winkelbereich",
+          "text": "min. 52 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 5050.0,
+          "lo": 5050.0,
+          "name": "Festigkeit",
+          "text": "minimal 5050 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 31.0,
+          "lo": 31.0,
+          "name": "Geräusch",
+          "text": "maximal 31 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Rückenlehnenverstellung mit Winkelbereich min. 52 ° und Festigkeit minimal 5050 N·m und Geräusch maximal 31 dB(A) enthalten.",
+        "node_id": "R01.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R01.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "Masse",
+        "text": "≤ 5 kg",
+        "unit": "kg"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "Crashfestigkeit",
+        "text": "nicht weniger als 30 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Das System muss tragende Sitzstruktur mit Masse ≤ 5 kg und Crashfestigkeit nicht weniger als 30 kN enthalten.",
+      "node_id": "R01.r05"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R01.c1.s5.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 145000.0,
+          "lo": 145000.0,
+          "name": "Martindale",
+          "text": "nicht weniger als 145000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F3"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 80.0,
+          "lo": 80.0,
+          "name": "Zielpreis",
+          "text": "maximal 80 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.5 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Stoffbezug mit Martindale nicht weniger als 145000 Zyklen und Brennbarkeitsklasse mindestens F3 und Zielpreis maximal 80 EUR enthalten.",
+        "node_id": "R01.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R01.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R01.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Strombelastbarkeit",
+          "text": "mindestens 10 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "mindestens IP40"
+         }
+        ],
+        "context": "4.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Kabelsatz Sitz mit Strombelastbarkeit mindestens 10 A und Schutzart mindestens IP40 enthalten.",
+        "node_id": "R01.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R01.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R01.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage DRV-R01",
+  "node_id": "R01"
+ },
+ "source": "dravik",
+ "tree_id": "R01"
+}

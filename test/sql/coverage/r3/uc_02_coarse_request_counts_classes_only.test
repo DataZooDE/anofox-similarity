@@ -1,0 +1,37 @@
+# name: test/sql/coverage/r3/uc_02_coarse_request_counts_classes_only.test
+# description: An early-stage spec names the functions and counts but no values. Coverage
+#              then counts classes and multiplicities only, and the trace has no attribute rows.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# Q3: 2 heated zones and 2 ventilated zones, no values.
+#   S4 (heating 4, ventilation 2) and S6 (heating 2, ventilation 2) cover it; S1 and S3 have no
+#   ventilation. Ties are broken by the stage-1 score (containment + 0.01 jaccard):
+#   S4 1 + 0.01 * 4/6, S6 1 + 0.01 * 4/12; S3 0.5 + 0.01 * 2/7 (leaner) before S1 0.5 + 0.01 * 2/11
+query TRI
+SELECT candidate_id, coverage, n_gaps
+FROM tree_coverage('Q3', candidates := ['S1', 'S3', 'S4', 'S6'])
+ORDER BY rank;
+----
+S4	1.0	0
+S6	1.0	0
+S3	0.5	1
+S1	0.5	1
+
+query I
+SELECT count(*) FROM tree_coverage_trace('Q3', candidates := ['S4']) WHERE attr_id IS NOT NULL;
+----
+0
+
+# the gap is the ventilation requirement
+query TT
+SELECT req_node_id, coalesce(matched_node_id, '-') FROM tree_coverage_trace('Q3', candidates := ['S1']) WHERE is_gap;
+----
+Q3.2	-

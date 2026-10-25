@@ -1,0 +1,212 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R76.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "indentation hardness",
+          "text": "nominal 290 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 0.6,
+          "lo": 0.6,
+          "name": "weight",
+          "text": "≤ 0.6 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver foam cushion pad with indentation hardness nominal 290 N and weight ≤ 0.6 kg.",
+        "node_id": "R76.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Requirement",
+      "node_id": "R76.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 3.5,
+          "lo": 3.5,
+          "name": "folding time",
+          "text": "not more than 3.5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 100.0,
+          "lo": 100.0,
+          "name": "operating force",
+          "text": "max. 100 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 13000.0,
+          "lo": 13000.0,
+          "name": "endurance",
+          "text": "≥ 13,000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver a fold-flat mechanism with folding time not more than 3.5 s and operating force max. 100 N and endurance ≥ 13,000 cycles.",
+        "node_id": "R76.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R76.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 33.0,
+        "lo": 33.0,
+        "name": "crash strength",
+        "text": "33 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 120.0,
+        "lo": 120.0,
+        "name": "target price",
+        "text": "not more than 120 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Supplier shall deliver load-bearing seat structure with crash strength 33 kN and target price not more than 120 €.",
+      "node_id": "R76.r04"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 60000.0,
+          "lo": 60000.0,
+          "name": "Martindale",
+          "text": "≥ 60,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "F3 or better"
+         }
+        ],
+        "context": "1.4 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver leather trim with Martindale ≥ 60,000 cycles and flammability class F3 or better.",
+        "node_id": "R76.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Requirement",
+      "node_id": "R76.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R76.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "current rating",
+          "text": "18 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "IP54 or better"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver a seat wiring harness with current rating 18 A and protection class IP54 or better.",
+        "node_id": "R76.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R76.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R76.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification BRH-R76",
+  "node_id": "R76"
+ },
+ "source": "brennholt",
+ "tree_id": "R76"
+}

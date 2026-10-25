@@ -1,0 +1,434 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R20.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "equals",
+            "hi": 280.0,
+            "lo": 280.0,
+            "name": "indentation hardness",
+            "text": "nominal 280 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 2200.0,
+            "lo": 2200.0,
+            "name": "mass",
+            "text": "≤ 2200 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Seat assembly to feature a moulded foam pad with indentation hardness nominal 280 N and mass ≤ 2200 g.",
+          "node_id": "R20.r02"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R20.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R20.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 3.5,
+          "lo": 3.5,
+          "name": "folding time",
+          "text": "3.5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 12000.0,
+          "lo": 12000.0,
+          "name": "endurance",
+          "text": "12,000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Seat assembly to feature folding rear seat with folding time 3.5 s and endurance 12,000 cycles.",
+        "node_id": "R20.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R20.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 58.0,
+          "lo": 58.0,
+          "name": "angle range",
+          "text": "not less than 58 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2800.0,
+          "lo": 2800.0,
+          "name": "static strength",
+          "text": "≥ 2800 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 35.0,
+          "lo": 35.0,
+          "name": "operating noise",
+          "text": "≤ 35 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Seat assembly to feature backrest tilt fitting with angle range not less than 58 ° and static strength ≥ 2800 Nm and operating noise ≤ 35 dB(A).",
+        "node_id": "R20.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R20.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 17000.0,
+          "lo": 17000.0,
+          "name": "weight",
+          "text": "up to 17000 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 31.0,
+          "lo": 31.0,
+          "name": "crash strength",
+          "text": "minimum 31 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 120.0,
+          "lo": 120.0,
+          "name": "target price",
+          "text": "up to 120 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Seat assembly to feature seat frame structure with weight up to 17000 g and crash strength minimum 31 kN and target price up to 120 EUR.",
+        "node_id": "R20.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Requirement",
+      "node_id": "R20.c1.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 160.0,
+        "lo": 160.0,
+        "name": "adjustment travel",
+        "text": "160 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "within",
+        "hi": 2.2,
+        "lo": 1.4,
+        "name": "adjustment speed",
+        "text": "between 1.4 and 2.2 cm/s",
+        "unit": "cm/s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 36.0,
+        "lo": 36.0,
+        "name": "noise level",
+        "text": "≤ 36 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a4",
+        "bound": null,
+        "hi": 19500.0,
+        "lo": 19500.0,
+        "name": "holding load",
+        "text": "19500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Seat assembly to feature track adjuster fore/aft with adjustment travel 160 mm and adjustment speed between 1.4 and 2.2 cm/s and noise level ≤ 36 dB(A) and holding load 19500 N.",
+      "node_id": "R20.r08"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R20.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 1.8,
+          "lo": 1.8,
+          "name": "vertical load",
+          "text": "1.8 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "pivot angle",
+          "text": "45 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Seat assembly to feature seat armrest with vertical load 1.8 kN and pivot angle 45 °.",
+        "node_id": "R20.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 armrest",
+      "node_id": "R20.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 75.0,
+            "lo": 55.0,
+            "name": "power",
+            "text": "55 to 75 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 180.0,
+            "lo": 180.0,
+            "name": "time to 37 °C",
+            "text": "≤ 180 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 9000.0,
+            "lo": 9000.0,
+            "name": "current draw",
+            "text": "not more than 9000 mA",
+            "unit": "mA"
+           },
+           {
+            "attr_id": "a4",
+            "bound": "at_most",
+            "hi": 44.0,
+            "lo": 44.0,
+            "name": "surface temperature",
+            "text": "at most 44 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Seat assembly to feature 2 × heated seat cushion and backrest with power 55 to 75 W and time to 37 °C ≤ 180 s and current draw not more than 9000 mA and surface temperature at most 44 °C.",
+          "node_id": "R20.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Performance",
+        "node_id": "R20.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat heating",
+      "node_id": "R20.c2.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R20.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 70.0,
+            "lo": 70.0,
+            "name": "height travel",
+            "text": "not less than 70 mm",
+            "unit": "mm"
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Seat assembly to feature notched head restraint with height travel not less than 70 mm.",
+          "node_id": "R20.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R20.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R20.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R20.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 11.0,
+          "lo": 11.0,
+          "name": "current rating",
+          "text": "≥ 11 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "min. IP54"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Seat assembly to feature a seat wiring harness with current rating ≥ 11 A and protection class min. IP54.",
+        "node_id": "R20.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R20.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R20.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification EST-R20",
+  "node_id": "R20"
+ },
+ "source": "estrelo",
+ "tree_id": "R20"
+}

@@ -1,0 +1,46 @@
+# name: test/sql/coverage/r3/uc_05_depth_does_not_matter.test
+# description: A customer spec nests requirements four levels deep (spec, chapter, section,
+#              subsection); the archive stores programmes flat or in two levels. Containers
+#              are transparent, so the comparison does not depend on how either side groups
+#              its items (BR-04).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# Q1 regrouped four levels deep, same items and attributes
+statement ok
+CREATE TABLE deep_nodes AS
+SELECT * FROM (VALUES
+    ('D', 'D', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('D', 'D.1', 'D', 'container', 'AND', 'chapter', NULL, 1.0),
+    ('D', 'D.1.1', 'D.1', 'container', 'AND', 'section', NULL, 1.0),
+    ('D', 'D.1.1.1', 'D.1.1', 'container', 'AND', 'subsection', NULL, 1.0),
+    ('D', 'Q1.1', 'D.1.1.1', 'item', 'AND', 'heating', 'seat_heating', 2.0),
+    ('D', 'Q1.2', 'D.1.1', 'item', 'AND', 'massage', 'massage', 4.0),
+    ('D', 'Q1.3', 'D.1', 'item', 'AND', 'headrest', 'headrest_powered', 1.0),
+    ('D', 'Q1.4', 'D', 'item', 'AND', 'memory', 'memory_module', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE deep_attrs AS SELECT 'D' AS tree_id, * EXCLUDE (tree_id) FROM tree_attributes WHERE tree_id = 'Q1';
+
+# S1 is flat, S2 has a group level: the deep spec gets exactly the coverage of Q1
+statement ok
+CREATE TABLE flat AS SELECT candidate_id, coverage FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3']);
+
+statement ok
+CREATE TABLE deep AS SELECT candidate_id, coverage FROM tree_coverage('D', candidates := ['S1', 'S2', 'S3'],
+       nodes_table := 'deep_nodes', attrs_table := 'deep_attrs', candidate_nodes_table := 'tree_nodes',
+       candidate_attrs_table := 'tree_attributes');
+
+query III
+SELECT (SELECT count(*) FROM deep), (SELECT count(*) FROM (SELECT * FROM flat EXCEPT SELECT * FROM deep)),
+       (SELECT count(*) FROM (SELECT * FROM deep EXCEPT SELECT * FROM flat));
+----
+3	0	0

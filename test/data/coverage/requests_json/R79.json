@@ -1,0 +1,608 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R79.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert PU-Schaumpolster.",
+        "node_id": "R79.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 390.0,
+          "lo": 390.0,
+          "name": "Stauchhärte",
+          "text": "390 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1600.0,
+          "lo": 1600.0,
+          "name": "Masse",
+          "text": "1600 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Formschaumteile mit Stauchhärte 390 N und Masse 1600 g.",
+        "node_id": "R79.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R79.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "Winkelbereich",
+          "text": "44 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 34.0,
+          "lo": 34.0,
+          "name": "Geräusch",
+          "text": "bis zu 34 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Neigungsgelenk Lehne mit Winkelbereich 44 ° und Geräusch bis zu 34 dB(A).",
+        "node_id": "R79.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "Winkelbereich",
+          "text": "44 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2200.0,
+          "lo": 2200.0,
+          "name": "Festigkeit",
+          "text": "min. 2200 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "1.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Rückenlehnenverstellung mit Winkelbereich 44 ° und Festigkeit min. 2200 Nm.",
+        "node_id": "R79.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Anforderung",
+      "node_id": "R79.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 24.0,
+          "lo": 24.0,
+          "name": "Längsverstellweg",
+          "text": "mindestens 24 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 26.0,
+          "lo": 22.0,
+          "name": "Geschwindigkeit",
+          "text": "22 bis 26 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Betriebsgeräusch",
+          "text": "max. 40 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 26.0,
+          "lo": 26.0,
+          "name": "Haltekraft",
+          "text": "26 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.3 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert ein Schienensystem längs mit Längsverstellweg mindestens 24 cm und Geschwindigkeit 22 bis 26 mm/s und Betriebsgeräusch max. 40 dB(A) und Haltekraft 26 kN.",
+        "node_id": "R79.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 25.0,
+          "lo": 25.0,
+          "name": "Weg",
+          "text": "nicht weniger als 25 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 2.8,
+          "lo": 2.1,
+          "name": "Verstellgeschwindigkeit",
+          "text": "2,1–2,8 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 37.0,
+          "lo": 37.0,
+          "name": "Geräuschpegel",
+          "text": "37 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 25.0,
+          "lo": 25.0,
+          "name": "Haltelast",
+          "text": "25 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.3 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Sitzlängsführung mit Weg nicht weniger als 25 cm und Verstellgeschwindigkeit 2,1–2,8 cm/s und Geräuschpegel 37 dB(A) und Haltelast 25 kN.",
+        "node_id": "R79.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzlängsverstellung",
+      "node_id": "R79.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R79.c1.s4.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 80000.0,
+          "lo": 80000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "80000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F1"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 200.0,
+          "lo": 200.0,
+          "name": "Zielpreis",
+          "text": "maximal 200 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Polsterbezug mit Scheuerbeständigkeit 80000 Zyklen und Brennbarkeitsklasse mindestens F1 und Zielpreis maximal 200 €.",
+        "node_id": "R79.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzbezug",
+      "node_id": "R79.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 4500.0,
+          "lo": 4500.0,
+          "name": "Laufzeit",
+          "text": "maximal 4500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 8000.0,
+          "lo": 8000.0,
+          "name": "Haltekraft",
+          "text": "nicht weniger als 8000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.5 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert eine Sitzhöhenverstellung mit Laufzeit maximal 4500 ms und Haltekraft nicht weniger als 8000 N.",
+        "node_id": "R79.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R79.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R79.c1.s6.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 16.5,
+          "lo": 16.5,
+          "name": "Gewicht",
+          "text": "16,5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 37.0,
+          "lo": 37.0,
+          "name": "Crashlast",
+          "text": "minimal 37 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 225.0,
+          "lo": 225.0,
+          "name": "Zielpreis",
+          "text": "225 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.6 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert tragende Sitzstruktur mit Gewicht 16,5 kg und Crashlast minimal 37 kN und Zielpreis 225 €.",
+        "node_id": "R79.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzstruktur",
+      "node_id": "R79.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R79.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 75.0,
+          "lo": 50.0,
+          "name": "Heizleistung",
+          "text": "50 bis 75 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 220.0,
+          "lo": 220.0,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "max. 220 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Strom",
+          "text": "7 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.1 Anforderung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert 4 × eine Sitzheizung mit Heizleistung 50 bis 75 W und Aufheizzeit auf 37 °C max. 220 s und Strom 7 A.",
+        "node_id": "R79.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R79.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R79.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Höhenverstellweg",
+          "text": "mindestens 40 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert mechanische Kopfstütze mit Höhenverstellweg mindestens 40 mm und Raststellungen 4.",
+        "node_id": "R79.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Kopfstütze handverstellbar mit Raststellungen 4.",
+        "node_id": "R79.r12"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R79.c3.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 15.0,
+        "lo": 15.0,
+        "name": "Auslösezeit",
+        "text": "bis zu 15 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert eine Seitenairbag-Integration mit Auslösezeit bis zu 15 ms.",
+      "node_id": "R79.r08"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R79.c3.s3.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 9.0,
+            "lo": 9.0,
+            "name": "Ansprechschwelle",
+            "text": "bis zu 9 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 0.11,
+            "lo": 0.11,
+            "name": "Ansprechzeit",
+            "text": "bis zu 0,11 s",
+            "unit": "s"
+           }
+          ],
+          "context": "3.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Belegungssensor mit Ansprechschwelle bis zu 9 kg und Ansprechzeit bis zu 0,11 s.",
+          "node_id": "R79.r14"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.3.1 Leistungsdaten",
+        "node_id": "R79.c3.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R79.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R79.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "Strombelastbarkeit",
+          "text": "min. 15 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Kabelsatz Sitz mit Strombelastbarkeit min. 15 A.",
+        "node_id": "R79.r10"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "Schutzart",
+          "text": "IP65 oder besser"
+         }
+        ],
+        "context": "4.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert einen Sitzkabelbaum mit Schutzart IP65 oder besser.",
+        "node_id": "R79.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R79.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R79.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R79",
+  "node_id": "R79"
+ },
+ "source": "brennholt",
+ "tree_id": "R79"
+}

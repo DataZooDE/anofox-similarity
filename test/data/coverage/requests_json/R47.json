@@ -1,0 +1,792 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R47.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "Stauchhärte",
+          "text": "260 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1.4,
+          "lo": 1.4,
+          "name": "Masse",
+          "text": "höchstens 1,4 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Sitzpolsterung mit Stauchhärte 260 N und Masse höchstens 1,4 kg.",
+        "node_id": "R47.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "Härte",
+          "text": "260 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1400.0,
+          "lo": 1400.0,
+          "name": "Masse",
+          "text": "≤ 1400 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Formschaumteile mit Härte 260 N und Masse ≤ 1400 g.",
+        "node_id": "R47.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R47.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R47.c1.s2.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 46.0,
+            "lo": 46.0,
+            "name": "Crashlast",
+            "text": "≥ 46 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 245.0,
+            "lo": 245.0,
+            "name": "Zielpreis",
+            "text": "maximal 245 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst Sitzstruktur mit Crashlast ≥ 46 kN und Zielpreis maximal 245 €.",
+          "node_id": "R47.r06"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 14000.0,
+            "lo": 14000.0,
+            "name": "Masse",
+            "text": "max. 14000 g",
+            "unit": "g"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 49.0,
+            "lo": 49.0,
+            "name": "Crashlast",
+            "text": "nicht weniger als 49 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 230.0,
+            "lo": 230.0,
+            "name": "Zielpreis",
+            "text": "230 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Lieferumfang umfasst Lehnen- und Kissenrahmen mit Masse max. 14000 g und Crashlast nicht weniger als 49 kN und Zielpreis 230 €.",
+          "node_id": "R47.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R47.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Anforderung",
+      "node_id": "R47.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 20.0,
+          "lo": 20.0,
+          "name": "Verstellweg",
+          "text": "minimal 20 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 4.4,
+          "lo": 2.3,
+          "name": "Geschwindigkeit",
+          "text": "2,3–4,4 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "Betriebsgeräusch",
+          "text": "max. 43 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 14.5,
+          "lo": 14.5,
+          "name": "Haltelast",
+          "text": "14,5 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.3 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst eine Längsverstellung mit Verstellweg minimal 20 cm und Geschwindigkeit 2,3–4,4 cm/s und Betriebsgeräusch max. 43 dB(A) und Haltelast 14,5 kN.",
+        "node_id": "R47.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzlängsverstellung",
+      "node_id": "R47.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R47.c1.s4.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 6000.0,
+          "lo": 6000.0,
+          "name": "Verstellzeit",
+          "text": "max. 6000 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst einen Sitzheber mit Verstellzeit max. 6000 ms.",
+        "node_id": "R47.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R47.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "Winkelbereich",
+          "text": "≥ 52 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 32.0,
+          "lo": 32.0,
+          "name": "Geräuschpegel",
+          "text": "höchstens 32 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.5 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Rückenlehnenverstellung mit Winkelbereich ≥ 52 ° und Geräuschpegel höchstens 32 dB(A).",
+        "node_id": "R47.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R47.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 90000.0,
+          "lo": 90000.0,
+          "name": "Martindale",
+          "text": "minimal 90000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F0",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F0"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Stoffbezug mit Martindale minimal 90000 Zyklen und Brennbarkeitsklasse mindestens F0.",
+        "node_id": "R47.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R47.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R47.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.8,
+            "lo": 1.8,
+            "name": "Belastbarkeit",
+            "text": "≥ 1,8 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 85.0,
+            "lo": 85.0,
+            "name": "Schwenkwinkel",
+            "text": "nicht weniger als 85 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst eine Armlehne mit Belastbarkeit ≥ 1,8 kN und Schwenkwinkel nicht weniger als 85 °.",
+          "node_id": "R47.r01"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.8,
+            "lo": 1.8,
+            "name": "Vertikallast",
+            "text": "nicht weniger als 1,8 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 80.0,
+            "lo": 80.0,
+            "name": "Schwenkwinkel",
+            "text": "nicht weniger als 80 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Lieferumfang umfasst Ellbogenauflage mit Vertikallast nicht weniger als 1,8 kN und Schwenkwinkel nicht weniger als 80 °.",
+          "node_id": "R47.r14"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R47.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R47.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "Tiefe",
+        "text": "nicht weniger als 44 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "Verstellrichtungen",
+        "text": "6",
+        "unit": ""
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 3100.0,
+        "lo": 3100.0,
+        "name": "Stromverbrauch",
+        "text": "3100 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst Kreuzstütze mit Tiefe nicht weniger als 44 mm und Verstellrichtungen 6 und Stromverbrauch 3100 mA.",
+      "node_id": "R47.r04"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Wege",
+        "text": "2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 2900.0,
+        "lo": 2900.0,
+        "name": "Stromverbrauch",
+        "text": "höchstens 2900 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst Lordosenverstellung mit Wege 2 und Stromverbrauch höchstens 2900 mA.",
+      "node_id": "R47.r17"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 80.0,
+        "lo": 45.0,
+        "name": "Heizleistung",
+        "text": "45 bis 80 W",
+        "unit": "W"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 3.2,
+        "lo": 3.2,
+        "name": "Aufheizzeit",
+        "text": "maximal 3,2 min",
+        "unit": "min"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 6000.0,
+        "lo": 6000.0,
+        "name": "Stromaufnahme",
+        "text": "6000 mA",
+        "unit": "mA"
+       },
+       {
+        "attr_id": "a4",
+        "bound": null,
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "Oberflächentemperatur",
+        "text": "44 °C",
+        "unit": "°C"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst 4 × Heizmatten in Kissen und Lehne mit Heizleistung 45 bis 80 W und Aufheizzeit maximal 3,2 min und Stromaufnahme 6000 mA und Oberflächentemperatur 44 °C.",
+      "node_id": "R47.r07"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 31.0,
+            "lo": 17.0,
+            "name": "Luftvolumenstrom",
+            "text": "17–31 m³/h",
+            "unit": "m³/h"
+           }
+          ],
+          "context": "2.4.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst Lüfter im Sitz mit Luftvolumenstrom 17–31 m³/h.",
+          "node_id": "R47.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.4.1 Leistungsdaten",
+        "node_id": "R47.c2.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Sitzbelüftung",
+      "node_id": "R47.c2.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R47.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 12.5,
+          "lo": 12.5,
+          "name": "Auslösezeit",
+          "text": "12,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 590.0,
+          "lo": 590.0,
+          "name": "Nahtfestigkeit",
+          "text": "590 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst eine Seitenairbag-Integration mit Auslösezeit 12,5 ms und Nahtfestigkeit 590 N.",
+        "node_id": "R47.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 11.5,
+          "lo": 11.5,
+          "name": "Nahtöffnungszeit",
+          "text": "bis zu 11,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 650.0,
+          "lo": 650.0,
+          "name": "Nahtfestigkeit",
+          "text": "650 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Airbag-Aufreißnaht mit Nahtöffnungszeit bis zu 11,5 ms und Nahtfestigkeit 650 N.",
+        "node_id": "R47.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Anforderung",
+      "node_id": "R47.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.39,
+          "lo": 0.39,
+          "name": "Ansprechzeit",
+          "text": "höchstens 0,39 s",
+          "unit": "s"
+         }
+        ],
+        "context": "3.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Sensormatte Sitzbelegung mit Ansprechzeit höchstens 0,39 s.",
+        "node_id": "R47.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Anforderung",
+      "node_id": "R47.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R47.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Drehmoment",
+          "text": "5,5 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 13000.0,
+          "lo": 13000.0,
+          "name": "Stromverbrauch",
+          "text": "bis zu 13000 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst 4 × Getriebemotoren mit Drehmoment 5,5 N·m und Stromverbrauch bis zu 13000 mA.",
+        "node_id": "R47.r08"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Drehmoment",
+          "text": "5 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 13.0,
+          "lo": 13.0,
+          "name": "Stromverbrauch",
+          "text": "≤ 13 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst 4 × Sitzverstellmotoren mit Drehmoment 5 N·m und Stromverbrauch ≤ 13 A.",
+        "node_id": "R47.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R47.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Strombelastbarkeit",
+          "text": "minimal 7 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "mindestens IP40"
+         }
+        ],
+        "context": "4.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Kabelsatz Sitz mit Strombelastbarkeit minimal 7 A und Schutzart mindestens IP40.",
+        "node_id": "R47.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "Strombelastbarkeit",
+          "text": "≥ 8 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "IP40 oder besser"
+         }
+        ],
+        "context": "4.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Kabelsatz Sitz mit Strombelastbarkeit ≥ 8 A und Schutzart IP40 oder besser.",
+        "node_id": "R47.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Anforderung",
+      "node_id": "R47.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R47.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage GRV-R47",
+  "node_id": "R47"
+ },
+ "source": "grovania",
+ "tree_id": "R47"
+}

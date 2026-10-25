@@ -1,0 +1,208 @@
+# name: test/sql/coverage/r3/kernel_regressions.test
+# description: Robustness of the coverage kernel (crew review R3-4): malformed input is a clean
+#              error and leaves the database usable; empty id lists select nothing; soft labels
+#              are cleaned and normalised; OR variants are chosen per requirement.
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- malformed input to the scalars
+
+statement error
+SELECT coverage_kernel(['x'], ['y'], {'a': 1});
+----
+coverage_kernel: query must be a LIST of STRUCT
+
+query I
+SELECT 1;
+----
+1
+
+statement error
+SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'probs': 'zz'}],
+                       [{'node_id': 'b', 'node_kind': 'item'}], NULL);
+----
+probs must be a MAP
+
+query I
+SELECT 1;
+----
+1
+
+statement error
+SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'attrs': [1, 2]}],
+                       [{'node_id': 'b', 'node_kind': 'item'}], NULL);
+----
+attrs must be a LIST of STRUCT
+
+statement error
+SELECT tree_multiset([1, 2]);
+----
+tree_multiset: nodes must be a LIST of STRUCT
+
+query I
+SELECT 1;
+----
+1
+
+statement error
+SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x'}],
+                       [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x'}], {'assignment': 'bogus'});
+----
+assignment must be one of 'auto', 'best_match', 'partition'
+
+statement error
+SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x'}],
+                       [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x'}], {'mu': 2.0});
+----
+mu must be between 0 and 1
+
+# a count must be positive and finite; the error names the node
+statement error
+SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', 'count': 'NaN'::DOUBLE}],
+                       [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x', 'count': 1.0}], NULL);
+----
+node 'a': count must be positive and finite
+
+# the scalar itself works on hand-built trees; 'auto' partitions only when both trees are
+# reviewed (HLD §11.12): label noise on either side makes partition amplify errors (risk R2)
+query RTT
+SELECT r.coverage, r.assignment_used, u.assignment_used FROM (
+    SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
+                           [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
+                           {'labels': 'hard'}) AS r,
+           coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', 'reviewed': false}],
+                           [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
+                           {'labels': 'hard'}) AS u);
+----
+1.0	partition	best_match
+
+# ---------------------------------------------------------------- empty id lists select nothing
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+query IIII
+SELECT (SELECT count(*) FROM tree_coverage('Q1', candidates := [])),
+       (SELECT count(*) FROM tree_coverage_trace('Q1', candidates := [])),
+       (SELECT count(*) FROM coverage_recall('Q1', candidates := [])),
+       (SELECT count(*) FROM tree_coverage([]::VARCHAR[], k := 5));
+----
+0	0	0	0
+
+# ---------------------------------------------------------------- soft labels
+
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM (VALUES
+    ('R', 'R', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('R', 'R.h', 'R', 'item', 'AND', 'seat heating', 'seat_heating', 1.0),
+    ('R', 'R.v', 'R', 'item', 'AND', 'seat ventilation', 'seat_ventilation', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE offer_nodes AS SELECT * FROM (VALUES
+    ('C', 'C', NULL, 'container', 'AND', 'offer', NULL, 1.0),
+    ('C', 'C.1', 'C', 'item', 'AND', 'Klimapaket Heizung', NULL, 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+# duplicate rows add up, NULL classes and non-positive probabilities are dropped:
+# heating 0.3 + 0.3 = 0.6, ventilation 0.4 -> as in tree_coverage.test: best match 0.7035
+statement ok
+CREATE TABLE messy_labels AS SELECT * FROM (VALUES
+    ('C', 'C.1', 'seat_heating', 0.3), ('C', 'C.1', 'seat_heating', 0.3), ('C', 'C.1', 'seat_ventilation', 0.4),
+    ('C', 'C.1', NULL, 0.5), ('C', 'C.1', 'massage', 0.0), ('C', 'C.1', 'massage', NULL))
+    t(tree_id, node_id, class_id, p);
+
+query R
+SELECT round(coverage, 4) FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'messy_labels',
+       assignment := 'best_match');
+----
+0.7035
+
+# probabilities that sum above 1 are normalised: 1.2 / 0.8 -> 0.6 / 0.4 -> 0.7035
+statement ok
+CREATE TABLE loud_labels AS SELECT * FROM (VALUES
+    ('C', 'C.1', 'seat_heating', 1.2), ('C', 'C.1', 'seat_ventilation', 0.8)) t(tree_id, node_id, class_id, p);
+
+query R
+SELECT round(coverage, 4) FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'loud_labels',
+       assignment := 'best_match');
+----
+0.7035
+
+# ---------------------------------------------------------------- OR variants under partition
+
+# Variants are evaluated per requirement (HLD §4.6 'best variant per requirement', §11.9): two
+# seat-track requirements against a module whose only variant has one seat track are both
+# covered. One-to-one (§11.4) applies to items outside OR groups.
+statement ok
+CREATE TABLE two_seats AS SELECT * FROM (VALUES
+    ('F', 'F', NULL, 'container', 'AND', 'front row', NULL, 1.0),
+    ('F', 'F.d', 'F', 'item', 'AND', 'driver seat track', 'seat_track', 1.0),
+    ('F', 'F.p', 'F', 'item', 'AND', 'passenger seat track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE one_variant AS SELECT * FROM (VALUES
+    ('V', 'V', NULL, 'variant_group', 'AND', 'track options', NULL, 1.0),
+    ('V', 'V.a', 'V', 'item', 'OR', 'manual track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query R
+SELECT coverage FROM tree_coverage('F', candidates := ['V'], nodes_table := 'two_seats', attrs_table := NULL,
+                                   candidate_nodes_table := 'one_variant', candidate_attrs_table := NULL,
+                                   assignment := 'partition');
+----
+1.0
+
+# ---------------------------------------------------------------- self-exclusion
+
+# a query is not its own candidate in the same table; in another table, the same id is a
+# different tree and stays a candidate
+statement ok
+CREATE TABLE same_id AS SELECT * FROM (VALUES
+    ('R', 'R', NULL, 'container', 'AND', 'offer', NULL, 1.0),
+    ('R', 'R.1', 'R', 'item', 'AND', 'heating', 'seat_heating', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query TR
+SELECT candidate_id, coverage FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attrs_table := NULL,
+                                                 candidate_nodes_table := 'same_id', candidate_attrs_table := NULL);
+----
+R	0.5
+
+query I
+SELECT count(*) FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attrs_table := NULL);
+----
+0
+
+# the same table under another spelling is still the same table: the query is not its own
+# candidate (code-quality review CQ-1 F2)
+query I
+SELECT count(*) FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attrs_table := NULL,
+                                   candidate_nodes_table := 'main.REQ_NODES', candidate_attrs_table := NULL);
+----
+0
+
+# two different vectors for one attribute name would make name_sim depend on the run
+# (code-quality review CQ-1 F3); identical duplicates are fine
+statement ok
+CREATE TABLE dup_names AS SELECT * FROM (VALUES ('Verstellweg', [1.0, 0.0]), ('Verstellweg', [0.0, 1.0])) t(name, vec);
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], name_vectors := 'dup_names');
+----
+name_vectors has different vectors for the name 'Verstellweg'
+
+statement ok
+CREATE TABLE same_dup_names AS SELECT * FROM (VALUES ('Verstellweg', [1.0, 0.0]), ('Verstellweg', [1.0, 0.0])) t(name, vec);
+
+query I
+SELECT count(*) FROM tree_coverage('Q1', candidates := ['S1'], name_vectors := 'same_dup_names');
+----
+1

@@ -1,0 +1,58 @@
+# name: test/sql/coverage/r1/jaccard_search_mode.test
+# description: find_similar_materials_jaccard gains mode := ('jaccard' default,
+#              'containment'); the default output is unchanged (BR-01, HLD §4.1).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR);
+
+# D1 = {a,b,c}; D2 = {a,b,c,d,e} (a richer design); D3 = {a,b}; D4 = {x}
+statement ok
+INSERT INTO bom_items VALUES
+    ('D1','a'), ('D1','b'), ('D1','c'),
+    ('D2','a'), ('D2','b'), ('D2','c'), ('D2','d'), ('D2','e'),
+    ('D3','a'), ('D3','b'),
+    ('D4','x');
+
+# Jaccard from D1: D3 2/3 = 0.6667, D2 3/5 = 0.6, D4 0/4 = 0
+query TRII
+SELECT material_id, round(similarity, 4), shared_components, total_components
+FROM find_similar_materials_jaccard('D1', 10);
+----
+D3	0.6667	2	3
+D2	0.6	3	5
+D4	0.0	0	4
+
+# mode := 'jaccard' is the default: identical rows
+query I
+SELECT count(*) FROM (
+    (SELECT * FROM find_similar_materials_jaccard('D1', 10)
+     EXCEPT SELECT * FROM find_similar_materials_jaccard('D1', 10, mode := 'jaccard'))
+    UNION ALL
+    (SELECT * FROM find_similar_materials_jaccard('D1', 10, mode := 'jaccard')
+     EXCEPT SELECT * FROM find_similar_materials_jaccard('D1', 10)));
+----
+0
+
+# containment of D1 in each design: D2 3/3 = 1.0, D3 2/3 = 0.6667, D4 0
+# the richer D2 now ranks first; the other columns keep their meaning
+query TRII
+SELECT material_id, round(similarity, 4), shared_components, total_components
+FROM find_similar_materials_jaccard('D1', 10, mode := 'containment');
+----
+D2	1.0	3	5
+D3	0.6667	2	3
+D4	0.0	0	4
+
+# min_similarity applies to the chosen measure
+query T
+SELECT material_id FROM find_similar_materials_jaccard('D1', 10, min_similarity := 0.9, mode := 'containment');
+----
+D2
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('D1', 10, mode := 'tversky');
+----
+mode must be one of 'jaccard', 'containment'

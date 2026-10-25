@@ -1,0 +1,100 @@
+# name: test/sql/coverage/r1/uc_04_new_spec_from_request_tree.test
+# description: A new specification arrives as a tree (already classified). The engineer
+#              turns its items into a class multiset in SQL, keeps it in a variable and
+#              asks which past programmes cover it.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE spec AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE prog_classes AS
+SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+# Q1's items: heating x2, massage x4, powered headrest x1, memory module x1
+statement ok
+SET VARIABLE request = (
+    SELECT map_from_entries(list((class_id, n) ORDER BY class_id))
+    FROM (SELECT class_id, sum(count)::DOUBLE AS n FROM spec
+          WHERE tree_id = 'Q1' AND node_kind = 'item' GROUP BY class_id));
+
+query T
+SELECT getvariable('request')::VARCHAR;
+----
+{headrest_powered=1.0, massage=4.0, memory_module=1.0, seat_heating=2.0}
+
+# Same answer as the literal request in uc_01: S2, S1, S6
+query TR
+SELECT entity_id, round(score, 3)
+FROM find_covering_entities_for(getvariable('request'), 3, feature_table := 'prog_classes');
+----
+S2	1.01
+S1	1.009
+S6	1.007
+
+# Q3 asks for 2 heated and 2 ventilated zones (Σ 4).
+#   S4 = {heat 4, vent 2}: Σmin 2+2 = 4 -> 1, jaccard 4/(4+6-4) = 0.667 -> 1.00667
+#   S6 = {heat 2, vent 2, ...}: Σmin 4 -> 1, jaccard 4/(4+12-4) = 0.333 -> 1.00333
+#   S1, S2, S3 = {heat 2, ...}: Σmin 2 -> 0.5; S3 has the best jaccard of the three:
+#   2/(4+5-2) = 0.2857 -> 0.50286
+statement ok
+SET VARIABLE request = (
+    SELECT map_from_entries(list((class_id, n)))
+    FROM (SELECT class_id, sum(count)::DOUBLE AS n FROM spec
+          WHERE tree_id = 'Q3' AND node_kind = 'item' GROUP BY class_id));
+
+query TRR
+SELECT entity_id, round(score, 4), containment
+FROM find_covering_entities_for(getvariable('request'), 3, feature_table := 'prog_classes');
+----
+S4	1.0067	1.0
+S6	1.0033	1.0
+S3	0.5029	0.5
+
+# among the half covers, S3 (jaccard 0.2857) is ahead of S2 (2/(4+8-2) = 0.2) and S1 (2/(4+9-2) = 0.1818)
+query TR
+SELECT entity_id, round(jaccard, 4)
+FROM find_covering_entities_for(getvariable('request'), 5, feature_table := 'prog_classes')
+WHERE containment = 0.5
+ORDER BY score DESC;
+----
+S3	0.2857
+S2	0.2
+S1	0.1818
+
+# A front-row spec lists the driver and the passenger seat separately; counts of the same
+# class add up (HLD §3.2): 2 + 2 heated zones and 1 + 1 seat tracks.
+statement ok
+CREATE TABLE front_spec AS SELECT * FROM (VALUES
+    ('Q9', 'Q9',    NULL,   'container', 'Seat specification Q9', NULL,           1.0),
+    ('Q9', 'Q9.D',  'Q9',   'container', 'Driver seat',            NULL,           1.0),
+    ('Q9', 'Q9.D1', 'Q9.D', 'item',      'seat heating, 2 zones',  'seat_heating', 2.0),
+    ('Q9', 'Q9.D2', 'Q9.D', 'item',      'seat track',             'seat_track',   1.0),
+    ('Q9', 'Q9.B',  'Q9',   'container', 'Passenger seat',         NULL,           1.0),
+    ('Q9', 'Q9.B1', 'Q9.B', 'item',      'seat heating, 2 zones',  'seat_heating', 2.0),
+    ('Q9', 'Q9.B2', 'Q9.B', 'item',      'seat track',             'seat_track',   1.0))
+    t(tree_id, node_id, parent_id, node_kind, label, class_id, count);
+
+statement ok
+SET VARIABLE request = (
+    SELECT map_from_entries(list((class_id, n) ORDER BY class_id))
+    FROM (SELECT class_id, sum(count) AS n FROM front_spec WHERE node_kind = 'item' GROUP BY class_id));
+
+query T
+SELECT getvariable('request')::VARCHAR;
+----
+{seat_heating=4.0, seat_track=2.0}
+
+# request {heating 4, track 2} (Σ 6):
+#   S4 = {heat 4, vent 2}:              Σmin 4     -> 4/6 = 0.6667, jaccard 4/(6+6-4) = 0.5
+#   S6 = {heat 2, ..., track 2}:        Σmin 2+2=4 -> 0.6667,       jaccard 4/(6+12-4) = 0.2857
+#   S1 = {heat 2, ..., track 1}:        Σmin 3     -> 0.5,          jaccard 3/(6+9-3) = 0.25
+query TRR
+SELECT entity_id, round(containment, 4), round(jaccard, 4)
+FROM find_covering_entities_for(getvariable('request'), 3, feature_table := 'prog_classes');
+----
+S4	0.6667	0.5
+S6	0.6667	0.2857
+S1	0.5	0.25

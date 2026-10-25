@@ -1,0 +1,50 @@
+# name: test/sql/coverage/r4/uc_02_late_interaction_on_unseen_wording.test
+# description: 200 requirement sentences use wordings the catalogue exemplars have never seen
+#              (compounds, jargon). Single-vector matching loses accuracy; late interaction
+#              (maxsim over token vectors) keeps it (HLD §4.4 step 2).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE unseen AS
+SELECT item_id AS node_id, source, vec::FLOAT[] AS vec, tokens::FLOAT[][] AS tokens
+FROM read_csv_auto('test/data/coverage/unseen_vectors.csv.gz');
+
+statement ok
+CREATE TABLE gold_unseen AS SELECT item_id AS node_id, class_id FROM read_csv_auto('test/data/coverage/gold_unseen.csv.gz');
+
+statement ok
+CREATE TABLE by_centroid AS SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue', top := 1);
+
+statement ok
+CREATE TABLE by_tokens AS SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue',
+       mode := 'late_interaction', top := 1);
+
+query IITT
+SELECT count(*), count(DISTINCT node_id),
+       avg((c.class_id = g.class_id)::INT) <= 0.85,
+       avg((t.class_id = g.class_id)::INT) >= 0.85
+FROM by_centroid c JOIN by_tokens t USING (node_id) JOIN gold_unseen g USING (node_id);
+----
+200	200	true	true
+
+# late interaction gains at least 10 points on unseen wording
+query I
+SELECT avg((t.class_id = g.class_id)::INT) - avg((c.class_id = g.class_id)::INT) >= 0.10
+FROM by_centroid c JOIN by_tokens t USING (node_id) JOIN gold_unseen g USING (node_id);
+----
+true
+
+# the scalar on its own: an item's tokens against one exemplar set
+query I
+SELECT maxsim(u.tokens, c.exemplar_tokens) > maxsim(u.tokens, w.exemplar_tokens)
+FROM unseen u, catalogue c, catalogue w, gold_unseen g
+WHERE u.node_id = 'U002' AND g.node_id = 'U002' AND c.class_id = g.class_id AND w.class_id = 'wiring';
+----
+true

@@ -1,0 +1,659 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R63.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.7,
+          "lo": 0.7,
+          "name": "Masse",
+          "text": "max. 0,7 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Polsterschaum mit Masse max. 0,7 kg hat.",
+        "node_id": "R63.r05"
+       },
+       {
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Sitzpolsterung hat.",
+        "node_id": "R63.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R63.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Höhenverstellmechanik hat.",
+        "node_id": "R63.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 12000.0,
+          "lo": 12000.0,
+          "name": "Haltekraft",
+          "text": "minimal 12000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Höhenverstellmechanik mit Haltekraft minimal 12000 N hat.",
+        "node_id": "R63.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R63.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Rückenlehnenverstellung hat.",
+        "node_id": "R63.r10"
+       },
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Rückenlehnenverstellung hat.",
+        "node_id": "R63.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R63.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz tragende Sitzstruktur hat.",
+        "node_id": "R63.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 125.0,
+          "lo": 125.0,
+          "name": "Zielpreis",
+          "text": "max. 125 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz tragende Sitzstruktur mit Zielpreis max. 125 EUR hat.",
+        "node_id": "R63.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R63.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 28.0,
+          "lo": 21.0,
+          "name": "Verstellgeschwindigkeit",
+          "text": "21 bis 28 mm/s",
+          "unit": "mm/s"
+         }
+        ],
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine Längsverstellung mit Verstellgeschwindigkeit 21 bis 28 mm/s hat.",
+        "node_id": "R63.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 25.5,
+          "lo": 25.5,
+          "name": "Längsverstellweg",
+          "text": "mindestens 25,5 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Sitzschienen für die Längsverstellung mit Längsverstellweg mindestens 25,5 cm hat.",
+        "node_id": "R63.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzlängsverstellung",
+      "node_id": "R63.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "Zielpreis",
+          "text": "≤ 150 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Stoffbezug mit Zielpreis ≤ 150 EUR hat.",
+        "node_id": "R63.r15"
+       },
+       {
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Polsterbezug hat.",
+        "node_id": "R63.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R63.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R63.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R63.c2.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 70.0,
+          "name": "Leistung",
+          "text": "70–85 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4000.0,
+          "lo": 4000.0,
+          "name": "Stromaufnahme",
+          "text": "maximal 4000 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz 2 × Heizmatten in Kissen und Lehne mit Leistung 70–85 W und Stromaufnahme maximal 4000 mA hat.",
+        "node_id": "R63.r01"
+       },
+       {
+        "context": "2.1 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 2 × beheizte Sitzflächen hat.",
+        "node_id": "R63.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R63.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 2700.0,
+          "lo": 2700.0,
+          "name": "Stromaufnahme",
+          "text": "max. 2700 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Sitzbelüftung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine Sitzbelüftung mit Stromaufnahme max. 2700 mA hat.",
+        "node_id": "R63.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 30.0,
+          "lo": 22.0,
+          "name": "Luftvolumenstrom",
+          "text": "22–30 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 2600.0,
+          "lo": 2600.0,
+          "name": "Stromaufnahme",
+          "text": "2600 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Sitzbelüftung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Sitzbelüftung mit Luftvolumenstrom 22–30 m³/h und Stromaufnahme 2600 mA hat.",
+        "node_id": "R63.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Sitzbelüftung",
+      "node_id": "R63.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz motorische Kopfstütze hat.",
+        "node_id": "R63.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 36.0,
+          "lo": 36.0,
+          "name": "Neigungsverstellung",
+          "text": "36 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "2.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Kopfstütze mit Antrieb mit Neigungsverstellung 36 mm hat.",
+        "node_id": "R63.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Anforderung",
+      "node_id": "R63.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2.4,
+          "lo": 2.4,
+          "name": "Wangenhub",
+          "text": "2,4 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "2.4 Seitenwangenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine Seitenwangenverstellung mit Wangenhub 2,4 cm hat.",
+        "node_id": "R63.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 3.5,
+          "lo": 3.5,
+          "name": "Verstellzeit",
+          "text": "maximal 3,5 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.4 Seitenwangenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz verstellbare Seitenwangen mit Verstellzeit maximal 3,5 s hat.",
+        "node_id": "R63.r30"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Seitenwangenverstellung",
+      "node_id": "R63.c2.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 3.6,
+        "lo": 3.6,
+        "name": "Tiefe",
+        "text": "3,6 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 1.0,
+        "lo": 1.0,
+        "name": "Strom",
+        "text": "≤ 1 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Lendenwirbelstütze mit Tiefe 3,6 cm und Strom ≤ 1 A hat.",
+      "node_id": "R63.r23"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Programme",
+          "text": "7",
+          "unit": ""
+         }
+        ],
+        "context": "2.6 Massagefunktion",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 4 × Rückenmassage mit Programme 7 hat.",
+        "node_id": "R63.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 Massagefunktion",
+      "node_id": "R63.c2.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R63.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "Nahtöffnungszeit",
+          "text": "9 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 520.0,
+          "lo": 520.0,
+          "name": "Nahtfestigkeit",
+          "text": "nicht weniger als 520 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Thoraxairbag mit Nahtöffnungszeit 9 ms und Nahtfestigkeit nicht weniger als 520 N hat.",
+        "node_id": "R63.r13"
+       },
+       {
+        "context": "3.1 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Seitenairbag-Integration hat.",
+        "node_id": "R63.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Seitenairbag-Integration",
+      "node_id": "R63.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Belegungssensor hat.",
+        "node_id": "R63.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Anforderung",
+      "node_id": "R63.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R63.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "Verstellwege",
+          "text": "min. 8",
+          "unit": ""
+         }
+        ],
+        "context": "4.1 Memory-Steuergerät",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Memoryfunktion mit Verstellwege min. 8 hat.",
+        "node_id": "R63.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Memory-Steuergerät",
+      "node_id": "R63.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.5,
+          "lo": 4.5,
+          "name": "Drehmoment",
+          "text": "minimal 4,5 N·m",
+          "unit": "N·m"
+         }
+        ],
+        "context": "4.2 Anforderung",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz 6 × elektrische Sitzantriebe mit Drehmoment minimal 4,5 N·m hat.",
+        "node_id": "R63.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "Geräusch",
+          "text": "45 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 Anforderung",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 6 × Antriebseinheiten mit Geräusch 45 dB(A) hat.",
+        "node_id": "R63.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Anforderung",
+      "node_id": "R63.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "4.3 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz einen Sitzkabelbaum hat.",
+        "node_id": "R63.r16"
+       },
+       {
+        "context": "4.3 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Steckverbinder hat.",
+        "node_id": "R63.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Sitzkabelsatz",
+      "node_id": "R63.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R63.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage FKM-R63",
+  "node_id": "R63"
+ },
+ "source": "falkmoor",
+ "tree_id": "R63"
+}

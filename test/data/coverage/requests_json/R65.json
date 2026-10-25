@@ -1,0 +1,390 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R65.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2000.0,
+          "lo": 2000.0,
+          "name": "Gewicht",
+          "text": "2000 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert PU-Schaumpolster mit Gewicht 2000 g.",
+        "node_id": "R65.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R65.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Winkelbereich",
+          "text": "minimal 42 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2850.0,
+          "lo": 2850.0,
+          "name": "Haltemoment",
+          "text": "nicht weniger als 2850 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 33.0,
+          "lo": 33.0,
+          "name": "Betriebsgeräusch",
+          "text": "max. 33 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Lehnenbeschläge mit Winkelbereich minimal 42 ° und Haltemoment nicht weniger als 2850 Nm und Betriebsgeräusch max. 33 dB(A).",
+        "node_id": "R65.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Anforderung",
+      "node_id": "R65.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R65.c1.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 18500.0,
+          "lo": 18500.0,
+          "name": "Masse",
+          "text": "≤ 18500 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 56.0,
+          "lo": 56.0,
+          "name": "Crashfestigkeit",
+          "text": "56 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert ein Sitzgestell mit Masse ≤ 18500 g und Crashfestigkeit 56 kN.",
+        "node_id": "R65.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Anforderung",
+      "node_id": "R65.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "Stückpreis",
+          "text": "90 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Lederbezüge mit Stückpreis 90 €.",
+        "node_id": "R65.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R65.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R65.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Höhenverstellweg",
+          "text": "7 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 1.5,
+          "lo": 1.5,
+          "name": "Neigungsverstellung",
+          "text": "minimal 1,5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 2.4,
+          "lo": 1.9,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,9 bis 2,4 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 1300.0,
+          "lo": 1300.0,
+          "name": "Stromaufnahme",
+          "text": "bis zu 1300 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert elektrisch verstellbare Kopfstütze mit Höhenverstellweg 7 cm und Neigungsverstellung minimal 1,5 cm und Verstellgeschwindigkeit 1,9 bis 2,4 cm/s und Stromaufnahme bis zu 1300 mA.",
+        "node_id": "R65.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R65.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1900.0,
+          "lo": 1900.0,
+          "name": "Vertikallast",
+          "text": "≥ 1900 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Schwenkwinkel",
+          "text": "40 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.2 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Ellbogenauflage mit Vertikallast ≥ 1900 N und Schwenkwinkel 40 °.",
+        "node_id": "R65.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Armlehne",
+      "node_id": "R65.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 95.0,
+            "lo": 60.0,
+            "name": "Heizleistung",
+            "text": "zwischen 60 und 95 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3.2,
+            "lo": 3.2,
+            "name": "Aufheizzeit",
+            "text": "maximal 3,2 min",
+            "unit": "min"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "Stromverbrauch",
+            "text": "10 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a4",
+            "bound": "at_most",
+            "hi": 48.0,
+            "lo": 48.0,
+            "name": "Oberflächentemperatur",
+            "text": "≤ 48 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.3.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert 2 × beheizte Sitzflächen mit Heizleistung zwischen 60 und 95 W und Aufheizzeit maximal 3,2 min und Stromverbrauch 10 A und Oberflächentemperatur ≤ 48 °C.",
+          "node_id": "R65.r09"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.3.1 Leistungsdaten",
+        "node_id": "R65.c2.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Sitzheizung",
+      "node_id": "R65.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R65.c2"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 9.5,
+        "lo": 9.5,
+        "name": "Abtriebsmoment",
+        "text": "minimal 9,5 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 10.5,
+        "lo": 10.5,
+        "name": "Stromaufnahme",
+        "text": "≤ 10,5 A",
+        "unit": "A"
+       }
+      ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert 4 × Antriebseinheiten mit Abtriebsmoment minimal 9,5 Nm und Stromaufnahme ≤ 10,5 A.",
+      "node_id": "R65.r02"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 10.0,
+        "lo": 10.0,
+        "name": "Strombelastbarkeit",
+        "text": "minimal 10 A",
+        "unit": "A"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "IP54",
+        "name": "Schutzart",
+        "text": "IP54 oder besser"
+       }
+      ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert Kabelsatz Sitz mit Strombelastbarkeit minimal 10 A und Schutzart IP54 oder besser.",
+      "node_id": "R65.r11"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R65.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R65",
+  "node_id": "R65"
+ },
+ "source": "brennholt",
+ "tree_id": "R65"
+}

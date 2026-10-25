@@ -1,0 +1,373 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R35.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 130.0,
+          "lo": 130.0,
+          "name": "Vorschubweg",
+          "text": "130 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "Auslösekraft",
+          "text": "maximal 18 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Easy-Entry-Mechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Durchstiegsfunktion mit Vorschubweg 130 mm und Auslösekraft maximal 18 N enthalten.",
+        "node_id": "R35.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Easy-Entry-Mechanik",
+      "node_id": "R35.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "equals",
+            "hi": 220.0,
+            "lo": 220.0,
+            "name": "Härte",
+            "text": "Nennwert 220 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 300.0,
+            "lo": 300.0,
+            "name": "Masse",
+            "text": "300 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss PU-Schaumpolster mit Härte Nennwert 220 N und Masse 300 g enthalten.",
+          "node_id": "R35.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R35.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Polsterschaum",
+      "node_id": "R35.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "Umlegezeit",
+          "text": "bis zu 1500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 37000.0,
+          "lo": 37000.0,
+          "name": "Lebensdauer",
+          "text": "mindestens 37000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss umlegbare Rücksitze mit Umlegezeit bis zu 1500 ms und Lebensdauer mindestens 37000 Zyklen enthalten.",
+        "node_id": "R35.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Anforderung",
+      "node_id": "R35.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 82.0,
+        "lo": 82.0,
+        "name": "Winkelbereich",
+        "text": "minimal 82 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 1800.0,
+        "lo": 1800.0,
+        "name": "Haltemoment",
+        "text": "1800 N·m",
+        "unit": "N·m"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 32.0,
+        "lo": 32.0,
+        "name": "Geräuschpegel",
+        "text": "maximal 32 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Das System muss Rückenlehnenverstellung mit Winkelbereich minimal 82 ° und Haltemoment 1800 N·m und Geräuschpegel maximal 32 dB(A) enthalten.",
+      "node_id": "R35.r06"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 140000.0,
+            "lo": 140000.0,
+            "name": "Scheuerbeständigkeit",
+            "text": "min. 140.000 Zyklen",
+            "unit": "Zyklen"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F3",
+            "name": "Brennbarkeitsklasse",
+            "text": "F3 oder besser"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss einen Sitzbezug mit Scheuerbeständigkeit min. 140.000 Zyklen und Brennbarkeitsklasse F3 oder besser enthalten.",
+          "node_id": "R35.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R35.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R35.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R35.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 125.0,
+            "lo": 125.0,
+            "name": "Schwenkwinkel",
+            "text": "nicht weniger als 125 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss Mittelarmlehne klappbar mit Schwenkwinkel nicht weniger als 125 ° enthalten.",
+          "node_id": "R35.r01"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R35.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R35.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 175.0,
+        "lo": 65.0,
+        "name": "Leistung",
+        "text": "65 bis 175 W",
+        "unit": "W"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 5.5,
+        "lo": 5.5,
+        "name": "Stromverbrauch",
+        "text": "max. 5,5 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Das System muss 2 × beheizte Sitzflächen mit Leistung 65 bis 175 W und Stromverbrauch max. 5,5 A enthalten.",
+      "node_id": "R35.r08"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R35.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 16.5,
+          "lo": 16.5,
+          "name": "Abtriebsmoment",
+          "text": "≥ 16,5 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 13500.0,
+          "lo": 13500.0,
+          "name": "Stromaufnahme",
+          "text": "max. 13500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "Betriebsgeräusch",
+          "text": "bis zu 45 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 Anforderung",
+        "count": 3.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss 3 × Antriebseinheiten mit Abtriebsmoment ≥ 16,5 Nm und Stromaufnahme max. 13500 mA und Betriebsgeräusch bis zu 45 dB(A) enthalten.",
+        "node_id": "R35.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R35.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "Strombelastbarkeit",
+          "text": "≥ 17 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Sitzverkabelung mit Strombelastbarkeit ≥ 17 A enthalten.",
+        "node_id": "R35.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R35.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R35.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage DRV-R35",
+  "node_id": "R35"
+ },
+ "source": "dravik",
+ "tree_id": "R35"
+}

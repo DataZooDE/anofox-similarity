@@ -1,0 +1,71 @@
+# name: test/sql/coverage/r2/uc_06_parse_the_whole_spec_archive.test
+# description: Before matching, a data engineer parses every requirement value of the 80
+#              open specifications (EN and DE, customer units) and checks the result against
+#              what the extraction team verified by hand.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE raw AS SELECT * FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz');
+
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE verified AS SELECT * FROM read_csv_auto('test/data/coverage/gold_request_attributes.csv.gz');
+
+statement ok
+CREATE TABLE parsed AS
+SELECT a.tree_id, a.node_id, a.attr_id, a.value_text, parse_quantity(a.value_text, r.lang) AS q
+FROM raw a JOIN requests r ON r.request_id = a.tree_id;
+
+# every value parses
+query I
+SELECT count(*) FROM parsed WHERE q.lo IS NULL AND q.category IS NULL;
+----
+0
+
+# numeric values: numbers, units and dimensions agree with the verified values (relative 1e-9)
+query II
+SELECT count(*), count(*) FILTER (WHERE abs(p.q.lo - v.lo) <= 1e-9 * abs(v.lo)
+                                    AND abs(p.q.hi - v.hi) <= 1e-9 * abs(v.hi)
+                                    AND p.q.dimension = v.dimension AND p.q.unit = v.unit)
+FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id)
+WHERE v.category IS NULL;
+----
+2590	2590
+
+# ordinal classes come out as categories with their bound
+query II
+SELECT count(*), count(*) FILTER (WHERE p.q.category = v.category AND p.q.bound = v.bound)
+FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id)
+WHERE v.category IS NOT NULL;
+----
+146	146
+
+# every raw value has exactly one parsed and one verified row
+query III
+SELECT (SELECT count(*) FROM raw), (SELECT count(*) FROM parsed),
+       (SELECT count(*) FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id));
+----
+2736	2736	2736
+
+# A text that states a bound (a bound word, a range, '±' or 'nominal') gets exactly the verified
+# bound; a text that states none gets NULL (the verified table holds the true intent, which the
+# text does not say).
+statement ok
+CREATE TABLE classified AS
+SELECT p.*, v.bound AS verified_bound,
+       regexp_matches(lower(p.value_text),
+           '(at least|at most|min\.|max\.|minimum|maximum|minimal|maximal|up to|not more than|not less than|'
+           || 'or better|oder besser|mindestens|höchstens|bis zu|nicht mehr als|nicht weniger als|≥|≤|±|'
+           || 'nominal|nennwert|between|zwischen|[0-9] *(–|-|to|bis) *[0-9])') AS states_bound
+FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id);
+
+query II
+SELECT count(*) FILTER (WHERE states_bound AND q.bound IS DISTINCT FROM verified_bound),
+       count(*) FILTER (WHERE NOT states_bound AND q.bound IS NOT NULL)
+FROM classified;
+----
+0	0

@@ -206,6 +206,31 @@ Expected product family clusters:
 - **Cross-category** (phone vs laptop): Low similarity (<0.3)
 - **Gaming consoles** (PlayStation vs Xbox): Medium similarity (>0.5)
 
+## Coverage Matching Tests
+
+Tests for the coverage-matching feature set
+([docs/requirements-matching](../docs/requirements-matching/HLD.md)) live in
+`test/sql/coverage/<release>/`. Unit tests use the hand-made fixture in
+`test/data/coverage/mini/`, with expected values computed by hand in comments. KPI and
+workflow tests use the seating-systems benchmark in `test/data/coverage/`; its schema,
+oracle and KPI feasibility are described in
+[test/data/coverage/README.md](data/coverage/README.md). Scenario tests are called
+`uc_<nn>_<story>.test` and read like the SQL a user would write.
+
+| Release | Directory | What it covers |
+|---|---|---|
+| R0 | `test/sql/coverage/r0/` | The dataset loads and is consistent (trees, gold labels, vectors) |
+| R0 | `scripts/tests/` (`cd scripts && uv run pytest`) | Generator: determinism, size, leakage, noise rates, vector calibration, oracle, BRD KPI feasibility |
+| R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_08` (uc_08: all 80 benchmark requests at once, stage-1 recall@20 ≥ 0.90) |
+| R2 | `test/sql/coverage/r2/` | `quantity_units`, `parse_quantity`, `normalize_quantity`, `value_satisfies`, `compat_score`; scenarios `uc_01`–`uc_09` (uc_06 parses all 2 736 benchmark values exactly); `parser_regressions.test` |
+| R3 | `test/sql/coverage/r3/` | Tree store (`tree_from_json`, `tree_anchors`, `tree_class_multiset`, `validate_trees`, robustness), kernel (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`), request alternatives, robustness and read-only; scenarios `uc_01`–`uc_10` (uc_10: a class-multiset index of the archive), including **uc_06: the six BRD §6 KPIs on all 80 requests** and the stage-1 failure mode on unreviewed labels |
+| R4 | `test/sql/coverage/r4/` | `maxsim`, `bhattacharyya`, `calibrated_cosine`, `cosine_floor`, `classify_to_catalogue`, `vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`; read-only; scenarios `uc_01`–`uc_07` (uc_07: the classifier feeding the kernel, the BRD KPIs after reviewing uncertain items) |
+| R5 | `test/sql/coverage/r5/` | `eval_ranking`, `eval_calibration`, `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`, `weighted_minhash`, `minhash_similarity`, `lsh_bands`, `minhash_index`, `minhash_bands`, `find_covering_entities_lsh`, `connected_components`, `cluster_matches`; read-only; scenarios `uc_01`–`uc_05` (evaluate the pipeline, intervals by maker, merging duplicate customer plants, LSH recall, weight fit with a holdout) |
+
+The dataset is regenerated with
+`cd scripts && uv run generate-coverage-data --seed 7 --output ../test/data/coverage/`, and
+`uv run pytest` checks that the committed files match.
+
 ## Generated Data Format
 
 ### materials.csv

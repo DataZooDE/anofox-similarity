@@ -1,0 +1,91 @@
+# name: test/sql/coverage/r3/uc_09_unqualified_values_need_the_catalogue.test
+# description: About 30 % of the requirement values in real specs have no bound word. The
+#              team compares the ranking with exact-point semantics (HLD §4.2) and with the
+#              catalogue's direction for those values (HLD §11.1): only the latter keeps regret
+#              within the BRD target.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests, values parsed from the text. Until R4's classifier, the items' classes come
+# from the benchmark's labels, standing in for an upstream labelling step (README: gold files)
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+statement ok
+CREATE TABLE with_catalogue AS
+SELECT r.*, g.true_coverage, q.best_coverage FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor')) r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id
+WHERE r.rank = 1;
+
+statement ok
+CREATE TABLE as_points AS
+SELECT r.*, g.true_coverage, q.best_coverage FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor')) r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id
+WHERE r.rank = 1;
+
+# mean regret: within target with the catalogue bounds, beyond it as exact points
+query II
+SELECT (SELECT avg(best_coverage - true_coverage) FROM with_catalogue) <= 0.01,
+       (SELECT avg(best_coverage - true_coverage) FROM as_points) > 0.01;
+----
+true	true

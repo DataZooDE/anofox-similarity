@@ -1,0 +1,916 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R38.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 310.0,
+          "lo": 310.0,
+          "name": "hardness",
+          "text": "310 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 700.0,
+          "lo": 700.0,
+          "name": "mass",
+          "text": "up to 700 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes foam cushion pad with hardness 310 N and mass up to 700 g.",
+        "node_id": "R38.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 310.0,
+          "lo": 310.0,
+          "name": "indentation hardness",
+          "text": "nominal 310 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 700.0,
+          "lo": 700.0,
+          "name": "mass",
+          "text": "700 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes seat padding with indentation hardness nominal 310 N and mass 700 g.",
+        "node_id": "R38.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Requirement",
+      "node_id": "R38.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 70.0,
+            "lo": 70.0,
+            "name": "angle range",
+            "text": "not less than 70 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 2850.0,
+            "lo": 2850.0,
+            "name": "static strength",
+            "text": "minimum 2850 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 35.0,
+            "lo": 35.0,
+            "name": "noise level",
+            "text": "up to 35 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes recliner fittings with angle range not less than 70 ° and static strength minimum 2850 N·m and noise level up to 35 dB(A).",
+          "node_id": "R38.r07"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 52.0,
+            "lo": 52.0,
+            "name": "angle range",
+            "text": "not less than 52 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 36.0,
+            "lo": 36.0,
+            "name": "operating noise",
+            "text": "36 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes a reclining joint with angle range not less than 52 ° and operating noise 36 dB(A).",
+          "node_id": "R38.r22"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R38.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 recliner",
+      "node_id": "R38.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 18.5,
+        "lo": 18.5,
+        "name": "mass",
+        "text": "≤ 18.5 kg",
+        "unit": "kg"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 47.0,
+        "lo": 47.0,
+        "name": "crash load",
+        "text": "min. 47 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 120.0,
+        "lo": 120.0,
+        "name": "target price",
+        "text": "120 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes seat structure with mass ≤ 18.5 kg and crash load min. 47 kN and target price 120 €.",
+      "node_id": "R38.r08"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 18500.0,
+        "lo": 18500.0,
+        "name": "mass",
+        "text": "18500 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 33.0,
+        "lo": 33.0,
+        "name": "crash strength",
+        "text": "not less than 33 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes a seat frame with mass 18500 g and crash strength not less than 33 kN.",
+      "node_id": "R38.r23"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 260.0,
+        "lo": 260.0,
+        "name": "adjustment travel",
+        "text": "not less than 260 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "within",
+        "hi": 3.2,
+        "lo": 1.7,
+        "name": "speed",
+        "text": "1.7–3.2 cm/s",
+        "unit": "cm/s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 31.0,
+        "lo": 31.0,
+        "name": "noise",
+        "text": "not more than 31 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_least",
+        "hi": 20.5,
+        "lo": 20.5,
+        "name": "retention load",
+        "text": "not less than 20.5 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes a longitudinal seat adjuster with adjustment travel not less than 260 mm and speed 1.7–3.2 cm/s and noise not more than 31 dB(A) and retention load not less than 20.5 kN.",
+      "node_id": "R38.r11"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 25.0,
+        "lo": 25.0,
+        "name": "adjustment travel",
+        "text": "not less than 25 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 32.0,
+        "lo": 32.0,
+        "name": "noise",
+        "text": "≤ 32 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 22.0,
+        "lo": 22.0,
+        "name": "holding load",
+        "text": "22 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes sliding rails for the seat with adjustment travel not less than 25 cm and noise ≤ 32 dB(A) and holding load 22 kN.",
+      "node_id": "R38.r26"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "flammability class",
+          "text": "at least F2"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "piece price",
+          "text": "at most 90 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes trim cover set with flammability class at least F2 and piece price at most 90 €.",
+        "node_id": "R38.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "target price",
+          "text": "max. 90 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes a trim cover with target price max. 90 EUR.",
+        "node_id": "R38.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 trim cover",
+      "node_id": "R38.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "vertical travel",
+          "text": "min. 4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "adjustment time",
+          "text": "≤ 7 s",
+          "unit": "s"
+         }
+        ],
+        "context": "1.6 height adjuster",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes cushion lifting kinematics with vertical travel min. 4 cm and adjustment time ≤ 7 s.",
+        "node_id": "R38.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 height adjuster",
+      "node_id": "R38.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R38.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "2.1 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes elbow rest.",
+        "node_id": "R38.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1900.0,
+          "lo": 1900.0,
+          "name": "vertical load",
+          "text": "≥ 1900 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.1 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes arm support with vertical load ≥ 1900 N.",
+        "node_id": "R38.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 armrest",
+      "node_id": "R38.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 2.0,
+            "lo": 2.0,
+            "name": "adjustment ways",
+            "text": "at least 2",
+            "unit": ""
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 1.2,
+            "lo": 1.2,
+            "name": "current consumption",
+            "text": "1.2 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes adjustable lower-back support with adjustment ways at least 2 and current consumption 1.2 A.",
+          "node_id": "R38.r06"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 2.0,
+            "lo": 2.0,
+            "name": "adjustment ways",
+            "text": "at least 2",
+            "unit": ""
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 1100.0,
+            "lo": 1100.0,
+            "name": "supply current",
+            "text": "max. 1100 mA",
+            "unit": "mA"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes lumbar basket with adjustment ways at least 2 and supply current max. 1100 mA.",
+          "node_id": "R38.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Performance",
+        "node_id": "R38.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Requirement",
+      "node_id": "R38.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 80.0,
+          "lo": 55.0,
+          "name": "power",
+          "text": "between 55 and 80 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "time to 37 °C",
+          "text": "≤ 150 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 6000.0,
+          "lo": 6000.0,
+          "name": "current consumption",
+          "text": "6000 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 53.0,
+          "lo": 53.0,
+          "name": "surface temperature",
+          "text": "max. 53 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.3 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes 2 × seat heating with power between 55 and 80 W and time to 37 °C ≤ 150 s and current consumption 6000 mA and surface temperature max. 53 °C.",
+        "node_id": "R38.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 seat heating",
+      "node_id": "R38.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R38.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 17.0,
+            "lo": 17.0,
+            "name": "reach",
+            "text": "at least 17 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 4000.0,
+            "lo": 4000.0,
+            "name": "cycle time",
+            "text": "not more than 4000 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes seat-belt presenter with reach at least 17 cm and cycle time not more than 4000 ms.",
+          "node_id": "R38.r02"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 15.5,
+            "lo": 15.5,
+            "name": "reach",
+            "text": "at least 15.5 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 4.0,
+            "lo": 4.0,
+            "name": "cycle time",
+            "text": "at most 4 s",
+            "unit": "s"
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes buckle lifter with reach at least 15.5 cm and cycle time at most 4 s.",
+          "node_id": "R38.r16"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R38.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 seat-belt buckle presenter",
+      "node_id": "R38.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "positions",
+          "text": "not less than 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.2 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes a manual headrest with positions not less than 3.",
+        "node_id": "R38.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 65.0,
+          "lo": 65.0,
+          "name": "height travel",
+          "text": "65 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "detent positions",
+          "text": "at least 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.2 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes height-adjustable head restraint with height travel 65 mm and detent positions at least 3.",
+        "node_id": "R38.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 manual headrest",
+      "node_id": "R38.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 0.58,
+            "lo": 0.58,
+            "name": "seam strength",
+            "text": "min. 0.58 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "3.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes side airbag integration with seam strength min. 0.58 kN.",
+          "node_id": "R38.r12"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 9.5,
+            "lo": 9.5,
+            "name": "seam opening time",
+            "text": "up to 9.5 ms",
+            "unit": "ms"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 620.0,
+            "lo": 620.0,
+            "name": "seam strength",
+            "text": "620 N",
+            "unit": "N"
+           }
+          ],
+          "context": "3.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes side airbag integration with seam opening time up to 9.5 ms and seam strength 620 N.",
+          "node_id": "R38.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.3.1 Performance",
+        "node_id": "R38.c3.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 side airbag integration",
+      "node_id": "R38.c3.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "detection threshold",
+          "text": "9 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "response time",
+          "text": "max. 290 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.4 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes occupant detection with detection threshold 9 kg and response time max. 290 ms.",
+        "node_id": "R38.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.4 Requirement",
+      "node_id": "R38.c3.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R38.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "output torque",
+          "text": "min. 8.5 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "operating noise",
+          "text": "43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 seat motor drive",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes 6 × motor drive units with output torque min. 8.5 N·m and operating noise 43 dB(A).",
+        "node_id": "R38.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat motor drive",
+      "node_id": "R38.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 13.0,
+          "lo": 13.0,
+          "name": "current rating",
+          "text": "13 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "protection class",
+          "text": "min. IP65"
+         }
+        ],
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes seat cabling and connectors with current rating 13 A and protection class min. IP65.",
+        "node_id": "R38.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 13.0,
+          "lo": 13.0,
+          "name": "current rating",
+          "text": "minimum 13 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "protection class",
+          "text": "min. IP65"
+         }
+        ],
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes a seat wiring harness with current rating minimum 13 A and protection class min. IP65.",
+        "node_id": "R38.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R38.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R38.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification GRV-R38",
+  "node_id": "R38"
+ },
+ "source": "grovania",
+ "tree_id": "R38"
+}

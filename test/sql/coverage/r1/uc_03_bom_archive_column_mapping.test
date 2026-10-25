@@ -1,0 +1,49 @@
+# name: test/sql/coverage/r1/uc_03_bom_archive_column_mapping.test
+# description: A design engineer asks which archived seat frames contain every part of
+#              a new frame BOM, quantities included. The archive is an existing BOM table
+#              with its own column names; no copy into a feature table is needed.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE frame_bom(frame_no VARCHAR, part_no VARCHAR, quantity_per DOUBLE);
+
+# F-100 is the new frame (already entered in the table).
+statement ok
+INSERT INTO frame_bom VALUES
+    ('F-100', 'side member', 2), ('F-100', 'cross tube', 3), ('F-100', 'recliner bracket', 2),
+    ('F-200', 'side member', 2), ('F-200', 'cross tube', 4), ('F-200', 'recliner bracket', 2), ('F-200', 'pan', 1),
+    ('F-300', 'side member', 2), ('F-300', 'cross tube', 2), ('F-300', 'recliner bracket', 2),
+    ('F-400', 'side member', 2), ('F-400', 'pan', 1);
+
+# Query F-100, Σq = 7
+#   F-200: Σmin 2+3+2 = 7 -> containment 1,     Σc 9, jaccard 7/(7+9-7) = 0.7778, surplus 2
+#   F-300: Σmin 2+2+2 = 6 -> containment 0.8571, Σc 6, jaccard 6/(7+6-6) = 0.8571, surplus 0
+#   F-400: Σmin 2       -> containment 0.2857, Σc 3, jaccard 2/(7+3-2) = 0.25,   surplus 1
+query TRRR
+SELECT entity_id, round(containment, 4), round(jaccard, 4), surplus_weight
+FROM find_covering_entities('F-100', 5, feature_table := 'frame_bom',
+                            entity_col := 'frame_no', feature_col := 'part_no', weight_col := 'quantity_per');
+----
+F-200	1.0	0.7778	2.0
+F-300	0.8571	0.8571	0.0
+F-400	0.2857	0.25	1.0
+
+# Without quantities (weighted := false) F-300 has every part too, so both contain F-100:
+#   F-200: 3/3 = 1, jaccard 3/4 = 0.75; F-300: 3/3 = 1, jaccard 3/3 = 1 -> F-300 first (leaner)
+query TRR
+SELECT entity_id, containment, jaccard
+FROM find_covering_entities('F-100', 2, weighted := false, feature_table := 'frame_bom',
+                            entity_col := 'frame_no', feature_col := 'part_no', weight_col := 'quantity_per');
+----
+F-300	1.0	1.0
+F-200	1.0	0.75
+
+# "At least 95 % of the new BOM must be in the archived frame":
+query T
+SELECT entity_id FROM find_covering_entities('F-100', 5, min_score := 0.95, feature_table := 'frame_bom',
+                                             entity_col := 'frame_no', feature_col := 'part_no',
+                                             weight_col := 'quantity_per');
+----
+F-200

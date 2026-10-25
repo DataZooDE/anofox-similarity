@@ -1,0 +1,59 @@
+# name: test/sql/coverage/r5/uc_04_lsh_recall_on_the_archive.test
+# description: For a large archive the team indexes the programmes' class multisets with
+#              weighted MinHash and finds candidates through LSH bands instead of scanning
+#              every programme. Exact recall stays the reference (HLD §4.7). With a pivot of
+#              22 classes the multisets overlap a lot, so LSH saves a third of the work here; it
+#              pays off for large raw vocabularies (HLD §4.1; see minhash_lsh.test).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE programme_ms AS SELECT * FROM read_csv_auto('test/data/coverage/programme_class_multiset.csv.gz');
+
+# the requests' reviewed classes (benchmark labels as the stand-in, see R3 uc_06)
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight FROM tree_class_multiset('req_nodes');
+
+statement ok
+CREATE TABLE idx AS SELECT * FROM minhash_index(feature_table := 'programme_ms', num_hashes := 128);
+
+statement ok
+CREATE TABLE lsh AS SELECT * FROM find_covering_entities_lsh('request_ms', 'idx', k := 20, threshold := 0.9);
+
+# the exact reference: containment over all 300 programmes; the best programmes per request
+# are all those at the maximum (ties included)
+statement ok
+CREATE TABLE exact AS
+SELECT q.query_id, p.entity_id, sum(least(q.weight, p.weight)) / any_value(t.total) AS containment
+FROM request_ms q JOIN programme_ms p ON p.feature_id = q.feature_id
+JOIN (SELECT query_id, sum(weight) AS total FROM request_ms GROUP BY ALL) t ON t.query_id = q.query_id
+GROUP BY ALL;
+
+statement ok
+CREATE TABLE exact_best AS SELECT * FROM exact QUALIFY containment >= max(containment) OVER (PARTITION BY query_id) - 1e-9;
+
+query I
+SELECT count(DISTINCT query_id) FROM lsh;
+----
+80
+
+# a best programme by exact containment is among the LSH top 20 for >= 90 % of the requests
+query T
+SELECT avg(found::INT) >= 0.9 FROM (
+    SELECT b.query_id, bool_or(l.entity_id IS NOT NULL) AS found
+    FROM exact_best b LEFT JOIN lsh l ON l.query_id = b.query_id AND l.entity_id = b.entity_id GROUP BY ALL);
+----
+true
+
+# and LSH scores fewer than all 300 programmes per request (measured about 165)
+query T
+SELECT avg(n) < 210 FROM (SELECT query_id, any_value(n_candidates) AS n FROM lsh GROUP BY ALL);
+----
+true

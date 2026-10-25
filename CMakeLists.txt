@@ -24,6 +24,16 @@ set(EXTENSION_SOURCES
     src/core/constants.cpp
     src/modules/jaccard_similarity.cpp
     src/modules/similarity_search.cpp
+    src/modules/set_measures.cpp
+    src/modules/coverage_search.cpp
+    src/modules/quantity.cpp
+    src/modules/property_tree.cpp
+    src/modules/coverage_kernel.cpp
+    src/modules/pivot_classifier.cpp
+    src/modules/vocabulary_review.cpp
+    src/modules/evaluation.cpp
+    src/modules/recall_accelerators.cpp
+    src/modules/entity_clustering.cpp
     src/modules/wl_kernel.cpp
     src/modules/wl_kernel_cpp.cpp
     src/modules/jaccard_cpp.cpp

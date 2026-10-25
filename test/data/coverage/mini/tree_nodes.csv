@@ -1,0 +1,66 @@
+tree_id,node_id,parent_id,node_kind,edge_type,label,context,class_id,count,source
+Q1,Q1,,container,AND,Seat specification Q1 (premium front seat),,,1,aurivon
+Q1,Q1.c1,Q1,container,AND,2 Comfort functions,,,1,aurivon
+Q1,Q1.1,Q1.c1,item,AND,2 x seat heating with time to 37 °C max. 180 s and current draw max. 8 A,2 Comfort functions,seat_heating,2,aurivon
+Q1,Q1.2,Q1.c1,item,AND,4-zone massage,2 Comfort functions,massage,4,aurivon
+Q1,Q1.3,Q1.c1,item,AND,powered headrest with height travel at least 60 mm,2 Comfort functions,headrest_powered,1,aurivon
+Q1,Q1.s1,Q1,container,AND,3 Electrics,,,1,aurivon
+Q1,Q1.4,Q1.s1,item,AND,seat memory for at least 8 ways,3 Electrics,memory_module,1,aurivon
+Q2,Q2,,container,AND,Lastenheft Q2 Sitzschiene,,,1,brennholt
+Q2,Q2.1,Q2,item,AND,Längsverstellung mindestens 24 cm Weg und max. 38 dB(A),,seat_track,1,brennholt
+Q3,Q3,,container,AND,Seat specification Q3 (climate package),,,1,calvento
+Q3,Q3.1,Q3,item,AND,2 heated zones,,seat_heating,2,calvento
+Q3,Q3.2,Q3,item,AND,2 ventilated zones,,seat_ventilation,2,calvento
+S1,S1,,container,AND,S1 premium front row,,,1,internal
+S1,S1.1,S1,item,AND,Heizmatte,,seat_heating,2,internal
+S1,S1.2,S1,item,AND,Massagemodul pneumatisch,,massage,4,internal
+S1,S1.3,S1,item,AND,KS elektrisch,,headrest_powered,1,internal
+S1,S1.4,S1,item,AND,Memory-SG,,memory_module,1,internal
+S1,S1.5,S1,item,AND,Längsversteller,,seat_track,1,internal
+S2,S2,,container,AND,S2 premium front row lean,,,1,internal
+S2,S2.g,S2,container,AND,Komfortfunktionen,,,1,internal
+S2,S2.1,S2.g,item,AND,Heizmatte,,seat_heating,2,internal
+S2,S2.2,S2.g,item,AND,Massagemodul pneumatisch,,massage,4,internal
+S2,S2.3,S2.g,item,AND,KS elektrisch,,headrest_powered,1,internal
+S2,S2.4,S2,item,AND,Sitzmemory,,memory_module,1,internal
+S3,S3,,container,AND,S3 mid front row,,,1,internal
+S3,S3.1,S3,item,AND,Heizmatte,,seat_heating,2,internal
+S3,S3.2,S3,item,AND,Massage-Blasenmatte,,massage,2,internal
+S3,S3.3,S3,item,AND,Kopfstützenantrieb,,headrest_powered,1,internal
+S4,S4,,container,AND,S4 climate seat,,,1,internal
+S4,S4.1,S4,item,AND,Sitzheizung Carbon,,seat_heating,4,internal
+S4,S4.2,S4,item,AND,Lüftermodul,,seat_ventilation,2,internal
+S5,S5,,container,AND,S5 economy front row,,,1,internal
+S5,S5.1,S5,item,AND,LV-Schiene,,seat_track,1,internal
+S5,S5.2,S5,item,AND,Memory-SG,,memory_module,1,internal
+S6,S6,,container,AND,S6 premium front row with climate package,,,1,internal
+S6,S6.1,S6,item,AND,Heizmatte,,seat_heating,2,internal
+S6,S6.2,S6,item,AND,Klimapaket Heizung,,seat_ventilation,2,internal
+S6,S6.3,S6,item,AND,Massagemodul pneumatisch,,massage,4,internal
+S6,S6.4,S6,item,AND,KS elektrisch,,headrest_powered,1,internal
+S6,S6.5,S6,item,AND,Memory-SG,,memory_module,1,internal
+S6,S6.6,S6,item,AND,Längsversteller,,seat_track,2,internal
+M1,M1,,variant_group,AND,Längsversteller,,,1,internal
+M1,M1.C1,M1,variant_group,OR,Längsversteller Ausführung 1,,,1,internal
+M1,M1.C1.A1,M1.C1,item,OR,Längsversteller,,seat_track,1,internal
+M1,M1.C1.A2,M1.C1,item,OR,Längsversteller,,seat_track,1,internal
+M1,M1.C2,M1,variant_group,OR,Längsversteller Ausführung 2,,,1,internal
+M1,M1.C2.A1,M1.C2,item,OR,Längsversteller,,seat_track,1,internal
+M2,M2,,variant_group,AND,Heizmatte,,,1,internal
+M2,M2.C1,M2,variant_group,OR,Heizmatte Ausführung 1,,,1,internal
+M2,M2.C1.A1,M2.C1,item,OR,Heizmatte,,seat_heating,2,internal
+M2,M2.C1.A2,M2.C1,item,OR,Heizmatte,,seat_heating,2,internal
+M3,M3,,variant_group,AND,Komfortpaket Premium,,,1,internal
+M3,M3.C1,M3,variant_group,OR,Komfortpaket Premium Ausführung 1,,,1,internal
+M3,M3.C1.A1,M3.C1,container,OR,Komfortpaket Premium 1.1,,,1,internal
+M3,M3.C1.A1.h,M3.C1.A1,item,AND,Heizmatte,,seat_heating,2,internal
+M3,M3.C1.A1.v,M3.C1.A1,item,AND,Lüftermodul,,seat_ventilation,2,internal
+M3,M3.C1.A1.m,M3.C1.A1,item,AND,Massagemodul pneumatisch,,massage,4,internal
+M4,M4,,variant_group,AND,Memory-SG,,,1,internal
+M4,M4.C1,M4,variant_group,OR,Memory-SG Ausführung 1,,,1,internal
+M4,M4.C1.A1,M4.C1,item,OR,Memory-SG,,memory_module,1,internal
+M4,M4.C1.A2,M4.C1,item,OR,Memory-SG,,memory_module,1,internal
+M5,M5,,variant_group,AND,KS elektrisch,,,1,internal
+M5,M5.C1,M5,variant_group,OR,KS elektrisch Ausführung 1,,,1,internal
+M5,M5.C1.A1,M5.C1,item,OR,KS elektrisch,,headrest_powered,1,internal
+M5,M5.C1.A2,M5.C1,item,OR,KS elektrisch,,headrest_powered,1,internal

@@ -1,0 +1,969 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R22.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "vertical travel",
+          "text": "40 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 15.5,
+          "lo": 15.5,
+          "name": "holding load",
+          "text": "minimum 15.5 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature vertical cushion adjustment with vertical travel 40 mm and holding load minimum 15.5 kN.",
+        "node_id": "R22.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Requirement",
+      "node_id": "R22.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 370.0,
+          "lo": 370.0,
+          "name": "indentation hardness",
+          "text": "370 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 900.0,
+          "lo": 900.0,
+          "name": "mass",
+          "text": "at most 900 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.2 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature foam cushion pad with indentation hardness 370 N and mass at most 900 g.",
+        "node_id": "R22.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 800.0,
+          "lo": 800.0,
+          "name": "weight",
+          "text": "not more than 800 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.2 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature PU foam padding with weight not more than 800 g.",
+        "node_id": "R22.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 foam pad",
+      "node_id": "R22.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "recline angle",
+          "text": "≥ 46 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2800.0,
+          "lo": 2800.0,
+          "name": "locking strength",
+          "text": "at least 2800 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "noise",
+          "text": "up to 44 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature seat back angle adjustment with recline angle ≥ 46 ° and locking strength at least 2800 N·m and noise up to 44 dB(A).",
+        "node_id": "R22.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "angle range",
+          "text": "≥ 42 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2800.0,
+          "lo": 2800.0,
+          "name": "locking strength",
+          "text": "minimum 2800 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "operating noise",
+          "text": "not more than 42 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature recliner fittings with angle range ≥ 42 ° and locking strength minimum 2800 Nm and operating noise not more than 42 dB(A).",
+        "node_id": "R22.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R22.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "abrasion resistance",
+          "text": "25000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "flammability class",
+          "text": "F1 or better"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "target price",
+          "text": "up to 90 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature fabric seat covers with abrasion resistance 25000 cycles and flammability class F1 or better and target price up to 90 €.",
+        "node_id": "R22.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "Martindale",
+          "text": "25,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "flammability class",
+          "text": "min. F1"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 85.0,
+          "lo": 85.0,
+          "name": "target price",
+          "text": "at most 85 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature trim cover set with Martindale 25,000 cycles and flammability class min. F1 and target price at most 85 EUR.",
+        "node_id": "R22.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 trim cover",
+      "node_id": "R22.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 215.0,
+            "lo": 215.0,
+            "name": "travel",
+            "text": "215 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 45.0,
+            "lo": 45.0,
+            "name": "noise level",
+            "text": "at most 45 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 21.0,
+            "lo": 21.0,
+            "name": "holding load",
+            "text": "≥ 21 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.5.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Seat assembly to feature sliding rails for the seat with travel 215 mm and noise level at most 45 dB(A) and holding load ≥ 21 kN.",
+          "node_id": "R22.r18"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Performance",
+        "node_id": "R22.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat track",
+      "node_id": "R22.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 16.0,
+            "lo": 16.0,
+            "name": "mass",
+            "text": "not more than 16 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 34.0,
+            "lo": 34.0,
+            "name": "crash load",
+            "text": "≥ 34 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 115.0,
+            "lo": 115.0,
+            "name": "target price",
+            "text": "not more than 115 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Seat assembly to feature seat structure with mass not more than 16 kg and crash load ≥ 34 kN and target price not more than 115 EUR.",
+          "node_id": "R22.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R22.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 seat frame / structure",
+      "node_id": "R22.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R22.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R22.c2.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 100.0,
+          "lo": 70.0,
+          "name": "power",
+          "text": "70 to 100 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.5,
+          "lo": 3.5,
+          "name": "supply current",
+          "text": "max. 3.5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.1 Requirement",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature 4 × seat heating with power 70 to 100 W and supply current max. 3.5 A.",
+        "node_id": "R22.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 95.0,
+          "lo": 65.0,
+          "name": "power",
+          "text": "between 65 and 95 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.2,
+          "lo": 3.2,
+          "name": "heat-up time",
+          "text": "not more than 3.2 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "current consumption",
+          "text": "at most 3500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "surface temperature",
+          "text": "up to 38 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 Requirement",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 4 × heater mats with power between 65 and 95 W and heat-up time not more than 3.2 min and current consumption at most 3500 mA and surface temperature up to 38 °C.",
+        "node_id": "R22.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Requirement",
+      "node_id": "R22.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R22.c2.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 25.0,
+          "lo": 16.0,
+          "name": "air flow",
+          "text": "16–25 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "current draw",
+          "text": "3 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature 2 × cooling fans in the seat with air flow 16–25 m³/h and current draw 3 A.",
+        "node_id": "R22.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 460.0,
+          "lo": 260.0,
+          "name": "airflow",
+          "text": "260 to 460 l/min",
+          "unit": "l/min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "operating noise",
+          "text": "40 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3.3,
+          "lo": 3.3,
+          "name": "current consumption",
+          "text": "at most 3.3 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 2 × ventilated seats with airflow 260 to 460 l/min and operating noise 40 dB(A) and current consumption at most 3.3 A.",
+        "node_id": "R22.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat ventilation",
+      "node_id": "R22.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2.1,
+          "lo": 2.1,
+          "name": "fore-aft tilt",
+          "text": "2.1 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 21.0,
+          "lo": 16.0,
+          "name": "adjustment speed",
+          "text": "16 to 21 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3.2,
+          "lo": 3.2,
+          "name": "current draw",
+          "text": "up to 3.2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature power head support with fore-aft tilt 2.1 cm and adjustment speed 16 to 21 mm/s and current draw up to 3.2 A.",
+        "node_id": "R22.r08"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "height travel",
+          "text": "min. 6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 30.0,
+          "lo": 30.0,
+          "name": "tilt travel",
+          "text": "30 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 22.0,
+          "lo": 14.0,
+          "name": "adjustment speed",
+          "text": "between 14 and 22 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 3.3,
+          "lo": 3.3,
+          "name": "current draw",
+          "text": "up to 3.3 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature a powered headrest with height travel min. 6 cm and tilt travel 30 mm and adjustment speed between 14 and 22 mm/s and current draw up to 3.3 A.",
+        "node_id": "R22.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 powered headrest",
+      "node_id": "R22.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "depth",
+          "text": "44 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "ways",
+          "text": "minimum 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 1.1,
+          "lo": 1.1,
+          "name": "current consumption",
+          "text": "at most 1.1 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.4 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Seat assembly to feature a lumbar support with depth 44 mm and ways minimum 2 and current consumption at most 1.1 A.",
+        "node_id": "R22.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.4,
+          "lo": 4.4,
+          "name": "depth",
+          "text": "min. 4.4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "ways",
+          "text": "≥ 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 1200.0,
+          "lo": 1200.0,
+          "name": "supply current",
+          "text": "up to 1200 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.4 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature 4-way lumbar with depth min. 4.4 cm and ways ≥ 2 and supply current up to 1200 mA.",
+        "node_id": "R22.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 lumbar support",
+      "node_id": "R22.c2.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 8.0,
+        "lo": 8.0,
+        "name": "massage programs",
+        "text": "at least 8",
+        "unit": ""
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 47.0,
+        "lo": 47.0,
+        "name": "noise level",
+        "text": "at most 47 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "current draw",
+        "text": "at most 6 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature 2 × back massage with massage programs at least 8 and noise level at most 47 dB(A) and current draw at most 6 A.",
+      "node_id": "R22.r10"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R22.c2"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 9.0,
+        "lo": 9.0,
+        "name": "seam opening time",
+        "text": "9 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature thorax airbag in the backrest with seam opening time 9 ms.",
+      "node_id": "R22.r13"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 9.0,
+        "lo": 9.0,
+        "name": "deployment time",
+        "text": "≤ 9 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Seat assembly to feature airbag tear seam with deployment time ≤ 9 ms.",
+      "node_id": "R22.r28"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 340.0,
+          "lo": 340.0,
+          "name": "response time",
+          "text": "340 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Seat assembly to feature occupancy detection pad with response time 340 ms.",
+        "node_id": "R22.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Requirement",
+      "node_id": "R22.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R22.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 8.0,
+        "lo": 8.0,
+        "name": "ways",
+        "text": "≥ 8",
+        "unit": ""
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 2.1,
+        "lo": 2.1,
+        "name": "standby current",
+        "text": "up to 2.1 mA",
+        "unit": "mA"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 0.15,
+        "lo": 0.15,
+        "name": "response time",
+        "text": "at most 0.15 s",
+        "unit": "s"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature stored seat positions with ways ≥ 8 and standby current up to 2.1 mA and response time at most 0.15 s.",
+      "node_id": "R22.r05"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 11500.0,
+        "lo": 11500.0,
+        "name": "current consumption",
+        "text": "11500 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 6.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature 6 × power seat actuators with current consumption 11500 mA.",
+      "node_id": "R22.r06"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 4.5,
+        "lo": 4.5,
+        "name": "output torque",
+        "text": "4.5 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 11000.0,
+        "lo": 11000.0,
+        "name": "current consumption",
+        "text": "≤ 11000 mA",
+        "unit": "mA"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 48.0,
+        "lo": 48.0,
+        "name": "operating noise",
+        "text": "not more than 48 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 6.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Seat assembly to feature 6 × power seat actuators with output torque 4.5 Nm and current consumption ≤ 11000 mA and operating noise not more than 48 dB(A).",
+      "node_id": "R22.r20"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 10.0,
+        "lo": 10.0,
+        "name": "current rating",
+        "text": "minimum 10 A",
+        "unit": "A"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "IP40",
+        "name": "protection class",
+        "text": "min. IP40"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Seat assembly to feature wiring loom with current rating minimum 10 A and protection class min. IP40.",
+      "node_id": "R22.r15"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R22.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification EST-R22",
+  "node_id": "R22"
+ },
+ "source": "estrelo",
+ "tree_id": "R22"
+}

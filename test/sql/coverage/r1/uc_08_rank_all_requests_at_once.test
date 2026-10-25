@@ -1,0 +1,75 @@
+# name: test/sql/coverage/r1/uc_08_rank_all_requests_at_once.test
+# description: A pre-sales team ranks the archive for every open request at once, which a
+#              table function with a constant query cannot do. They build one class multiset
+#              per request and per programme and score all pairs with the weighted scalars,
+#              keeping the 20 best per request (the stage-1 recall of HLD §4.7).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
+
+# The request items' classes as upstream extraction delivered them (R4 replaces this with
+# the pivot classifier); the benchmark keeps them in a gold file.
+statement ok
+CREATE TABLE req_classes AS SELECT * FROM read_csv_auto('test/data/coverage/gold_item_class.csv.gz');
+
+statement ok
+CREATE TABLE archive AS SELECT * FROM read_csv_auto('test/data/coverage/programme_class_multiset.csv.gz');
+
+statement ok
+CREATE TABLE requests AS
+SELECT tree_id AS request_id, map_from_entries(list((class_id, n))) AS classes
+FROM (SELECT n.tree_id, c.class_id, sum(n.count)::DOUBLE AS n
+      FROM req_nodes n JOIN req_classes c USING (tree_id, node_id)
+      WHERE n.node_kind = 'item' GROUP BY ALL)
+GROUP BY tree_id;
+
+statement ok
+CREATE TABLE programmes AS
+SELECT entity_id, map_from_entries(list((feature_id, weight))) AS classes FROM archive GROUP BY entity_id;
+
+# containment with the Jaccard tie-break, as find_covering_entities scores it
+statement ok
+CREATE TABLE top20 AS
+SELECT r.request_id, p.entity_id,
+       weighted_containment(r.classes, p.classes) + 0.01 * weighted_jaccard(r.classes, p.classes) AS score
+FROM requests r, programmes p
+QUALIFY row_number() OVER (PARTITION BY r.request_id ORDER BY score DESC, p.entity_id) <= 20;
+
+query II
+SELECT count(DISTINCT request_id), count(*) FROM top20;
+----
+80	1600
+
+# The batch scores agree with find_covering_entities_for for one request
+statement ok
+SET VARIABLE r01 = (SELECT classes FROM requests WHERE request_id = 'R01');
+
+query I
+SELECT count(*) FROM (
+    SELECT entity_id, round(score, 9) FROM top20 WHERE request_id = 'R01'
+    EXCEPT
+    SELECT entity_id, round(score, 9)
+    FROM find_covering_entities_for(getvariable('r01'), 20,
+                                    feature_table := 'archive'));
+----
+0
+
+# BRD §6 stage-1 KPI: a best candidate (true coverage = best) is in the top 20 for >= 90 %
+# of the requests (reviewed classes). The value is 0.925 on this benchmark.
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_req AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+query I
+SELECT avg(hit::INT) >= 0.90 FROM (
+    SELECT r.request_id, bool_or(g.true_coverage >= r.best_coverage - 1e-9) AS hit
+    FROM gold_req r JOIN top20 t USING (request_id)
+    JOIN gold g ON g.query_id = t.request_id AND g.candidate_id = t.entity_id
+    GROUP BY r.request_id);
+----
+true

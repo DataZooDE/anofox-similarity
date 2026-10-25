@@ -1,0 +1,174 @@
+# name: test/sql/coverage/r2/parser_regressions.test
+# description: Parser and comparison cases from the R2 green-step review (REVIEW_LOG R2-2):
+#              operators, word boundaries, leading-zero decimals, mixed-unit and signed ranges,
+#              tolerances, suffix bounds, units inside structs, per-row unit tables.
+# group: [coverage]
+
+require anofox_similarity
+
+# ASCII and strict operators are limits, not equals; a lone '=' is equals
+query TTTTT
+SELECT parse_quantity('>= 5 A').bound, parse_quantity('<= 27 kg').bound, parse_quantity('> 5 A').bound,
+       parse_quantity('< 27 kg').bound, parse_quantity('= 220 N').bound;
+----
+at_least	at_most	at_least	at_most	equals
+
+# bound words only on word boundaries: 'Terminal', 'Aluminium', 'Laminate' are not 'min'
+query TTT
+SELECT coalesce(parse_quantity('Terminal voltage 24 V').bound, 'none'),
+       coalesce(parse_quantity('Aluminium thickness 2 mm').bound, 'none'),
+       coalesce(parse_quantity('Laminate thickness 2 mm').bound, 'none');
+----
+none	none	none
+
+# a bound after the value
+query TTT
+SELECT parse_quantity('5 A max.').bound, parse_quantity('24 cm min').bound, parse_quantity('3 min (max.)').bound;
+----
+at_most	at_least	at_most
+
+# '3 min (max.)' is three minutes at most
+query R
+SELECT parse_quantity('3 min (max.)').lo;
+----
+180.0
+
+# a leading zero is always a decimal: 0,125 mm and 0.250 A in both languages
+query RRRR
+SELECT parse_quantity('0,125 mm', 'en').lo, parse_quantity('0,125 mm', 'de').lo,
+       parse_quantity('0.250 A', 'en').lo, parse_quantity('0.250 A', 'de').lo;
+----
+0.000125	0.000125	0.25	0.25
+
+# each end of a range keeps its own unit
+query RRT
+SELECT parse_quantity('500 mA – 2 A').lo, parse_quantity('500 mA – 2 A').hi, parse_quantity('500 mA – 2 A').dimension;
+----
+0.5	2.0	current
+
+query RR
+SELECT parse_quantity('1 kV – 500 V').lo, parse_quantity('1 kV – 500 V').hi;
+----
+500.0	1000.0
+
+# ends of different dimensions: dimension NULL (never guessed)
+query T
+SELECT coalesce(parse_quantity('6 cm – 18 s').dimension, 'none');
+----
+none
+
+# signed ends: temperature ranges as on datasheets
+query RRT
+SELECT round(parse_quantity('-20 to +60 °C').lo, 2), round(parse_quantity('-20 to +60 °C').hi, 2),
+       parse_quantity('-20 to +60 °C').bound;
+----
+253.15	333.15	within
+
+query RR
+SELECT round(parse_quantity('-40…-10 °C').lo, 2), round(parse_quantity('-40…-10 °C').hi, 2);
+----
+233.15	263.15
+
+query RT
+SELECT parse_quantity('≥-5 V').lo, parse_quantity('≥-5 V').bound;
+----
+-5.0	at_least
+
+# a spaced hyphen between two values is a range dash
+query RRT
+SELECT parse_quantity('6 -18 V').lo, parse_quantity('6 -18 V').hi, parse_quantity('6 -18 V').bound;
+----
+6.0	18.0	within
+
+# a tolerance written before the unit: 220 ± 5 N is 220 N, equals
+query RTT
+SELECT parse_quantity('220 ± 5 N').lo, parse_quantity('220 ± 5 N').unit, parse_quantity('220 ± 5 N').bound;
+----
+220.0	N	equals
+
+# scientific notation
+query R
+SELECT parse_quantity('1e-3 A').lo;
+----
+0.001
+
+# malformed digit groups are not a number
+query I
+SELECT parse_quantity('1.2.3 A').lo IS NULL;
+----
+true
+
+# a currency code before the number
+query RT
+SELECT parse_quantity('EUR 180').lo, parse_quantity('EUR 180').unit;
+----
+180.0	EUR
+
+# one-letter words are not units ('a' is not a year, 'x' is not a count)
+query TT
+SELECT coalesce(parse_quantity('2 a').dimension, 'none'), parse_quantity('6 x 18 mm').bound;
+----
+none	NULL
+
+# Greek mu and the ohm sign are the micro and ohm units; upper-case German bound words
+query RRT
+SELECT parse_quantity('5 μA').lo, parse_quantity('4 Ω').lo, parse_quantity('HÖCHSTENS 3 A').bound;
+----
+5e-06	4.0	at_most
+
+# ---------------------------------------------------------------- units inside structs
+
+# a currency symbol and its code are the same currency
+query R
+SELECT value_satisfies({'lo': 180.0, 'hi': 180.0, 'dimension': 'currency', 'unit': '€', 'bound': 'at_most'},
+                       {'lo': 150.0, 'hi': 150.0, 'dimension': 'currency', 'unit': 'EUR'}).score;
+----
+1.0
+
+# an unknown unit, or a unit of another dimension, is a gate
+query TT
+SELECT value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 250.0, 'hi': 250.0, 'dimension': 'length', 'unit': 'furlong'}).rule,
+       value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 250.0, 'hi': 250.0, 'dimension': 'length', 'unit': 'ms'}).rule;
+----
+gate	gate
+
+# a currency amount without a currency against one with a currency: a gate (fail closed)
+query T
+SELECT value_satisfies({'lo': 180.0, 'hi': 180.0, 'dimension': 'currency', 'unit': 'EUR', 'bound': 'at_most'},
+                       {'lo': 150.0, 'hi': 150.0, 'dimension': 'currency'}).rule;
+----
+gate
+
+# a reversed interval is put in order; a non-finite value is missing
+query RT
+SELECT value_satisfies({'lo': 0.025, 'hi': 0.015, 'dimension': 'speed', 'bound': 'within'},
+                       {'lo': 0.010, 'hi': 0.030, 'dimension': 'speed'}).score,
+       value_satisfies({'lo': 1.0, 'hi': 1.0, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 'nan'::DOUBLE, 'hi': 'nan'::DOUBLE, 'dimension': 'length'}).rule;
+----
+1.0	missing
+
+# ---------------------------------------------------------------- per-row unit tables
+
+statement ok
+CREATE TABLE per_row AS SELECT * FROM (VALUES
+    ('3 lanes', [{'symbol': 'lane', 'alias': ['lanes'], 'dimension': 'length', 'factor': 3.5, 'offset': 0.0}]),
+    ('3 lanes', [{'symbol': 'lane', 'alias': ['lanes'], 'dimension': 'length', 'factor': 3.0, 'offset': 0.0}]),
+    ('3 lanes', NULL)) t(txt, ut);
+
+query RRT
+SELECT parse_quantity(txt, 'en', ut).lo, normalize_quantity(3, 'lanes', ut).value,
+       coalesce(normalize_quantity(3, 'lanes', ut).dimension, 'none')
+FROM per_row ORDER BY parse_quantity(txt, 'en', ut).lo;
+----
+3.0	3.0	none
+9.0	9.0	length
+10.5	10.5	length
+
+# user units must have a positive, finite factor (NULL only for currencies)
+statement error
+SELECT parse_quantity('3 bad', 'en', [{'symbol': 'bad', 'alias': []::VARCHAR[], 'dimension': 'length', 'factor': 0.0, 'offset': 0.0}]);
+----
+factor must be positive and finite

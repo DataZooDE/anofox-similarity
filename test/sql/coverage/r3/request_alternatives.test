@@ -1,0 +1,117 @@
+# name: test/sql/coverage/r3/request_alternatives.test
+# description: A request may offer alternatives ("massage, or ventilation with a powered
+#              headrest"). The best alternative counts (HLD §3.2, BR-05; §4.6 'OR node: max
+#              over children'), as in stage 1. Every node gives (sum of requirement scores,
+#              number of requirements); an OR node takes the alternative with the best mean;
+#              coverage = sum / number (HLD §11.11). Without OR this is the mean over items.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE req AS SELECT * FROM (VALUES
+    ('Q', 'Q', NULL, 'container', 'AND', 'spec', NULL),
+    ('Q', 'Q.h', 'Q', 'item', 'AND', 'heating', 'seat_heating'),
+    ('Q', 'Q.g', 'Q', 'variant_group', 'AND', 'comfort option', NULL),
+    ('Q', 'Q.g.m', 'Q.g', 'item', 'OR', 'massage', 'massage'),
+    ('Q', 'Q.g.v', 'Q.g', 'container', 'OR', 'climate option', NULL),
+    ('Q', 'Q.g.v.1', 'Q.g.v', 'item', 'AND', 'ventilation', 'seat_ventilation'),
+    ('Q', 'Q.g.v.2', 'Q.g.v', 'item', 'AND', 'powered headrest', 'headrest_powered'))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id);
+
+statement ok
+ALTER TABLE req ADD COLUMN count DOUBLE DEFAULT 1;
+
+statement ok
+CREATE TABLE offers AS SELECT * FROM (VALUES
+    ('A', 'A', NULL, 'container', 'AND', 'A', NULL),
+    ('A', 'A.1', 'A', 'item', 'AND', 'h', 'seat_heating'),
+    ('A', 'A.2', 'A', 'item', 'AND', 'm', 'massage'),
+    ('B', 'B', NULL, 'container', 'AND', 'B', NULL),
+    ('B', 'B.1', 'B', 'item', 'AND', 'h', 'seat_heating'),
+    ('B', 'B.2', 'B', 'item', 'AND', 'v', 'seat_ventilation'),
+    ('C', 'C', NULL, 'container', 'AND', 'C', NULL),
+    ('C', 'C.1', 'C', 'item', 'AND', 'h', 'seat_heating'),
+    ('C', 'C.2', 'C', 'item', 'AND', 'v', 'seat_ventilation'),
+    ('C', 'C.3', 'C', 'item', 'AND', 'hr', 'headrest_powered'),
+    ('D', 'D', NULL, 'container', 'AND', 'D', NULL),
+    ('D', 'D.1', 'D', 'item', 'AND', 'v', 'seat_ventilation'))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id);
+
+statement ok
+ALTER TABLE offers ADD COLUMN count DOUBLE DEFAULT 1;
+
+# A: heating 1 + massage alternative 1/1          -> (1 + 1) / 2 = 1.0
+# B: massage 0/1 vs climate (1 + 0)/2 -> climate  -> (1 + 1) / 3 = 0.6667
+# C: climate (1 + 1)/2                            -> (1 + 2) / 3 = 1.0
+# D: heating 0; climate 1/2                       -> (0 + 1) / 3 = 0.3333
+query TRII
+SELECT candidate_id, round(coverage, 4), n_requirements, n_gaps
+FROM tree_coverage('Q', candidates := ['A', 'B', 'C', 'D'], nodes_table := 'req', attrs_table := NULL,
+                   candidate_nodes_table := 'offers', candidate_attrs_table := NULL, labels := 'hard')
+ORDER BY candidate_id;
+----
+A	1.0	2	0
+B	0.6667	3	1
+C	1.0	3	0
+D	0.3333	3	2
+
+# the same with best match
+query TR
+SELECT candidate_id, round(coverage, 4)
+FROM tree_coverage('Q', candidates := ['A', 'B', 'C', 'D'], nodes_table := 'req', attrs_table := NULL,
+                   candidate_nodes_table := 'offers', candidate_attrs_table := NULL, labels := 'hard',
+                   assignment := 'best_match')
+ORDER BY candidate_id;
+----
+A	1.0
+B	0.6667
+C	1.0
+D	0.3333
+
+# the trace lists the requirements of the chosen alternative only
+query TTT
+SELECT candidate_id, req_node_id, is_gap
+FROM tree_coverage_trace('Q', candidates := ['A', 'B'], nodes_table := 'req', attrs_table := NULL,
+                         candidate_nodes_table := 'offers', candidate_attrs_table := NULL, labels := 'hard')
+ORDER BY candidate_id, req_node_id;
+----
+A	Q.g.m	false
+A	Q.h	false
+B	Q.g.v.1	false
+B	Q.g.v.2	true
+B	Q.h	false
+
+# stage 1 takes the elementwise maximum over the alternatives, an optimistic bound (HLD §11.6):
+# the query multiset is heating 1, massage 1, ventilation 1, headrest 1
+#   A: heating + massage -> 2/4 = 0.5; C: heating + ventilation + headrest -> 3/4 = 0.75
+query TR
+SELECT candidate_id, round(containment, 4) FROM coverage_recall('Q', candidates := ['A', 'C'], nodes_table := 'req',
+                                                                candidate_nodes_table := 'offers')
+ORDER BY candidate_id;
+----
+A	0.5
+C	0.75
+
+# deeply nested alternatives (40 OR levels) are evaluated in linear time (code-quality review
+# CQ-1 F1): every level offers the item or the next level; the item is met -> 1.0, one requirement
+statement ok
+CREATE TABLE deep_or AS
+SELECT 'N' AS tree_id, 'r' AS node_id, NULL::VARCHAR AS parent_id, 'container' AS node_kind, 'AND' AS edge_type,
+       'spec' AS label, NULL::VARCHAR AS class_id, 1.0 AS count
+UNION ALL
+SELECT 'N', 'g' || i, CASE WHEN i = 0 THEN 'r' ELSE 'g' || (i - 1) END, 'variant_group', CASE WHEN i = 0 THEN 'AND' ELSE 'OR' END,
+       'option ' || i, NULL, 1.0 FROM range(40) t(i)
+UNION ALL
+SELECT 'N', 'i' || i, 'g' || i, 'item', 'OR', 'track ' || i, 'seat_track', 1.0 FROM range(40) t(i);
+
+statement ok
+CREATE TABLE one_track AS SELECT * FROM (VALUES
+    ('C', 'C', NULL, 'container', 'AND', 'offer', NULL, 1.0), ('C', 'C.1', 'C', 'item', 'AND', 'track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query RI
+SELECT coverage, n_requirements FROM tree_coverage('N', candidates := ['C'], nodes_table := 'deep_or', attrs_table := NULL,
+                                                   candidate_nodes_table := 'one_track', candidate_attrs_table := NULL);
+----
+1.0	1

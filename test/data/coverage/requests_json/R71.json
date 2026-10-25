@@ -1,0 +1,244 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R71.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Klappzeit",
+          "text": "bis zu 5,5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 41000.0,
+          "lo": 41000.0,
+          "name": "Dauerhaltbarkeit",
+          "text": "nicht weniger als 41000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.1 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss Tumble-Funktion mit Klappzeit bis zu 5,5 s und Dauerhaltbarkeit nicht weniger als 41000 Zyklen bereitstellen.",
+        "node_id": "R71.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Klapp-/Tumblemechanik",
+      "node_id": "R71.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 23.0,
+            "lo": 23.0,
+            "name": "Crashlast",
+            "text": "mindestens 23 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 265.0,
+            "lo": 265.0,
+            "name": "Zielpreis",
+            "text": "265 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Sitz muss Lehnen- und Kissenrahmen mit Crashlast mindestens 23 kN und Zielpreis 265 € bereitstellen.",
+          "node_id": "R71.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R71.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzstruktur",
+      "node_id": "R71.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "Martindale",
+          "text": "25.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F2"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 65.0,
+          "lo": 65.0,
+          "name": "Zielpreis",
+          "text": "65 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.3 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss einen Sitzbezug mit Martindale 25.000 Zyklen und Brennbarkeitsklasse min. F2 und Zielpreis 65 € bereitstellen.",
+        "node_id": "R71.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzbezug",
+      "node_id": "R71.c1.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R71.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 45.0,
+            "lo": 45.0,
+            "name": "Verstellweg",
+            "text": "≥ 45 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "Positionen",
+            "text": "min. 3",
+            "unit": ""
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Sitz muss Kopfstütze mit Rasten mit Verstellweg ≥ 45 mm und Positionen min. 3 bereitstellen.",
+          "node_id": "R71.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R71.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R71.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R71.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Strombelastbarkeit",
+          "text": "nicht weniger als 4 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "min. IP40"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss Kabelsatz Sitz mit Strombelastbarkeit nicht weniger als 4 A und Schutzart min. IP40 bereitstellen.",
+        "node_id": "R71.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R71.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R71.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage AUR-R71",
+  "node_id": "R71"
+ },
+ "source": "aurivon",
+ "tree_id": "R71"
+}

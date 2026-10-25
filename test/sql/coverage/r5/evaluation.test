@@ -1,0 +1,316 @@
+# name: test/sql/coverage/r5/evaluation.test
+# description: Evaluation and calibration (HLD §4.8): ranking metrics, calibration of the
+#              predicted coverage, the auto-accept threshold, cluster bootstrap intervals and the
+#              grid fit of the kernel weights, on hand-made fixtures.
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- eval_ranking
+
+# gold: q1 c1 0.9, c2 1.0, c3 0.5 (best c2); q2 d1 0.8, d2 0.8, d3 0.3 (best d1 and d2);
+# q3 e1 0.8, e2 0.8 - 5e-10 (within the 1e-9 tolerance: both best), e5 0.3 (not ranked)
+statement ok
+CREATE TABLE gold AS SELECT * FROM (VALUES
+    ('q1', 'c1', 0.9::DOUBLE), ('q1', 'c2', 1.0), ('q1', 'c3', 0.5),
+    ('q2', 'd1', 0.8), ('q2', 'd2', 0.8), ('q2', 'd3', 0.3),
+    ('q3', 'e1', 0.8), ('q3', 'e2', 0.8 - 5e-10), ('q3', 'e5', 0.3)) t(query_id, candidate_id, true_coverage);
+
+# results: q1 ranks c1, c2, c3; q2 ranks d3, d1, d2; q3 ranks e2, e4 (no gold: true coverage 0), e1.
+# The rank column wins over the score (q3's scores order e4 first)
+statement ok
+CREATE TABLE results AS SELECT * FROM (VALUES
+    ('q1', 'c1', 1, 0.95::DOUBLE), ('q1', 'c2', 2, 0.9), ('q1', 'c3', 3, 0.4),
+    ('q2', 'd3', 1, 0.7), ('q2', 'd1', 2, 0.6), ('q2', 'd2', 3, 0.5),
+    ('q3', 'e2', 1, 0.1), ('q3', 'e4', 2, 0.9), ('q3', 'e1', 3, 0.5)) t(query_id, candidate_id, rank, coverage);
+
+# top_k_accuracy: share of queries with a best candidate in the top k (BRD 'recall@k of the best
+# candidate'); recall_at_k: share of each query's best candidates in the top k (differs with ties).
+#   k = 1: q3 only -> 1/3; recall (0 + 0 + 1/2) / 3; MRR (0 + 0 + 1) / 3
+#   k = 2: all; recall (1 + 1/2 + 1/2) / 3; MRR (1/2 + 1/2 + 1) / 3
+#   k = 3: recall 1. Regret (0.1 + 0.5 + 5e-10) / 3 = 0.2; q3 within 0.05 -> 1/3
+query IIRRRRR
+SELECT k, n_queries, round(top_k_accuracy, 6), round(recall_at_k, 6), round(mrr, 6), round(mean_regret, 6),
+       round(share_regret_le_005, 6)
+FROM eval_ranking('results', 'gold', k := [1, 2, 3]) ORDER BY k;
+----
+1	3	0.333333	0.166667	0.333333	0.2	0.333333
+2	3	1.0	0.666667	0.666667	0.2	0.333333
+3	3	1.0	1.0	0.666667	0.2	0.333333
+
+# without a rank column the score orders the candidates (highest first, then candidate id):
+# q3 now puts e4 first, so no query has a best first
+statement ok
+CREATE TABLE scored_only AS SELECT query_id, candidate_id, coverage FROM results;
+
+query IR
+SELECT k, top_k_accuracy FROM eval_ranking('scored_only', 'gold', k := [1], score_col := 'coverage');
+----
+1	0.0
+
+# an explicit rank_col
+statement ok
+CREATE TABLE ranked_by AS SELECT query_id, candidate_id, rank AS pos FROM results;
+
+query R
+SELECT round(top_k_accuracy, 6) FROM eval_ranking('ranked_by', 'gold', k := [1], rank_col := 'pos');
+----
+0.333333
+
+# the default k list is 1, 5, 10, 20
+query I
+SELECT list(k ORDER BY k) FROM eval_ranking('results', 'gold');
+----
+[1, 5, 10, 20]
+
+statement error
+SELECT * FROM eval_ranking('results', 'gold', k := [0]);
+----
+k must be positive
+
+statement error
+SELECT * FROM eval_ranking('results; DROP TABLE gold', 'gold');
+----
+Invalid identifier
+
+# ---------------------------------------------------------------- eval_calibration
+
+# predicted vs true: (0.9, 1.0), (0.5, 0.4), (0.2, 0.2), (0.8, 0.6): errors -0.1, 0.1, 0, 0.2
+#   MAE 0.1, bias +0.05, Pearson 0.92582, Spearman 1 (same order)
+statement ok
+CREATE TABLE cal AS SELECT * FROM (VALUES
+    ('a', 'x', 0.9::DOUBLE), ('b', 'x', 0.5), ('c', 'x', 0.2), ('d', 'x', 0.8)) t(query_id, candidate_id, coverage);
+
+statement ok
+CREATE TABLE cal_gold AS SELECT * FROM (VALUES
+    ('a', 'x', 1.0::DOUBLE), ('b', 'x', 0.4), ('c', 'x', 0.2), ('d', 'x', 0.6)) t(query_id, candidate_id, true_coverage);
+
+query IRRRR
+SELECT n_pairs, round(mae, 6), round(bias, 6), round(pearson, 5), round(spearman, 6) FROM eval_calibration('cal', 'cal_gold');
+----
+4	0.1	0.05	0.92582	1.0
+
+# ties use average ranks: predicted 0.5, 0.5, 0.2, 0.8 -> ranks 2.5, 2.5, 1, 4 against 4, 2, 1, 3
+#   Spearman 0.632456, Pearson 0.478091, MAE 0.2, bias -0.05
+statement ok
+CREATE TABLE cal_ties AS SELECT * FROM (VALUES
+    ('a', 'x', 0.5::DOUBLE), ('b', 'x', 0.5), ('c', 'x', 0.2), ('d', 'x', 0.8)) t(query_id, candidate_id, coverage);
+
+query RRRR
+SELECT round(mae, 6), round(bias, 6), round(pearson, 6), round(spearman, 6) FROM eval_calibration('cal_ties', 'cal_gold');
+----
+0.2	-0.05	0.478091	0.632456
+
+# a constant prediction has no correlation
+statement ok
+CREATE TABLE cal_const AS SELECT query_id, candidate_id, 0.5::DOUBLE AS coverage FROM cal;
+
+query TT
+SELECT pearson IS NULL, spearman IS NULL FROM eval_calibration('cal_const', 'cal_gold');
+----
+true	true
+
+# ---------------------------------------------------------------- threshold_at_precision
+
+# top-1 picks (predicted, true): q1 0.95/0.95, q2 0.92/0.85, q3 0.91/0.93, q4 0.80/0.95, q5 0.70/0.5
+# a pick is good when true >= 0.9. Precision by threshold: 0.95 -> 1.0 (share 0.2), 0.92 -> 0.5,
+# 0.91 -> 0.667, 0.80 -> 0.75 (share 0.8), 0.70 -> 0.6
+statement ok
+CREATE TABLE picks AS SELECT * FROM (VALUES
+    ('q1', 'p', 1, 0.95::DOUBLE), ('q2', 'p', 1, 0.92), ('q3', 'p', 1, 0.91), ('q4', 'p', 1, 0.80), ('q5', 'p', 1, 0.70),
+    ('q1', 'z', 2, 0.10)) t(query_id, candidate_id, rank, coverage);
+
+statement ok
+CREATE TABLE picks_gold AS SELECT * FROM (VALUES
+    ('q1', 'p', 0.95::DOUBLE), ('q2', 'p', 0.85), ('q3', 'p', 0.93), ('q4', 'p', 0.95), ('q5', 'p', 0.5), ('q1', 'z', 0.1))
+    t(query_id, candidate_id, true_coverage);
+
+# the lowest threshold that keeps the target precision (the largest auto-accept share)
+query RRRI
+SELECT threshold, precision, accepted_share, n_queries FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.75);
+----
+0.8	0.75	0.8	5
+
+query RRR
+SELECT threshold, precision, accepted_share FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.95);
+----
+0.95	1.0	0.2
+
+query I
+SELECT len(curve) FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.95);
+----
+5
+
+# unreachable target: no threshold
+query TTT
+SELECT threshold IS NULL, precision IS NULL, len(curve) FROM threshold_at_precision('picks', 'picks_gold', target_precision := 1.0, good := 0.99);
+----
+true	true	5
+
+# tied scores enter together: 0.9 (good) and 0.9 (bad) -> precision 0.5 at 0.9, then 0.667 at 0.8
+statement ok
+CREATE TABLE tied AS SELECT * FROM (VALUES ('a', 'p', 1, 0.9::DOUBLE), ('b', 'p', 1, 0.9), ('c', 'p', 1, 0.8)) t(query_id, candidate_id, rank, coverage);
+
+statement ok
+CREATE TABLE tied_gold AS SELECT * FROM (VALUES ('a', 'p', 0.95::DOUBLE), ('b', 'p', 0.5), ('c', 'p', 0.92)) t(query_id, candidate_id, true_coverage);
+
+query RRR
+SELECT threshold, round(precision, 6), round(accepted_share, 6) FROM threshold_at_precision('tied', 'tied_gold', target_precision := 0.6);
+----
+0.8	0.666667	1.0
+
+# ---------------------------------------------------------------- bootstrap_ci
+
+# a constant metric has a zero-width interval; two clusters 0 and 1 give an estimate of 0.5
+statement ok
+CREATE TABLE per_query AS SELECT * FROM (VALUES
+    ('m1', 'q1', 1.0::DOUBLE, 0.0::DOUBLE), ('m1', 'q2', 1.0, 0.0), ('m2', 'q3', 1.0, 1.0), ('m2', 'q4', 1.0, 1.0))
+    t(maker, query_id, constant, hit);
+
+query TRRRII
+SELECT metric, estimate, lo, hi, n_boot, n_clusters FROM bootstrap_ci('per_query', 'maker', metrics := ['constant'], n := 200);
+----
+constant	1.0	1.0	1.0	200	2
+
+query TRT
+SELECT metric, estimate, lo >= 0 AND hi <= 1 AND lo <= estimate AND estimate <= hi FROM bootstrap_ci('per_query', 'maker', metrics := ['hit'], n := 200);
+----
+hit	0.5	true
+
+# the estimate pools rows, not cluster means: m1 has three rows of 1, m2 one row of 0 -> 0.75
+statement ok
+CREATE TABLE unequal AS SELECT * FROM (VALUES ('m1', 1.0::DOUBLE), ('m1', 1.0), ('m1', 1.0), ('m2', 0.0)) t(maker, v);
+
+query TR
+SELECT metric, estimate FROM bootstrap_ci('unequal', 'maker', n := 100);
+----
+v	0.75
+
+# the same seed gives the same interval; all numeric columns but the cluster by default
+query I
+SELECT (SELECT list(lo ORDER BY metric) FROM bootstrap_ci('per_query', 'maker', metrics := ['constant', 'hit'], n := 300, seed := 3))
+     = (SELECT list(lo ORDER BY metric) FROM bootstrap_ci('per_query', 'maker', metrics := ['constant', 'hit'], n := 300, seed := 3));
+----
+true
+
+statement error
+SELECT * FROM bootstrap_ci('per_query', 'maker', metrics := ['nope']);
+----
+nope
+
+# ---------------------------------------------------------------- fit_coverage_weights
+
+# reviewed matches: Q1 against the mini programmes with the coverages a reviewer confirmed
+# (equal to the kernel at label_weight 0, mu 0, see tree_coverage.test); the grid finds them
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+statement ok
+CREATE TABLE reviewed_matches AS SELECT * FROM (VALUES
+    ('Q1', 'S1', 1.0::DOUBLE), ('Q1', 'S6', 1.0), ('Q1', 'S3', 0.625), ('Q1', 'S2', 0.5), ('Q1', 'S4', 0.125), ('Q1', 'S5', 0.0))
+    t(query_id, candidate_id, true_coverage);
+
+query RRRII
+SELECT label_weight, mu, round(mae, 6), n_pairs, rank FROM fit_coverage_weights('reviewed_matches',
+       label_weights := [0.0, 0.3], mus := [0.0, 0.2]) ORDER BY rank LIMIT 1;
+----
+0.0	0.0	0.0	6	1
+
+query I
+SELECT count(*) FROM fit_coverage_weights('reviewed_matches', label_weights := [0.0, 0.3], mus := [0.0, 0.2]);
+----
+4
+
+statement error
+SELECT * FROM fit_coverage_weights('reviewed_matches', label_weights := [1.5]);
+----
+label_weights must be between 0 and 1
+
+# ---------------------------------------------------------------- green review R5-2
+
+# the queries are those with gold: a gold query without results is a miss with full regret;
+# results without gold are ignored; duplicate result rows keep the best rank
+statement ok
+CREATE TABLE results_gaps AS SELECT * FROM results WHERE query_id <> 'q3'
+UNION ALL SELECT 'q9', 'z1', 1, 0.5
+UNION ALL SELECT 'q1', 'c2', 5, 0.1;
+
+query IRR
+SELECT n_queries, round(top_k_accuracy, 6), round(mean_regret, 6) FROM eval_ranking('results_gaps', 'gold', k := [2]);
+----
+3	0.666667	0.466667
+
+# one top-1 pick per query, even with duplicate rank-1 rows
+statement ok
+CREATE TABLE picks_dup AS SELECT * FROM picks UNION ALL SELECT 'q5', 'zz', 1, 0.99;
+
+query I
+SELECT n_queries FROM threshold_at_precision('picks_dup', 'picks_gold', target_precision := 0.75);
+----
+5
+
+# bootstrap: NULL clusters are an error; n x clusters is bounded
+statement ok
+CREATE TABLE null_cluster AS SELECT * FROM per_query UNION ALL SELECT NULL, 'q5', 1.0, 1.0;
+
+statement error
+SELECT * FROM bootstrap_ci('null_cluster', 'maker', metrics := ['hit']);
+----
+cluster_col must not be NULL
+
+# the fit reports reviewed pairs it cannot resolve
+statement ok
+CREATE TABLE reviewed_missing AS SELECT * FROM reviewed_matches UNION ALL SELECT 'Q1', 'NOPE', 0.5;
+
+query II
+SELECT n_pairs, n_unresolved FROM fit_coverage_weights('reviewed_missing', label_weights := [0.0], mus := [0.0]);
+----
+6	1
+
+# ---------------------------------------------------------------- end-of-release review R5-3
+
+# duplicates are removed before score ranking: B 0.99, B 0.98, A 0.90 -> A is second
+statement ok
+CREATE TABLE dup_scores AS SELECT * FROM (VALUES ('qd', 'B', 0.99::DOUBLE), ('qd', 'B', 0.98), ('qd', 'A', 0.90)) t(query_id, candidate_id, coverage);
+
+statement ok
+CREATE TABLE dup_gold AS SELECT * FROM (VALUES ('qd', 'A', 1.0::DOUBLE), ('qd', 'B', 0.5)) t(query_id, candidate_id, true_coverage);
+
+query IR
+SELECT k, top_k_accuracy FROM eval_ranking('dup_scores', 'dup_gold', k := [2], score_col := 'coverage');
+----
+2	1.0
+
+# tied ranks are ordered by candidate id, the same for hit, MRR and regret: X (best) before Y
+statement ok
+CREATE TABLE tied_ranks AS SELECT * FROM (VALUES ('qt', 'Y', 1), ('qt', 'X', 1)) t(query_id, candidate_id, rank);
+
+statement ok
+CREATE TABLE tied_rank_gold AS SELECT * FROM (VALUES ('qt', 'X', 0.9::DOUBLE), ('qt', 'Y', 0.2)) t(query_id, candidate_id, true_coverage);
+
+query RRR
+SELECT top_k_accuracy, mrr, mean_regret FROM eval_ranking('tied_ranks', 'tied_rank_gold', k := [1]);
+----
+1.0	1.0	0.0
+
+# ranks start at 1; an explicit column must exist; good is a coverage
+statement ok
+CREATE TABLE rank_zero AS SELECT 'q1' AS query_id, 'c2' AS candidate_id, 0 AS rank;
+
+statement error
+SELECT * FROM eval_ranking('rank_zero', 'gold');
+----
+rank must be at least 1
+
+statement error
+SELECT * FROM eval_ranking('results', 'gold', rank_col := 'nope');
+----
+nope
+
+statement error
+SELECT * FROM threshold_at_precision('picks', 'picks_gold', good := 1.5);
+----
+good must be between 0 and 1

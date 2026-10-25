@@ -1,0 +1,676 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R21.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 19500.0,
+        "lo": 19500.0,
+        "name": "Haltelast",
+        "text": "mindestens 19500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss Sitzlängsführung mit Haltelast mindestens 19500 N bereitstellen.",
+      "node_id": "R21.r03"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss Sitzlängsführung bereitstellen.",
+      "node_id": "R21.r21"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss Sitzpolsterung bereitstellen.",
+          "node_id": "R21.r10"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "equals",
+            "hi": 270.0,
+            "lo": 270.0,
+            "name": "Stauchhärte",
+            "text": "270 N ± 2 %",
+            "unit": "N"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss PU-Schaumpolster mit Stauchhärte 270 N ± 2 % bereitstellen.",
+          "node_id": "R21.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R21.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Polsterschaum",
+      "node_id": "R21.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 31.0,
+        "lo": 31.0,
+        "name": "Geräusch",
+        "text": "≤ 31 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss Neigungsgelenk Lehne mit Geräusch ≤ 31 dB(A) bereitstellen.",
+      "node_id": "R21.r14"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 2750.0,
+        "lo": 2750.0,
+        "name": "Festigkeit",
+        "text": "2750 Nm",
+        "unit": "Nm"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss Lehnenbeschläge mit Festigkeit 2750 Nm bereitstellen.",
+      "node_id": "R21.r32"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.4.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss einen Sitzheber bereitstellen.",
+          "node_id": "R21.r22"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Leistungsdaten",
+        "node_id": "R21.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R21.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 20.5,
+            "lo": 20.5,
+            "name": "Masse",
+            "text": "≤ 20,5 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss Sitzstruktur mit Masse ≤ 20,5 kg bereitstellen.",
+          "node_id": "R21.r33"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R21.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Anforderung",
+      "node_id": "R21.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F2"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 85.0,
+          "lo": 85.0,
+          "name": "Zielpreis",
+          "text": "≤ 85 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Stoffbezug mit Brennbarkeitsklasse min. F2 und Zielpreis ≤ 85 EUR bereitstellen.",
+        "node_id": "R21.r35"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R21.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R21.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 90.0,
+          "lo": 65.0,
+          "name": "Heizleistung",
+          "text": "zwischen 65 und 90 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 180.0,
+          "lo": 180.0,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "höchstens 180 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss 4 × Heizmatten in Kissen und Lehne mit Heizleistung zwischen 65 und 90 W und Aufheizzeit auf 37 °C höchstens 180 s bereitstellen.",
+        "node_id": "R21.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 90.0,
+          "lo": 70.0,
+          "name": "Heizleistung",
+          "text": "70–90 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 35.0,
+          "lo": 35.0,
+          "name": "Oberflächentemperatur",
+          "text": "max. 35 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss 4 × eine Sitzheizung mit Heizleistung 70–90 W und Oberflächentemperatur max. 35 °C bereitstellen.",
+        "node_id": "R21.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R21.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "2.2 Anforderung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss 2 × belüftete Sitzflächen bereitstellen.",
+        "node_id": "R21.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "Geräusch",
+          "text": "max. 38 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "2.2 Anforderung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss 2 × belüftete Sitzflächen mit Geräusch max. 38 dB(A) bereitstellen.",
+        "node_id": "R21.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Anforderung",
+      "node_id": "R21.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R21.c2.s3.n1"
+       },
+       {
+        "children": [
+         {
+          "context": "2.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss Armauflage bereitstellen.",
+          "node_id": "R21.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.3.1 Leistungsdaten",
+        "node_id": "R21.c2.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Anforderung",
+      "node_id": "R21.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "2.4 Sitzkissenverlängerung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Sitzkissenauszug bereitstellen.",
+        "node_id": "R21.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Verstellzeit",
+          "text": "max. 7 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.4 Sitzkissenverlängerung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Oberschenkelauflage mit Verstellzeit max. 7 s bereitstellen.",
+        "node_id": "R21.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Sitzkissenverlängerung",
+      "node_id": "R21.c2.s4"
+     },
+     {
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss motorische Kopfstütze bereitstellen.",
+      "node_id": "R21.r11"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 65.0,
+        "lo": 65.0,
+        "name": "Höhenverstellweg",
+        "text": "minimal 65 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 23.0,
+        "lo": 23.0,
+        "name": "Neigungsweg",
+        "text": "min. 23 mm",
+        "unit": "mm"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss Kopfstütze mit Antrieb mit Höhenverstellweg minimal 65 mm und Neigungsweg min. 23 mm bereitstellen.",
+      "node_id": "R21.r28"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 43.0,
+        "lo": 43.0,
+        "name": "Geräuschpegel",
+        "text": "43 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 6.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss 6 × Rückenmassage mit Geräuschpegel 43 dB(A) bereitstellen.",
+      "node_id": "R21.r13"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 40.0,
+        "lo": 40.0,
+        "name": "Lordosenhub",
+        "text": "min. 40 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Wege",
+        "text": "≥ 2",
+        "unit": ""
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss Kreuzstütze mit Lordosenhub min. 40 mm und Wege ≥ 2 bereitstellen.",
+      "node_id": "R21.r29"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R21.c2"
+   },
+   {
+    "children": [
+     {
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss Gurtbringer bereitstellen.",
+      "node_id": "R21.r08"
+     },
+     {
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss Gurtzuführung bereitstellen.",
+      "node_id": "R21.r25"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Seitenairbag im Sitz bereitstellen.",
+        "node_id": "R21.r16"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "Auslösezeit",
+          "text": "8,5 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Thoraxairbag mit Auslösezeit 8,5 ms bereitstellen.",
+        "node_id": "R21.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R21.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "3.3 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Insassenerkennung bereitstellen.",
+        "node_id": "R21.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R21.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R21.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 8.0,
+            "lo": 8.0,
+            "name": "Verstellwege",
+            "text": "≥ 8",
+            "unit": ""
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 0.16,
+            "lo": 0.16,
+            "name": "Reaktionszeit",
+            "text": "höchstens 0,16 s",
+            "unit": "s"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss ein Memory-Steuergerät mit Verstellwege ≥ 8 und Reaktionszeit höchstens 0,16 s bereitstellen.",
+          "node_id": "R21.r05"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R21.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Memory-Steuergerät",
+      "node_id": "R21.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 Sitzverstellmotor",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss 4 × Getriebemotoren bereitstellen.",
+        "node_id": "R21.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.5,
+          "lo": 4.5,
+          "name": "Abtriebsmoment",
+          "text": "minimal 4,5 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "4.2 Sitzverstellmotor",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss 4 × elektrische Sitzantriebe mit Abtriebsmoment minimal 4,5 Nm bereitstellen.",
+        "node_id": "R21.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzverstellmotor",
+      "node_id": "R21.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R21.c4.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP67",
+          "name": "Schutzart",
+          "text": "min. IP67"
+         }
+        ],
+        "context": "4.3 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Sitzverkabelung mit Schutzart min. IP67 bereitstellen.",
+        "node_id": "R21.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Sitzkabelsatz",
+      "node_id": "R21.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R21.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage AUR-R21",
+  "node_id": "R21"
+ },
+ "source": "aurivon",
+ "tree_id": "R21"
+}

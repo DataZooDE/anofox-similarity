@@ -1,0 +1,104 @@
+# name: test/sql/coverage/r5/uc_02_confidence_by_maker.test
+# description: Requests from one vehicle maker share wording and habits, so they are not
+#              independent. The team reports the KPIs with cluster bootstrap intervals by maker
+#              (BR-51) before presenting them.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests with reviewed classes (the benchmark labels stand in for a finished review, as in
+# R3 uc_06; R4 uc_07 runs the classifier path), values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+# stage 1 + 2 over all 80 requests
+statement ok
+CREATE TABLE results AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+statement ok
+CREATE TABLE per_request AS
+SELECT r.query_id, q.source AS maker, (g.true_coverage >= b.best_coverage - 1e-9)::DOUBLE AS hit,
+       b.best_coverage - g.true_coverage AS regret
+FROM results r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests b ON b.request_id = r.query_id JOIN requests q ON q.request_id = r.query_id
+WHERE r.rank = 1;
+
+query II
+SELECT count(*), count(DISTINCT maker) FROM per_request;
+----
+80	8
+
+statement ok
+CREATE TABLE ci AS SELECT * FROM bootstrap_ci('per_request', 'maker', metrics := ['hit', 'regret'], n := 1000, seed := 7);
+
+# each interval holds its estimate and has a width; the estimate is the plain mean
+query TTTT
+SELECT metric, lo <= estimate AND estimate <= hi, hi > lo, n_clusters = 8 FROM ci ORDER BY metric;
+----
+hit	true	true	true
+regret	true	true	true
+
+query T
+SELECT abs(estimate - (SELECT avg(hit) FROM per_request)) < 1e-12 FROM ci WHERE metric = 'hit';
+----
+true
+
+# reproducible with the same seed
+query T
+SELECT (SELECT list(hi ORDER BY metric) FROM ci) = (SELECT list(hi ORDER BY metric) FROM bootstrap_ci('per_request', 'maker',
+        metrics := ['hit', 'regret'], n := 1000, seed := 7));
+----
+true

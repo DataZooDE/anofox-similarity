@@ -1,0 +1,66 @@
+# name: test/sql/coverage/r2/uc_02_german_spec_cm_and_ma.test
+# description: A German specification states its limits in cm and mA. The engineer parses
+#              the texts, normalises them and finds the module applications that meet every
+#              limit of the requirement.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE attrs AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# The requirement as extracted from the German text
+statement ok
+CREATE TABLE requirement AS SELECT * FROM (VALUES
+    ('travel', 'mindestens 24 cm'),
+    ('noise',  'max. 38 dB(A)')) t(attr, value_text);
+
+statement ok
+CREATE TABLE req AS
+SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement;
+
+# mindestens 24 cm -> at least 0.24 m
+query TRT
+SELECT attr, q.lo, q.bound FROM req ORDER BY attr;
+----
+noise	38.0	at_most
+travel	0.24	at_least
+
+# Seat-track applications (M1) with their provided values; attr_id matches the template key
+# M1.C1.A1: 0.22 m, 35 dB(A) -> travel misses (d = 0.0833 -> 1 - (0.0833 - 0.0450)/0.05 = 0.2335), noise ok
+# M1.C1.A2: 0.26 m, 41 dB(A) -> travel ok, noise misses (score 0)
+# M1.C2.A1: 0.25 m, 36 dB(A) -> both ok: the only application meeting every limit
+query TRR
+SELECT a.node_id, round(min(v.score), 4), round(max(v.distance), 4)
+FROM req r
+JOIN attrs a ON a.tree_id = 'M1' AND a.attr_id = r.attr,
+LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
+GROUP BY a.node_id
+ORDER BY a.node_id;
+----
+M1.C1.A1	0.2335	0.0833
+M1.C1.A2	0.0	0.0789
+M1.C2.A1	1.0	0.0
+
+# The application that meets every limit
+query T
+SELECT a.node_id
+FROM req r
+JOIN attrs a ON a.tree_id = 'M1' AND a.attr_id = r.attr,
+LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
+GROUP BY a.node_id
+HAVING min(v.score) = 1;
+----
+M1.C2.A1
+
+# The same with a current in mA: 'höchstens 750 mA' is at most 0.75 A; a module drawing
+# 0.8 A misses by 0.05/0.75 = 6.67 %; on the log scale the tolerance is 4.50 %:
+# 1 - (0.0667 - 0.0450)/0.05 = 0.5668
+query RRR
+SELECT parse_quantity('höchstens 750 mA', 'de').lo,
+       round(value_satisfies(parse_quantity('höchstens 750 mA', 'de'),
+                             {'lo': 0.8, 'hi': 0.8, 'dimension': 'current'}).score, 4),
+       round(value_satisfies(parse_quantity('höchstens 750 mA', 'de'),
+                             {'lo': 0.8, 'hi': 0.8, 'dimension': 'current'}).distance, 4);
+----
+0.75	0.5668	0.0667

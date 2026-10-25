@@ -1,0 +1,311 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R72.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 300.0,
+            "lo": 300.0,
+            "name": "hardness",
+            "text": "300 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 2.3,
+            "lo": 2.3,
+            "name": "weight",
+            "text": "not more than 2.3 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Requirement: a moulded foam pad with hardness 300 N and weight not more than 2.3 kg.",
+          "node_id": "R72.r02"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R72.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R72.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 6000.0,
+          "lo": 6000.0,
+          "name": "folding time",
+          "text": "at most 6000 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 135.0,
+          "lo": 135.0,
+          "name": "operating force",
+          "text": "at most 135 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 17000.0,
+          "lo": 17000.0,
+          "name": "endurance",
+          "text": "≥ 17,000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Requirement: seat tumble mechanism with folding time at most 6000 ms and operating force at most 135 N and endurance ≥ 17,000 cycles.",
+        "node_id": "R72.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R72.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 48.0,
+        "lo": 48.0,
+        "name": "angle range",
+        "text": "min. 48 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 2700.0,
+        "lo": 2700.0,
+        "name": "locking strength",
+        "text": "2700 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "noise",
+        "text": "44 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Requirement: recliner fittings with angle range min. 48 ° and locking strength 2700 Nm and noise 44 dB(A).",
+      "node_id": "R72.r05"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 25000.0,
+            "lo": 25000.0,
+            "name": "abrasion resistance",
+            "text": "≥ 25,000 cycles",
+            "unit": "cycles"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 105.0,
+            "lo": 105.0,
+            "name": "target price",
+            "text": "105 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Requirement: trim cover set with abrasion resistance ≥ 25,000 cycles and target price 105 EUR.",
+          "node_id": "R72.r08"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Performance",
+        "node_id": "R72.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 trim cover",
+      "node_id": "R72.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R72.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 90.0,
+          "lo": 60.0,
+          "name": "power",
+          "text": "60–90 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.2,
+          "lo": 3.2,
+          "name": "time to 37 °C",
+          "text": "≤ 3.2 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 9000.0,
+          "lo": 9000.0,
+          "name": "supply current",
+          "text": "max. 9000 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 53.0,
+          "lo": 53.0,
+          "name": "surface temperature",
+          "text": "up to 53 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 Requirement",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Requirement: 4 × heater mats with power 60–90 W and time to 37 °C ≤ 3.2 min and supply current max. 9000 mA and surface temperature up to 53 °C.",
+        "node_id": "R72.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Requirement",
+      "node_id": "R72.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R72.c2"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 3.0,
+        "lo": 3.0,
+        "name": "positions",
+        "text": "3",
+        "unit": ""
+       }
+      ],
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Requirement: headrest with detents with positions 3.",
+      "node_id": "R72.r04"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R72.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "category": "IP40",
+        "name": "protection class",
+        "text": "at least IP40"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Requirement: wiring loom with protection class at least IP40.",
+      "node_id": "R72.r09"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R72.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification CAL-R72",
+  "node_id": "R72"
+ },
+ "source": "calvento",
+ "tree_id": "R72"
+}

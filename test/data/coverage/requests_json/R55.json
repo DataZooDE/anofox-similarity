@@ -1,0 +1,872 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R55.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 2.5,
+            "lo": 1.5,
+            "name": "Verstellgeschwindigkeit",
+            "text": "1,5–2,5 cm/s",
+            "unit": "cm/s"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 48.0,
+            "lo": 48.0,
+            "name": "Geräuschpegel",
+            "text": "48 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz Sitzlängsführung mit Verstellgeschwindigkeit 1,5–2,5 cm/s und Geräuschpegel 48 dB(A) hat.",
+          "node_id": "R55.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R55.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Sitzlängsverstellung",
+      "node_id": "R55.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Höhenhub",
+          "text": "minimal 40 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 6500.0,
+          "lo": 6500.0,
+          "name": "Laufzeit",
+          "text": "maximal 6500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "Haltekraft",
+          "text": "min. 9,5 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz einen Sitzheber mit Höhenhub minimal 40 mm und Laufzeit maximal 6500 ms und Haltekraft min. 9,5 kN hat.",
+        "node_id": "R55.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 106.0,
+          "lo": 106.0,
+          "name": "Hub",
+          "text": "nicht weniger als 106 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Laufzeit",
+          "text": "7 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Haltekraft",
+          "text": "min. 10 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.2 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Sitzhöhenverstellung mit Hub nicht weniger als 106 mm und Laufzeit 7 s und Haltekraft min. 10 kN hat.",
+        "node_id": "R55.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Anforderung",
+      "node_id": "R55.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 270.0,
+          "lo": 270.0,
+          "name": "Härte",
+          "text": "270 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 300.0,
+          "lo": 300.0,
+          "name": "Masse",
+          "text": "maximal 300 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.3 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Polsterschaum mit Härte 270 N und Masse maximal 300 g hat.",
+        "node_id": "R55.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 270.0,
+          "lo": 270.0,
+          "name": "Härte",
+          "text": "270 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 300.0,
+          "lo": 300.0,
+          "name": "Gewicht",
+          "text": "300 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.3 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Formschaumteile mit Härte 270 N und Gewicht 300 g hat.",
+        "node_id": "R55.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Polsterschaum",
+      "node_id": "R55.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 52.0,
+        "lo": 52.0,
+        "name": "Winkelbereich",
+        "text": "≥ 52 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 4900.0,
+        "lo": 4900.0,
+        "name": "Festigkeit",
+        "text": "4900 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 29.0,
+        "lo": 29.0,
+        "name": "Geräuschpegel",
+        "text": "bis zu 29 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Es wird gefordert, dass der Sitz Rückenlehnenverstellung mit Winkelbereich ≥ 52 ° und Festigkeit 4900 Nm und Geräuschpegel bis zu 29 dB(A) hat.",
+      "node_id": "R55.r09"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 80.0,
+        "lo": 80.0,
+        "name": "Winkelbereich",
+        "text": "min. 80 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 3350.0,
+        "lo": 3350.0,
+        "name": "Festigkeit",
+        "text": "min. 3350 N·m",
+        "unit": "N·m"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 28.0,
+        "lo": 28.0,
+        "name": "Geräusch",
+        "text": "≤ 28 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Lehnenneigungsverstellung mit Winkelbereich min. 80 ° und Festigkeit min. 3350 N·m und Geräusch ≤ 28 dB(A) hat.",
+      "node_id": "R55.r24"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 62.0,
+            "lo": 62.0,
+            "name": "Crashfestigkeit",
+            "text": "62 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 210.0,
+            "lo": 210.0,
+            "name": "Zielpreis",
+            "text": "max. 210 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz Sitzstruktur mit Crashfestigkeit 62 kN und Zielpreis max. 210 € hat.",
+          "node_id": "R55.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R55.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzstruktur",
+      "node_id": "R55.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 50000.0,
+            "lo": 50000.0,
+            "name": "Scheuerbeständigkeit",
+            "text": "nicht weniger als 50000 Zyklen",
+            "unit": "Zyklen"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F3",
+            "name": "Brennbarkeitsklasse",
+            "text": "min. F3"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 120.0,
+            "lo": 120.0,
+            "name": "Zielpreis",
+            "text": "bis zu 120 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz Polsterbezug mit Scheuerbeständigkeit nicht weniger als 50000 Zyklen und Brennbarkeitsklasse min. F3 und Zielpreis bis zu 120 € hat.",
+          "node_id": "R55.r13"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Leistungsdaten",
+        "node_id": "R55.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R55.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R55.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 45.0,
+          "name": "Leistung",
+          "text": "45–85 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "3,6 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Stromverbrauch",
+          "text": "max. 5,5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.1 Anforderung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz 2 × Heizmatten in Kissen und Lehne mit Leistung 45–85 W und Aufheizzeit auf 37 °C 3,6 min und Stromverbrauch max. 5,5 A hat.",
+        "node_id": "R55.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 1.2,
+          "lo": 1.2,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "1,2 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Stromverbrauch",
+          "text": "bis zu 5,5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.1 Anforderung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 2 × beheizte Sitzflächen mit Aufheizzeit auf 37 °C 1,2 min und Stromverbrauch bis zu 5,5 A hat.",
+        "node_id": "R55.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R55.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 480.0,
+        "lo": 280.0,
+        "name": "Luftvolumenstrom",
+        "text": "280–480 l/min",
+        "unit": "l/min"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 17.0,
+        "lo": 17.0,
+        "name": "Betriebsgeräusch",
+        "text": "≤ 17 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 2 × eine Sitzbelüftung mit Luftvolumenstrom 280–480 l/min und Betriebsgeräusch ≤ 17 dB(A) hat.",
+      "node_id": "R55.r16"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1400.0,
+          "lo": 1400.0,
+          "name": "Belastbarkeit",
+          "text": "mindestens 1400 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.3 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Armlehne mit Belastbarkeit mindestens 1400 N hat.",
+        "node_id": "R55.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Armlehne",
+      "node_id": "R55.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Lordosenhub",
+          "text": "mindestens 46 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "Wege",
+          "text": "2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 1.3,
+          "lo": 1.3,
+          "name": "Stromaufnahme",
+          "text": "≤ 1,3 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Lordosenstütze mit Lordosenhub mindestens 46 mm und Wege 2 und Stromaufnahme ≤ 1,3 A hat.",
+        "node_id": "R55.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Anforderung",
+      "node_id": "R55.c2.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R55.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 335.0,
+            "lo": 335.0,
+            "name": "Bringerhub",
+            "text": "mindestens 335 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3.5,
+            "lo": 3.5,
+            "name": "Zykluszeit",
+            "text": "≤ 3,5 s",
+            "unit": "s"
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz Gurtzuführung mit Bringerhub mindestens 335 mm und Zykluszeit ≤ 3,5 s hat.",
+          "node_id": "R55.r06"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 125.0,
+            "lo": 125.0,
+            "name": "Hub",
+            "text": "≥ 125 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3500.0,
+            "lo": 3500.0,
+            "name": "Taktzeit",
+            "text": "≤ 3500 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Gurtschlossanhebung mit Hub ≥ 125 mm und Taktzeit ≤ 3500 ms hat.",
+          "node_id": "R55.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R55.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Anforderung",
+      "node_id": "R55.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "Nahtöffnungszeit",
+          "text": "8,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 0.54,
+          "lo": 0.54,
+          "name": "Nahtfestigkeit",
+          "text": "0,54 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Airbag-Aufreißnaht mit Nahtöffnungszeit 8,5 ms und Nahtfestigkeit 0,54 kN hat.",
+        "node_id": "R55.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "Auslösezeit",
+          "text": "maximal 8,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 1110.0,
+          "lo": 1110.0,
+          "name": "Nahtfestigkeit",
+          "text": "nicht weniger als 1110 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Seitenairbag-Integration mit Auslösezeit maximal 8,5 ms und Nahtfestigkeit nicht weniger als 1110 N hat.",
+        "node_id": "R55.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R55.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 340.0,
+          "lo": 340.0,
+          "name": "Ansprechzeit",
+          "text": "höchstens 340 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Insassenerkennung mit Ansprechzeit höchstens 340 ms hat.",
+        "node_id": "R55.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Anforderung",
+      "node_id": "R55.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R55.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.5,
+          "lo": 7.5,
+          "name": "Stromaufnahme",
+          "text": "höchstens 7,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "Geräusch",
+          "text": "maximal 45 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz 2 × Sitzverstellmotoren mit Stromaufnahme höchstens 7,5 A und Geräusch maximal 45 dB(A) hat.",
+        "node_id": "R55.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "Abtriebsmoment",
+          "text": "min. 9,5 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 7.5,
+          "lo": 7.5,
+          "name": "Stromverbrauch",
+          "text": "7,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "Geräuschpegel",
+          "text": "≤ 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 2 × Sitzverstellmotoren mit Abtriebsmoment min. 9,5 Nm und Stromverbrauch 7,5 A und Geräuschpegel ≤ 43 dB(A) hat.",
+        "node_id": "R55.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R55.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 29.0,
+          "lo": 29.0,
+          "name": "Strombelastbarkeit",
+          "text": "29 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Sitzverkabelung mit Strombelastbarkeit 29 A hat.",
+        "node_id": "R55.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 28.0,
+          "lo": 28.0,
+          "name": "Strombelastbarkeit",
+          "text": "28 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "min. IP54"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Sitzverkabelung mit Strombelastbarkeit 28 A und Schutzart min. IP54 hat.",
+        "node_id": "R55.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R55.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R55.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage FKM-R55",
+  "node_id": "R55"
+ },
+ "source": "falkmoor",
+ "tree_id": "R55"
+}

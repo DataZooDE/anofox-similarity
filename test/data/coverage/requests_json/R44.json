@@ -1,0 +1,228 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R44.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R44.c1.s1.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 2000.0,
+            "lo": 2000.0,
+            "name": "mass",
+            "text": "max. 2000 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "It is required that the seat has seat padding with mass max. 2000 g.",
+          "node_id": "R44.r01"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R44.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R44.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 12.0,
+          "lo": 12.0,
+          "name": "mass",
+          "text": "not more than 12 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 125.0,
+          "lo": 125.0,
+          "name": "target price",
+          "text": "up to 125 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has load-bearing seat structure with mass not more than 12 kg and target price up to 125 EUR.",
+        "node_id": "R44.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Requirement",
+      "node_id": "R44.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "flammability class",
+          "text": "at least F2"
+         }
+        ],
+        "context": "1.3 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has fabric seat covers with flammability class at least F2.",
+        "node_id": "R44.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 trim cover",
+      "node_id": "R44.c1.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R44.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R44.c3.s1.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 6.5,
+            "lo": 6.5,
+            "name": "height travel",
+            "text": "6.5 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "positions",
+            "text": "not less than 3",
+            "unit": ""
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "It is required that the seat has height-adjustable head restraint with height travel 6.5 cm and positions not less than 3.",
+          "node_id": "R44.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R44.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R44.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R44.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "category": "IP65",
+            "name": "protection class",
+            "text": "min. IP65"
+           }
+          ],
+          "context": "4.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "It is required that the seat has wiring loom with protection class min. IP65.",
+          "node_id": "R44.r06"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Performance",
+        "node_id": "R44.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R44.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R44.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification FKM-R44",
+  "node_id": "R44"
+ },
+ "source": "falkmoor",
+ "tree_id": "R44"
+}

@@ -1,0 +1,277 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R15.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 19.0,
+          "lo": 19.0,
+          "name": "Vorschubweg",
+          "text": "19 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 72.0,
+          "lo": 72.0,
+          "name": "Auslösekraft",
+          "text": "bis zu 72 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Easy-Entry-Mechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Lieferumfang umfasst Einstiegshilfe mit Vorschubweg 19 cm und Auslösekraft bis zu 72 N.",
+        "node_id": "R15.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Easy-Entry-Mechanik",
+      "node_id": "R15.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 20.5,
+          "lo": 20.5,
+          "name": "Masse",
+          "text": "max. 20,5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 58.0,
+          "lo": 58.0,
+          "name": "Crashlast",
+          "text": "58 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.2 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Lieferumfang umfasst Sitzstruktur mit Masse max. 20,5 kg und Crashlast 58 kN.",
+        "node_id": "R15.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzstruktur",
+      "node_id": "R15.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R15.c1.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 65000.0,
+          "lo": 65000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "≥ 65.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "Brennbarkeitsklasse",
+          "text": "F3 oder besser"
+         }
+        ],
+        "context": "1.3 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Lieferumfang umfasst einen Sitzbezug mit Scheuerbeständigkeit ≥ 65.000 Zyklen und Brennbarkeitsklasse F3 oder besser.",
+        "node_id": "R15.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzbezug",
+      "node_id": "R15.c1.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R15.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 100.0,
+          "lo": 70.0,
+          "name": "Leistung",
+          "text": "70 bis 100 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 10000.0,
+          "lo": 10000.0,
+          "name": "Stromaufnahme",
+          "text": "10000 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "Oberflächentemperatur",
+          "text": "≤ 45 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Lieferumfang umfasst 2 × Sitzwärmer mit Leistung 70 bis 100 W und Stromaufnahme 10000 mA und Oberflächentemperatur ≤ 45 °C.",
+        "node_id": "R15.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R15.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R15.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "Verstellweg",
+          "text": "mindestens 6,5 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Lieferumfang umfasst Kopfstütze handverstellbar mit Verstellweg mindestens 6,5 cm.",
+        "node_id": "R15.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R15.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R15.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 19.0,
+            "lo": 19.0,
+            "name": "Strombelastbarkeit",
+            "text": "19 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP40",
+            "name": "Schutzart",
+            "text": "IP40 oder besser"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Lieferumfang umfasst Kabelsatz Sitz mit Strombelastbarkeit 19 A und Schutzart IP40 oder besser.",
+          "node_id": "R15.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R15.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R15.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R15.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage GRV-R15",
+  "node_id": "R15"
+ },
+ "source": "grovania",
+ "tree_id": "R15"
+}

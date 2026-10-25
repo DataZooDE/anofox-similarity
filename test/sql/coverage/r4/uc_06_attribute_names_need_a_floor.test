@@ -1,0 +1,41 @@
+# name: test/sql/coverage/r4/uc_06_attribute_names_need_a_floor.test
+# description: Attribute-name vectors from a small sentence encoder are all alike: unrelated names
+#              have a raw cosine around 0.85. The team estimates the floor of the corpus and
+#              calibrates, so only real synonyms count as similar (HLD §4.4).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE names AS SELECT name, attr_key, vec::FLOAT[] AS vec
+FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE floor = (SELECT floor FROM cosine_floor('names', 'vec', sample := 20000));
+
+# 170 names, all 14 365 pairs (the sample is large enough)
+query II
+SELECT getvariable('floor') BETWEEN 0.80 AND 0.90, (SELECT n_pairs FROM cosine_floor('names', 'vec', sample := 20000));
+----
+true	14365
+
+statement ok
+CREATE TABLE pairs AS
+SELECT a.attr_key = b.attr_key AS synonym, list_cosine_similarity(a.vec, b.vec) AS raw,
+       calibrated_cosine(a.vec, b.vec, getvariable('floor')) AS calibrated
+FROM names a, names b WHERE a.name < b.name;
+
+# raw cosine barely separates synonyms from unrelated names; calibrated cosine does
+query III
+SELECT avg(raw) FILTER (WHERE NOT synonym) > 0.8,
+       avg(calibrated) FILTER (WHERE synonym) >= 0.7,
+       avg((calibrated > 0.5)::INT) FILTER (WHERE NOT synonym) < 0.05
+FROM pairs;
+----
+true	true	true
+
+# a sample of 2 000 pairs stays close to the exact floor
+query II
+SELECT abs(floor - getvariable('floor')) < 0.01, n_pairs FROM cosine_floor('names', 'vec', sample := 2000);
+----
+true	2000

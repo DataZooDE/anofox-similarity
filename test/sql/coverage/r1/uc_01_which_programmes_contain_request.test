@@ -1,0 +1,76 @@
+# name: test/sql/coverage/r1/uc_01_which_programmes_contain_request.test
+# description: A sales engineer looks for past seat programmes that provide at least
+#              everything a new request asks for, counts included, leanest first.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE prog_classes AS
+SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+# Request: 2 heated zones, 4 massage zones, 1 powered headrest, 1 memory module (Σ 8).
+# S2 provides exactly that (containment 1, jaccard 1), S1 adds a seat track (jaccard 8/9),
+# S6 adds ventilation and a second track (jaccard 8/12). All three contain the request;
+# the leanest one comes first.
+query TRR
+SELECT entity_id, round(score, 3), round(jaccard, 3)
+FROM find_covering_entities_for(
+       MAP {'seat_heating': 2, 'massage': 4, 'headrest_powered': 1, 'memory_module': 1}, 3,
+       mode := 'containment', feature_table := 'prog_classes')
+ORDER BY score DESC, jaccard DESC;
+----
+S2	1.01	1.0
+S1	1.009	0.889
+S6	1.007	0.667
+
+# The same question on the full archive of 300 programmes (reviewed classes).
+statement ok
+CREATE TABLE archive AS
+SELECT * FROM read_csv_auto('test/data/coverage/programme_class_multiset.csv.gz');
+
+statement ok
+CREATE TABLE top AS
+SELECT * FROM find_covering_entities_for(
+       MAP {'seat_heating': 2, 'massage': 4, 'headrest_powered': 1, 'memory_module': 1}, 10,
+       feature_table := 'archive');
+
+# The archive holds programmes that contain the request completely, so the top 10
+# all have containment 1 and are ordered by their surplus (leanest first).
+query II
+SELECT count(*), bool_and(containment = 1.0) FROM top;
+----
+10	true
+
+query I
+SELECT count(*) FROM (
+    SELECT surplus_weight, lag(surplus_weight) OVER (ORDER BY score DESC, entity_id) AS prev FROM top)
+WHERE surplus_weight < prev;
+----
+0
+
+# For a full cover the surplus is what the programme has on top of the request (Σc - Σq)
+query II
+SELECT count(DISTINCT entity_id), bool_and(surplus_weight = candidate_weight - query_weight) FROM top;
+----
+10	true
+
+# Cross-check against a plain SQL formulation of weighted containment over the archive:
+# the 10 returned programmes are exactly the 10 best by (containment, jaccard), in both directions.
+statement ok
+CREATE TABLE expected AS
+WITH q(feature_id, weight) AS (VALUES ('seat_heating', 2.0), ('massage', 4.0),
+                                      ('headrest_powered', 1.0), ('memory_module', 1.0)),
+     per AS (SELECT a.entity_id,
+                    sum(least(a.weight, coalesce(q.weight, 0))) AS smin,
+                    sum(a.weight) AS sc
+             FROM archive a LEFT JOIN q USING (feature_id) GROUP BY a.entity_id)
+SELECT entity_id FROM (
+    SELECT entity_id, smin / 8.0 AS cont, smin / (8.0 + sc - smin) AS jac FROM per
+    ORDER BY cont DESC, jac DESC, entity_id LIMIT 10);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT entity_id FROM top EXCEPT SELECT entity_id FROM expected)),
+       (SELECT count(*) FROM (SELECT entity_id FROM expected EXCEPT SELECT entity_id FROM top));
+----
+0	0

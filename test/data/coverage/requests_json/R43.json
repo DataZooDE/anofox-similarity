@@ -1,0 +1,446 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R43.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit eine Längsverstellung.",
+          "node_id": "R43.r01"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 3.2,
+            "lo": 1.9,
+            "name": "Verstellgeschwindigkeit",
+            "text": "zwischen 1,9 und 3,2 cm/s",
+            "unit": "cm/s"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 44.0,
+            "lo": 44.0,
+            "name": "Geräusch",
+            "text": "44 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 22.0,
+            "lo": 22.0,
+            "name": "Haltekraft",
+            "text": "minimal 22 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Sitzlängsführung mit Verstellgeschwindigkeit zwischen 1,9 und 3,2 cm/s und Geräusch 44 dB(A) und Haltekraft minimal 22 kN.",
+          "node_id": "R43.r11"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R43.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Anforderung",
+      "node_id": "R43.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 6.0,
+            "lo": 6.0,
+            "name": "Laufzeit",
+            "text": "maximal 6 s",
+            "unit": "s"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit eine Sitzhöhenverstellung mit Laufzeit maximal 6 s.",
+          "node_id": "R43.r02"
+         },
+         {
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit eine Sitzhöhenverstellung.",
+          "node_id": "R43.r12"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R43.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Anforderung",
+      "node_id": "R43.c1.s2"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Sitzanlage mit Polsterschaum.",
+      "node_id": "R43.r04"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Sitzanlage mit Formschaumteile.",
+      "node_id": "R43.r14"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit eine Lehnenneigungsverstellung.",
+        "node_id": "R43.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2650.0,
+          "lo": 2650.0,
+          "name": "Haltemoment",
+          "text": "2650 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 33.0,
+          "lo": 33.0,
+          "name": "Geräuschpegel",
+          "text": "≤ 33 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Neigungsgelenk Lehne mit Haltemoment 2650 Nm und Geräuschpegel ≤ 33 dB(A).",
+        "node_id": "R43.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Anforderung",
+      "node_id": "R43.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "category": "F2",
+            "name": "Brennbarkeitsklasse",
+            "text": "mindestens F2"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 90.0,
+            "lo": 90.0,
+            "name": "Zielpreis",
+            "text": "bis zu 90 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit Lederbezüge mit Brennbarkeitsklasse mindestens F2 und Zielpreis bis zu 90 €.",
+          "node_id": "R43.r09"
+         },
+         {
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Stoffbezug.",
+          "node_id": "R43.r19"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R43.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R43.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Sitzstruktur.",
+        "node_id": "R43.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzstruktur",
+      "node_id": "R43.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R43.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1500.0,
+            "lo": 1500.0,
+            "name": "Belastbarkeit",
+            "text": "≥ 1500 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 50.0,
+            "lo": 50.0,
+            "name": "Schwenkwinkel",
+            "text": "50 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit Ellbogenauflage mit Belastbarkeit ≥ 1500 N und Schwenkwinkel 50 °.",
+          "node_id": "R43.r03"
+         },
+         {
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Ellbogenauflage.",
+          "node_id": "R43.r13"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R43.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R43.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R43.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit mechanische Kopfstütze.",
+        "node_id": "R43.r05"
+       },
+       {
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit mechanische Kopfstütze.",
+        "node_id": "R43.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Anforderung",
+      "node_id": "R43.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 500.0,
+          "lo": 500.0,
+          "name": "Nahtfestigkeit",
+          "text": "min. 500 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Airbag-Aufreißnaht mit Nahtfestigkeit min. 500 N.",
+        "node_id": "R43.r08"
+       },
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Thoraxairbag.",
+        "node_id": "R43.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R43.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R43.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 11.0,
+            "lo": 11.0,
+            "name": "Strombelastbarkeit",
+            "text": "11 A",
+            "unit": "A"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit einen Sitzkabelbaum mit Strombelastbarkeit 11 A.",
+          "node_id": "R43.r10"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 11.0,
+            "lo": 11.0,
+            "name": "Strombelastbarkeit",
+            "text": "mindestens 11 A",
+            "unit": "A"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Steckverbinder mit Strombelastbarkeit mindestens 11 A.",
+          "node_id": "R43.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R43.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R43.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R43.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R43",
+  "node_id": "R43"
+ },
+ "source": "estrelo",
+ "tree_id": "R43"
+}
