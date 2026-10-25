@@ -221,7 +221,7 @@ oracle and KPI feasibility are described in
 |---|---|---|
 | R0 | `test/sql/coverage/r0/` | The dataset loads and is consistent (trees, gold labels, vectors) |
 | R0 | `scripts/tests/` (`cd scripts && uv run pytest`) | Generator: determinism, size, leakage, noise rates, vector calibration, oracle, BRD KPI feasibility |
-| R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_07` |
+| R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_08` (uc_08: all 80 benchmark requests at once, stage-1 recall@20 ≥ 0.90) |
 
 The dataset is regenerated with
 `cd scripts && uv run generate-coverage-data --seed 7 --output ../test/data/coverage/`, and

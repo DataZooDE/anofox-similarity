@@ -48,7 +48,9 @@ public:
 		auto &child = ListVector::GetEntry(input);
 		if (weighted) {
 			if (input.GetType().id() != LogicalTypeId::MAP) {
-				throw InvalidInputException("weighted set measures expect MAP arguments, got %s",
+				throw InvalidInputException("weighted_jaccard, weighted_containment and weighted_tversky expect "
+				                            "MAP(key, weight) arguments, got %s; for lists use containment or "
+				                            "tversky_similarity",
 				                            input.GetType().ToString());
 			}
 			auto &entries = StructVector::GetEntries(child);
@@ -330,9 +332,9 @@ void RegisterSetMeasureFunctions(ExtensionLoader &loader) {
 
 	const string tversky_desc =
 	    "Asymmetric Tversky similarity of two lists treated as sets: |q∩c| / (|q∩c| + alpha*|q\\c| + "
-	    "beta*|c\\q|). alpha = beta = 1 is Jaccard, alpha = 1 and beta = 0 is containment. Named arguments "
-	    "bind by position on DuckDB 1.5.6: pass alpha and beta together, in this order. NULL in gives NULL; "
-	    "two empty lists give 0.0.";
+	    "beta*|c\\q|). alpha = beta = 1 is Jaccard, alpha = 1 and beta = 0 is containment. Pass both alpha and "
+	    "beta, alpha first: DuckDB 1.5.6 binds scalar named arguments by position, so (..., beta := x, alpha := y) "
+	    "silently swaps them there. NULL in gives NULL; two empty lists give 0.0.";
 	Register(loader, "tversky_similarity",
 	         DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, TverskyFun),
 	         compat_anofox::ScalarBind<&TverskyBind>(),
@@ -350,6 +352,7 @@ void RegisterSetMeasureFunctions(ExtensionLoader &loader) {
 	           {"SELECT containment(['a','b'], ['a','b','c','d']); -- 1.0",
 	            "SELECT containment(['a','b','c'], ['b','c','d']); -- 0.6667"}}});
 
+	// weighted_jaccard is weighted Tversky with the two-argument default alpha = beta = 1
 	Register(loader, "weighted_jaccard",
 	         DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, WeightedTverskyFun),
 	         compat_anofox::ScalarBind<&WeightedJaccardBind>(),
@@ -370,8 +373,9 @@ void RegisterSetMeasureFunctions(ExtensionLoader &loader) {
 
 	const string wtversky_desc =
 	    "Weighted Tversky similarity of two MAP(key, weight) multisets: Σmin / (Σmin + alpha*Σ(q-c)+ + "
-	    "beta*Σ(c-q)+). alpha = beta = 1 is weighted Jaccard, alpha = 1 and beta = 0 is weighted containment. "
-	    "Named arguments bind by position on DuckDB 1.5.6: pass alpha and beta together, in this order.";
+	    "beta*Σ(c-q)+). alpha = beta = 1 (the two-argument default) is weighted Jaccard, alpha = 1 and beta = 0 is "
+	    "weighted containment. Pass both alpha and beta, alpha first: DuckDB 1.5.6 binds scalar named arguments by "
+	    "position, so (..., beta := x, alpha := y) silently swaps them there.";
 	Register(loader, "weighted_tversky",
 	         DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, WeightedTverskyFun),
 	         compat_anofox::ScalarBind<&WeightedTverskyBind>(),

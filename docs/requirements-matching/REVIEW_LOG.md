@@ -131,3 +131,28 @@ Every member recomputed every expected value: all correct (one comment typo).
 
 The fixes were implemented together with their regression tests in one commit and were not
 written test-first. Logged here as a deviation from HANDOVER §4.
+
+## R1-3 — 2026-10-25 — before PR (end of R1)
+
+- **Crew:** design (codex), usability (codex), testing (claude), maintainability (claude).
+  Verdict: REQUEST_CHANGES (no correctness blocker).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | med | Docs claimed that the table functions' named arguments bind by position on 1.5.6 | Fixed: only scalars bind by position; NAMED_DOC and API reference corrected |
+| F2 | med | Wrong trap example for tversky | Fixed: reversed α/β is the silent trap; passing only one does not bind |
+| F3 | med | Weights on rows with a NULL key skip validation | Fixed: an uncorrelated whole-table check (the filter had been pushed below the aggregate); the error names the row; regression test |
+| F4 | med | Only 4 of 7 scenarios load the dataset | Fixed: uc_08 ranks all 80 benchmark requests at once (stage-1 recall@20 ≥ 0.90; 0.925 measured) |
+| F5 | med | Text-form key matching logged as documented but not | Fixed in the API reference |
+| F6 | med | NULL query semantics differ between the two functions | Documented per function (behaviour unchanged; both pinned) |
+| F7 | med | No documented batch pattern | Fixed: "Many requests at once" in the API reference, used by uc_08 |
+| F8 | low | Error messages not actionable | Fixed: hint for a missing weight column; the bad-weight error names the entity, feature and table |
+| F9 | low | Different tie order of the two containment searches | Documented |
+| F10 | low | Read-only list | Fixed |
+| F11 | low | Counts, naming convention, signature | Fixed |
+| F12 | low | alpha/beta/tie_break ignored outside their modes | Documented (no error, so scripts can reuse one parameter set) |
+| F13 | low | Hygiene | QuotedColumn renamed to ValidateColumnName; α = β = 1 default commented. **Deferred:** sharing ParseSubquery across modules (pre-existing duplication) |
+| F14 | low | Scalar input errors come at execution time with the report-a-bug banner | Message improved (names the functions, suggests the list variants). **Deferred:** bind-time validation (scalar bind signatures differ between 1.5.6 and 2.0) and the INVALID_INPUT banner policy (datazoo-banner) |
+
+R1 status: all DoD items met. 8 uc_ scenarios, 5 of them on the dataset; edge cases;
+1.5.6 and 2.0 suites green; docs updated.

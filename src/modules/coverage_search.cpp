@@ -27,13 +27,12 @@ unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &contex
 	return make_uniq<SubqueryRef>(std::move(new_stmt));
 }
 
-//! A column name parameter: one identifier segment, returned double-quoted.
-string QuotedColumn(const string &column, const string &param_name) {
+//! A column name parameter: one identifier segment (validated, so quoting it is safe).
+void ValidateColumnName(const string &column, const string &param_name) {
 	ValidateSQLIdentifierPath(column, param_name);
 	if (column.find('.') != string::npos) {
 		throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), column.c_str());
 	}
-	return "\"" + column + "\"";
 }
 
 //! A validated (dot-separated) identifier path with every segment double-quoted, so
@@ -129,14 +128,24 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 		}
 	}
 	p.feature_table = ValidateSQLIdentifierPath(p.feature_table, "feature_table");
-	QuotedColumn(p.entity_col, "entity_col");
-	QuotedColumn(p.feature_col, "feature_col");
+	ValidateColumnName(p.entity_col, "entity_col");
+	ValidateColumnName(p.feature_col, "feature_col");
 	vector<string> required {p.entity_col, p.feature_col};
 	if (p.weighted) {
-		QuotedColumn(p.weight_col, "weight_col");
+		ValidateColumnName(p.weight_col, "weight_col");
 		required.push_back(p.weight_col);
 	}
-	ValidateTableColumns(context, p.feature_table, required, "feature_table");
+	try {
+		ValidateTableColumns(context, p.feature_table, required, "feature_table");
+	} catch (BinderException &e) {
+		bool weight_named = duckdb_compat::FindNamedParameter(named, "weight_col") != nullptr;
+		if (p.weighted && !weight_named && string(e.what()).find("column(s): " + p.weight_col) != string::npos) {
+			throw BinderException("%s: feature_table '%s' has no column '%s'; pass weight_col := '<column>', or "
+			                      "weight_col := NULL for unit weights",
+			                      fn.c_str(), p.feature_table.c_str(), p.weight_col.c_str());
+		}
+		throw;
+	}
 	return p;
 }
 
@@ -145,17 +154,26 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 string FeatureMultisetSQL(const CoverageParams &p) {
 	auto entity = "\"" + p.entity_col + "\"";
 	auto feature = "\"" + p.feature_col + "\"";
-	string weight = "1.0::DOUBLE";
-	if (p.weighted) {
-		auto col = "CAST(\"" + p.weight_col + "\" AS DOUBLE)";
-		weight = StringUtil::Format("SUM(CASE WHEN NOT isfinite(%s) THEN error('weights must be finite') "
-		                            "WHEN %s < 0 THEN error('weights must be non-negative') "
-		                            "ELSE COALESCE(%s, 1.0::DOUBLE) END)",
-		                            col, col, col);
+	auto table = QuotedPath(p.feature_table);
+	if (!p.weighted) {
+		return StringUtil::Format("SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, "
+		                          "1.0::DOUBLE AS weight FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL GROUP BY ALL",
+		                          entity, feature, table, entity, feature);
 	}
-	return StringUtil::Format("SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, %s AS weight "
-	                          "FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL GROUP BY ALL",
-	                          entity, feature, weight, QuotedPath(p.feature_table), entity, feature);
+	// Every row's weight is validated, including rows with a NULL entity or feature: the
+	// check is an uncorrelated scalar subquery over the whole table, so no filter is pushed
+	// below it, and the error names the offending row.
+	auto col = "CAST(\"" + p.weight_col + "\" AS DOUBLE)";
+	auto where = StringUtil::Format("' (entity ' || coalesce(CAST(%s AS VARCHAR), 'NULL') || ', feature ' || "
+	                                "coalesce(CAST(%s AS VARCHAR), 'NULL') || ' in %s)'",
+	                                entity, feature, EscapeSQLStringLiteral(p.feature_table));
+	auto check = StringUtil::Format("(SELECT count(CASE WHEN NOT isfinite(%s) THEN error('weights must be finite' || %s) "
+	                                "WHEN %s < 0 THEN error('weights must be non-negative' || %s) END) FROM %s)",
+	                                col, where, col, where, table);
+	return StringUtil::Format("SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, "
+	                          "SUM(COALESCE(%s, 1.0::DOUBLE)) AS weight FROM %s "
+	                          "WHERE %s IS NOT NULL AND %s IS NOT NULL AND %s = 0 GROUP BY ALL",
+	                          entity, feature, col, table, entity, feature, check);
 }
 
 //! Rank candidates against the query CTE `q(feature_id, weight)`.
@@ -263,11 +281,11 @@ unique_ptr<TableRef> FindCoveringEntitiesForBindReplace(ClientContext &context, 
 	return ParseSubquery(RankingSQL(p, q, ""), context, "Failed to parse find_covering_entities_for query");
 }
 
-const char *NAMED_DOC = "Named parameters (bind by position on DuckDB 1.5.6, so pass them in this order): mode "
-                        "('containment' | 'jaccard' | 'tversky'), alpha, beta (Tversky weights), weighted (use the "
-                        "weight column, default true), tie_break (weight of Jaccard added to the score, default "
-                        "0.01), min_score (threshold on the measure itself), feature_table (default "
-                        "'feature_multiset'), entity_col, feature_col, weight_col.";
+const char *NAMED_DOC = "Named parameters: mode ('containment' | 'jaccard' | 'tversky'), alpha, beta (Tversky "
+                        "weights, used in mode 'tversky' only), weighted (use the weight column, default true), "
+                        "tie_break (weight of Jaccard added to the score in modes 'containment' and 'tversky', "
+                        "default 0.01), min_score (threshold on the measure itself), feature_table (default "
+                        "'feature_multiset'), entity_col, feature_col, weight_col (NULL for unit weights).";
 
 void AddNamed(TableFunction &f, FunctionDescription &desc, std::initializer_list<const char *> positional) {
 	AddDocumentedNamedParameters(f, desc, positional,

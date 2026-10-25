@@ -32,12 +32,13 @@
 
 ## Overview
 
-The anofox-similarity extension provides 40+ functions across 8 functional categories for multi-modal product similarity detection. All functions are registered as SQL macros or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 50 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
 - **Table Macros** (prefix `compute_`, `find_`, `infer_`) - Return result sets
 - **Scalar Functions** (prefix `jaccard_`, `wl_kernel_`, `embed_`) - Return single values
+- **Coverage matching** - set measures are named after the measure (`containment`, `tversky_similarity`, `weighted_*`); searches start with `find_`
 - **Helper Macros** (prefix `check_`, `create_`, `bom_`) - Infrastructure utilities
 
 ### Parameterization Pattern
@@ -218,10 +219,10 @@ Finds k most similar materials using Jaccard component overlap.
 **Signature:**
 ```sql
 find_similar_materials_jaccard(
-    query_material_id VARCHAR,
-    k INTEGER,
-    min_similarity := 0.0,
+    material_id VARCHAR,
+    k BIGINT,
     bom_table := 'bom_items',
+    min_similarity := 0.0,
     mode := 'jaccard'
 ) → TABLE (
     material_id VARCHAR,
@@ -238,7 +239,7 @@ find_similar_materials_jaccard(
 | `k` | INTEGER | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
-| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains, ties broken by Jaccard. Counts components, not quantities; for quantities use [`find_covering_entities`](#find_covering_entities--find_covering_entities_for) |
+| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](#find_covering_entities--find_covering_entities_for) |
 
 **Returns:**
 - `material_id` - ID of similar material
@@ -1159,7 +1160,8 @@ The extension creates several database objects on load for embedding storage and
 > traversal, SAP/D365 transforms, textual/fused embeddings, statistics, etc. — everything registered
 > via `CREATE MACRO`) is **not** available, since macro registration needs a writable catalog. The
 > core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
-> `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`) and all scalar functions
+> `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`, `find_covering_entities`,
+> `find_covering_entities_for`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1247,8 +1249,10 @@ and B?". Design: [requirements-matching/HLD.md](requirements-matching/HLD.md) (�
 the amendments decided during implementation). Test dataset:
 [test/data/coverage](../test/data/coverage/README.md).
 
-On DuckDB 1.5.6, named arguments bind by position. Give them in the documented order and do
-not skip one in the middle: `tversky_similarity(q, c, beta := 0)` binds 0 to `alpha` there.
+On DuckDB 1.5.6, named arguments of **scalar** functions bind by position (the table functions
+bind by name on both lines). For `tversky_similarity` and `weighted_tversky`, pass both `alpha`
+and `beta`, `alpha` first: on 1.5.6 `(…, beta := 0.0, alpha := 1.0)` silently swaps them, and
+passing only one of them does not bind.
 
 ### Directional and weighted set measures (scalars)
 
@@ -1261,8 +1265,10 @@ not skip one in the middle: `tversky_similarity(q, c, beta := 0)` binds 0 to `al
 | `weighted_tversky(query MAP, candidate MAP[, alpha, beta])` | `Σmin / (Σmin + α Σ(q−c)⁺ + β Σ(c−q)⁺)`; default α = β = 1 | as `weighted_jaccard` |
 
 - Lists are sets: duplicates collapse and NULL elements are ignored, as in `jaccard_similarity`.
-- Map values are weights (counts, quantities, levels). They must be numeric and
-  non-negative; a NULL weight counts as 1. Keys may be of any type.
+- Map values are weights (counts, quantities, levels). They must be numeric, finite and
+  non-negative; a NULL weight counts as 1, and a zero weight means "absent". Keys may be of
+  any type and are compared by their text form, so `1` and `'1'` match (in the scalars and in
+  `find_covering_entities_for` against the feature column cast to VARCHAR).
 - NULL arguments give NULL. `alpha` and `beta` must be non-negative.
 - The parameters are called `query` and `candidate` because the measures are directional
   (`jaccard_similarity` keeps `list_a` / `list_b`).
@@ -1289,13 +1295,13 @@ find_covering_entities_for(query MAP, k BIGINT, <named>)
           shared_weight DOUBLE, query_weight DOUBLE, candidate_weight DOUBLE, surplus_weight DOUBLE)
 ```
 
-**Named parameters (in this order):**
+**Named parameters:**
 | Parameter | Default | Description |
 |---|---|---|
 | `mode` | `'containment'` | `'containment'` (Σmin/Σq), `'jaccard'` (Σmin/Σmax) or `'tversky'`; case-insensitive |
-| `alpha`, `beta` | 1.0, 0.0 | Tversky weights of the missing and the surplus weight (mode `'tversky'`) |
+| `alpha`, `beta` | 1.0, 0.0 | Tversky weights of the missing and the surplus weight; used in mode `'tversky'` only (ignored otherwise) |
 | `weighted` | true | false: every distinct (entity, feature) weighs 1 |
-| `tie_break` | 0.01 | weight of Jaccard added to the score in modes `containment` and `tversky` (BR-03) |
+| `tie_break` | 0.01 | weight of Jaccard added to the score in modes `containment` and `tversky` (BR-03); ignored in mode `'jaccard'` |
 | `min_score` | 0.0 | threshold on the measure itself (before the tie-break) |
 | `feature_table` | `'feature_multiset'` | table or view, optionally schema-qualified |
 | `entity_col`, `feature_col`, `weight_col` | `'entity_id'`, `'feature_id'`, `'weight'` | column mapping, so `bom_items(parent_id, child_id, quantity)` works as is; `weight_col := NULL` means unit weights |
@@ -1308,8 +1314,11 @@ share at least one feature with the query are returned, and the query entity its
 excluded.
 
 **Semantics:** weights of repeated (entity, feature) rows add up; a NULL weight counts as 1;
-rows with a NULL entity or feature are ignored. A negative weight anywhere in the table
-raises an error. An empty, NULL, all-zero or unknown query returns no rows.
+rows with a NULL entity or feature are ignored. A negative or non-finite weight anywhere in
+the table (also on rows that are ignored) raises an error that names the row. Features
+compare by their text form. `find_covering_entities`: an unknown id returns no rows, a NULL
+id is an error. `find_covering_entities_for`: an empty, NULL, all-zero or unknown query
+returns no rows; zero-weight entries of the query are dropped.
 
 **Known limitation (kept by decision, HLD §4.1):** the tie-break is additive, so a nearly
 complete partial cover can outrank a full but much larger cover (containment 0.995 with
@@ -1342,6 +1351,28 @@ SET VARIABLE request = (
           WHERE node_kind = 'item' GROUP BY class_id));
 SELECT * FROM find_covering_entities_for(getvariable('request'), 20);
 ```
+
+**Many requests at once.** A table function takes one constant query, and `LATERAL` with a
+column argument is not supported. To rank the archive for many requests, build one map per
+request and per candidate and score all pairs with the scalars:
+
+```sql
+CREATE TABLE requests AS
+SELECT request_id, map_from_entries(list((class_id, n))) AS classes
+FROM (SELECT request_id, class_id, sum(count)::DOUBLE AS n FROM request_items GROUP BY ALL)
+GROUP BY request_id;
+CREATE TABLE candidates AS
+SELECT entity_id, map_from_entries(list((feature_id, weight))) AS classes
+FROM feature_multiset GROUP BY entity_id;
+
+SELECT r.request_id, c.entity_id,
+       weighted_containment(r.classes, c.classes) + 0.01 * weighted_jaccard(r.classes, c.classes) AS score
+FROM requests r, candidates c
+QUALIFY row_number() OVER (PARTITION BY r.request_id ORDER BY score DESC, c.entity_id) <= 20;
+```
+
+The scores equal those of `find_covering_entities_for`. The scalars process about 10⁵ pairs in
+0.15 s.
 
 **Choosing the measure (risk R1 in the BRD):** containment is the right question once the
 candidates' labels are reliable (reviewed vocabulary). On unreviewed labels a mislabelled

@@ -408,3 +408,25 @@ statement error
 SELECT * FROM find_covering_entities('S2', 3, weighted := true, weight_col := NULL, feature_table := 'ms');
 ----
 weighted := true needs a weight_col
+
+# ---------------------------------------------------------------- before-PR fixes (R1-3)
+
+# weights are checked on every row, also where the entity or feature is NULL, and the
+# message names the row
+statement ok
+CREATE TABLE neg_null AS SELECT * FROM (VALUES ('E1', 'f', 1.0), (NULL, 'f', -1.0), ('E2', 'f', 1.0))
+    t(entity_id, feature_id, weight);
+
+statement error
+SELECT * FROM find_covering_entities('E1', 3, feature_table := 'neg_null');
+----
+weights must be non-negative (entity NULL, feature f in neg_null)
+
+# a table without the default weight column gets a hint
+statement ok
+CREATE TABLE two_cols AS SELECT 'E1' AS entity_id, 'f' AS feature_id;
+
+statement error
+SELECT * FROM find_covering_entities('E1', 3, feature_table := 'two_cols');
+----
+pass weight_col := '<column>', or weight_col := NULL for unit weights
