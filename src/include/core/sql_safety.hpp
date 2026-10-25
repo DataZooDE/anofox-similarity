@@ -131,5 +131,42 @@ inline void ValidateTableColumns(ClientContext &context, const string &table_pat
 	}
 }
 
+//! Whether a (possibly qualified) table has a column. Relations that are not tables
+//! (views, unresolvable paths) report true and leave the check to the inner query.
+inline bool TableHasColumn(ClientContext &context, const string &table_path, const string &column) {
+	vector<string> parts;
+	string current;
+	for (auto ch : table_path) {
+		if (ch == '.') {
+			parts.push_back(current);
+			current.clear();
+		} else {
+			current += ch;
+		}
+	}
+	parts.push_back(current);
+	if (parts.size() > 3) {
+		return true;
+	}
+	string catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
+	string schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
+	optional_ptr<CatalogEntry> entry;
+	try {
+		EntryLookupInfo lookup_info(CatalogType::TABLE_ENTRY, duckdb_compat::EntryName(parts.back()));
+		entry = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name),
+		                          lookup_info, OnEntryNotFound::RETURN_NULL);
+		if (!entry && parts.size() == 2) {
+			entry = Catalog::GetEntry(context, duckdb_compat::Ident(parts[0]), duckdb_compat::Ident(INVALID_SCHEMA),
+			                          lookup_info, OnEntryNotFound::RETURN_NULL);
+		}
+	} catch (...) {
+		return true;
+	}
+	if (!entry || entry->type != CatalogType::TABLE_ENTRY) {
+		return true;
+	}
+	return entry->Cast<TableCatalogEntry>().ColumnExists(duckdb_compat::Ident(column));
+}
+
 } // namespace anofox
 } // namespace duckdb
