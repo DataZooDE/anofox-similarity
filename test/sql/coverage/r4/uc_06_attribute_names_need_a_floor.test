@@ -11,12 +11,13 @@ CREATE TABLE names AS SELECT name, attr_key, vec::FLOAT[] AS vec
 FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
 
 statement ok
-SET VARIABLE floor = (SELECT floor FROM cosine_floor('names', 'vec'));
+SET VARIABLE floor = (SELECT floor FROM cosine_floor('names', 'vec', sample := 20000));
 
-query I
-SELECT getvariable('floor') BETWEEN 0.80 AND 0.90;
+# 170 names, all 14 365 pairs (the sample is large enough)
+query II
+SELECT getvariable('floor') BETWEEN 0.80 AND 0.90, (SELECT n_pairs FROM cosine_floor('names', 'vec', sample := 20000));
 ----
-true
+true	14365
 
 statement ok
 CREATE TABLE pairs AS
@@ -33,8 +34,8 @@ FROM pairs;
 ----
 true	true	true
 
-# a sample estimate stays close to the exact floor
-query I
-SELECT abs((SELECT floor FROM cosine_floor('names', 'vec', sample := 2000)) - getvariable('floor')) < 0.01;
+# a sample of 2 000 pairs stays close to the exact floor
+query II
+SELECT abs(floor - getvariable('floor')) < 0.01, n_pairs FROM cosine_floor('names', 'vec', sample := 2000);
 ----
-true
+true	2000

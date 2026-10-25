@@ -26,7 +26,7 @@ CREATE TABLE archive AS SELECT * FROM (VALUES
 #   Heiz   heating 0.9 / ventilation 0.1   -> margin 0.8, 1 tree  -> impact 0.2
 statement ok
 CREATE TABLE word_decisions AS SELECT * FROM (VALUES
-    (NULL, 'Klima', 'internal', 'seat_heating', 0.55, 1, 0.1),
+    (NULL::VARCHAR, 'Klima', 'internal', 'seat_heating', 0.55::DOUBLE, 1, 0.1::DOUBLE),
     (NULL, 'Klima', 'internal', 'seat_ventilation', 0.45, 2, 0.1),
     (NULL, 'Lüfter', 'internal', 'seat_ventilation', 0.7, 1, 0.4),
     (NULL, 'Lüfter', 'internal', 'seat_heating', 0.3, 2, 0.4),
@@ -160,3 +160,61 @@ statement error
 SELECT * FROM uncertain_decisions(decisions := 'decided', threshold := 0.2, share := 0.5);
 ----
 either threshold or share
+
+# ---------------------------------------------------------------- merge and averaging details (red review R4-1)
+
+# existing entries not touched by the review survive; a NULL source is its own key; the review's
+# reviewed_at is kept
+statement ok
+CREATE TABLE old_overrides AS SELECT * FROM (VALUES
+    ('Alt', 'internal', 'seat_frame', 'carol', TIMESTAMP '2026-01-01 00:00:00'),
+    ('Klima', NULL::VARCHAR, 'seat_heating', 'carol', TIMESTAMP '2026-01-01 00:00:00'))
+    t(wording, source, class_id, reviewed_by, reviewed_at);
+
+statement ok
+CREATE TABLE review2 AS SELECT * FROM (VALUES
+    ('Klima', 'internal', 'seat_ventilation', 'dave', TIMESTAMP '2026-10-20 10:00:00'))
+    t(wording, source, class_id, reviewed_by, reviewed_at);
+
+query TTTTT
+SELECT wording, source, class_id, reviewed_by, reviewed_at FROM apply_vocabulary_review('review2', overrides_table := 'old_overrides');
+----
+Alt	internal	seat_frame	carol	2026-01-01 00:00:00
+Klima	internal	seat_ventilation	dave	2026-10-20 10:00:00
+Klima	NULL	seat_heating	carol	2026-01-01 00:00:00
+
+# averaging per wording divides by the decided occurrences: a node without a ventilation row
+# counts as 0 for ventilation (P1: heating 1; P2: heating 0.5, ventilation 0.5 -> 0.75 / 0.25)
+statement ok
+CREATE TABLE partial AS SELECT * FROM (VALUES
+    ('P1', 'P1.k', 'internal', 'seat_heating', 1.0),
+    ('P2', 'P2.k', 'internal', 'seat_heating', 0.5), ('P2', 'P2.k', 'internal', 'seat_ventilation', 0.5))
+    t(tree_id, node_id, source, class_id, p);
+
+query TRTR
+SELECT top1, round(p1, 6), top2, round(p2, 6) FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'partial');
+----
+seat_heating	0.75	seat_ventilation	0.25
+
+# a positive sources filter keeps the family
+query I
+SELECT count(*) FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'word_decisions', sources := ['internal']);
+----
+3
+
+# containers are not items, even when their label matches a wording
+statement ok
+CREATE TABLE archive2 AS SELECT * FROM archive UNION ALL
+SELECT 'P4', 'P4', NULL, 'container', 'AND', 'Klima', NULL, 1.0, 'internal';
+
+query I
+SELECT n_trees_affected FROM vocabulary_review_queue(trees_table := 'archive2', decisions := 'word_decisions') WHERE wording = 'Klima';
+----
+3
+
+# uncertain_decisions defaults: threshold 0.2, top 3
+query TI
+SELECT node_id, len(string_split(request, '"class_id"')) - 1 FROM uncertain_decisions(decisions := 'decided');
+----
+u3	3
+u1	2

@@ -176,3 +176,110 @@ statement error
 SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', overrides_table := 'overrides');
 ----
 label
+
+# ---------------------------------------------------------------- edge cases (red review R4-1)
+
+# a source with a single item centres to the zero vector: no evidence, a uniform distribution
+statement ok
+CREATE TABLE lonely AS SELECT * FROM (VALUES ('l1', 'solo', [1.0, 0.0])) t(node_id, source, vec);
+
+query TR
+SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'lonely', catalogue_table := 'cat') ORDER BY rank;
+----
+A	0.333333
+B	0.333333
+C	0.333333
+
+# centring is per source: [1,1] and [1,-1] in s1, [-1,1] and [-1,-1] in s2 both centre to [0,±1]
+statement ok
+CREATE TABLE two_src AS SELECT * FROM (VALUES
+    ('a1', 's1', [1.0, 1.0]), ('a2', 's1', [1.0, -1.0]), ('b1', 's2', [-1.0, 1.0]), ('b2', 's2', [-1.0, -1.0]))
+    t(node_id, source, vec);
+
+query TT
+SELECT node_id, class_id FROM classify_to_catalogue(items_table := 'two_src', catalogue_table := 'cat')
+WHERE rank = 1 AND node_id IN ('a1', 'b1') ORDER BY node_id;
+----
+a1	B
+b1	B
+
+# a one-class catalogue gives p = 1 and margin 1
+statement ok
+CREATE TABLE one_class AS SELECT 'A' AS class_id, [1.0, 0.0] AS vec;
+
+query TRR
+SELECT class_id, p, margin FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'one_class', center_by_source := false);
+----
+A	1.0	1.0
+
+# items without a vector are skipped
+statement ok
+CREATE TABLE with_null AS SELECT * FROM (VALUES ('n1', [1.0, 0.0]), ('n2', NULL)) t(node_id, vec);
+
+query T
+SELECT DISTINCT node_id FROM classify_to_catalogue(items_table := 'with_null', catalogue_table := 'cat', center_by_source := false);
+----
+n1
+
+# vectors of different dimensions are an error
+statement ok
+CREATE TABLE wide AS SELECT 'w1' AS node_id, [1.0, 0.0, 0.0] AS vec;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'wide', catalogue_table := 'cat', center_by_source := false);
+----
+dimension
+
+# the bonus with name vectors: per attribute the best same-dimension template, averaged over
+# all the item's attributes (one without a dimension counts as 0):
+#   travel vs A ('adjustment travel' cos 0.8 -> 0.6, 'stroke' cos 0.6 -> 0.2) -> 0.6
+#   speed  vs B ('adjustment speed' cos 1 -> 1)
+#   bonus A = 0.6 / 3 = 0.2, B = 1 / 3, C = 0; a zero item vector gives z = 0
+#   softmax(bonus / 0.3) -> A 0.325411, B 0.507518, C 0.167071
+statement ok
+CREATE TABLE zero_item AS SELECT * FROM (VALUES ('T', 'z', [0.0, 0.0])) t(tree_id, node_id, vec);
+
+statement ok
+CREATE TABLE z_attrs AS SELECT * FROM (VALUES
+    ('T', 'z', 'travel', 'length'), ('T', 'z', 'speed', 'speed'), ('T', 'z', 'colour', NULL::VARCHAR))
+    t(tree_id, node_id, name, dimension);
+
+statement ok
+CREATE TABLE z_templates AS SELECT * FROM (VALUES
+    ('A', 'length', 'adjustment travel'), ('A', 'length', 'stroke'), ('B', 'speed', 'adjustment speed'))
+    t(class_id, dimension, name_en);
+
+statement ok
+CREATE TABLE z_names AS SELECT * FROM (VALUES
+    ('travel', [1.0, 0.0]), ('adjustment travel', [0.8, 0.6]), ('stroke', [0.6, 0.8]),
+    ('speed', [0.0, 1.0]), ('adjustment speed', [0.0, 1.0])) t(name, vec);
+
+query TR
+SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'zero_item', catalogue_table := 'cat',
+       center_by_source := false, attrs_table := 'z_attrs', templates_table := 'z_templates', name_vectors := 'z_names',
+       name_floor := 0.5)
+ORDER BY rank;
+----
+B	0.507518
+A	0.325411
+C	0.167071
+
+# a per-item decision beats a wording override; a NULL tree_id matches items without trees
+statement ok
+CREATE TABLE both_kinds AS SELECT * FROM (VALUES (NULL::VARCHAR, 'i1', 'B')) t(tree_id, node_id, class_id);
+
+statement ok
+CREATE TABLE no_tree AS SELECT * FROM (VALUES ('i1', 'Heizmatte', [1.0, 0.0])) t(node_id, label, vec);
+
+query TT
+SELECT class_id, overridden FROM classify_to_catalogue(items_table := 'no_tree', catalogue_table := 'cat',
+       center_by_source := false, overrides_table := 'overrides', decisions_table := 'both_kinds') WHERE rank = 1;
+----
+B	true
+
+# without overrides_table no override applies (the default is NULL, HLD §11.12)
+query TT
+SELECT class_id, overridden FROM classify_to_catalogue(items_table := 'no_tree', catalogue_table := 'cat',
+       center_by_source := false) WHERE rank = 1;
+----
+A	false

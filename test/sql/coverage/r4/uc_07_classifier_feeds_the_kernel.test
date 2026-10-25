@@ -46,8 +46,7 @@ CREATE TABLE name_vectors AS
 SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
 
 statement ok
-SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
-                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec', sample := 20000));
 
 statement ok
 SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);

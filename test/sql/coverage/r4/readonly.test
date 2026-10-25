@@ -1,0 +1,61 @@
+# name: test/sql/coverage/r4/readonly.test
+# description: The R4 table functions inline their SQL, so they work on a read-only database.
+# group: [coverage]
+
+require anofox_similarity
+
+load __TEST_DIR__/coverage_r4_readonly.db
+
+statement ok
+CREATE TABLE cat AS SELECT * FROM (VALUES ('A', [1.0, 0.0]::DOUBLE[]), ('B', [0.0, 1.0]::DOUBLE[])) t(class_id, vec);
+
+statement ok
+CREATE TABLE items AS SELECT * FROM (VALUES ('T', 'i1', 'Heiz', 'internal', [1.0, 0.2]::DOUBLE[]), ('T', 'i2', 'Klima', 'internal', [0.6, 0.5]::DOUBLE[]))
+    t(tree_id, node_id, label, source, vec);
+
+statement ok
+CREATE TABLE nodes AS SELECT * FROM (VALUES ('T', 'i1', 'item', 'Heiz', 'internal'), ('T', 'i2', 'item', 'Klima', 'internal'))
+    t(tree_id, node_id, node_kind, label, source);
+
+statement ok
+CREATE TABLE review AS SELECT 'Klima' AS wording, 'internal' AS source, 'B' AS class_id;
+
+statement ok
+CREATE TABLE items_decided AS SELECT * FROM classify_to_catalogue(items_table := 'items', catalogue_table := 'cat',
+                                                                  center_by_source := false);
+
+load __TEST_DIR__/coverage_r4_readonly.db readonly
+
+statement ok
+LOAD anofox_similarity
+
+statement error
+CREATE TABLE proof_readonly(x INTEGER);
+----
+read-only
+
+query I
+SELECT count(*) FROM classify_to_catalogue(items_table := 'coverage_r4_readonly.main.items', catalogue_table := 'cat',
+                                           center_by_source := false);
+----
+4
+
+query I
+SELECT n_pairs FROM cosine_floor('cat', 'vec');
+----
+1
+
+query I
+SELECT count(*) FROM apply_vocabulary_review('review', overrides_table := NULL);
+----
+1
+
+query I
+SELECT count(*) FROM vocabulary_review_queue(trees_table := 'nodes', decisions := 'items_decided');
+----
+2
+
+query I
+SELECT count(*) > 0 FROM uncertain_decisions(decisions := 'items_decided', threshold := 2.0);
+----
+true
