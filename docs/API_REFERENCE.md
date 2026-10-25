@@ -1494,6 +1494,15 @@ down the tree, add across AND siblings and never add across OR alternatives.
 | `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |
 | `validate_trees(nodes_table [, attrs_table], tree_ids := ...)` | `(tree_id, node_id, attr_id, issue, severity, detail)`. Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, unreachable, too_deep, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (per source and name) |
 
+Examples:
+
+```sql
+SELECT * FROM validate_trees('programme_nodes', 'programme_attributes') WHERE severity = 'error';
+SELECT node_id, class_id, effective_count, anchor_path FROM tree_anchors('programme_nodes', tree_ids := ['P001']);
+CREATE TABLE programme_index AS SELECT * FROM tree_class_multiset('programme_nodes', overrides_table := 'vocabulary_overrides');
+SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content, NULL, 'de')) AS n FROM read_text('specs/*.json'));
+```
+
 **Class resolution** (shared by both stages): `class_id` → `overrides_table` (the reviewed
 vocabulary: `wording` matched exactly against `label`; a NULL `source` matches any source) →
 `label_table` (classifier output `tree_id, node_id, class_id, p`: arg-max, ties to the lowest
@@ -1560,17 +1569,44 @@ value below 1. It does not depend on how soft the labels are. A required attribu
 matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
 a share for within and point, and in K for temperature.
 
-**Example: the gap list of the best programme**
+**Recommended setup.** Calibrate the attribute-name floor once per corpus. It is the median
+cosine between unrelated names:
+
+```sql
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+```
+
+**Example: the gap list of the best programme.** The trace takes the same parameters as the
+ranking, so it explains the same score:
 
 ```sql
 SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,
-                       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
-                       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
-                       templates_table := 'catalogue_attributes') WHERE rank = 1);
-SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3)
-FROM tree_coverage_trace('R07', candidates := [getvariable('top')], ...)
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
+       templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
+    WHERE rank = 1);
+
+SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3) AS distance
+FROM tree_coverage_trace('R07', candidates := [getvariable('top')],
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
+       templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
 WHERE is_gap;
 ```
+
+**Request alternatives.** A request may list alternatives (OR edges). The best alternative
+counts. Every node gives (sum of requirement scores, number of requirements); an OR group
+takes the alternative with the best mean; coverage = sum / number. Alternatives that were not
+chosen do not appear in `n_requirements`, `n_gaps` or the trace.
+
+**`coverage_kernel(query, candidate, options)`** is the building block behind the table
+functions: a scalar over two packed node lists. It is public for custom pipelines, and its
+input types are checked.
 
 **Large archives.** Index the archive once and rank against the index:
 
@@ -1596,6 +1632,7 @@ Soft distributions are normalised to 1.
 **Benchmark** (80 requests at once, reviewed vocabulary, catalogue bounds, name vectors):
 recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable
 flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s on a laptop.
+
 ---
 
 ## Function Coverage Matrix

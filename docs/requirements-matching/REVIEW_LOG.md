@@ -315,3 +315,28 @@ classifier. It moves to R4.
 | F14 | low | One bad candidate tree aborts stage 1 for all | Deferred: validate_trees is the tool for that, and errors name the tree in tree_multiset |
 | F15 | low | TableExists fails open; duplicated helpers | Kept: a failure falls through to the column check, which errors; consolidation deferred to the R5 refactor |
 | F16 | low | Supplier class_id counts as reviewed | Documented (HLD §11.10) |
+
+## R3-5 — 2026-10-25 — before the R3 milestone (end-of-release review)
+
+- **Crew:** correctness, usability, testing, design (codex/claude). Verdict:
+  REQUEST_CHANGES.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | The kernel ignores request-side OR alternatives | Fixed (red test first): best alternative by mean, coverage = sum / number (HLD §11.11). The benchmark has no OR edges, so its KPIs are unchanged |
+| F2 | high | No R3 read-only test | Added r3/readonly.test (three-part paths, all functions) |
+| F3 | high | API examples not runnable; heading bug | Gap-list example written out in full, name_floor recipe, tree-function examples, blank line before `---` |
+| F4 | med | Partition-vs-best-match failure mode not tracked | Tracked here as an open R4 DoD item; it needs the classifier's soft labels |
+| F5 | med | No named-argument test for tree_from_json | Added (documented order) |
+| F6 | med | KPI joins can drop pairs silently | Guard added: 80 requests, 1 600 pairs with ground truth |
+| F7 | med | Missing ids are dropped silently | Documented behaviour (as for find_covering_entities); a strict mode is deferred |
+| F8 | med | Errors name the wrong parameter | Fixed: candidate_* names; a missing table names its parameter |
+| F9 | med | coverage_kernel status undocumented | Documented as the public building block |
+| F10 | low | Non-finite counts pass validate_trees / tree_multiset | Fixed |
+| F11 | low | Doc drift | Test README updated; function count stays an approximation ("about 65") |
+| F12 | low | tree_anchors truncates at depth 1000 | Kept: documented, and validate_trees reports too_deep |
+| F13 | low | Helpers copied again | TableExists shared; ParseSubquery/Quoted consolidation deferred to the R5 refactor |
+| F14 | low | recall_mode vs mode | Kept: `mode` in coverage_recall matches find_covering_entities; `recall_mode` in tree_coverage avoids a clash with stage 2. Documented |
+
+**R3 status:** done on DuckDB 1.5.6 and 2.0. Remaining DoD item for R4: the
+partition-on-unreviewed-labels failure mode.

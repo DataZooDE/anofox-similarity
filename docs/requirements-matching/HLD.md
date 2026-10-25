@@ -647,3 +647,9 @@ precedence over the text above.
      missing from the index is not scored.
    - An empty id list selects nothing. Soft distributions are normalised. Counts must be
      positive and finite.
+11. **Request alternatives (R3, REVIEW_LOG R3-5).** The kernel aggregates the request tree:
+    every node gives (sum of requirement scores, number of requirements); an OR group takes
+    the alternative with the best mean (ties: the lowest alternative id; an alternative
+    without items counts as fully met); coverage = sum / number. This reconciles §4.6's "OR
+    node: max over children" with "mean over request items", and is unchanged for trees
+    without OR. Alternatives that were not chosen are not requirements for that candidate.
