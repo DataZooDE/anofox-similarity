@@ -171,7 +171,7 @@ FROM sap_to_materials_with_desc(
 
 ## 📚 API Reference
 
-The extension provides about 55 functions organized into 9 functional categories:
+The extension provides about 65 functions organized into 9 functional categories:
 
 ### Core Similarity Algorithms
 - **Jaccard Similarity** - Component overlap detection (O(n) time)
@@ -192,6 +192,8 @@ The extension provides about 55 functions organized into 9 functional categories
 - **Directional set measures** - containment, Tversky, weighted (count-aware) variants
 - **Covering search** - rank past solutions by how much of a request they cover (`find_covering_entities[_for]`)
 - **Quantities** - parse EN/DE limits with units (`parse_quantity`), normalise them, and check them with a direction (`value_satisfies`); ordinal classes via curated rules (`compat_score`)
+- **Property trees** - load extracted specs from JSON (`tree_from_json`), flatten, validate and summarise them (`tree_anchors`, `validate_trees`, `tree_class_multiset`)
+- **Explainable coverage** - "80 % covered, these 3 gaps": stage-1 recall plus a stage-2 kernel with partition or best match, OR variants and a per-requirement trace (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`)
 
 ### Infrastructure
 - **Vector Search (HNSW)** - Approximate nearest neighbor search

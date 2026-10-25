@@ -32,7 +32,7 @@
 
 ## Overview
 
-The anofox-similarity extension provides about 55 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 65 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
@@ -1161,7 +1161,8 @@ The extension creates several database objects on load for embedding storage and
 > via `CREATE MACRO`) is **not** available, since macro registration needs a writable catalog. The
 > core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
 > `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`, `find_covering_entities`,
-> `find_covering_entities_for`, `quantity_units`) and all scalar functions
+> `find_covering_entities_for`, `quantity_units`, `tree_anchors`, `tree_class_multiset`, `validate_trees`,
+> `tree_coverage`, `tree_coverage_trace`, `coverage_recall`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1475,6 +1476,104 @@ SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimensi
 
 **Performance:** about 0.3 s per 10⁵ values for `parse_quantity` and 0.4 s per 10⁵ pairs for
 `value_satisfies`.
+
+### Property trees
+
+Requests and offers are trees (HLD §3.2): `tree_nodes(tree_id, node_id, parent_id, node_kind,
+edge_type, label, class_id, count[, source, context])` and `tree_attributes(tree_id, node_id,
+attr_id, name, dimension, unit, lo, hi[, bound, category])`, with values in base units. Item
+nodes are compared. Containers and variant groups are transparent, so grouping levels do not
+have to align (BR-04). OR edges mark alternatives, and counts are extensive: they multiply
+down the tree, add across AND siblings and never add across OR alternatives.
+
+| Function | Purpose |
+|---|---|
+| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node |
+| `tree_anchors(nodes_table [, attrs_table], overrides_table, label_table, tree_ids)` | One row per item: class, reviewed, `effective_count`, `depth`, `anchor_path` (ancestors), `variant_path` (OR choices, the item included), `n_attributes` |
+| `tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)` | `(entity_id, feature_id, weight, reviewed)` for stage 1; the elementwise maximum across OR alternatives (an optimistic bound) |
+| `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |
+| `validate_trees(nodes_table [, attrs_table], tree_ids := ...)` | `(tree_id, node_id, attr_id, issue, severity, detail)`. Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, unreachable, too_deep, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (per source and name) |
+
+**Class resolution** (shared by both stages): `class_id` → `overrides_table` (the reviewed
+vocabulary: `wording` matched exactly against `label`; a NULL `source` matches any source) →
+`label_table` (classifier output `tree_id, node_id, class_id, p`: arg-max, ties to the lowest
+class). A tree is *reviewed* when every item got its class from `class_id` or the vocabulary.
+Trees deeper than 1000 levels are rejected (`tree_anchors` stops there).
+
+### Coverage: tree_coverage, tree_coverage_trace, coverage_recall
+
+```sql
+tree_coverage(query_tree_id VARCHAR | VARCHAR[], <named>)
+  → TABLE(query_id, candidate_id, coverage, stage1_score, rank_score, rank, n_requirements, n_gaps,
+          reviewed, assignment_used)
+tree_coverage_trace(query_tree_id, <named>)
+  → TABLE(query_id, candidate_id, req_node_id, matched_node_id, matched_path, label_sim, attr_id, attr_name,
+          req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score,
+          count_needed, count_available, req_score, is_gap)
+coverage_recall(query_tree_id, <named>)
+  → TABLE(query_id, candidate_id, score, containment, jaccard, reviewed, mode_used, rank)
+```
+
+**Pipeline.** Stage 1 ranks the candidate trees by their class multisets, using containment
+(+ `tie_break` × Jaccard) when every candidate tree is reviewed and weighted Jaccard otherwise
+(BRD risk R1). It keeps the top `k` per query. Stage 2 runs the kernel over those candidates:
+
+```
+attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score     (categorical: compat_score)
+a(q, c)     = mean over q's attributes of the best attr(x, ·)                 (1 without attributes)
+L(q, c)     = Bhattacharyya(p(q), p(c))   or 0/1 with labels := 'hard'
+score(q, c) = label_weight·L + (1 − label_weight)·L·a                         (default label_weight 0)
+req(q)      = best score × min(1, Σ counts of compatible items with L ≥ count_gate / count(q))
+coverage    = mean req(q);  rank_score = coverage + stage1_weight · stage1_score
+```
+
+`assignment := 'partition'` gives each candidate item to the requirement it agrees with most
+(ties: the largest remaining count need, then the lowest node id). An item may then not stand
+in for another function (BR-06), and one item serves one requirement. OR alternatives are
+options: every tied requirement may choose them, and each requirement uses its best variant.
+`'best_match'` lets requirements share items. `'auto'` (default) uses partition for reviewed
+candidate trees.
+
+**Named parameters**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `candidates` | NULL | explicit candidate tree ids; NULL → stage-1 top `k` (the query tree is never its own candidate) |
+| `k` | 20 | stage-1 depth |
+| `nodes_table`, `attrs_table` | `'tree_nodes'`, `'tree_attributes'` | the query trees; `attrs_table := NULL` for none |
+| `candidate_nodes_table`, `candidate_attrs_table` | the query tables | the candidate trees |
+| `overrides_table`, `label_table` | NULL | class resolution (see above) |
+| `labels` | `'soft'` | `'soft'` uses the classifier's probabilities; `'hard'` uses one class |
+| `assignment` | `'auto'` | `'partition'`, `'best_match'`, `'auto'` |
+| `label_weight` | 0.0 | λ: label credit independent of the values (HLD §11.2) |
+| `mu` | 0.2 | weight of the attribute-name similarity (names only discount, BR-16) |
+| `partition_gate`, `count_gate` | 0.3, 0.5 | minimum label agreement for a block / for counting instances |
+| `stage1_weight`, `tie_break` | 0.05, 0.01 | stage-1 score in the rank; Jaccard tie-break in stage 1 |
+| `recall_mode` (`mode` in `coverage_recall`) | `'auto'` | `'containment'`, `'jaccard'`, `'auto'` |
+| `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: an unqualified requirement takes the bound of its template with the same class and dimension (none when ambiguous) |
+| `rules_table` | NULL | compatibility rules for categorical attributes (no rule: equal → 1) |
+| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap |
+
+**Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
+value below 1. It does not depend on how soft the labels are. A required attribute that the
+matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
+a share for within and point, and in K for temperature.
+
+**Example: the gap list of the best programme**
+
+```sql
+SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,
+                       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+                       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
+                       templates_table := 'catalogue_attributes') WHERE rank = 1);
+SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3)
+FROM tree_coverage_trace('R07', candidates := [getvariable('top')], ...)
+WHERE is_gap;
+```
+
+**Benchmark** (80 requests at once, reviewed vocabulary, catalogue bounds, name vectors):
+recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable
+flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s on a laptop.
 ---
 
 ## Function Coverage Matrix
@@ -1495,8 +1594,8 @@ SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimensi
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
 | **Infrastructure** | Macro | 1 | create_bom_property_graph |
-| **Coverage matching** | Scalar + Table + Macro | 12 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score |
-| **TOTAL** | | **~54** | Complete API |
+| **Coverage matching** | Scalar + Table + Macro | 21 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall |
+| **TOTAL** | | **~63** | Complete API |
 
 ---
 

@@ -607,3 +607,27 @@ precedence over the text above.
      attribute_on_container, orphan_attribute, bad_interval, bad_bound); warnings are
      data-quality issues (mixed_edge_types, unknown_unit, and mixed_dimensions, scoped per
      source and attribute name).
+9. **Coverage kernel conventions (R3).**
+   - λ is the parameter `label_weight`; `lambda` is a reserved word in DuckDB.
+   - `tree_coverage(query_tree_id | list, …)`, `tree_coverage_trace(…)` and
+     `coverage_recall(…)` take the named parameters listed in the API reference, including
+     `candidate_nodes_table`/`candidate_attrs_table` (default: the query tables), `candidates`
+     (explicit ids, else the stage-1 top `k`), `recall_mode`, `templates_table` (default
+     `catalogue_attributes`), `rules_table`, `name_vectors` and `name_floor`. The output carries
+     `query_id` and `rank_score` (= coverage + `stage1_weight` × stage-1 score).
+   - Without explicit candidates, a query tree is never its own candidate, and stage 1 keeps
+     only candidates with a positive score.
+   - Candidate items are processed in node-id order. **OR alternatives are options**: under
+     partition they join every tied requirement block, and each requirement uses its best
+     variant (§4.6 "best variant per requirement"). One-to-one (§11.4) applies to AND items.
+     Counts add only over items compatible with the chosen one, never across alternatives.
+   - Trace grain: one row per request item and required attribute (one row without
+     attributes). A required attribute that the matched item lacks gives `gate = true`. A
+     requirement without a counterpart gives rows with `matched_node_id` NULL. `is_gap` =
+     no counterpart, a count shortfall or any value below 1, independent of label softness.
+   - A categorical requirement without a dimension (`parse_quantity` gives none for
+     `IP54 or better`) matches categorical offers of any dimension through
+     `compatibility_rules`. A template is *ambiguous* when one (class, dimension) has several
+     bounds; then no default bound applies.
+   - Until R4 provides the classifier, benchmark tests take the request items' classes from
+     the benchmark labels as a stand-in for upstream labelling.

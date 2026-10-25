@@ -222,7 +222,8 @@ oracle and KPI feasibility are described in
 | R0 | `test/sql/coverage/r0/` | The dataset loads and is consistent (trees, gold labels, vectors) |
 | R0 | `scripts/tests/` (`cd scripts && uv run pytest`) | Generator: determinism, size, leakage, noise rates, vector calibration, oracle, BRD KPI feasibility |
 | R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_08` (uc_08: all 80 benchmark requests at once, stage-1 recall@20 ≥ 0.90) |
-| R2 | `test/sql/coverage/r2/` | `quantity_units`, `parse_quantity`, `normalize_quantity`, `value_satisfies`, `compat_score`; scenarios `uc_01`–`uc_09` (uc_06 parses all 2 736 benchmark values exactly) |
+| R2 | `test/sql/coverage/r2/` | `quantity_units`, `parse_quantity`, `normalize_quantity`, `value_satisfies`, `compat_score`; scenarios `uc_01`–`uc_09` (uc_06 parses all 2 736 benchmark values exactly); `parser_regressions.test` |
+| R3 | `test/sql/coverage/r3/` | Tree store (`tree_from_json`, `tree_anchors`, `tree_class_multiset`, `validate_trees`, robustness), kernel (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`); scenarios `uc_01`–`uc_09`, including **uc_06: the six BRD §6 KPIs on all 80 requests** and the stage-1 failure mode on unreviewed labels |
 
 The dataset is regenerated with
 `cd scripts && uv run generate-coverage-data --seed 7 --output ../test/data/coverage/`, and
