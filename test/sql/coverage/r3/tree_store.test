@@ -361,29 +361,29 @@ CREATE TABLE broken_attrs AS SELECT * FROM (VALUES
 # 'travel' is length and time within source src1 (X and Z): those attributes are mixed;
 # W uses 'travel' as time in another source, which is not mixed (scope: source and name)
 query TTTTT
-SELECT tree_id, coalesce(node_id, ''), coalesce(attr_id, ''), issue, severity
+SELECT tree_id, coalesce(node_id, '-'), coalesce(attr_id, '-'), issue, severity
 FROM validate_trees('broken_nodes', 'broken_attrs')
 ORDER BY tree_id, issue, node_id, attr_id;
 ----
 X	X.3	a1	attribute_on_container	error
 X	X.1	a4	bad_bound	error
-X	X.6		bad_count	error
-X	X.7		bad_count	error
-X	X.5		bad_edge_type	error
+X	X.6	-	bad_count	error
+X	X.7	-	bad_count	error
+X	X.5	-	bad_edge_type	error
 X	X.1	a3	bad_interval	error
-X	X.4		bad_node_kind	error
-X	X.1		duplicate_node	error
+X	X.4	-	bad_node_kind	error
+X	X.1	-	duplicate_node	error
 X	X.1	a1	mixed_dimensions	warning
 X	X.3	a1	mixed_dimensions	warning
-X	X.2		orphan	error
+X	X.2	-	orphan	error
 X	X.8	a1	orphan_attribute	error
 X	X.1	a2	unknown_unit	warning
-Y	Y.a		cycle	error
-Y	Y.b		cycle	error
-Y			no_root	error
+Y	Y.a	-	cycle	error
+Y	Y.b	-	cycle	error
+Y	-	-	no_root	error
 Z	Z1.a	a1	mixed_dimensions	warning
-Z	Z1		mixed_edge_types	warning
-Z			multiple_roots	error
+Z	Z1	-	mixed_edge_types	warning
+Z	-	-	multiple_roots	error
 
 # tree_anchors terminates on broken trees: the cycle and the orphan have no root path
 query T
