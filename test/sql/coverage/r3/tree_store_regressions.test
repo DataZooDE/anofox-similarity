@@ -202,3 +202,19 @@ SELECT * FROM tree_coverage('I', candidates := ['I'], nodes_table := 'inf_nodes'
                             candidate_nodes_table := 'inf_nodes', candidate_attrs_table := 'no_such_table');
 ----
 candidate_attrs_table
+
+# an overrides table without a source column applies to every source (one contract with
+# classify_to_catalogue and the review functions)
+statement ok
+CREATE TABLE src_nodes AS SELECT * FROM (VALUES
+    ('W', 'W', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('W', 'W.1', 'W', 'item', 'AND', 'Heizmatte', NULL, 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE ov_nosource AS SELECT 'Heizmatte' AS wording, 'seat_heating' AS class_id;
+
+query TT
+SELECT class_id, reviewed FROM tree_anchors('src_nodes', overrides_table := 'ov_nosource');
+----
+seat_heating	true

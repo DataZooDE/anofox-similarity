@@ -887,24 +887,7 @@ unique_ptr<FunctionData> CoverageKernelBind() {
 // Table functions
 //------------------------------------------------------------------------------
 
-unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &fn) {
-	auto statements = duckdb_compat::ParseStatements(context, query);
-	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
-		throw ParserException("Failed to parse %s query", fn);
-	}
-	auto &select_stmt = statements[0]->Cast<SelectStatement>();
-	auto new_stmt = make_uniq<SelectStatement>();
-	new_stmt->node = std::move(select_stmt.node);
-	return make_uniq<SubqueryRef>(std::move(new_stmt));
-}
 
-string Quoted(const string &path) {
-	string out = "\"";
-	for (auto ch : path) {
-		out += ch == '.' ? string("\".\"") : string(1, ch);
-	}
-	return out + "\"";
-}
 
 string D(double v) {
 	return StringUtil::Format("%.17g::DOUBLE", v);
@@ -1113,7 +1096,7 @@ string Stage1SQL(const CoverageParams &p) {
 		),
 		c_ms AS MATERIALIZED (SELECT tree_id, bool_and(reviewed) AS reviewed FROM c_f GROUP BY tree_id),)",
 		                                p.multiset_has_reviewed ? "COALESCE(CAST(reviewed AS BOOLEAN), false)" : "false",
-		                                Quoted(p.multiset_table), filter);
+		                                QuotedIdentifier(p.multiset_table), filter);
 	}
 	return StringUtil::Format(R"(
 		qn AS MATERIALIZED (%s),%s
@@ -1164,7 +1147,7 @@ string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSourc
 	    has("dimension") ? "CAST(a.dimension AS VARCHAR)" : "NULL::VARCHAR",
 	    has("unit") ? "CAST(a.unit AS VARCHAR)" : "NULL::VARCHAR", has("lo") ? "CAST(a.lo AS DOUBLE)" : "NULL::DOUBLE",
 	    has("hi") ? "CAST(a.hi AS DOUBLE)" : "NULL::DOUBLE", has("bound") ? "CAST(a.bound AS VARCHAR)" : "NULL::VARCHAR",
-	    has("category") ? "CAST(a.category AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.attrs_table),
+	    has("category") ? "CAST(a.category AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string templates_join;
@@ -1173,7 +1156,7 @@ string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSourc
 		    " LEFT JOIN (SELECT CAST(class_id AS VARCHAR) AS class_id, CAST(dimension AS VARCHAR) AS dimension, "
 		    "CASE WHEN count(DISTINCT CAST(bound AS VARCHAR)) = 1 THEN any_value(CAST(bound AS VARCHAR)) END AS bound "
 		    "FROM %s GROUP BY ALL) t ON t.class_id = n.class_id AND t.dimension = x.dimension",
-		    Quoted(p.templates_table));
+		    QuotedIdentifier(p.templates_table));
 		default_bound = "t.bound";
 	}
 	string vec = "NULL::DOUBLE[]";
@@ -1181,7 +1164,7 @@ string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSourc
 	if (!p.name_vectors.empty()) {
 		vec_join = StringUtil::Format(" LEFT JOIN (SELECT CAST(name AS VARCHAR) AS name, any_value(CAST(vec AS DOUBLE[])) "
 		                              "AS vec FROM %s GROUP BY ALL) v ON v.name = x.name",
-		                              Quoted(p.name_vectors));
+		                              QuotedIdentifier(p.name_vectors));
 		vec = "v.vec";
 	}
 	return StringUtil::Format(
@@ -1203,7 +1186,7 @@ string LabelsSQL(const TreeSource &src, const string &ids_cte) {
 	    "CAST(class_id AS VARCHAR) AS class_id, sum(CAST(p AS DOUBLE)) AS p FROM %s "
 	    "WHERE CAST(tree_id AS VARCHAR) IN (SELECT tree_id FROM %s) AND class_id IS NOT NULL "
 	    "AND isfinite(CAST(p AS DOUBLE)) AND CAST(p AS DOUBLE) > 0 GROUP BY ALL) GROUP BY tree_id, node_id",
-	    Quoted(src.label_table), ids_cte);
+	    QuotedIdentifier(src.label_table), ids_cte);
 }
 
 string PackedSQL(const string &nodes_cte, const string &attrs_cte, const string &labels_cte, const string &ids_cte) {
@@ -1225,7 +1208,7 @@ string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weigh
 	                   : StringUtil::Format("(SELECT list(struct_pack(dimension := CAST(dimension AS VARCHAR), required "
 	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
 	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
-	                                        Quoted(p.rules_table));
+	                                        QuotedIdentifier(p.rules_table));
 	return StringUtil::Format(
 	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
 	    "name_floor := %s, trace := %s, rules := %s)",
@@ -1279,7 +1262,7 @@ unique_ptr<TableRef> TreeCoverageBindReplace(ClientContext &context, TableFuncti
 		FROM ranked
 		ORDER BY query_id, rank
 	)";
-	return ParseSubquery(sql, context, "tree_coverage");
+	return CoverageSubquery(sql, context, "tree_coverage");
 }
 
 unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1292,7 +1275,7 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
-	return ParseSubquery(sql, context, "tree_coverage_trace");
+	return CoverageSubquery(sql, context, "tree_coverage_trace");
 }
 
 //! fit_coverage_weights: the kernel over reviewed pairs for every grid point (HLD §4.8, BR-52).
@@ -1352,12 +1335,12 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 		FROM k GROUP BY lw, mu
 		ORDER BY rank
 	)",
-	                              Quoted(reviewed), ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c),
+	                              QuotedIdentifier(reviewed), ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c),
 	                              AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
 	                              LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
 	                              PackedSQL("cn", "ca", "cl", "c_ids"), label_weights, mus,
 	                              OptionsSQL(p, false, "g.lw", "g.mu"));
-	return ParseSubquery(sql, context, fn);
+	return CoverageSubquery(sql, context, fn);
 }
 
 unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1369,7 +1352,7 @@ unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunc
 		FROM top
 		ORDER BY query_id, rank
 	)";
-	return ParseSubquery(sql, context, "coverage_recall");
+	return CoverageSubquery(sql, context, "coverage_recall");
 }
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,

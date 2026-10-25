@@ -1,4 +1,5 @@
 #include "modules/property_tree.hpp"
+#include "modules/coverage_sql.hpp"
 #include "modules/quantity.hpp"
 #include "duckdb_compat.hpp"
 #include "compat_anofox/scalar_bind.hpp"
@@ -799,24 +800,7 @@ unique_ptr<FunctionData> TreeMultisetBind() {
 	return nullptr;
 }
 
-unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &fn) {
-	auto statements = duckdb_compat::ParseStatements(context, query);
-	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
-		throw ParserException("Failed to parse %s query", fn);
-	}
-	auto &select_stmt = statements[0]->Cast<SelectStatement>();
-	auto new_stmt = make_uniq<SelectStatement>();
-	new_stmt->node = std::move(select_stmt.node);
-	return make_uniq<SubqueryRef>(std::move(new_stmt));
-}
 
-string Quoted(const string &path) {
-	string out = "\"";
-	for (auto ch : path) {
-		out += ch == '.' ? string("\".\"") : string(1, ch);
-	}
-	return out + "\"";
-}
 
 string OptionalString(const duckdb_compat::BindNamedParameters &named, const string &name, const string &fallback) {
 	auto v = duckdb_compat::FindNamedParameter(named, name);
@@ -925,7 +909,8 @@ void ValidateTreeSource(ClientContext &context, TreeSource &src, const string &f
 	}
 	if (!src.overrides_table.empty()) {
 		src.overrides_table = ValidateSQLIdentifierPath(src.overrides_table, "overrides_table");
-		columns(src.overrides_table, {"wording", "source", "class_id"}, "overrides_table");
+		columns(src.overrides_table, {"wording", "class_id"}, "overrides_table");
+		src.overrides_has_source = TableHasColumn(context, src.overrides_table, "source");
 	}
 	if (!src.label_table.empty()) {
 		src.label_table = ValidateSQLIdentifierPath(src.label_table, "label_table");
@@ -942,19 +927,20 @@ string ResolvedNodesSQL(const TreeSource &src) {
 	    "%s AS context, %s AS source, COALESCE(CAST(\"count\" AS DOUBLE), 1.0) AS count, "
 	    "CAST(class_id AS VARCHAR) AS given_class FROM %s%s",
 	    src.has_context ? "CAST(context AS VARCHAR)" : "NULL::VARCHAR",
-	    src.has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.nodes_table), where);
+	    src.has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.nodes_table), where);
 	string overrides = src.overrides_table.empty()
 	                       ? "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source, NULL::VARCHAR AS class_id WHERE false"
-	                       : "SELECT CAST(wording AS VARCHAR) AS wording, CAST(source AS VARCHAR) AS source, "
-	                         "CAST(class_id AS VARCHAR) AS class_id FROM " +
-	                             Quoted(src.overrides_table);
+	                       : string("SELECT CAST(wording AS VARCHAR) AS wording, ") +
+	                             (src.overrides_has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR") +
+	                             " AS source, CAST(class_id AS VARCHAR) AS class_id FROM " +
+	                             QuotedIdentifier(src.overrides_table);
 	string labels = src.label_table.empty()
 	                    ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS class_id WHERE false"
 	                    // duplicate rows add up; NULL classes and non-positive probabilities drop out
 	                    : "SELECT tree_id, node_id, first(class_id ORDER BY p DESC, class_id) AS class_id FROM ("
 	                      "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 	                      "CAST(class_id AS VARCHAR) AS class_id, sum(CAST(p AS DOUBLE)) AS p FROM (SELECT * FROM " +
-	                          Quoted(src.label_table) + where +
+	                          QuotedIdentifier(src.label_table) + where +
 	                          ") WHERE class_id IS NOT NULL AND isfinite(CAST(p AS DOUBLE)) AND CAST(p AS DOUBLE) > 0 "
 	                          "GROUP BY ALL) GROUP BY ALL";
 	return StringUtil::Format(
@@ -984,7 +970,7 @@ unique_ptr<TableRef> TreeAnchorsBindReplace(ClientContext &context, TableFunctio
 	                         ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, 0 AS n WHERE false"
 	                         : "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 	                           "count(*) AS n FROM " +
-	                               Quoted(src.attrs_table) + TreeFilter(src) + " GROUP BY ALL";
+	                               QuotedIdentifier(src.attrs_table) + TreeFilter(src) + " GROUP BY ALL";
 	auto sql = StringUtil::Format(R"(
 		WITH RECURSIVE
 			n AS MATERIALIZED (%s),
@@ -1010,7 +996,7 @@ unique_ptr<TableRef> TreeAnchorsBindReplace(ClientContext &context, TableFunctio
 		ORDER BY w.tree_id, w.node_id
 	)",
 	                              ResolvedNodesSQL(src), (unsigned long long)MAX_TREE_DEPTH, attr_counts);
-	return ParseSubquery(sql, context, "tree_anchors");
+	return CoverageSubquery(sql, context, "tree_anchors");
 }
 
 unique_ptr<TableRef> TreeClassMultisetBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1029,7 +1015,7 @@ unique_ptr<TableRef> TreeClassMultisetBindReplace(ClientContext &context, TableF
 		ORDER BY entity_id, feature_id
 	)",
 	                              ResolvedNodesSQL(src));
-	return ParseSubquery(sql, context, "tree_class_multiset");
+	return CoverageSubquery(sql, context, "tree_class_multiset");
 }
 
 unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1050,7 +1036,7 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		    has_name ? "CAST(name AS VARCHAR)" : "NULL::VARCHAR",
 		    has_dimension ? "CAST(dimension AS VARCHAR)" : "NULL::VARCHAR", has_lo ? "CAST(lo AS DOUBLE)" : "NULL::DOUBLE",
 		    has_hi ? "CAST(hi AS DOUBLE)" : "NULL::DOUBLE", has_category ? "CAST(category AS VARCHAR)" : "NULL::VARCHAR",
-		    has_bound ? "CAST(bound AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.attrs_table) + TreeFilter(src));
+		    has_bound ? "CAST(bound AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT a.tree_id, a.node_id, a.attr_id, 'attribute_on_container', 'error', 'attributes belong to item nodes'
@@ -1161,10 +1147,10 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		%s
 		ORDER BY tree_id, issue, node_id, attr_id
 	)",
-	                              source_col, Quoted(src.nodes_table), TreeFilter(src),
+	                              source_col, QuotedIdentifier(src.nodes_table), TreeFilter(src),
 	                              (unsigned long long)MAX_TREE_DEPTH, (unsigned long long)MAX_TREE_DEPTH,
 	                              (unsigned long long)MAX_TREE_DEPTH, (unsigned long long)MAX_TREE_DEPTH, attr_checks);
-	return ParseSubquery(sql, context, "validate_trees");
+	return CoverageSubquery(sql, context, "validate_trees");
 }
 
 void RegisterTreeTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,

@@ -24,6 +24,7 @@ struct TreeSource {
 	bool has_tree_ids = false;
 	bool has_source = false;
 	bool has_context = false;
+	bool overrides_has_source = false;
 };
 
 //! Whether a table or view exists (true when the path cannot be looked up: the query decides).
