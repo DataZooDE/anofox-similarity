@@ -16,11 +16,6 @@ namespace anofox {
 
 namespace {
 
-//! CAST(column AS type) when the table has it, else a typed NULL.
-string Col(const CoverageParamReader &p, const string &table, const char *column, const char *type) {
-	return p.Has(table, column) ? StringUtil::Format("CAST(%s AS %s)", column, type)
-	                            : StringUtil::Format("NULL::%s", type);
-}
 
 
 //------------------------------------------------------------------------------
@@ -46,7 +41,7 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 	string reviewed = "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source WHERE false";
 	if (!overrides.empty()) {
 		reviewed = StringUtil::Format("SELECT CAST(wording AS VARCHAR) AS wording, %s AS source FROM %s",
-		                              Col(p, overrides, "source", "VARCHAR"), QuotedIdentifier(overrides));
+		                              OptionalColumnSQL(p.context, overrides, "source", "VARCHAR"), QuotedIdentifier(overrides));
 	}
 	auto sql = StringUtil::Format(R"(
 		WITH items AS (
@@ -111,8 +106,8 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		                  AND (v.source IS NULL OR v.source IS NOT DISTINCT FROM t.source))
 		ORDER BY impact DESC, t.wording, t.source
 	)",
-	                              Col(p, trees, "source", "VARCHAR"), QuotedIdentifier(trees), source_filter,
-	                              Col(p, decisions, "tree_id", "VARCHAR"), Col(p, decisions, "source", "VARCHAR"),
+	                              OptionalColumnSQL(p.context, trees, "source", "VARCHAR"), QuotedIdentifier(trees), source_filter,
+	                              OptionalColumnSQL(p.context, decisions, "tree_id", "VARCHAR"), OptionalColumnSQL(p.context, decisions, "source", "VARCHAR"),
 	                              QuotedIdentifier(decisions), reviewed);
 	return CoverageSubquery(sql, context, p.fn);
 }
@@ -136,8 +131,8 @@ unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctio
 		return StringUtil::Format(
 		    "SELECT CAST(wording AS VARCHAR) AS wording, %s AS source, CAST(class_id AS VARCHAR) AS class_id, "
 		    "%s AS reviewed_by, %s AS reviewed_at FROM %s WHERE wording IS NOT NULL",
-		    Col(p, table, "source", "VARCHAR"), Col(p, table, "reviewed_by", "VARCHAR"),
-		    Col(p, table, "reviewed_at", "TIMESTAMP"), QuotedIdentifier(table));
+		    OptionalColumnSQL(p.context, table, "source", "VARCHAR"), OptionalColumnSQL(p.context, table, "reviewed_by", "VARCHAR"),
+		    OptionalColumnSQL(p.context, table, "reviewed_at", "TIMESTAMP"), QuotedIdentifier(table));
 	};
 	string old = overrides.empty() ? "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source, NULL::VARCHAR AS "
 	                                 "class_id, NULL::VARCHAR AS reviewed_by, NULL::TIMESTAMP AS reviewed_at WHERE false"
@@ -216,17 +211,17 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 		texts_sql = StringUtil::Format(
 		    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, min(CAST(text AS VARCHAR)) AS text "
 		    "FROM %s GROUP BY ALL",
-		    text_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(texts));
+		    CastOrNullSQL(text_tree, "tree_id", "VARCHAR"), QuotedIdentifier(texts));
 		if (!text_tree) {
 			text_join = "t.node_id = s.node_id";
 		}
 	}
 	string cat_sql = "SELECT NULL::VARCHAR AS class_id, NULL::VARCHAR AS label, NULL::VARCHAR AS definition WHERE false";
 	if (!catalogue.empty()) {
-		string label = p.Has(catalogue, "label_en") ? "CAST(label_en AS VARCHAR)" : Col(p, catalogue, "label", "VARCHAR");
+		string label = p.Has(catalogue, "label_en") ? "CAST(label_en AS VARCHAR)" : OptionalColumnSQL(p.context, catalogue, "label", "VARCHAR");
 		cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, min(%s) AS label, "
 		                             "min(%s) AS definition FROM %s GROUP BY ALL",
-		                             label, Col(p, catalogue, "definition", "VARCHAR"), QuotedIdentifier(catalogue));
+		                             label, OptionalColumnSQL(p.context, catalogue, "definition", "VARCHAR"), QuotedIdentifier(catalogue));
 	}
 	string select = has_share ? StringUtil::Format("SELECT * FROM items QUALIFY row_number() OVER (ORDER BY margin, "
 	                                               "tree_id, node_id) <= ceil(%s * count(*) OVER ())",
@@ -264,8 +259,8 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 		GROUP BY s.tree_id, s.node_id, s.margin
 		ORDER BY s.margin, s.tree_id, s.node_id
 	)",
-	                              dec_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR",
-	                              Col(p, decisions, "overridden", "BOOLEAN"), QuotedIdentifier(decisions), select,
+	                              CastOrNullSQL(dec_tree, "tree_id", "VARCHAR"),
+	                              OptionalColumnSQL(p.context, decisions, "overridden", "BOOLEAN"), QuotedIdentifier(decisions), select,
 	                              texts_sql, cat_sql, text_guard, request, (long long)top, text_join);
 	return CoverageSubquery(sql, context, p.fn);
 }

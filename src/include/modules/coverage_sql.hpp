@@ -59,6 +59,17 @@ inline string NameVectorsSQL(const string &table) {
 	       QuotedIdentifier(table) + " GROUP BY CAST(name AS VARCHAR)";
 }
 
+//! "CAST([alias.]column AS type)" when the column is present, else "NULL::type".
+inline string CastOrNullSQL(bool present, const string &column, const string &type, const string &alias = "") {
+	return present ? "CAST(" + (alias.empty() ? "" : alias + ".") + column + " AS " + type + ")" : "NULL::" + type;
+}
+
+//! CastOrNullSQL for an optional column of a table (or view).
+inline string OptionalColumnSQL(ClientContext &context, const string &table, const string &column, const string &type,
+                                const string &alias = "") {
+	return CastOrNullSQL(TableHasColumn(context, table, column), column, type, alias);
+}
+
 //! A DOUBLE literal with full precision.
 inline string DoubleLiteral(double v) {
 	return StringUtil::Format("%.17g::DOUBLE", v);

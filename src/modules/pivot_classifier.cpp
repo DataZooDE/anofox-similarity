@@ -339,14 +339,14 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	string items_sql = StringUtil::Format(
 	    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, %s AS source, %s AS label, %s AS vec, %s AS tokens "
 	    "FROM %s",
-	    items_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR", items_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR",
-	    items_label ? "CAST(label AS VARCHAR)" : "NULL::VARCHAR",
-	    has(items, "vec") ? "CAST(vec AS DOUBLE[])" : "NULL::DOUBLE[]",
-	    late ? "CAST(tokens AS DOUBLE[][])" : "NULL::DOUBLE[][]", qi);
+	    CastOrNullSQL(items_tree, "tree_id", "VARCHAR"), CastOrNullSQL(items_source, "source", "VARCHAR"),
+	    CastOrNullSQL(items_label, "label", "VARCHAR"),
+	    CastOrNullSQL(has(items, "vec"), "vec", "DOUBLE[]"),
+	    CastOrNullSQL(late, "tokens", "DOUBLE[][]"), qi);
 	items_sql += late ? " WHERE tokens IS NOT NULL" : " WHERE vec IS NOT NULL"; // items without a vector are skipped
 	string cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s",
 	                                    late ? "NULL::DOUBLE[]" : "CAST(vec AS DOUBLE[])",
-	                                    late ? "CAST(exemplar_tokens AS DOUBLE[][])" : "NULL::DOUBLE[][]", qc);
+	                                    CastOrNullSQL(late, "exemplar_tokens", "DOUBLE[][]"), qc);
 
 	// step 1: per-source mean-centring of the item vectors (centroid mode)
 	string vectors;
@@ -377,7 +377,7 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	if (!attrs.empty() && !templates.empty() && beta > 0) {
 		bool attrs_tree = has(attrs, "tree_id");
 		string tree_join = attrs_tree ? "i.tree_id IS NOT DISTINCT FROM CAST(a.tree_id AS VARCHAR)" : "true";
-		string attr_name = has(attrs, "name") ? "CAST(a.name AS VARCHAR)" : "NULL::VARCHAR";
+		string attr_name = CastOrNullSQL(has(attrs, "name"), "name", "VARCHAR", "a");
 		vector<string> name_cols;
 		for (auto c : {"name", "name_en", "name_de"}) {
 			if (has(templates, c)) {

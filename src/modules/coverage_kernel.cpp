@@ -1135,11 +1135,11 @@ string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSourc
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
 	    "%s AS bound, %s AS category FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
-	    has("name") ? "CAST(a.name AS VARCHAR)" : "NULL::VARCHAR",
-	    has("dimension") ? "CAST(a.dimension AS VARCHAR)" : "NULL::VARCHAR",
-	    has("unit") ? "CAST(a.unit AS VARCHAR)" : "NULL::VARCHAR", has("lo") ? "CAST(a.lo AS DOUBLE)" : "NULL::DOUBLE",
-	    has("hi") ? "CAST(a.hi AS DOUBLE)" : "NULL::DOUBLE", has("bound") ? "CAST(a.bound AS VARCHAR)" : "NULL::VARCHAR",
-	    has("category") ? "CAST(a.category AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
+	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
+	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
+	    CastOrNullSQL(has("hi"), "hi", "DOUBLE", "a"), CastOrNullSQL(has("bound"), "bound", "VARCHAR", "a"),
+	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string templates_join;

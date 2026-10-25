@@ -885,12 +885,12 @@ string ResolvedNodesSQL(const TreeSource &src) {
 	    "upper(COALESCE(CAST(edge_type AS VARCHAR), 'AND')) AS edge_type, CAST(label AS VARCHAR) AS label, "
 	    "%s AS context, %s AS source, COALESCE(CAST(\"count\" AS DOUBLE), 1.0) AS count, "
 	    "CAST(class_id AS VARCHAR) AS given_class FROM %s%s",
-	    src.has_context ? "CAST(context AS VARCHAR)" : "NULL::VARCHAR",
-	    src.has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.nodes_table), where);
+	    CastOrNullSQL(src.has_context, "context", "VARCHAR"),
+	    CastOrNullSQL(src.has_source, "source", "VARCHAR"), QuotedIdentifier(src.nodes_table), where);
 	string overrides = src.overrides_table.empty()
 	                       ? "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source, NULL::VARCHAR AS class_id WHERE false"
 	                       : string("SELECT CAST(wording AS VARCHAR) AS wording, ") +
-	                             (src.overrides_has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR") +
+	                             (CastOrNullSQL(src.overrides_has_source, "source", "VARCHAR")) +
 	                             " AS source, CAST(class_id AS VARCHAR) AS class_id FROM " +
 	                             QuotedIdentifier(src.overrides_table);
 	string labels = src.label_table.empty()
@@ -992,10 +992,10 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 		    "CAST(attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS lo, %s AS hi, %s AS category, "
 		    "%s AS bound FROM %s",
-		    has_name ? "CAST(name AS VARCHAR)" : "NULL::VARCHAR",
-		    has_dimension ? "CAST(dimension AS VARCHAR)" : "NULL::VARCHAR", has_lo ? "CAST(lo AS DOUBLE)" : "NULL::DOUBLE",
-		    has_hi ? "CAST(hi AS DOUBLE)" : "NULL::DOUBLE", has_category ? "CAST(category AS VARCHAR)" : "NULL::VARCHAR",
-		    has_bound ? "CAST(bound AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(src.attrs_table) + TreeFilter(src));
+		    CastOrNullSQL(has_name, "name", "VARCHAR"),
+		    CastOrNullSQL(has_dimension, "dimension", "VARCHAR"), CastOrNullSQL(has_lo, "lo", "DOUBLE"),
+		    CastOrNullSQL(has_hi, "hi", "DOUBLE"), CastOrNullSQL(has_category, "category", "VARCHAR"),
+		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT a.tree_id, a.node_id, a.attr_id, 'attribute_on_container', 'error', 'attributes belong to item nodes'
@@ -1025,7 +1025,7 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 	} else {
 		attr_checks = " SELECT * FROM checks";
 	}
-	string source_col = src.has_source ? "CAST(source AS VARCHAR)" : "NULL::VARCHAR";
+	string source_col = CastOrNullSQL(src.has_source, "source", "VARCHAR");
 	auto sql = StringUtil::Format(R"(
 		WITH RECURSIVE
 			raw AS (
