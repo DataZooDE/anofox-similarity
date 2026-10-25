@@ -1,0 +1,1175 @@
+#include "modules/coverage_kernel.hpp"
+#include "modules/property_tree.hpp"
+#include "modules/quantity.hpp"
+#include "duckdb_compat.hpp"
+#include "compat_anofox/scalar_bind.hpp"
+#include "core/named_parameters.hpp"
+#include "core/sql_safety.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/function/scalar_function.hpp"
+#include "duckdb/function/table_function.hpp"
+#include "duckdb/main/client_context.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
+#include "duckdb/parser/tableref/subqueryref.hpp"
+#include "telemetry.hpp"
+#include "anofox_similarity_banner.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <map>
+#include <unordered_map>
+#include <unordered_set>
+
+namespace duckdb {
+namespace anofox {
+
+namespace {
+
+//------------------------------------------------------------------------------
+// In-memory trees
+//------------------------------------------------------------------------------
+
+struct KAttr {
+	string id;
+	string name;
+	string dimension;
+	string unit;
+	bool has_lo = false;
+	bool has_hi = false;
+	double lo = 0;
+	double hi = 0;
+	string bound;
+	string default_bound;
+	string category;
+	vector<double> name_vec;
+};
+
+struct KItem {
+	string id;
+	string cls;
+	double count = 1; // effective count (product along the path)
+	bool reviewed = false;
+	std::map<string, double> probs;
+	vector<KAttr> attrs;
+	vector<std::pair<string, string>> choices; // (OR parent, chosen child) along the path
+	string path;                               // node ids from the root, joined by '/'
+};
+
+struct KTree {
+	vector<KItem> items; // sorted by node id
+	bool reviewed = true;
+};
+
+const Value *Field(const Value &v, const char *name) {
+	auto &types = StructType::GetChildTypes(v.type());
+	auto &vals = StructValue::GetChildren(v);
+	for (idx_t i = 0; i < types.size(); i++) {
+		if (StringUtil::CIEquals(static_cast<const string &>(types[i].first), name)) {
+			return &vals[i];
+		}
+	}
+	return nullptr;
+}
+
+string Str(const Value &v, const char *name) {
+	auto f = Field(v, name);
+	return f && !f->IsNull() ? f->ToString() : string();
+}
+
+bool Num(const Value &v, const char *name, double &out) {
+	auto f = Field(v, name);
+	if (!f || f->IsNull()) {
+		return false;
+	}
+	out = f->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+	return std::isfinite(out);
+}
+
+KTree LoadTree(const Value &list) {
+	KTree tree;
+	struct Raw {
+		string id, parent, kind, edge, cls;
+		double count = 1;
+		bool reviewed = false;
+		std::map<string, double> probs;
+		vector<KAttr> attrs;
+	};
+	vector<Raw> raws;
+	std::unordered_map<string, idx_t> index;
+	for (auto &entry : ListValue::GetChildren(list)) {
+		if (entry.IsNull()) {
+			continue;
+		}
+		Raw r;
+		r.id = Str(entry, "node_id");
+		if (r.id.empty() || index.count(r.id)) {
+			continue; // first occurrence wins, as in the resolver
+		}
+		r.parent = Str(entry, "parent_id");
+		r.kind = Str(entry, "node_kind");
+		r.edge = StringUtil::Upper(Str(entry, "edge_type"));
+		r.cls = Str(entry, "class_id");
+		Num(entry, "count", r.count);
+		auto rev = Field(entry, "reviewed");
+		r.reviewed = rev && !rev->IsNull() && rev->GetValue<bool>();
+		auto probs = Field(entry, "probs");
+		if (probs && !probs->IsNull()) {
+			for (auto &kv : ListValue::GetChildren(*probs)) {
+				auto &pair = StructValue::GetChildren(kv);
+				if (!pair[0].IsNull() && !pair[1].IsNull()) {
+					r.probs[pair[0].ToString()] += pair[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+				}
+			}
+		}
+		auto attrs = Field(entry, "attrs");
+		if (attrs && !attrs->IsNull()) {
+			for (auto &a : ListValue::GetChildren(*attrs)) {
+				if (a.IsNull()) {
+					continue;
+				}
+				KAttr k;
+				k.id = Str(a, "attr_id");
+				k.name = Str(a, "name");
+				k.dimension = Str(a, "dimension");
+				k.unit = Str(a, "unit");
+				k.has_lo = Num(a, "lo", k.lo);
+				k.has_hi = Num(a, "hi", k.hi);
+				k.bound = Str(a, "bound");
+				k.default_bound = Str(a, "default_bound");
+				k.category = Str(a, "category");
+				auto vec = Field(a, "name_vec");
+				if (vec && !vec->IsNull()) {
+					for (auto &x : ListValue::GetChildren(*vec)) {
+						k.name_vec.push_back(x.IsNull() ? 0.0 : x.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>());
+					}
+				}
+				r.attrs.push_back(std::move(k));
+			}
+		}
+		index[r.id] = raws.size();
+		raws.push_back(std::move(r));
+	}
+	std::unordered_map<string, vector<idx_t>> children;
+	vector<idx_t> roots;
+	for (idx_t i = 0; i < raws.size(); i++) {
+		if (raws[i].parent.empty()) {
+			roots.push_back(i);
+		} else {
+			children[raws[i].parent].push_back(i);
+		}
+	}
+	// walk from the roots: effective counts, OR choices, paths (reachable nodes only)
+	struct Frame {
+		idx_t node;
+		idx_t depth;
+		double count;
+		vector<std::pair<string, string>> choices;
+		string path;
+	};
+	vector<Frame> stack;
+	for (auto r : roots) {
+		stack.push_back({r, 0, raws[r].count, {}, raws[r].id});
+	}
+	while (!stack.empty()) {
+		auto f = std::move(stack.back());
+		stack.pop_back();
+		auto &n = raws[f.node];
+		if (f.depth > MAX_TREE_DEPTH) {
+			throw InvalidInputException("coverage_kernel: a tree is deeper than %llu levels",
+			                            (unsigned long long)MAX_TREE_DEPTH);
+		}
+		if (n.kind == "item") {
+			KItem item;
+			item.id = n.id;
+			item.cls = n.cls;
+			item.count = f.count;
+			item.reviewed = n.reviewed;
+			item.probs = n.probs;
+			item.attrs = n.attrs;
+			item.choices = f.choices;
+			item.path = f.path;
+			tree.reviewed = tree.reviewed && n.reviewed;
+			tree.items.push_back(std::move(item));
+		}
+		for (auto c : children[n.id]) {
+			auto choices = f.choices;
+			if (raws[c].edge == "OR") {
+				choices.emplace_back(n.id, raws[c].id);
+			}
+			stack.push_back({c, f.depth + 1, f.count * raws[c].count, std::move(choices), f.path + "/" + raws[c].id});
+		}
+	}
+	std::sort(tree.items.begin(), tree.items.end(), [](const KItem &a, const KItem &b) { return a.id < b.id; });
+	return tree;
+}
+
+//------------------------------------------------------------------------------
+// Scoring
+//------------------------------------------------------------------------------
+
+struct Options {
+	bool soft = true;
+	string assignment = "auto";
+	double label_weight = 0.0; // lambda in HLD §4.6
+	double mu = 0.2;
+	double partition_gate = 0.3;
+	double count_gate = 0.5;
+	double name_floor = 0.85;
+	bool trace = false;
+	std::map<std::tuple<string, string, string>, double> rules;
+};
+
+Options LoadOptions(const Value &v) {
+	Options o;
+	if (v.IsNull()) {
+		return o;
+	}
+	auto labels = Str(v, "labels");
+	o.soft = labels.empty() || StringUtil::Lower(labels) != "hard";
+	auto assignment = Str(v, "assignment");
+	if (!assignment.empty()) {
+		o.assignment = StringUtil::Lower(assignment);
+	}
+	Num(v, "label_weight", o.label_weight);
+	Num(v, "mu", o.mu);
+	Num(v, "partition_gate", o.partition_gate);
+	Num(v, "count_gate", o.count_gate);
+	Num(v, "name_floor", o.name_floor);
+	auto trace = Field(v, "trace");
+	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
+	auto rules = Field(v, "rules");
+	if (rules && !rules->IsNull()) {
+		for (auto &r : ListValue::GetChildren(*rules)) {
+			double score = 0;
+			if (!r.IsNull() && Num(r, "score", score)) {
+				o.rules[std::make_tuple(Str(r, "dimension"), Str(r, "required"), Str(r, "provided"))] = score;
+			}
+		}
+	}
+	return o;
+}
+
+double LabelSim(const KItem &q, const KItem &c, const Options &o) {
+	if (!o.soft) {
+		return !q.cls.empty() && q.cls == c.cls ? 1.0 : 0.0;
+	}
+	auto dist = [](const KItem &x) {
+		if (!x.probs.empty()) {
+			return x.probs;
+		}
+		std::map<string, double> one;
+		if (!x.cls.empty()) {
+			one[x.cls] = 1.0;
+		}
+		return one;
+	};
+	auto pq = dist(q), pc = dist(c);
+	double s = 0;
+	for (auto &kv : pq) {
+		auto it = pc.find(kv.first);
+		if (it != pc.end() && kv.second > 0 && it->second > 0) {
+			s += std::sqrt(kv.second * it->second);
+		}
+	}
+	return MinValue(1.0, s);
+}
+
+vector<string> Tokens(const string &name) {
+	vector<string> out;
+	string cur;
+	for (char ch : name) {
+		bool alnum = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
+		             (unsigned char)ch >= 0x80;
+		if (alnum) {
+			cur += (ch >= 'A' && ch <= 'Z') ? char(ch - 'A' + 'a') : ch;
+		} else if (!cur.empty()) {
+			out.push_back(cur);
+			cur.clear();
+		}
+	}
+	if (!cur.empty()) {
+		out.push_back(cur);
+	}
+	return out;
+}
+
+double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
+	if (!x.name_vec.empty() && x.name_vec.size() == y.name_vec.size()) {
+		double dot = 0, nx = 0, ny = 0;
+		for (idx_t i = 0; i < x.name_vec.size(); i++) {
+			dot += x.name_vec[i] * y.name_vec[i];
+			nx += x.name_vec[i] * x.name_vec[i];
+			ny += y.name_vec[i] * y.name_vec[i];
+		}
+		if (nx > 0 && ny > 0) {
+			double cos = dot / std::sqrt(nx * ny);
+			double floor = o.name_floor >= 1 ? 0.999999 : o.name_floor;
+			return MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor)));
+		}
+	}
+	if (StringUtil::CIEquals(x.name, y.name)) {
+		return x.name.empty() ? 0.0 : 1.0;
+	}
+	auto a = Tokens(x.name), b = Tokens(y.name);
+	if (a.empty() || b.empty()) {
+		return 0.0;
+	}
+	std::unordered_set<string> sa(a.begin(), a.end()), sb(b.begin(), b.end());
+	idx_t inter = 0;
+	for (auto &t : sa) {
+		inter += sb.count(t);
+	}
+	return double(inter) / double(sa.size() + sb.size() - inter);
+}
+
+string Fmt(double v) {
+	return StringUtil::Format("%g", v);
+}
+
+string ValueText(const KAttr &a, bool requirement, const string &bound) {
+	string s;
+	if (requirement) {
+		s = bound.empty() ? "point" : bound;
+		s += " ";
+	}
+	if (!a.category.empty()) {
+		return s + a.category;
+	}
+	if (!a.has_lo && !a.has_hi) {
+		return s + "?";
+	}
+	double lo = a.has_lo ? a.lo : a.hi, hi = a.has_hi ? a.hi : a.lo;
+	s += lo == hi ? Fmt(lo) : Fmt(lo) + ".." + Fmt(hi);
+	if (!a.unit.empty() && a.unit != "1") {
+		s += " " + a.unit;
+	}
+	return s;
+}
+
+struct AttrMatch {
+	const KAttr *req = nullptr;
+	const KAttr *prov = nullptr;
+	bool gate = true;
+	double name_sim = 0;
+	double value_score = 0;
+	bool has_distance = false;
+	double distance = 0;
+	string rule;
+	double score = 0;
+	string bound;
+};
+
+//! The best provided attribute for one required attribute.
+AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
+	AttrMatch best;
+	best.req = &x;
+	best.bound = !x.bound.empty() ? x.bound : x.default_bound;
+	best.rule = "gate";
+	for (auto &y : c.attrs) {
+		AttrMatch m;
+		m.req = &x;
+		m.prov = &y;
+		m.bound = best.bound;
+		if (!x.category.empty()) {
+			if (y.category.empty() || (!x.dimension.empty() && x.dimension != y.dimension)) {
+				continue;
+			}
+			auto dim = !y.dimension.empty() ? y.dimension : x.dimension;
+			auto it = o.rules.find(std::make_tuple(dim, x.category, y.category));
+			m.value_score = it != o.rules.end() ? it->second : (x.category == y.category ? 1.0 : 0.0);
+			m.rule = "compat";
+		} else {
+			if (x.dimension.empty() || y.dimension.empty() || x.dimension != y.dimension) {
+				continue;
+			}
+			ValueSide req, prov;
+			req.has_lo = x.has_lo;
+			req.has_hi = x.has_hi;
+			req.lo = x.lo;
+			req.hi = x.hi;
+			req.dimension = x.dimension;
+			req.unit = x.dimension == "currency" ? x.unit : string();
+			req.bound = m.bound;
+			prov.has_lo = y.has_lo;
+			prov.has_hi = y.has_hi;
+			prov.lo = y.lo;
+			prov.hi = y.hi;
+			prov.dimension = y.dimension;
+			prov.unit = y.dimension == "currency" ? y.unit : string();
+			ValueOptions vo;
+			auto r = ValueSatisfies(req, prov, vo);
+			m.value_score = r.score;
+			m.has_distance = r.has_distance;
+			m.distance = r.distance;
+			m.rule = r.rule;
+		}
+		m.gate = false;
+		m.name_sim = NameSim(x, y, o);
+		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
+		if (best.gate || m.score > best.score) {
+			best = m;
+		}
+	}
+	return best;
+}
+
+struct Pair {
+	double label = 0;
+	double a = 1;
+	double score = 0;
+	vector<AttrMatch> attrs;
+};
+
+Pair Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
+	Pair p;
+	p.label = LabelSim(q, c, o);
+	if (!q.attrs.empty()) {
+		double sum = 0;
+		for (auto &x : q.attrs) {
+			auto m = MatchAttr(x, c, o);
+			sum += m.gate ? 0.0 : m.score;
+			if (with_attrs) {
+				p.attrs.push_back(m);
+			}
+		}
+		p.a = sum / double(q.attrs.size());
+	}
+	p.score = o.label_weight * p.label + (1 - o.label_weight) * p.label * p.a;
+	return p;
+}
+
+bool Compatible(const KItem &a, const KItem &b) {
+	for (auto &ca : a.choices) {
+		for (auto &cb : b.choices) {
+			if (ca.first == cb.first && ca.second != cb.second) {
+				return false; // different alternatives of the same OR group
+			}
+		}
+	}
+	return true;
+}
+
+struct ReqResult {
+	const KItem *q = nullptr;
+	const KItem *matched = nullptr;
+	Pair pair;
+	double count_available = 0;
+	double count_factor = 0;
+	double score = 0;
+	bool gap = true;
+};
+
+LogicalType TraceType() {
+	child_list_t<LogicalType> c {
+	    {"req_node_id", LogicalType::VARCHAR},  {"matched_node_id", LogicalType::VARCHAR},
+	    {"matched_path", LogicalType::VARCHAR}, {"label_sim", LogicalType::DOUBLE},
+	    {"attr_id", LogicalType::VARCHAR},      {"attr_name", LogicalType::VARCHAR},
+	    {"req_value", LogicalType::VARCHAR},    {"prov_value", LogicalType::VARCHAR},
+	    {"gate", LogicalType::BOOLEAN},         {"name_sim", LogicalType::DOUBLE},
+	    {"value_score", LogicalType::DOUBLE},   {"distance", LogicalType::DOUBLE},
+	    {"rule", LogicalType::VARCHAR},         {"attr_score", LogicalType::DOUBLE},
+	    {"count_needed", LogicalType::DOUBLE},  {"count_available", LogicalType::DOUBLE},
+	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN}};
+	return LogicalType::STRUCT(c);
+}
+
+LogicalType KernelResultType() {
+	child_list_t<LogicalType> c {{"coverage", LogicalType::DOUBLE},
+	                             {"n_requirements", LogicalType::BIGINT},
+	                             {"n_gaps", LogicalType::BIGINT},
+	                             {"reviewed", LogicalType::BOOLEAN},
+	                             {"assignment_used", LogicalType::VARCHAR},
+	                             {"trace", LogicalType::LIST(TraceType())}};
+	return LogicalType::STRUCT(c);
+}
+
+Value Opt(const string &s) {
+	return s.empty() ? Value(LogicalType::VARCHAR) : Value(s);
+}
+Value OptD(bool has, double v) {
+	return has ? Value::DOUBLE(v) : Value(LogicalType::DOUBLE);
+}
+
+Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
+	auto Q = LoadTree(query);
+	auto C = LoadTree(candidate);
+	string assignment = o.assignment;
+	if (assignment == "auto") {
+		assignment = C.reviewed ? "partition" : "best_match";
+	}
+	vector<ReqResult> results(Q.items.size());
+	for (idx_t i = 0; i < Q.items.size(); i++) {
+		results[i].q = &Q.items[i];
+	}
+	auto finish = [&](ReqResult &r, const vector<const KItem *> &pool) {
+		// best candidate item in the pool, then counts over the compatible same-label items
+		const KItem *best = nullptr;
+		Pair best_pair;
+		for (auto c : pool) {
+			auto p = Score(*r.q, *c, o, false);
+			if (p.label <= 0) {
+				continue;
+			}
+			if (!best || p.score > best_pair.score) {
+				best = c;
+				best_pair = p;
+			}
+		}
+		if (!best) {
+			r.score = 0;
+			r.gap = true;
+			return;
+		}
+		r.matched = best;
+		r.pair = Score(*r.q, *best, o, true);
+		double available = 0;
+		for (auto c : pool) {
+			if (LabelSim(*r.q, *c, o) >= o.count_gate && Compatible(*c, *best)) {
+				available += c->count;
+			}
+		}
+		r.count_available = available;
+		r.count_factor = r.q->count > 0 ? MinValue(1.0, available / r.q->count) : 1.0;
+		r.score = r.pair.score * r.count_factor;
+		bool values_ok = true;
+		for (auto &m : r.pair.attrs) {
+			if (m.gate || m.value_score < 1.0) {
+				values_ok = false;
+			}
+		}
+		r.gap = !values_ok || r.count_factor < 1.0;
+	};
+	if (assignment == "partition") {
+		// each candidate item joins the block of its arg-max requirement (ties: the largest
+		// remaining count deficit, then the lowest node id; HLD §11.4)
+		vector<vector<const KItem *>> blocks(Q.items.size());
+		vector<double> need(Q.items.size());
+		for (idx_t i = 0; i < Q.items.size(); i++) {
+			need[i] = Q.items[i].count;
+		}
+		for (auto &c : C.items) {
+			double best = 0;
+			vector<idx_t> tied;
+			for (idx_t i = 0; i < Q.items.size(); i++) {
+				double l = LabelSim(Q.items[i], c, o);
+				if (l > best + 1e-12) {
+					best = l;
+					tied.assign(1, i);
+				} else if (std::fabs(l - best) <= 1e-12 && l > 0) {
+					tied.push_back(i);
+				}
+			}
+			if (tied.empty() || best < o.partition_gate) {
+				continue;
+			}
+			if (!c.choices.empty()) {
+				// an OR alternative is an option, not an instance: every tied requirement may
+				// choose it (best variant per requirement, HLD §4.6, §11.9)
+				for (auto i : tied) {
+					blocks[i].push_back(&c);
+				}
+				continue;
+			}
+			idx_t pick = tied[0];
+			for (auto i : tied) {
+				if (need[i] > need[pick] + 1e-12 ||
+				    (std::fabs(need[i] - need[pick]) <= 1e-12 && Q.items[i].id < Q.items[pick].id)) {
+					pick = i;
+				}
+			}
+			need[pick] -= c.count;
+			blocks[pick].push_back(&c);
+		}
+		for (idx_t i = 0; i < Q.items.size(); i++) {
+			finish(results[i], blocks[i]);
+		}
+	} else {
+		vector<const KItem *> all;
+		for (auto &c : C.items) {
+			all.push_back(&c);
+		}
+		for (auto &r : results) {
+			finish(r, all);
+		}
+	}
+	double total = 0;
+	int64_t gaps = 0;
+	vector<Value> trace;
+	for (auto &r : results) {
+		total += r.score;
+		gaps += r.gap ? 1 : 0;
+		if (!o.trace) {
+			continue;
+		}
+		auto row = [&](const AttrMatch *m) {
+			child_list_t<Value> v;
+			v.emplace_back("req_node_id", Value(r.q->id));
+			v.emplace_back("matched_node_id", r.matched ? Value(r.matched->id) : Value(LogicalType::VARCHAR));
+			v.emplace_back("matched_path", r.matched ? Value(r.matched->path) : Value(LogicalType::VARCHAR));
+			v.emplace_back("label_sim", r.matched ? Value::DOUBLE(r.pair.label) : Value::DOUBLE(0.0));
+			v.emplace_back("attr_id", m ? Opt(m->req->id) : Value(LogicalType::VARCHAR));
+			v.emplace_back("attr_name", m ? Opt(m->req->name) : Value(LogicalType::VARCHAR));
+			v.emplace_back("req_value", m ? Value(ValueText(*m->req, true, m->bound)) : Value(LogicalType::VARCHAR));
+			v.emplace_back("prov_value",
+			               m && m->prov ? Value(ValueText(*m->prov, false, "")) : Value(LogicalType::VARCHAR));
+			v.emplace_back("gate", m ? Value::BOOLEAN(m->gate) : Value(LogicalType::BOOLEAN));
+			v.emplace_back("name_sim", m && !m->gate ? Value::DOUBLE(m->name_sim) : Value(LogicalType::DOUBLE));
+			v.emplace_back("value_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->value_score) : Value(LogicalType::DOUBLE));
+			v.emplace_back("distance", m ? OptD(!m->gate && m->has_distance, m->distance) : Value(LogicalType::DOUBLE));
+			v.emplace_back("rule", m ? Opt(m->rule) : Value(LogicalType::VARCHAR));
+			v.emplace_back("attr_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->score) : Value(LogicalType::DOUBLE));
+			v.emplace_back("count_needed", Value::DOUBLE(r.q->count));
+			v.emplace_back("count_available", Value::DOUBLE(r.count_available));
+			v.emplace_back("req_score", Value::DOUBLE(r.score));
+			v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
+			trace.push_back(Value::STRUCT(std::move(v)));
+		};
+		if (r.matched && !r.pair.attrs.empty()) {
+			for (auto &m : r.pair.attrs) {
+				row(&m);
+			}
+		} else if (!r.matched && !r.q->attrs.empty()) {
+			for (auto &x : r.q->attrs) {
+				AttrMatch m;
+				m.req = &x;
+				m.bound = !x.bound.empty() ? x.bound : x.default_bound;
+				m.rule = "gate";
+				row(&m);
+			}
+		} else {
+			row(nullptr);
+		}
+	}
+	child_list_t<Value> out;
+	out.emplace_back("coverage", Q.items.empty() ? Value(LogicalType::DOUBLE) : Value::DOUBLE(total / Q.items.size()));
+	out.emplace_back("n_requirements", Value::BIGINT(int64_t(Q.items.size())));
+	out.emplace_back("n_gaps", Value::BIGINT(gaps));
+	out.emplace_back("reviewed", Value::BOOLEAN(C.reviewed));
+	out.emplace_back("assignment_used", Value(assignment));
+	out.emplace_back("trace", Value::LIST(TraceType(), std::move(trace)));
+	return Value::STRUCT(std::move(out));
+}
+
+void CoverageKernelFun(DataChunk &args, ExpressionState &, Vector &result) {
+	auto count = args.size();
+	Options cached;
+	bool options_constant = args.data[2].GetVectorType() == VectorType::CONSTANT_VECTOR;
+	if (options_constant) {
+		cached = LoadOptions(args.data[2].GetValue(0));
+	}
+	for (idx_t i = 0; i < count; i++) {
+		auto q = args.data[0].GetValue(i);
+		auto c = args.data[1].GetValue(i);
+		if (q.IsNull() || c.IsNull()) {
+			result.SetValue(i, Value(KernelResultType()));
+			continue;
+		}
+		auto o = options_constant ? cached : LoadOptions(args.data[2].GetValue(i));
+		result.SetValue(i, RunKernel(q, c, o));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+unique_ptr<FunctionData> CoverageKernelBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("coverage_kernel");
+	return nullptr;
+}
+
+//------------------------------------------------------------------------------
+// Table functions
+//------------------------------------------------------------------------------
+
+unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &fn) {
+	auto statements = duckdb_compat::ParseStatements(context, query);
+	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
+		throw ParserException("Failed to parse %s query", fn);
+	}
+	auto &select_stmt = statements[0]->Cast<SelectStatement>();
+	auto new_stmt = make_uniq<SelectStatement>();
+	new_stmt->node = std::move(select_stmt.node);
+	return make_uniq<SubqueryRef>(std::move(new_stmt));
+}
+
+string Quoted(const string &path) {
+	string out = "\"";
+	for (auto ch : path) {
+		out += ch == '.' ? string("\".\"") : string(1, ch);
+	}
+	return out + "\"";
+}
+
+string D(double v) {
+	return StringUtil::Format("%.17g::DOUBLE", v);
+}
+
+struct CoverageParams {
+	vector<string> query_ids;
+	bool has_candidates = false;
+	vector<string> candidates;
+	int64_t k = 20;
+	TreeSource q, c;
+	string labels = "soft";
+	string assignment = "auto";
+	double label_weight = 0.0, mu = 0.2, partition_gate = 0.3, count_gate = 0.5, stage1_weight = 0.05, tie_break = 0.01;
+	string recall_mode = "auto";
+	string default_bounds;
+	string templates_table = "catalogue_attributes";
+	string rules_table;
+	string name_vectors;
+	double name_floor = 0.85;
+};
+
+bool TableExists(ClientContext &context, const string &path) {
+	// a relation exists when a probe for a column name that cannot exist resolves it
+	vector<string> parts = StringUtil::Split(path, '.');
+	try {
+		auto catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
+		auto schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
+		for (auto type : {CatalogType::TABLE_ENTRY, CatalogType::VIEW_ENTRY}) {
+			EntryLookupInfo lookup(type, duckdb_compat::EntryName(parts.back()));
+			if (Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup,
+			                      OnEntryNotFound::RETURN_NULL)) {
+				return true;
+			}
+		}
+	} catch (...) {
+		return true;
+	}
+	return false;
+}
+
+const Value *Named(const named_parameter_map_t &named, const char *name) {
+	return duckdb_compat::FindNamedParameter(named, name);
+}
+
+CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
+                                  bool stage2) {
+	CoverageParams p;
+	if (input.inputs.empty() || input.inputs[0].IsNull()) {
+		throw BinderException("%s: query_tree_id must not be NULL", fn.c_str());
+	}
+	p.query_ids = StringListParameter(input.inputs[0], "query_tree_id");
+	auto &named = input.named_parameters;
+	auto str = [&](const char *name, string &target) {
+		if (auto v = Named(named, name); v && !v->IsNull()) {
+			target = v->GetValue<string>();
+		}
+	};
+	auto dbl = [&](const char *name, double &target) {
+		if (auto v = Named(named, name); v && !v->IsNull()) {
+			target = v->GetValue<double>();
+			if (!std::isfinite(target)) {
+				throw BinderException("%s: %s must be finite", fn.c_str(), name);
+			}
+		}
+	};
+	if (auto v = Named(named, "candidates"); v && !v->IsNull()) {
+		p.has_candidates = true;
+		p.candidates = StringListParameter(*v, "candidates");
+	}
+	if (auto v = Named(named, "k"); v && !v->IsNull()) {
+		p.k = v->GetValue<int64_t>();
+		if (p.k <= 0) {
+			throw BinderException("%s: k must be positive", fn.c_str());
+		}
+	}
+	// query side
+	p.q.nodes_table = "tree_nodes";
+	p.q.attrs_table = "tree_attributes";
+	str("nodes_table", p.q.nodes_table);
+	if (auto v = Named(named, "attrs_table")) {
+		p.q.attrs_table = v->IsNull() ? string() : v->GetValue<string>();
+	}
+	// candidate side: defaults to the query side's tables
+	p.c.nodes_table = p.q.nodes_table;
+	p.c.attrs_table = p.q.attrs_table;
+	str("candidate_nodes_table", p.c.nodes_table);
+	if (auto v = Named(named, "candidate_attrs_table")) {
+		p.c.attrs_table = v->IsNull() ? string() : v->GetValue<string>();
+	}
+	string overrides, labels_table;
+	str("overrides_table", overrides);
+	str("label_table", labels_table);
+	p.q.overrides_table = p.c.overrides_table = overrides;
+	p.q.label_table = p.c.label_table = labels_table;
+	p.q.tree_ids = p.query_ids;
+	if (p.has_candidates) {
+		p.c.tree_ids = p.candidates;
+	}
+	if (!stage2) {
+		p.q.attrs_table.clear();
+		p.c.attrs_table.clear();
+	}
+	// identifiers (candidate parameters named as such in errors)
+	ValidateTreeSource(context, p.q, fn);
+	{
+		auto c = p.c;
+		c.nodes_table = ValidateSQLIdentifierPath(c.nodes_table, "candidate_nodes_table");
+		if (!c.attrs_table.empty()) {
+			ValidateSQLIdentifierPath(c.attrs_table, "candidate_attrs_table");
+		}
+		ValidateTreeSource(context, p.c, fn);
+	}
+	str("labels", p.labels);
+	p.labels = StringUtil::Lower(p.labels);
+	if (p.labels != "soft" && p.labels != "hard") {
+		throw BinderException("%s: labels must be 'soft' or 'hard'", fn.c_str());
+	}
+	str("assignment", p.assignment);
+	p.assignment = StringUtil::Lower(p.assignment);
+	if (p.assignment != "auto" && p.assignment != "best_match" && p.assignment != "partition") {
+		throw BinderException("%s: assignment must be one of 'auto', 'best_match', 'partition'", fn.c_str());
+	}
+	dbl("label_weight", p.label_weight);
+	dbl("mu", p.mu);
+	dbl("partition_gate", p.partition_gate);
+	dbl("count_gate", p.count_gate);
+	dbl("stage1_weight", p.stage1_weight);
+	dbl("tie_break", p.tie_break);
+	dbl("name_floor", p.name_floor);
+	for (auto &pr : {std::make_pair("label_weight", p.label_weight), std::make_pair("mu", p.mu),
+	                 std::make_pair("partition_gate", p.partition_gate), std::make_pair("count_gate", p.count_gate)}) {
+		if (pr.second < 0 || pr.second > 1) {
+			throw BinderException("%s: %s must be between 0 and 1", fn.c_str(), pr.first);
+		}
+	}
+	if (p.stage1_weight < 0 || p.tie_break < 0) {
+		throw BinderException("%s: stage1_weight and tie_break must be non-negative", fn.c_str());
+	}
+	str("recall_mode", p.recall_mode);
+	str("mode", p.recall_mode);
+	p.recall_mode = StringUtil::Lower(p.recall_mode);
+	if (p.recall_mode != "auto" && p.recall_mode != "containment" && p.recall_mode != "jaccard") {
+		throw BinderException("%s: mode must be one of 'auto', 'containment', 'jaccard'", fn.c_str());
+	}
+	str("default_bounds", p.default_bounds);
+	p.default_bounds = StringUtil::Lower(p.default_bounds);
+	if (!p.default_bounds.empty() && p.default_bounds != "catalogue") {
+		throw BinderException("%s: default_bounds must be NULL or 'catalogue'", fn.c_str());
+	}
+	str("templates_table", p.templates_table);
+	if (!p.default_bounds.empty()) {
+		p.templates_table = ValidateSQLIdentifierPath(p.templates_table, "templates_table");
+		if (!TableExists(context, p.templates_table)) {
+			throw BinderException("%s: templates_table '%s' does not exist (default_bounds := 'catalogue' needs the "
+			                      "catalogue attribute templates: class_id, dimension, bound)",
+			                      fn.c_str(), p.templates_table.c_str());
+		}
+		ValidateTableColumns(context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
+	}
+	str("rules_table", p.rules_table);
+	if (!p.rules_table.empty()) {
+		p.rules_table = ValidateSQLIdentifierPath(p.rules_table, "rules_table");
+		ValidateTableColumns(context, p.rules_table, {"dimension", "required", "provided", "score"}, "rules_table");
+	}
+	str("name_vectors", p.name_vectors);
+	if (!p.name_vectors.empty()) {
+		p.name_vectors = ValidateSQLIdentifierPath(p.name_vectors, "name_vectors");
+		ValidateTableColumns(context, p.name_vectors, {"name", "vec"}, "name_vectors");
+	}
+	if (p.name_floor < 0 || p.name_floor >= 1) {
+		throw BinderException("%s: name_floor must be in [0, 1)", fn.c_str());
+	}
+	return p;
+}
+
+//! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
+string Stage1SQL(const CoverageParams &p) {
+	string pool_filter = p.has_candidates ? "" : " WHERE c.tree_id <> q.tree_id";
+	string top = p.has_candidates
+	                 ? "SELECT * FROM s1s"
+	                 : StringUtil::Format("SELECT * FROM s1s WHERE score > 0 QUALIFY row_number() OVER "
+	                                      "(PARTITION BY query_id ORDER BY score DESC, candidate_id) <= %lld",
+	                                      (long long)p.k);
+	string mode = p.recall_mode == "auto"
+	                  ? "(SELECT CASE WHEN bool_and(reviewed) THEN 'containment' ELSE 'jaccard' END FROM c_ms)"
+	                  : QuoteSQLStringLiteral(p.recall_mode);
+	return StringUtil::Format(R"(
+		qn AS MATERIALIZED (%s),
+		cn AS MATERIALIZED (%s),
+		q_ms AS (
+			SELECT tree_id, tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
+			FROM qn GROUP BY tree_id
+		),
+		c_ms AS MATERIALIZED (
+			SELECT tree_id, COALESCE(bool_and(reviewed) FILTER (WHERE node_kind = 'item'), true) AS reviewed,
+			       tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
+			FROM cn GROUP BY tree_id
+		),
+		mode AS (SELECT %s AS mode_used),
+		s1 AS (
+			SELECT q.tree_id AS query_id, c.tree_id AS candidate_id, c.reviewed,
+			       COALESCE(weighted_containment(q.m, c.m), 0) AS containment,
+			       COALESCE(weighted_jaccard(q.m, c.m), 0) AS jaccard
+			FROM q_ms q, c_ms c%s
+		),
+		s1s AS (
+			SELECT s1.*, mode.mode_used,
+			       CASE WHEN mode.mode_used = 'containment' THEN containment + %s * jaccard ELSE jaccard END AS score
+			FROM s1, mode
+		),
+		top AS (%s)
+	)",
+	                          ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c), mode, pool_filter, D(p.tie_break), top);
+}
+
+//! Attributes of one side, packed per node, with default bounds and name vectors.
+string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSource &src, const string &nodes_cte,
+                bool query_side) {
+	if (src.attrs_table.empty()) {
+		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL AS attrs WHERE false";
+	}
+	auto has = [&](const char *col) { return TableHasColumn(context, src.attrs_table, col); };
+	string base = StringUtil::Format(
+	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
+	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
+	    "%s AS bound, %s AS category FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    has("name") ? "CAST(a.name AS VARCHAR)" : "NULL::VARCHAR",
+	    has("dimension") ? "CAST(a.dimension AS VARCHAR)" : "NULL::VARCHAR",
+	    has("unit") ? "CAST(a.unit AS VARCHAR)" : "NULL::VARCHAR", has("lo") ? "CAST(a.lo AS DOUBLE)" : "NULL::DOUBLE",
+	    has("hi") ? "CAST(a.hi AS DOUBLE)" : "NULL::DOUBLE", has("bound") ? "CAST(a.bound AS VARCHAR)" : "NULL::VARCHAR",
+	    has("category") ? "CAST(a.category AS VARCHAR)" : "NULL::VARCHAR", Quoted(src.attrs_table),
+	    query_side ? "q_ids" : "c_ids");
+	string default_bound = "NULL::VARCHAR";
+	string templates_join;
+	if (query_side && !p.default_bounds.empty()) {
+		templates_join = StringUtil::Format(
+		    " LEFT JOIN (SELECT CAST(class_id AS VARCHAR) AS class_id, CAST(dimension AS VARCHAR) AS dimension, "
+		    "CASE WHEN count(DISTINCT CAST(bound AS VARCHAR)) = 1 THEN any_value(CAST(bound AS VARCHAR)) END AS bound "
+		    "FROM %s GROUP BY ALL) t ON t.class_id = n.class_id AND t.dimension = x.dimension",
+		    Quoted(p.templates_table));
+		default_bound = "t.bound";
+	}
+	string vec = "NULL::DOUBLE[]";
+	string vec_join;
+	if (!p.name_vectors.empty()) {
+		vec_join = StringUtil::Format(" LEFT JOIN (SELECT CAST(name AS VARCHAR) AS name, any_value(CAST(vec AS DOUBLE[])) "
+		                              "AS vec FROM %s GROUP BY ALL) v ON v.name = x.name",
+		                              Quoted(p.name_vectors));
+		vec = "v.vec";
+	}
+	return StringUtil::Format(
+	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
+	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, default_bound := %s, "
+	    "name_vec := %s) ORDER BY x.attr_id) AS attrs "
+	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
+	    default_bound, vec, base, nodes_cte, templates_join, vec_join);
+}
+
+string LabelsSQL(const TreeSource &src, const string &ids_cte) {
+	if (src.label_table.empty()) {
+		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::MAP(VARCHAR, DOUBLE) AS probs WHERE false";
+	}
+	return StringUtil::Format(
+	    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
+	    "map_from_entries(list((CAST(class_id AS VARCHAR), CAST(p AS DOUBLE)))) AS probs FROM %s "
+	    "WHERE CAST(tree_id AS VARCHAR) IN (SELECT tree_id FROM %s) GROUP BY ALL",
+	    Quoted(src.label_table), ids_cte);
+}
+
+string PackedSQL(const string &nodes_cte, const string &attrs_cte, const string &labels_cte, const string &ids_cte) {
+	return StringUtil::Format(
+	    "SELECT n.tree_id, list(struct_pack(node_id := n.node_id, parent_id := n.parent_id, node_kind := n.node_kind, "
+	    "edge_type := n.edge_type, class_id := n.class_id, reviewed := n.reviewed, count := n.count, "
+	    "probs := CASE WHEN n.class_origin IN ('class_id', 'vocabulary') THEN MAP {n.class_id: 1.0::DOUBLE} "
+	    "              WHEN n.class_origin = 'label' THEN l.probs END, "
+	    "attrs := a.attrs)) AS nodes "
+	    "FROM %s n LEFT JOIN %s a USING (tree_id, node_id) LEFT JOIN %s l USING (tree_id, node_id) "
+	    "WHERE n.tree_id IN (SELECT tree_id FROM %s) GROUP BY n.tree_id",
+	    nodes_cte, attrs_cte, labels_cte, ids_cte);
+}
+
+string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
+	string rules = p.rules_table.empty()
+	                   ? "NULL"
+	                   : StringUtil::Format("(SELECT list(struct_pack(dimension := CAST(dimension AS VARCHAR), required "
+	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
+	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
+	                                        Quoted(p.rules_table));
+	string options = StringUtil::Format(
+	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
+	    "name_floor := %s, trace := %s, rules := %s)",
+	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), D(p.label_weight), D(p.mu),
+	    D(p.partition_gate), D(p.count_gate), D(p.name_floor), trace ? "true" : "false", rules);
+	return StringUtil::Format(R"(
+		WITH %s,
+		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
+		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),
+		qa AS (%s),
+		ca AS (%s),
+		ql AS (%s),
+		cl AS (%s),
+		qp AS (%s),
+		cp AS (%s),
+		k AS (
+			SELECT t.query_id, t.candidate_id, t.score AS stage1_score,
+			       coverage_kernel(qp.nodes, cp.nodes, %s) AS r
+			FROM top t JOIN qp ON qp.tree_id = t.query_id JOIN cp ON cp.tree_id = t.candidate_id
+		),
+		ranked AS (
+			SELECT query_id, candidate_id, r.coverage AS coverage, stage1_score,
+			       COALESCE(r.coverage, 0) + %s * stage1_score AS rank_score,
+			       r.n_requirements AS n_requirements, r.n_gaps AS n_gaps, r.reviewed AS reviewed,
+			       r.assignment_used AS assignment_used, r.trace AS trace
+			FROM k
+		)
+	)",
+	                          Stage1SQL(p), AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
+	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
+	                          PackedSQL("cn", "ca", "cl", "c_ids"), options, D(p.stage1_weight));
+}
+
+unique_ptr<TableRef> TreeCoverageBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("tree_coverage");
+	auto p = ReadCoverageParams(context, input, "tree_coverage", true);
+	auto sql = KernelSQL(context, p, false) + R"(
+		SELECT query_id, candidate_id, coverage, stage1_score, rank_score,
+		       row_number() OVER (PARTITION BY query_id ORDER BY rank_score DESC, candidate_id) AS rank,
+		       n_requirements, n_gaps, reviewed, assignment_used
+		FROM ranked
+		ORDER BY query_id, rank
+	)";
+	return ParseSubquery(sql, context, "tree_coverage");
+}
+
+unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("tree_coverage_trace");
+	auto p = ReadCoverageParams(context, input, "tree_coverage_trace", true);
+	auto sql = KernelSQL(context, p, true) + R"(
+		SELECT query_id, candidate_id, t.req_node_id, t.matched_node_id, t.matched_path, t.label_sim, t.attr_id,
+		       t.attr_name, t.req_value, t.prov_value, t.gate, t.name_sim, t.value_score, t.distance, t.rule,
+		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap
+		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
+		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
+	)";
+	return ParseSubquery(sql, context, "tree_coverage_trace");
+}
+
+unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("coverage_recall");
+	auto p = ReadCoverageParams(context, input, "coverage_recall", false);
+	auto sql = "WITH " + Stage1SQL(p) + R"(
+		SELECT query_id, candidate_id, score, containment, jaccard, reviewed, mode_used,
+		       row_number() OVER (PARTITION BY query_id ORDER BY score DESC, candidate_id) AS rank
+		FROM top
+		ORDER BY query_id, rank
+	)";
+	return ParseSubquery(sql, context, "coverage_recall");
+}
+
+void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
+                           const string &description, vector<string> examples, bool stage2) {
+	TableFunction f(name, {LogicalType::ANY}, nullptr, nullptr);
+	f.bind_replace = fn;
+	FunctionDescription desc;
+	desc.description = description;
+	desc.examples = std::move(examples);
+	desc.categories = {"coverage", "search"};
+	vector<NamedParameterSpec> named {{"candidates", LogicalType::LIST(LogicalType::VARCHAR)},
+	                                  {"k", LogicalType::BIGINT},
+	                                  {"nodes_table", LogicalType::VARCHAR},
+	                                  {"candidate_nodes_table", LogicalType::VARCHAR},
+	                                  {"overrides_table", LogicalType::VARCHAR},
+	                                  {"label_table", LogicalType::VARCHAR},
+	                                  {stage2 ? "recall_mode" : "mode", LogicalType::VARCHAR},
+	                                  {"tie_break", LogicalType::DOUBLE}};
+	if (stage2) {
+		for (auto &spec : vector<NamedParameterSpec> {{"attrs_table", LogicalType::VARCHAR},
+		                                              {"candidate_attrs_table", LogicalType::VARCHAR},
+		                                              {"labels", LogicalType::VARCHAR},
+		                                              {"assignment", LogicalType::VARCHAR},
+		                                              {"label_weight", LogicalType::DOUBLE},
+		                                              {"mu", LogicalType::DOUBLE},
+		                                              {"partition_gate", LogicalType::DOUBLE},
+		                                              {"count_gate", LogicalType::DOUBLE},
+		                                              {"stage1_weight", LogicalType::DOUBLE},
+		                                              {"default_bounds", LogicalType::VARCHAR},
+		                                              {"templates_table", LogicalType::VARCHAR},
+		                                              {"rules_table", LogicalType::VARCHAR},
+		                                              {"name_vectors", LogicalType::VARCHAR},
+		                                              {"name_floor", LogicalType::DOUBLE}}) {
+			named.push_back(spec);
+		}
+	}
+	for (auto &spec : named) {
+		duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
+	}
+	desc.parameter_names = {"query_tree_id"};
+	for (auto &spec : named) {
+		desc.parameter_names.emplace_back(spec.first);
+	}
+	desc.parameter_types = {LogicalType::ANY};
+	CreateTableFunctionInfo info(f);
+	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameFunctionsFromDescriptions(info);
+	loader.RegisterFunction(std::move(info));
+}
+
+} // namespace
+
+void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
+	{
+		ScalarFunction f(duckdb_compat::FunctionName("coverage_kernel"), {LogicalType::ANY, LogicalType::ANY, LogicalType::ANY},
+		                 KernelResultType(), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, CoverageKernelFun),
+		                 compat_anofox::ScalarBind<&CoverageKernelBind>());
+		duckdb_compat::SetFallible(f);
+		CreateScalarFunctionInfo info(f);
+		FunctionDescription d;
+		d.description =
+		    "The stage-2 coverage kernel over two packed trees (LIST of STRUCT(node_id, parent_id, node_kind, edge_type, "
+		    "class_id, reviewed, count, probs MAP, attrs LIST(STRUCT(attr_id, name, dimension, unit, lo, hi, bound, "
+		    "category, default_bound, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, "
+		    "partition_gate, count_gate, name_floor, trace, rules). Returns STRUCT(coverage, n_requirements, n_gaps, "
+		    "reviewed, assignment_used, trace). tree_coverage and tree_coverage_trace build its inputs; use it "
+		    "directly for custom pipelines.";
+		d.examples = {"SELECT coverage_kernel(q.nodes, c.nodes, struct_pack(labels := 'hard')).coverage FROM q, c;"};
+		d.categories = {"coverage"};
+		d.parameter_names = {"query", "candidate", "options"};
+		d.parameter_types = {LogicalType::ANY, LogicalType::ANY, LogicalType::ANY};
+		info.descriptions.push_back(std::move(d));
+		duckdb_compat::NameArgumentsFromDescriptions(info);
+		loader.RegisterFunction(std::move(info));
+	}
+	const string common =
+	    " query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default "
+	    "'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the "
+	    "same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
+	    "Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else "
+	    "by weighted jaccard (mode 'auto').";
+	RegisterCoverageTable(
+	    loader, "tree_coverage", TreeCoverageBindReplace,
+	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover (HLD §4.6, §11). Per request "
+	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
+	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
+	    "counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each "
+	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
+	    "partition for reviewed candidates. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
+	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
+	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table)." +
+	        common,
+	    {"SELECT * FROM tree_coverage('R01', k := 20, candidate_nodes_table := 'programme_nodes', "
+	     "candidate_attrs_table := 'programme_attributes');",
+	     "SELECT * FROM tree_coverage(['R01', 'R02'], candidates := ['P001', 'P002']);"},
+	    true);
+	RegisterCoverageTable(
+	    loader, "tree_coverage_trace", TreeCoverageTraceBindReplace,
+	    "The explanation of tree_coverage: one row per request item and required attribute with the matched "
+	    "candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, "
+	    "attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a "
+	    "value below 1). Same parameters as tree_coverage." +
+	        common,
+	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
+	RegisterCoverageTable(
+	    loader, "coverage_recall", CoverageRecallBindReplace,
+	    "Stage-1 recall over class multisets (HLD §4.7): the top-k candidate trees per query with score, "
+	    "containment, jaccard, reviewed, mode_used and rank. mode 'auto' uses containment when every candidate tree "
+	    "is reviewed and weighted jaccard otherwise (BRD risk R1)." +
+	        common,
+	    {"SELECT * FROM coverage_recall('R01', k := 20, candidate_nodes_table := 'programme_nodes');"}, false);
+}
+
+} // namespace anofox
+} // namespace duckdb
