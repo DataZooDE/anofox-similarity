@@ -20,7 +20,7 @@ CREATE TABLE requirements AS SELECT * FROM (VALUES
     ('protection_class', 'IP54 or better'), ('flammability_class', 'Brennbarkeitsklasse F1 oder besser'))
     t(dimension, value_text);
 
-# IP54 required: IP65 1, IP54 1, IP40 two steps worse 0
+# IP54 required (IP40 < IP54 < IP65 < IP67): IP65 1, IP54 1, IP40 one step worse 0.5
 # F1 required (F3 < F2 < F1 < F0): F0 1, F2 one step worse 0.5
 query TTR
 SELECT o.offer_id, parse_quantity(r.value_text).category,
@@ -32,4 +32,10 @@ T1	F1	1.0
 T2	F1	0.5
 W1	IP54	1.0
 W2	IP54	1.0
-W3	IP54	0.0
+W3	IP54	0.5
+
+# IP65 or better: IP40 is two steps worse -> 0; a missing offer value -> NULL
+query RI
+SELECT compat_score('protection_class', 'IP65', 'IP40'), compat_score('protection_class', 'IP65', NULL) IS NULL;
+----
+0.0	true

@@ -44,10 +44,28 @@ WHERE v.category IS NOT NULL;
 ----
 146	146
 
-# a stated bound is parsed exactly; an unqualified value has no bound (the verified table
-# holds the true intent, which the text does not say)
-query I
-SELECT count(*) FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id)
-WHERE p.q.bound IS NOT NULL AND p.q.bound <> v.bound;
+# every raw value has exactly one parsed and one verified row
+query III
+SELECT (SELECT count(*) FROM raw), (SELECT count(*) FROM parsed),
+       (SELECT count(*) FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id));
 ----
-0
+2736	2736	2736
+
+# A text that states a bound (a bound word, a range, '±' or 'nominal') gets exactly the verified
+# bound; a text that states none gets NULL (the verified table holds the true intent, which the
+# text does not say).
+statement ok
+CREATE TABLE classified AS
+SELECT p.*, v.bound AS verified_bound,
+       regexp_matches(lower(p.value_text),
+           '(at least|at most|min\.|max\.|minimum|maximum|minimal|maximal|up to|not more than|not less than|'
+           || 'or better|oder besser|mindestens|höchstens|bis zu|nicht mehr als|nicht weniger als|≥|≤|±|'
+           || 'nominal|nennwert|between|zwischen|[0-9] *(–|-|to|bis) *[0-9])') AS states_bound
+FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id);
+
+query II
+SELECT count(*) FILTER (WHERE states_bound AND q.bound IS DISTINCT FROM verified_bound),
+       count(*) FILTER (WHERE NOT states_bound AND q.bound IS NOT NULL)
+FROM classified;
+----
+0	0

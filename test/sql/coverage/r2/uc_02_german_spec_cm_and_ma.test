@@ -42,6 +42,17 @@ M1.C1.A1	0.2335	0.0833
 M1.C1.A2	0.0	0.0789
 M1.C2.A1	1.0	0.0
 
+# The application that meets every limit
+query T
+SELECT a.node_id
+FROM req r
+JOIN attrs a ON a.tree_id = 'M1' AND a.attr_id = r.attr,
+LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
+GROUP BY a.node_id
+HAVING min(v.score) = 1;
+----
+M1.C2.A1
+
 # The same with a current in mA: 'höchstens 750 mA' is at most 0.75 A; a module drawing
 # 0.8 A misses by 0.05/0.75 = 6.67 %; on the log scale the tolerance is 4.50 %:
 # 1 - (0.0667 - 0.0450)/0.05 = 0.5668

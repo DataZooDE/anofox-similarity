@@ -20,9 +20,9 @@ kN	force	1000.0	0.0
 m	length	1.0	0.0
 mm	length	0.001	0.0
 dB(A)	sound_level	1.0	0.0
+°C	temperature	1.0	273.15
 min	time	60.0	0.0
 s	time	1.0	0.0
-°C	temperature	1.0	273.15
 
 # currencies are never converted: factor NULL
 query TTR
@@ -31,13 +31,18 @@ SELECT symbol, dimension, factor FROM quantity_units() WHERE symbol IN ('EUR', '
 EUR	currency	NULL
 USD	currency	NULL
 
-# every dimension has exactly one base unit
+# every dimension except currency has exactly one base unit; a currency is its own base
 query I
 SELECT count(*) FROM (
-    SELECT dimension FROM quantity_units() WHERE factor = 1 AND "offset" = 0 AND symbol = base_unit
-    GROUP BY dimension HAVING count(*) <> 1);
+    SELECT dimension FROM quantity_units() WHERE dimension <> 'currency'
+    GROUP BY dimension HAVING count(*) FILTER (WHERE factor = 1 AND "offset" = 0 AND symbol = base_unit) <> 1);
 ----
 0
+
+query I
+SELECT bool_and(symbol = base_unit) FROM quantity_units() WHERE dimension = 'currency';
+----
+true
 
 # ---------------------------------------------------------------- parse_quantity: bounds
 
@@ -207,10 +212,56 @@ SELECT parse_quantity('3 Stk.', 'de', (SELECT list(u) FROM my_units u)).lo,
 3.0	count	7.0	m
 
 # named arguments in the documented order: text, lang, unit_table
-query I
-SELECT parse_quantity(text := '65.000 Zyklen', lang := 'de').lo = parse_quantity('65.000 Zyklen', 'de').lo;
+query II
+SELECT parse_quantity(text := '65.000 Zyklen', lang := 'de').lo = parse_quantity('65.000 Zyklen', 'de').lo,
+       parse_quantity(text := '3 Stk.', lang := 'de', unit_table := (SELECT list(u) FROM my_units u)).lo = 3.0;
 ----
-true
+true	true
+
+# a user unit overrides a seed unit with the same symbol: 't' (metric ton) becomes a count
+statement ok
+CREATE TABLE override_units AS SELECT 't' AS symbol, []::VARCHAR[] AS alias, 'count' AS dimension,
+                                      1.0::DOUBLE AS factor, 0.0::DOUBLE AS "offset";
+
+query RTRT
+SELECT parse_quantity('3 t').lo, parse_quantity('3 t').dimension,
+       parse_quantity('3 t', 'en', (SELECT list(u) FROM override_units u)).lo,
+       parse_quantity('3 t', 'en', (SELECT list(u) FROM override_units u)).dimension;
+----
+3000.0	mass	3.0	count
+
+# the seed itself can be passed back in (extra columns such as base_unit are ignored)
+query R
+SELECT parse_quantity('24 cm', 'en', (SELECT list(u) FROM quantity_units() u)).lo;
+----
+0.24
+
+# a category is a single upper-case code with digits and no number in front ('M8', 'F1');
+# '1 F' is one farad
+query TTRT
+SELECT parse_quantity('M8').category, parse_quantity('mindestens F1').category,
+       parse_quantity('1 F').lo, parse_quantity('1 F').dimension;
+----
+M8	F1	1.0	capacitance
+
+# confusable symbols
+query TTTT
+SELECT parse_quantity('90 °').dimension, parse_quantity('3 N·m').dimension, parse_quantity('2 m3/s').dimension,
+       parse_quantity('4 Zyklen').dimension;
+----
+angle	torque	volume_flow	count
+
+# an unknown unit: unit and source_unit are the word as written
+query TT
+SELECT parse_quantity('12 furlongs').unit, parse_quantity('12 furlongs').source_unit;
+----
+furlongs	furlongs
+
+# bound words of both languages are recognised whatever the lang (lang only decides separators)
+query T
+SELECT parse_quantity('mindestens 4', 'en').bound;
+----
+at_least
 
 # ---------------------------------------------------------------- normalize_quantity
 
