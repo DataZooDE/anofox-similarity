@@ -48,7 +48,8 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   -- coverage matching (R2)
   'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies',
   -- coverage matching (R3)
-  'tree_anchors','tree_class_multiset','tree_from_json','tree_multiset','validate_trees');
+  'tree_anchors','tree_class_multiset','tree_from_json','tree_multiset','validate_trees',
+  'coverage_kernel','coverage_recall','tree_coverage','tree_coverage_trace');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -59,7 +60,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-54
+58
 
 # ============================================================================
 # ...and every one of them is documented
@@ -205,3 +206,8 @@ query I
 SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'tree_from_json';
 ----
 [[json], [json, tree_id], [json, tree_id, lang], [json, tree_id, lang, unit_table]]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'coverage_recall';
+----
+[query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break]
