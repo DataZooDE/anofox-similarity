@@ -84,8 +84,29 @@ SELECT count(*), sum(n_pairs) / count(*) FROM fit;
 ----
 9	400
 
-# the defaults (label_weight 0, mu 0.2) are within 0.01 MAE of the best grid point
+# check the best grid point on the other 60 requests before changing the defaults
+statement ok
+SET VARIABLE best_lw = (SELECT label_weight FROM fit WHERE rank = 1);
+
+statement ok
+SET VARIABLE best_mu = (SELECT mu FROM fit WHERE rank = 1);
+
+statement ok
+SET VARIABLE holdout = (SELECT list(request_id ORDER BY request_id) FROM requests WHERE request_id > 'R20');
+
+statement ok
+CREATE TABLE holdout_fit AS
+SELECT * FROM tree_coverage(getvariable('holdout'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs', candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'),
+       label_weight := getvariable('best_lw'), mu := getvariable('best_mu'));
+
+statement ok
+CREATE TABLE holdout_default AS SELECT * FROM results WHERE query_id > 'R20';
+
+# on the holdout the fitted weights are not worse than the defaults by more than 0.005 MAE
 query T
-SELECT (SELECT mae FROM fit WHERE label_weight = 0.0 AND mu = 0.2) - (SELECT min(mae) FROM fit) <= 0.01;
+SELECT (SELECT mae FROM eval_calibration('holdout_fit', 'gold')) - (SELECT mae FROM eval_calibration('holdout_default', 'gold')) <= 0.005;
 ----
 true

@@ -67,11 +67,25 @@ SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
        overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
        rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
 
-# the R3 benchmark numbers (uc_06): top-1 0.925, regret 0.0087; at k = 1 the MRR equals top-1
-query IRRR
-SELECT k, top_k_accuracy, mrr, round(mean_regret, 4) FROM eval_ranking('results', 'gold', k := [1, 20]) WHERE k = 1;
+# eval_ranking computes the same KPIs as the hand-written formulas of R3 uc_06
+statement ok
+CREATE TABLE scored AS
+SELECT r.*, g.true_coverage, q.best_coverage FROM results r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id JOIN gold_requests q ON q.request_id = r.query_id;
+
+query TTT
+SELECT abs(e1.top_k_accuracy - (SELECT avg((true_coverage >= best_coverage - 1e-9)::INT) FROM scored WHERE rank = 1)) < 1e-12,
+       abs(e1.mean_regret - (SELECT avg(best_coverage - true_coverage) FROM scored WHERE rank = 1)) < 1e-12,
+       abs(e20.top_k_accuracy - (SELECT avg(h::INT) FROM (SELECT bool_or(true_coverage >= best_coverage - 1e-9) AS h FROM scored GROUP BY query_id))) < 1e-12
+FROM eval_ranking('results', 'gold', k := [1]) e1, eval_ranking('results', 'gold', k := [20]) e20;
 ----
-1	0.925	0.925	0.0087
+true	true	true
+
+# at k = 1 the MRR equals the top-1 accuracy
+query T
+SELECT mrr = top_k_accuracy FROM eval_ranking('results', 'gold', k := [1]);
+----
+true
 
 # a best programme is in the top 20 for >= 90 % of the requests; the pick is a best one for >= 85 %
 query TT

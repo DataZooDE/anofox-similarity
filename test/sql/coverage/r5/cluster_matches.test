@@ -51,3 +51,22 @@ statement error
 SELECT * FROM cluster_matches('pairs', left_col := 'nope');
 ----
 nope
+
+# the threshold is inclusive; NULL ids and self-pairs are fine; integer ids become text
+statement ok
+CREATE TABLE edge AS SELECT * FROM (VALUES (1, 2, 0.85::DOUBLE), (2, NULL, 0.99), (3, 3, 1.0), (NULL, NULL, 1.0)) t(a, b, score);
+
+query TTI
+SELECT entity_id, cluster_id, cluster_size FROM cluster_matches('edge', threshold := 0.85) ORDER BY entity_id;
+----
+1	1	2
+2	1	2
+3	3	1
+
+statement ok
+CREATE TABLE no_pairs AS SELECT * FROM pairs WHERE false;
+
+query I
+SELECT count(*) FROM cluster_matches('no_pairs');
+----
+0

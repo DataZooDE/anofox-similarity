@@ -44,8 +44,17 @@ SELECT a.record_id AS a, b.record_id AS b,
 FROM records a JOIN records b ON a.record_type = b.record_type AND a.record_id < b.record_id
      AND ((a.tax = b.tax AND a.tax <> '') OR a.city = b.city);
 
+# every record takes part (a self-pair), so every customer gets a cluster
+statement ok
+INSERT INTO pairs SELECT record_id, record_id, 1.0 FROM records;
+
 statement ok
 CREATE TABLE clusters AS SELECT * FROM cluster_matches('pairs', threshold := 0.85);
+
+query T
+SELECT count(*) = (SELECT count(*) FROM customers) FROM clusters;
+----
+true
 
 # ground truth, for checking only
 statement ok
@@ -67,9 +76,10 @@ WHERE g.dup_kind = 'near_miss';
 ----
 12	0
 
-# few false merges: records whose cluster mixes gold clusters
-query I
-SELECT count(*) <= 20 FROM (
+# few false merges: clusters mixing gold clusters (measured 8: namesakes sharing an e-mail at
+# one plant, which the data cannot tell apart; the recipe was designed with the gold labels)
+query T
+SELECT count(*) <= 10 FROM (
     SELECT c.cluster_id FROM clusters c JOIN gold_clusters g ON g.record_id = c.entity_id
     GROUP BY c.cluster_id HAVING count(DISTINCT g.cluster_id) > 1);
 ----
