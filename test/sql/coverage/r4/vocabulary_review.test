@@ -218,3 +218,50 @@ SELECT node_id, len(string_split(request, '"class_id"')) - 1 FROM uncertain_deci
 ----
 u3	3
 u1	2
+
+# ---------------------------------------------------------------- one distribution per wording (green review R4-2)
+
+# node-level decisions beat wording-level ones; an exact source beats a NULL source
+statement ok
+CREATE TABLE mixed AS SELECT * FROM (VALUES
+    ('P1', 'P1.k', 'internal', 'seat_heating', 0.6::DOUBLE), ('P1', 'P1.k', 'internal', 'seat_ventilation', 0.4),
+    (NULL, 'Klima', 'internal', 'seat_ventilation', 0.9), (NULL, 'Klima', 'internal', 'seat_heating', 0.1),
+    (NULL, 'Lüfter', NULL, 'seat_heating', 0.8), (NULL, 'Lüfter', NULL, 'seat_ventilation', 0.2),
+    (NULL, 'Lüfter', 'internal', 'seat_ventilation', 0.7), (NULL, 'Lüfter', 'internal', 'seat_heating', 0.3))
+    t(tree_id, node_id, source, class_id, p);
+
+query TTRTR
+SELECT wording, top1, round(p1, 6), top2, round(p2, 6) FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'mixed')
+ORDER BY wording;
+----
+Klima	seat_heating	0.6	seat_ventilation	0.4
+Lüfter	seat_ventilation	0.7	seat_heating	0.3
+
+statement ok
+CREATE TABLE bad_p AS SELECT NULL::VARCHAR AS tree_id, 'Klima' AS node_id, 'internal' AS source, 'seat_heating' AS class_id, 1.5::DOUBLE AS p;
+
+statement error
+SELECT * FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'bad_p');
+----
+p must be in [0, 1]
+
+# apply: duplicate old entries collapse to the latest; a review row without a class is an error
+statement ok
+CREATE TABLE dup_overrides AS SELECT * FROM (VALUES
+    ('Alt', 'internal', 'seat_frame', 'carol', TIMESTAMP '2026-01-01 00:00:00'),
+    ('Alt', 'internal', 'seat_track', 'erin', TIMESTAMP '2026-02-01 00:00:00'))
+    t(wording, source, class_id, reviewed_by, reviewed_at);
+
+query TTT
+SELECT wording, class_id, reviewed_by FROM apply_vocabulary_review('review2', overrides_table := 'dup_overrides') ORDER BY wording;
+----
+Alt	seat_track	erin
+Klima	seat_ventilation	dave
+
+statement ok
+CREATE TABLE review_null AS SELECT 'Klima' AS wording, 'internal' AS source, NULL::VARCHAR AS class_id;
+
+statement error
+SELECT * FROM apply_vocabulary_review('review_null', overrides_table := NULL);
+----
+class_id must not be NULL

@@ -283,3 +283,93 @@ SELECT class_id, overridden FROM classify_to_catalogue(items_table := 'no_tree',
        center_by_source := false) WHERE rank = 1;
 ----
 A	false
+
+# ---------------------------------------------------------------- integrity guards (green review R4-2)
+
+# an override or decision must name a catalogue class; otherwise a wrong label would look reviewed
+statement ok
+CREATE TABLE bad_override AS SELECT 'Heizmatte' AS wording, NULL::VARCHAR AS source, 'Z' AS class_id;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat', center_by_source := false,
+                                    overrides_table := 'bad_override');
+----
+is not in catalogue_table
+
+statement ok
+CREATE TABLE bad_decision AS SELECT 'T' AS tree_id, 'i2' AS node_id, 'Z' AS class_id;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat', center_by_source := false,
+                                    decisions_table := 'bad_decision');
+----
+is not in catalogue_table
+
+# duplicate class ids, duplicate items, an empty catalogue, missing ids and non-finite vectors are errors
+statement ok
+CREATE TABLE cat_dup AS SELECT * FROM cat UNION ALL SELECT 'A', [0.5, 0.5], [[0.5, 0.5]];
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat_dup', center_by_source := false);
+----
+duplicate class_id
+
+statement ok
+CREATE TABLE items_dup AS SELECT * FROM one UNION ALL SELECT * FROM one;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'items_dup', catalogue_table := 'cat', center_by_source := false);
+----
+duplicate item
+
+statement ok
+CREATE TABLE cat_empty AS SELECT * FROM cat WHERE false;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat_empty', center_by_source := false);
+----
+catalogue_table is empty
+
+statement ok
+CREATE TABLE items_noid AS SELECT NULL::VARCHAR AS node_id, [1.0, 0.0] AS vec;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'items_noid', catalogue_table := 'cat', center_by_source := false);
+----
+node_id must not be NULL
+
+statement ok
+CREATE TABLE items_nan AS SELECT 'x' AS node_id, ['NaN'::DOUBLE, 0.0] AS vec;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'items_nan', catalogue_table := 'cat', center_by_source := false);
+----
+non-finite
+
+statement ok
+CREATE TABLE cat_nan AS SELECT 'A' AS class_id, ['inf'::DOUBLE, 0.0] AS vec;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat_nan', center_by_source := false);
+----
+non-finite
+
+statement error
+SELECT maxsim([['NaN'::DOUBLE, 0.0]], [[1.0, 0.0]]);
+----
+non-finite
+
+statement error
+SELECT calibrated_cosine([NULL, 1.0], [1.0, 0.0], 0.5);
+----
+non-finite or NULL
+
+# attributes and decisions must carry tree_id when the items do (node ids repeat across trees)
+statement ok
+CREATE TABLE attrs_notree AS SELECT 'x' AS node_id, 'travel' AS name, 'length' AS dimension;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'bon', catalogue_table := 'cat', center_by_source := false,
+                                    attrs_table := 'attrs_notree', templates_table := 'templates');
+----
+attrs_table needs a tree_id column
