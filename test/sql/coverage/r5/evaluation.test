@@ -269,3 +269,48 @@ query II
 SELECT n_pairs, n_unresolved FROM fit_coverage_weights('reviewed_missing', label_weights := [0.0], mus := [0.0]);
 ----
 6	1
+
+# ---------------------------------------------------------------- end-of-release review R5-3
+
+# duplicates are removed before score ranking: B 0.99, B 0.98, A 0.90 -> A is second
+statement ok
+CREATE TABLE dup_scores AS SELECT * FROM (VALUES ('qd', 'B', 0.99::DOUBLE), ('qd', 'B', 0.98), ('qd', 'A', 0.90)) t(query_id, candidate_id, coverage);
+
+statement ok
+CREATE TABLE dup_gold AS SELECT * FROM (VALUES ('qd', 'A', 1.0::DOUBLE), ('qd', 'B', 0.5)) t(query_id, candidate_id, true_coverage);
+
+query IR
+SELECT k, top_k_accuracy FROM eval_ranking('dup_scores', 'dup_gold', k := [2], score_col := 'coverage');
+----
+2	1.0
+
+# tied ranks are ordered by candidate id, the same for hit, MRR and regret: X (best) before Y
+statement ok
+CREATE TABLE tied_ranks AS SELECT * FROM (VALUES ('qt', 'Y', 1), ('qt', 'X', 1)) t(query_id, candidate_id, rank);
+
+statement ok
+CREATE TABLE tied_gold AS SELECT * FROM (VALUES ('qt', 'X', 0.9::DOUBLE), ('qt', 'Y', 0.2)) t(query_id, candidate_id, true_coverage);
+
+query RRR
+SELECT top_k_accuracy, mrr, mean_regret FROM eval_ranking('tied_ranks', 'tied_gold', k := [1]);
+----
+1.0	1.0	0.0
+
+# ranks start at 1; an explicit column must exist; good is a coverage
+statement ok
+CREATE TABLE rank_zero AS SELECT 'q1' AS query_id, 'c2' AS candidate_id, 0 AS rank;
+
+statement error
+SELECT * FROM eval_ranking('rank_zero', 'gold');
+----
+rank must be at least 1
+
+statement error
+SELECT * FROM eval_ranking('results', 'gold', rank_col := 'nope');
+----
+nope
+
+statement error
+SELECT * FROM threshold_at_precision('picks', 'picks_gold', good := 1.5);
+----
+good must be between 0 and 1

@@ -171,13 +171,18 @@ SELECT count(*) = (SELECT count(*) FROM raw_idx) * (64 + 32 + 16 + 8) * 2 FROM r
 ----
 true
 
-query I
-SELECT count(*) FROM (
-    SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8)
-    EXCEPT
-    SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8, bands_table := 'raw_bands'));
+statement ok
+CREATE TABLE lsh_plain AS SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8);
+
+statement ok
+CREATE TABLE lsh_bands AS SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8,
+                                                                                           bands_table := 'raw_bands');
+
+query III
+SELECT (SELECT count(*) FROM lsh_bands), (SELECT count(*) FROM (SELECT * FROM lsh_plain EXCEPT SELECT * FROM lsh_bands)),
+       (SELECT count(*) FROM (SELECT * FROM lsh_bands EXCEPT SELECT * FROM lsh_plain));
 ----
-0
+5	0	0
 
 # negative weights are an error in the index and in the queries
 statement ok
