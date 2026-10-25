@@ -8,6 +8,7 @@ vector calibration, oracle semantics and domain neutrality.
 import csv
 import gzip
 import hashlib
+import itertools
 import json
 import os
 import random
@@ -73,7 +74,7 @@ EXPECTED_FILES = [
     "programme_nodes", "programme_attributes", "request_nodes", "request_attributes",
     "programme_class_multiset", "programme_class_multiset_unreviewed",
     "phrasings", "unseen_requirements",
-    "catalogue_vectors", "request_item_vectors", "vocabulary_vectors",
+    "requests", "catalogue_vectors", "request_item_vectors", "vocabulary_vectors",
     "unseen_vectors", "attribute_name_vectors", "customers",
     "gold_item_class", "gold_vocabulary", "gold_request_attributes", "gold_unseen",
     "gold_requests", "gold_coverage", "gold_best_applications", "gold_customer_clusters",
@@ -102,10 +103,21 @@ def test_deterministic_across_processes(data_dir, tmp_path):
         assert p.read_bytes()[4:8] == b"\x00\x00\x00\x00", f"gzip mtime set in {p.name}"
 
 
+def content_digest(root: Path, exclude=()) -> dict[str, str]:
+    """Hash decompressed content: gzip bytes depend on the zlib build."""
+    out = {}
+    for p in sorted(root.rglob("*")):
+        rel = str(p.relative_to(root))
+        if p.is_file() and not any(rel.startswith(e) for e in exclude):
+            raw = p.read_bytes()
+            out[rel] = hashlib.sha256(gzip.decompress(raw) if p.suffix == ".gz" else raw).hexdigest()
+    return out
+
+
 def test_committed_data_is_current(data_dir):
     if not COMMITTED.exists():
         pytest.skip("dataset not generated into the repository yet")
-    assert digest(COMMITTED, exclude=("mini", "README.md")) == digest(data_dir)
+    assert content_digest(COMMITTED, exclude=("mini", "README.md")) == content_digest(data_dir)
     assert (COMMITTED / "README.md").is_file()
     assert (COMMITTED / "mini").is_dir() and any((COMMITTED / "mini").iterdir())
 
@@ -152,6 +164,11 @@ UNIT_PATTERNS = {
     "mA": r"\d\s*mA\b", "°C": r"\d\s*°C", "EUR": r"\d\s*(EUR|€)", "cycles": r"\d\s*(cycles|Zyklen)\b",
     "IP": r"\bIP\d\d\b",
 }
+
+
+def test_attribute_names_carry_no_bound_words(data_dir):
+    for a in read(data_dir, "request_attributes"):
+        assert not BOUND_WORDS.search(a["name"]), a["name"]
 
 
 def test_units_used_in_requests(data_dir):
@@ -222,6 +239,26 @@ def test_programmes(data_dir):
     capability_only = progs - with_module
     assert 0.35 <= len(capability_only) / len(progs) <= 0.45
     assert {n["source"] for n in nodes} == {"internal"}
+
+
+def test_provided_ranges_tell_at_most_from_at_least(data_dir):
+    """Some provided values on at_least/at_most attributes are ranges, so a p_lo/p_hi
+    swap in value_satisfies changes results on real requests."""
+    tmpl = {(a["class_id"], a["attr_key"]): a["bound"] for a in read(data_dir, "catalogue_attributes")}
+    gold = gold_class(data_dir)
+    directional = [a for a in read(data_dir, "programme_attributes")
+                   if tmpl[(gold[(a["tree_id"], a["node_id"])], a["attr_id"])] in ("at_least", "at_most")]
+    ranged = [a for a in directional if float(a["lo"]) < float(a["hi"])]
+    assert 0.08 <= len(ranged) / len(directional) <= 0.20
+    # pairs (requirement, source item) where the swapped rule gives another answer
+    swapped = 0
+    for g in read(data_dir, "gold_request_attributes"):
+        if g["bound"] in ("at_least", "at_most") and g["category"] == "":
+            v, lo, hi = float(g["lo"]), float(g["src_lo"]), float(g["src_hi"])
+            right = ref.oracle_satisfies(g["bound"], v, v, lo, hi)
+            wrong = (lo >= v) if g["bound"] == "at_least" else (hi <= v)
+            swapped += right != wrong
+    assert swapped >= 50, swapped
 
 
 def test_programme_module_refs_copy_module_items(data_dir):
@@ -297,6 +334,9 @@ def test_request_volume_and_hierarchy(data_dir):
     nodes = read(data_dir, "request_nodes")
     items = [n for n in nodes if n["node_kind"] == "item"]
     assert 1350 <= len(items) <= 1650
+    public = {r["request_id"]: r for r in read(data_dir, "requests")}
+    assert set(public) == {r["request_id"] for r in reqs}
+    assert all(public[r["request_id"]]["lang"] == r["lang"] for r in reqs)
     langs = Counter(r["lang"] for r in reqs)
     assert 0.4 <= langs["de"] / len(reqs) <= 0.6
     gran = Counter(r["granularity"] for r in reqs)
@@ -318,7 +358,7 @@ def test_request_volume_and_hierarchy(data_dir):
 
 # An independent bound-word list (not the generator's), EN and DE.
 BOUND_WORDS = re.compile(
-    r"(at least|at most|min\.|max\.|minimum|maximum|up to|not more than|not less than|or better|"
+    r"(at least|at most|min\.|max\.|minimum|maximum|up to|not more than|not less than|or better|±|nominal|Nennwert|"
     r"mindestens|höchstens|bis zu|maximal|minimal|oder besser|≥|≤|>=|<=|"
     r"\d\s*(–|-|…|to|bis)\s*\d|between|zwischen)", re.I)
 
@@ -350,12 +390,30 @@ def test_stretched_attributes_fail_on_their_source(data_dir):
 
 
 def test_unmeetable_requests(data_dir):
-    """Unmeetable means no archived programme reaches the BRD flag threshold."""
+    """Unmeetable means no archived programme reaches the BRD flag threshold, with a
+    clear margin on both sides so the flag KPI measures the kernel, not rounding."""
     reqs = read(data_dir, "gold_requests")
     unmeetable = [r for r in reqs if r["is_unmeetable"] == "true"]
     assert 5 <= len(unmeetable) <= 20
     for r in reqs:
-        assert (float(r["best_coverage"]) < 0.95) == (r["is_unmeetable"] == "true")
+        best = float(r["best_coverage"])
+        assert (best < 0.95) == (r["is_unmeetable"] == "true")
+        if r["is_unmeetable"] == "true":
+            assert 0.5 <= best <= 0.90, r
+        else:
+            assert best >= 0.97, r
+
+
+def test_rankings_are_not_degenerate(data_dir):
+    """No request ties every programme; the best is a small group, not the archive."""
+    best = defaultdict(float)
+    cov = defaultdict(list)
+    for c in read(data_dir, "gold_coverage"):
+        cov[c["query_id"]].append(float(c["true_coverage"]))
+    for q, vals in cov.items():
+        top = max(vals)
+        n_best = sum(1 for v in vals if v >= top - 1e-9)
+        assert n_best < len(vals) * 0.1, (q, n_best)
 
 
 def test_request_json_matches_tables(data_dir):
@@ -467,7 +525,20 @@ def test_maxsim_beats_centroid_on_held_out_phrasings(data_dir):
     centroid = ref.top1_accuracy(ref.zscore(ref.centroid_scores(ref.centre_by_source(X, src), C)), class_ids, y)
     late = ref.top1_accuracy(ref.maxsim_scores(T, E), class_ids, y)
     assert late >= centroid + 0.08, (centroid, late)
-    assert late >= 0.85, late
+    assert 0.85 <= late <= 0.95, late
+
+
+def test_concept_vectors_use_development_phrasings_only():
+    """Concept tokens that occur only in held-out phrasings must not be placed with
+    the help of their held-out class labels."""
+    from scripts.coverage import vectors as V
+    from scripts.coverage.domain import PHRASINGS
+    dev = {c for cid in PHRASINGS for ph in PHRASINGS[cid]["dev"] for c in ph.concepts}
+    test_only = {c for cid in PHRASINGS for ph in PHRASINGS[cid]["test"] for c in ph.concepts} - dev
+    assert test_only
+    sp = V.Space(SEED)
+    for c in test_only:
+        assert c not in sp.concept
 
 
 def test_misleading_wordings_sit_near_wrong_class(data_dir):
@@ -518,6 +589,19 @@ def test_oracle_direction_aware_rules():
     assert not ref.ordinal_satisfies("protection_class", "IP65", "IP54")
 
 
+def test_oracle_assigns_each_offer_item_once():
+    """HANDOVER §7.3: one offer item serves one request block. Two driver/passenger
+    requirements of the same class cannot both be served by a single offer item."""
+    req = [("q1", "seat_track", 1.0, []), ("q2", "seat_track", 1.0, [])]
+    one = [("c1", "seat_track", 1.0, {})]
+    two = [("c1", "seat_track", 1.0, {}), ("c2", "seat_track", 1.0, {})]
+    assert ref.oracle_assignment_coverage(req, one, lambda x, y: 1.0) == 0.5
+    assert ref.oracle_assignment_coverage(req, two, lambda x, y: 1.0) == 1.0
+    # counts: a 4-zone requirement served by one 2-zone item is half covered
+    req4 = [("q1", "seat_heating", 4.0, [])]
+    assert ref.oracle_assignment_coverage(req4, [("c1", "seat_heating", 2.0, {})], lambda x, y: 1.0) == 0.5
+
+
 def _independent_coverage(data_dir):
     """Recompute oracle coverage from the raw tables, without generator code."""
     gold = gold_class(data_dir)
@@ -543,18 +627,30 @@ def _independent_coverage(data_dir):
             return float(ref.ordinal_satisfies(x["dimension"], x["category"], y["category"]))
         return float(ref.oracle_satisfies(x["bound"], float(x["lo"]), float(x["hi"]), float(y["lo"]), float(y["hi"])))
 
+    def item_score(nid, rid, n_q, block, pid):
+        if not block:
+            return 0.0
+        xs = req_attrs[(rid, nid)]
+        a = max((sum(sat(x, prog_attrs[(pid, c)].get(x["attr_key"])) for x in xs) / len(xs)) if xs else 1.0
+                for c, _ in block)
+        return a * min(1.0, sum(n for _, n in block) / n_q)
+
     def coverage(rid, pid):
-        scores = []
+        # brute force: every offer item of a class goes to exactly one request item of that class
+        total = 0.0
+        by_cls = defaultdict(list)
         for nid, cls, n_q in req_items[rid]:
+            by_cls[cls].append((nid, n_q))
+        for cls, qs in by_cls.items():
             cands = prog_items[pid].get(cls, [])
-            if not cands:
-                scores.append(0.0)
-                continue
-            xs = req_attrs[(rid, nid)]
-            a = max((sum(sat(x, prog_attrs[(pid, c)].get(x["attr_key"])) for x in xs) / len(xs)) if xs else 1.0
-                    for c, _ in cands)
-            scores.append(a * min(1.0, sum(n for _, n in cands) / n_q))
-        return sum(scores) / len(scores)
+            best = 0.0
+            for choice in itertools.product(range(len(qs)), repeat=len(cands)):
+                blocks = defaultdict(list)
+                for cand, qi in zip(cands, choice):
+                    blocks[qi].append(cand)
+                best = max(best, sum(item_score(nid, rid, n_q, blocks[i], pid) for i, (nid, n_q) in enumerate(qs)))
+            total += best
+        return total / len(req_items[rid])
 
     return coverage
 
@@ -599,7 +695,7 @@ def test_reference_kernel_reaches_brd_kpis(data_dir):
     assert kpi["recall_at_20"] >= 0.90, kpi
     assert kpi["top1"] >= 0.85, kpi
     assert kpi["mean_regret"] <= 0.01, kpi
-    assert kpi["mae"] <= 0.05, kpi
+    assert kpi["mae"] <= 0.05, kpi  # coverage reported for the top-1 pick; see REVIEW_LOG R0-2
     assert kpi["unmeetable_flagged"] >= 0.95, kpi
     assert kpi["precision_at_0_9"] >= 0.95, kpi
 
@@ -626,6 +722,11 @@ def test_customer_master(data_dir):
     kinds = {g["dup_kind"] for g in gold if g["dup_kind"]}
     assert {"spelling", "umlaut", "legal_form", "moved_plant", "shared_tax_id", "near_miss"} <= kinds
     assert len({c["group_name"] for c in cust if c["record_type"] == "group"}) == 8
+    # every planted duplicate differs from its original
+    rows = {c["record_id"]: [v for k, v in c.items() if k != "record_id"] for c in cust}
+    for g in gold:
+        if g["dup_kind"] and g["dup_kind"] != "near_miss":
+            assert rows[g["record_id"]] != rows[g["cluster_id"]], g
     # a near miss looks like another record but is a different company
     cluster_of = {g["record_id"]: g["cluster_id"] for g in gold}
     by_id = {c["record_id"]: c for c in cust}
