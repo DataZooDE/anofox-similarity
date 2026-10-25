@@ -188,3 +188,52 @@ in three expectations before the red commit.
 | F16 | low | uc_02 does not select | HAVING min(score) = 1 → M1.C2.A1 |
 
 Deferred: carrying a stated "± x %" tolerance from parse_quantity into value_satisfies.
+
+## R2-2 — 2026-10-25 — after R2 green step
+
+- **Crew:** correctness (claude), security (codex), performance (claude), maintainability
+  (codex). Verdict: REQUEST_CHANGES.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | `>=`/`<=` parsed as equals | Fixed: operators before words; `>`/`<` map to at_least/at_most (strictness dropped, documented) |
+| F2 | high | Bound words matched as substrings | Fixed: word-boundary matching in prefix and suffix |
+| F3 | high | Leading-zero decimals read as thousands | Fixed: a leading 0 is always a decimal |
+| F4 | high | Mixed-unit ranges convert both ends with one unit | Fixed: per-end units; different dimensions give dimension NULL |
+| F5 | high | Use-after-free in normalize_quantity with per-row unit tables | Fixed: one table reference per row |
+| F6 | high | Struct units unchecked | Fixed: struct units resolve against the seed; unknown or mismatched units gate; currency symbols canonical; currency without a unit gates |
+| F7 | med | Signed range ends | Fixed: signs after connectors and operators, `+`, spaced dash |
+| F8 | med | `220 ± 5 N`, suffix bounds | Fixed |
+| F9 | med | Unit table rebuilt per row | Fixed: reused while the units repeat; Seed() for NULL |
+| F10 | med | User unit factors unchecked; malformed numbers | Fixed: factor positive and finite; malformed digit groups are not numbers |
+| F11 | med | Per-row data errors abort bulk queries | **Kept** (fail loudly): categorical values belong to compat_score, and the R3 kernel routes them there itself. Logged as a decision |
+| F12 | low | lo > hi, non-finite values | Fixed |
+| F13 | low | One-letter aliases, μ/Ω, EUR prefix, umlauts | Fixed |
+| F14 | low | Value-based I/O about 3–4 µs per row | Accepted for the SQL surface; the R3 kernel calls the C++ functions directly |
+
+All regressions are pinned in `test/sql/coverage/r2/parser_regressions.test`.
+
+---
+
+## R3-1 — 2026-10-25 — after R3 red batch A (property-tree store)
+
+- **Crew:** correctness (claude), testing (codex), design (claude), usability (codex).
+  Verdict: REQUEST_CHANGES.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | The R01 check expected 13 numeric attributes; only 11 exist | Fixed in a `test:` commit: a symmetric check over three requests (55 attributes, 52 numeric, 3 categorical) |
+| F2 | high | The test depended on overrides_table defaulting to NULL | Decided: opt-in, default NULL (HLD §11.8), stated in the test |
+| F3 | high | label_table shape vs the R4 producer; arg-max untested | Decided: `(tree_id, node_id, class_id, p)`, arg-max, ties to the lowest class_id; classify_to_catalogue returns tree_id (HLD §11.8); multi-row and tie tests |
+| F4 | med | Precedence class_id > override untested | Contradicting override added |
+| F5 | med | OR max only tested with same-class alternatives | **Escalated:** product owner chose elementwise max as an optimistic stage-1 bound; fixture with different classes |
+| F6 | med | Count rules untested in the multiset | **Escalated:** product owner chose the product along the path; bench and AND-sum fixtures |
+| F7 | med | Undocumented HLD deviations | HLD §11.8 |
+| F8 | med | Attribute structs lack keys; no multi-document test | Keys added; three requests in one read_text query |
+| F9 | med | validate_trees gaps; recursion on broken input | duplicate_node, zero count, orphan_attribute, mixed_edge_types, bad_interval, bad_bound; tree_anchors termination test |
+| F10 | med | No lang/unit_table on tree_from_json | Added |
+| F11 | med | mixed_dimensions too broad; no severity | Scoped per source and name; severity column |
+| F12 | low | One-way node comparison on 4 columns | Symmetric over 10 columns |
+| F13 | low | tree_from_json edge and error cases | Added, errors name the node |
+| F14 | low | Path conventions, n_attributes | Documented; n_attributes 0 without an attribute table |
+| F15 | low | Misleading comment, weak identifier tests | Fixed; identifier tests for every table parameter |

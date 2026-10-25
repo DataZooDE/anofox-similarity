@@ -581,3 +581,29 @@ precedence over the text above.
      raise an error that points to `compat_score`.
    - `distance` is relative for at_least/at_most/equals, the uncovered share for
      within/point, and kelvin for temperature.
+8. **Property-tree store conventions (R3).** Decided with the product owner (2026-10-25):
+   the stage-1 class multiset of a tree takes the **elementwise maximum across OR
+   alternatives**, an optimistic upper bound that stage 2 then resolves exactly. Counts
+   **multiply along the path** (`effective_count` = product of the counts from the root to
+   the item). Further conventions:
+   - `tree_from_json(json, tree_id, lang, unit_table)` is a scalar returning a LIST of node
+     STRUCTs with nested attribute STRUCTs that carry `tree_id` and `node_id`, so it works
+     over many documents (`read_text`). Structured value fields win over the text; a
+     text-only value is parsed with `parse_quantity`. A missing kind is inferred (children:
+     container, none: item), and items may have children. Errors name the node.
+   - Tree table functions take `nodes_table` (positional), then `attrs_table` (positional
+     or named), and the named parameters `overrides_table`, `label_table` and `tree_ids`.
+     `class_source` is dropped.
+   - Class resolution, shared by stages 1 and 2: `class_id` → `overrides_table` (reviewed
+     vocabulary: `wording` matched exactly against `label`; a NULL `source` matches any
+     source; opt-in, default NULL) → `label_table` (`tree_id, node_id, class_id, p`; arg-max,
+     ties to the lowest class_id). A tree is *reviewed* when every item got its class from
+     `class_id` or the vocabulary. `classify_to_catalogue` (§4.4) therefore returns `tree_id`
+     as well.
+   - `anchor_path` holds the ancestors from the root (item excluded); `variant_path` holds
+     the nodes with an OR edge on the way from the root, the item included.
+   - `validate_trees` returns `severity`: errors are structural (duplicate_node,
+     bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle,
+     attribute_on_container, orphan_attribute, bad_interval, bad_bound); warnings are
+     data-quality issues (mixed_edge_types, unknown_unit, and mixed_dimensions, scoped per
+     source and attribute name).
