@@ -1553,6 +1553,7 @@ candidate trees.
 | `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: an unqualified requirement takes the bound of its template with the same class and dimension (none when ambiguous) |
 | `rules_table` | NULL | compatibility rules for categorical attributes (no rule: equal → 1) |
 | `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap |
+| `candidate_multiset_table` | NULL | a precomputed index of the candidate class multisets (`tree_class_multiset` output: `entity_id, feature_id, weight[, reviewed]`). Stage 1 reads it instead of resolving every candidate tree; the results are the same |
 
 **Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
 value below 1. It does not depend on how soft the labels are. A required attribute that the
@@ -1570,6 +1571,27 @@ SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3)
 FROM tree_coverage_trace('R07', candidates := [getvariable('top')], ...)
 WHERE is_gap;
 ```
+
+**Large archives.** Index the archive once and rank against the index:
+
+```sql
+CREATE TABLE programme_index AS
+SELECT * FROM tree_class_multiset('programme_nodes', overrides_table := 'vocabulary_overrides');
+
+SELECT * FROM tree_coverage('R07', k := 20, candidate_nodes_table := 'programme_nodes',
+                            candidate_attrs_table := 'programme_attributes',
+                            overrides_table := 'vocabulary_overrides',
+                            candidate_multiset_table := 'programme_index');
+```
+
+One request against 100 200 trees (2.6 M nodes, laptop): stage 1 takes 0.12 s and stage 2
+0.58 s with the index, and 1.9 s and 12.9 s without it. Building the index takes 1.9 s.
+Rebuild the index when the archive or the vocabulary changes.
+
+**Input checks.** The `coverage_kernel` scalar checks its argument types, so malformed input
+gives an error and does not abort. An empty `candidates` or query list selects nothing.
+Label rows are cleaned: duplicates add up, and NULL classes and probabilities ≤ 0 drop out.
+Soft distributions are normalised to 1.
 
 **Benchmark** (80 requests at once, reviewed vocabulary, catalogue bounds, name vectors):
 recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable

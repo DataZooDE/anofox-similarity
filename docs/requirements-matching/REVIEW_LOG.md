@@ -290,3 +290,28 @@ auto-accept share 82.5 %. These are identical to the reference kernel. Runtime: 
 
 The partition-versus-best-match failure mode on unreviewed labels needs soft labels from a
 classifier. It moves to R4.
+
+## R3-4 — 2026-10-25 — after R3 green step, batch B (coverage kernel)
+
+- **Crew:** correctness, security, performance, design (codex/claude). Verdict:
+  REQUEST_CHANGES. SQL injection: none found (every identifier validated and quoted,
+  literals quoted, doubles checked for finiteness).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Malformed scalar input gives an INTERNAL error that invalidates the database | Fixed: per-chunk type checks in coverage_kernel and tree_multiset (InvalidInputException); NULL options = defaults; tests followed by `SELECT 1` |
+| F2 | high | An empty candidates/query list disables the filter | Fixed: an empty list selects nothing (`has_tree_ids`); tests for all three functions |
+| F3 | med | Partition shares AND siblings inside one OR variant | Pinned and documented (HLD §11.10): variants are per requirement, as §4.6 prescribes; test |
+| F4 | med | NaN can reach a score | Fixed: Num() assigns only finite values; counts must be positive and finite (error names the node) |
+| F5 | med | Duplicate/NULL label rows abort map_from_entries | Fixed in the soft-label maps and the resolver's arg-max: duplicates add up, NULL classes and p ≤ 0 drop out |
+| F6 | med | Soft labels are not normalised | Fixed: normalised to 1 |
+| F7 | med | Scope of the auto recall mode | Documented (HLD §11.10): the candidate pool of the call |
+| F8 | med | Stage 1 cross join; scale not verified | Fixed: inverted join; new `candidate_multiset_table` index (uc_10 proves the results are identical). 100 200 trees: stage 1 0.12 s, stage 2 0.58 s per request (BR-40 met); without the index 1.9 s / 12.9 s |
+| F9 | med | Per-pair cost | Partly fixed: no attribute scoring without label agreement; one-hot distributions built once. Loading the query once per query: deferred (0.58 s per request is within budget) |
+| F10 | med | The committed code did not build on 2.0 | Fixed (overloads instead of varargs, compat parameter map); full suite green on 2.0 |
+| F11 | low | Options STRUCT not validated | Fixed |
+| F12 | low | Mixed name-vector lengths fall back silently | Documented fallback (token overlap); deferred |
+| F13 | low | Self-exclusion across different tables | Fixed: only within one table; test |
+| F14 | low | One bad candidate tree aborts stage 1 for all | Deferred: validate_trees is the tool for that, and errors name the tree in tree_multiset |
+| F15 | low | TableExists fails open; duplicated helpers | Kept: a failure falls through to the column check, which errors; consolidation deferred to the R5 refactor |
+| F16 | low | Supplier class_id counts as reviewed | Documented (HLD §11.10) |

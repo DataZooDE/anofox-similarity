@@ -631,3 +631,19 @@ precedence over the text above.
      bounds; then no default bound applies.
    - Until R4 provides the classifier, benchmark tests take the request items' classes from
      the benchmark labels as a stand-in for upstream labelling.
+10. **Kernel review decisions (R3, REVIEW_LOG R3-4).**
+   - OR variants under partition are evaluated **per requirement**, also when one variant
+     holds several AND items. This follows §4.6 ("best variant per requirement"): a variant
+     describes what a module can be configured as, not one configured instance. One-to-one
+     (§11.4) applies to items outside OR groups.
+   - `recall_mode := 'auto'` is decided over the candidate pool of the call: the explicit
+     `candidates`, or the whole candidate table. Per-query pools differ only by the query
+     itself.
+   - A `class_id` delivered in the input (for example in an offer's JSON) counts as reviewed.
+     A deployment that does not trust supplier classes leaves `class_id` empty and lets the
+     reviewed vocabulary or the classifier give the class.
+   - Stage 1 can read a precomputed class-multiset index (`candidate_multiset_table`), as in
+     §4.1. Candidate trees are then resolved for the top k only. An explicit candidate that is
+     missing from the index is not scored.
+   - An empty id list selects nothing. Soft distributions are normalised. Counts must be
+     positive and finite.
