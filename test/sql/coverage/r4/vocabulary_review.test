@@ -265,3 +265,57 @@ statement error
 SELECT * FROM apply_vocabulary_review('review_null', overrides_table := NULL);
 ----
 class_id must not be NULL
+
+# ---------------------------------------------------------------- end-of-release review R4-3
+
+statement error
+SELECT * FROM vocabulary_review_queue(trees_table := 'archive; DROP TABLE archive', decisions := 'word_decisions');
+----
+Invalid identifier for trees_table
+
+statement error
+SELECT * FROM vocabulary_review_queue(trees_table := 'archive');
+----
+decisions (a classify_to_catalogue result) is required
+
+statement error
+SELECT * FROM apply_vocabulary_review('no_such_review');
+----
+review_table 'no_such_review' does not exist
+
+statement error
+SELECT * FROM uncertain_decisions(decisions := 'decided', share := 1.5);
+----
+share in (0, 1]
+
+statement error
+SELECT * FROM uncertain_decisions(decisions := 'decided', top := 0);
+----
+top must be positive
+
+# texts must carry tree_id when the decisions do (node ids repeat across trees)
+statement ok
+CREATE TABLE texts_notree AS SELECT 'u3' AS node_id, 'x' AS text;
+
+statement error
+SELECT * FROM uncertain_decisions(decisions := 'decided', texts_table := 'texts_notree');
+----
+texts_table needs a tree_id column
+
+# apply without overrides_table merges into vocabulary_overrides when it exists, and starts
+# fresh when it does not
+statement ok
+CREATE TABLE ov_check AS SELECT * FROM apply_vocabulary_review('review2');
+
+query I
+SELECT count(*) = (SELECT count(*) FROM apply_vocabulary_review('review2', overrides_table := 'vocabulary_overrides')) FROM ov_check;
+----
+true
+
+statement ok
+DROP TABLE vocabulary_overrides;
+
+query I
+SELECT count(*) FROM apply_vocabulary_review('review2');
+----
+1

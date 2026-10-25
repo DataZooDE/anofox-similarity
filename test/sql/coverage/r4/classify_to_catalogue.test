@@ -145,7 +145,7 @@ CREATE TABLE decisions AS SELECT * FROM (VALUES ('T', 'i2', 'B')) t(tree_id, nod
 
 query TTT
 SELECT node_id, class_id, overridden FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat',
-       center_by_source := false, decisions_table := 'decisions') WHERE rank = 1 ORDER BY node_id;
+       center_by_source := false, answers_table := 'decisions') WHERE rank = 1 ORDER BY node_id;
 ----
 i1	A	false
 i2	B	true
@@ -273,7 +273,7 @@ CREATE TABLE no_tree AS SELECT * FROM (VALUES ('i1', 'Heizmatte', [1.0, 0.0])) t
 
 query TT
 SELECT class_id, overridden FROM classify_to_catalogue(items_table := 'no_tree', catalogue_table := 'cat',
-       center_by_source := false, overrides_table := 'overrides', decisions_table := 'both_kinds') WHERE rank = 1;
+       center_by_source := false, overrides_table := 'overrides', answers_table := 'both_kinds') WHERE rank = 1;
 ----
 B	true
 
@@ -301,7 +301,7 @@ CREATE TABLE bad_decision AS SELECT 'T' AS tree_id, 'i2' AS node_id, 'Z' AS clas
 
 statement error
 SELECT * FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat', center_by_source := false,
-                                    decisions_table := 'bad_decision');
+                                    answers_table := 'bad_decision');
 ----
 is not in catalogue_table
 
@@ -373,3 +373,40 @@ SELECT * FROM classify_to_catalogue(items_table := 'bon', catalogue_table := 'ca
                                     attrs_table := 'attrs_notree', templates_table := 'templates');
 ----
 attrs_table needs a tree_id column
+
+# ---------------------------------------------------------------- end-of-release review R4-3
+
+# empty or all-NULL token lists carry no evidence: an error, like NULL vectors
+statement ok
+CREATE TABLE tok_empty AS SELECT 't0' AS node_id, []::DOUBLE[][] AS tokens;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'tok_empty', catalogue_table := 'cat', mode := 'late_interaction',
+                                    center_by_source := false);
+----
+empty token list
+
+statement ok
+CREATE TABLE cat_tok_empty AS SELECT 'A' AS class_id, [NULL::DOUBLE[]] AS exemplar_tokens;
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'tok', catalogue_table := 'cat_tok_empty', mode := 'late_interaction',
+                                    center_by_source := false);
+----
+empty token list
+
+# hostile and missing table names
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', answers_table := 'x; DROP TABLE cat');
+----
+Invalid identifier for answers_table
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'no_such_items', catalogue_table := 'cat');
+----
+items_table 'no_such_items' does not exist
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', top := 0);
+----
+top must be positive

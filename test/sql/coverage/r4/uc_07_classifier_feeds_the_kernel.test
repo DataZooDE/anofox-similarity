@@ -163,7 +163,7 @@ statement ok
 CREATE TABLE reviewed_labels AS SELECT tree_id, node_id, class_id, p
 FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue', attrs_table := 'req_attrs',
        templates_table := 'templates', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'),
-       decisions_table := 'answers');
+       answers_table := 'answers');
 
 statement ok
 CREATE TABLE with_review AS

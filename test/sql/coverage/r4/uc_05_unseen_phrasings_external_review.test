@@ -55,7 +55,7 @@ CREATE TABLE answers AS SELECT NULL::VARCHAR AS tree_id, e.node_id, g.class_id F
 
 statement ok
 CREATE TABLE redecided AS SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue',
-       mode := 'late_interaction', decisions_table := 'answers');
+       mode := 'late_interaction', answers_table := 'answers');
 
 # the answered items are now right and marked as overridden; overall accuracy does not drop
 query III
