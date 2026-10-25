@@ -314,6 +314,8 @@ The extension implements a **tiered similarity approach**:
 | **[API_REFERENCE.md](docs/API_REFERENCE.md)** | Complete function documentation with examples |
 | **[CONCEPT.md](docs/CONCEPT.md)** | Algorithmic background and theory |
 | **[DATA-STRUCTURES.md](docs/DATA-STRUCTURES.md)** | Schema definitions and data models |
+| **[requirements-matching/BRD.md](docs/requirements-matching/BRD.md)** | Proposed: business requirements for requirement-to-offer coverage matching (draft) |
+| **[requirements-matching/HLD.md](docs/requirements-matching/HLD.md)** | Proposed: high-level design for coverage matching (draft) |
 | **[SAP_BOM_Explosion_Technical_Memo.md](docs/SAP_BOM_Explosion_Technical_Memo.md)** | SAP integration specifics |
 | **[Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md](docs/Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md)** | Dynamics 365 integration specifics |
 
