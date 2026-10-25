@@ -8,6 +8,8 @@
 #include "modules/property_tree.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
+#include "duckdb/function/scalar_function.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 
 #include <cmath>
 
@@ -148,6 +150,50 @@ inline void RegisterCoverageTableFunction(ExtensionLoader &loader, const string 
 	CreateTableFunctionInfo info(f);
 	info.descriptions.push_back(std::move(desc));
 	duckdb_compat::NameFunctionsFromDescriptions(info);
+	loader.RegisterFunction(std::move(info));
+}
+
+//! One documented overload of a coverage scalar.
+struct CoverageScalarOverload {
+	vector<LogicalType> arguments;
+	vector<string> names;
+	vector<string> examples;
+	string description; // empty: the function's description
+};
+
+//! A coverage scalar: a fallible function set with one documented signature per overload.
+struct CoverageScalarSpec {
+	string name;
+	LogicalType return_type;
+	scalar_function_t function;
+	bind_scalar_function_t bind;
+	string description;
+	vector<string> categories;
+	bool special_null_handling = false; // the function handles NULL arguments itself
+};
+
+inline void RegisterCoverageScalar(ExtensionLoader &loader, const CoverageScalarSpec &spec,
+                                   const vector<CoverageScalarOverload> &overloads) {
+	ScalarFunctionSet set(duckdb_compat::FunctionName(spec.name));
+	for (auto &o : overloads) {
+		ScalarFunction f(duckdb_compat::FunctionName(spec.name), o.arguments, spec.return_type, spec.function, spec.bind);
+		duckdb_compat::SetFallible(f);
+		if (spec.special_null_handling) {
+			f.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING);
+		}
+		set.AddFunction(f);
+	}
+	CreateScalarFunctionInfo info(set);
+	for (auto &o : overloads) {
+		FunctionDescription desc;
+		desc.description = o.description.empty() ? spec.description : o.description;
+		desc.examples = o.examples;
+		desc.categories = spec.categories;
+		desc.parameter_names = o.names;
+		desc.parameter_types = o.arguments;
+		info.descriptions.push_back(std::move(desc));
+	}
+	duckdb_compat::NameArgumentsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }
 

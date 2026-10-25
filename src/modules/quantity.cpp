@@ -1,4 +1,5 @@
 #include "modules/quantity.hpp"
+#include "modules/coverage_sql.hpp"
 #include "duckdb_compat.hpp"
 #include "duckdb_compat/list_vector.hpp"
 #include "duckdb_compat/struct_vector.hpp"
@@ -1171,25 +1172,13 @@ struct Overload {
 
 void RegisterScalar(ExtensionLoader &loader, const string &name, const LogicalType &ret, scalar_function_t fn,
                     bind_scalar_function_t bind, const string &description, const vector<Overload> &overloads) {
-	ScalarFunctionSet set(duckdb_compat::FunctionName(name));
+	vector<CoverageScalarOverload> docs;
 	for (auto &o : overloads) {
-		ScalarFunction f(duckdb_compat::FunctionName(name), o.arguments, ret, fn, bind);
-		duckdb_compat::SetFallible(f);
-		f.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING);
-		set.AddFunction(f);
+		docs.push_back({o.arguments, o.names, o.examples, ""});
 	}
-	CreateScalarFunctionInfo info(set);
-	for (auto &o : overloads) {
-		FunctionDescription desc;
-		desc.description = description;
-		desc.examples = o.examples;
-		desc.categories = {"coverage", "quantity"};
-		desc.parameter_names = o.names;
-		desc.parameter_types = o.arguments;
-		info.descriptions.push_back(std::move(desc));
-	}
-	duckdb_compat::NameArgumentsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
+	CoverageScalarSpec spec {name, ret, fn, bind, description, {"coverage", "quantity"}};
+	spec.special_null_handling = true; // NULL options mean the defaults
+	RegisterCoverageScalar(loader, spec, docs);
 }
 
 string SqlDouble(double v) {

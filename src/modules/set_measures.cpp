@@ -9,6 +9,7 @@
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include "telemetry.hpp"
 #include "anofox_similarity_banner.hpp"
+#include "modules/coverage_sql.hpp"
 
 #include <cmath>
 #include <unordered_map>
@@ -303,24 +304,11 @@ struct Overload {
 
 void Register(ExtensionLoader &loader, const string &name, scalar_function_t fn, bind_scalar_function_t bind,
               const vector<Overload> &overloads) {
-	ScalarFunctionSet set(duckdb_compat::FunctionName(name));
+	vector<CoverageScalarOverload> docs;
 	for (auto &o : overloads) {
-		ScalarFunction f(duckdb_compat::FunctionName(name), o.arguments, LogicalType::DOUBLE, fn, bind);
-		duckdb_compat::SetFallible(f);
-		set.AddFunction(f);
+		docs.push_back({o.arguments, o.names, o.examples, o.description});
 	}
-	CreateScalarFunctionInfo info(set);
-	for (auto &o : overloads) {
-		FunctionDescription desc;
-		desc.description = o.description;
-		desc.examples = o.examples;
-		desc.categories = {"similarity", "coverage"};
-		desc.parameter_names = o.names;
-		desc.parameter_types = o.arguments;
-		info.descriptions.push_back(std::move(desc));
-	}
-	duckdb_compat::NameArgumentsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
+	RegisterCoverageScalar(loader, {name, LogicalType::DOUBLE, fn, bind, "", {"similarity", "coverage"}}, docs);
 }
 
 } // namespace

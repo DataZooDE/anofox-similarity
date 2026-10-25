@@ -202,32 +202,10 @@ unique_ptr<FunctionData> LshBandsBind() {
 	return nullptr;
 }
 
-struct ScalarOverload {
-	vector<LogicalType> arguments;
-	vector<string> names;
-	vector<string> examples;
-};
 
 void RegisterScalarSet(ExtensionLoader &loader, const string &name, LogicalType ret, scalar_function_t fn,
-                       bind_scalar_function_t bind, const string &description, vector<ScalarOverload> overloads) {
-	ScalarFunctionSet set(duckdb_compat::FunctionName(name));
-	for (auto &o : overloads) {
-		ScalarFunction f(duckdb_compat::FunctionName(name), o.arguments, ret, fn, bind);
-		duckdb_compat::SetFallible(f);
-		set.AddFunction(f);
-	}
-	CreateScalarFunctionInfo info(set);
-	for (auto &o : overloads) {
-		FunctionDescription d;
-		d.description = description;
-		d.examples = o.examples;
-		d.categories = {"coverage", "recall"};
-		d.parameter_names = o.names;
-		d.parameter_types = o.arguments;
-		info.descriptions.push_back(std::move(d));
-	}
-	duckdb_compat::NameArgumentsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
+                       bind_scalar_function_t bind, const string &description, vector<CoverageScalarOverload> overloads) {
+	RegisterCoverageScalar(loader, {name, std::move(ret), fn, bind, description, {"coverage", "recall"}}, overloads);
 }
 
 //------------------------------------------------------------------------------

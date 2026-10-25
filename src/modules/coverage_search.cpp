@@ -1,4 +1,5 @@
 #include "modules/coverage_search.hpp"
+#include "modules/coverage_sql.hpp"
 #include "duckdb_compat.hpp"
 #include "core/named_parameters.hpp"
 #include "core/sql_safety.hpp"
@@ -16,16 +17,6 @@ namespace anofox {
 
 namespace {
 
-unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext &context, const string &err_msg) {
-	auto statements = duckdb_compat::ParseStatements(context, query);
-	if (statements.size() != 1 || statements[0]->type != StatementType::SELECT_STATEMENT) {
-		throw ParserException(err_msg);
-	}
-	auto &select_stmt = statements[0]->Cast<SelectStatement>();
-	auto new_stmt = make_uniq<SelectStatement>();
-	new_stmt->node = std::move(select_stmt.node);
-	return make_uniq<SubqueryRef>(std::move(new_stmt));
-}
 
 //! A column name parameter: one identifier segment (validated, so quoting it is safe).
 void ValidateColumnName(const string &column, const string &param_name) {
@@ -35,19 +26,7 @@ void ValidateColumnName(const string &column, const string &param_name) {
 	}
 }
 
-//! A validated (dot-separated) identifier path with every segment double-quoted, so
-//! reserved words such as "order" work as table names.
-string QuotedPath(const string &path) {
-	string out = "\"";
-	for (auto ch : path) {
-		out += ch == '.' ? string("\".\"") : string(1, ch);
-	}
-	return out + "\"";
-}
 
-string FormatDouble(double value) {
-	return StringUtil::Format("%.17g", value);
-}
 
 struct CoverageParams {
 	int64_t k = 0;
@@ -154,7 +133,7 @@ CoverageParams ReadParams(ClientContext &context, TableFunctionBindInput &input,
 string FeatureMultisetSQL(const CoverageParams &p) {
 	auto entity = "\"" + p.entity_col + "\"";
 	auto feature = "\"" + p.feature_col + "\"";
-	auto table = QuotedPath(p.feature_table);
+	auto table = QuotedIdentifier(p.feature_table);
 	if (!p.weighted) {
 		return StringUtil::Format("SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, "
 		                          "1.0::DOUBLE AS weight FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL GROUP BY ALL",
@@ -186,9 +165,9 @@ string RankingSQL(const CoverageParams &p, const string &query_cte, const string
 	} else {
 		measure = StringUtil::Format("shared_weight / NULLIF(shared_weight + %s * (query_weight - shared_weight) + "
 		                             "%s * (candidate_weight - shared_weight), 0)",
-		                             FormatDouble(p.alpha), FormatDouble(p.beta));
+		                             DoubleLiteral(p.alpha), DoubleLiteral(p.beta));
 	}
-	string score = p.mode == "jaccard" ? "jaccard" : StringUtil::Format("measure + %s * jaccard", FormatDouble(p.tie_break));
+	string score = p.mode == "jaccard" ? "jaccard" : StringUtil::Format("measure + %s * jaccard", DoubleLiteral(p.tie_break));
 	string exclude = exclude_entity_sql.empty() ? "" : " AND fm.entity_id <> " + exclude_entity_sql;
 	return StringUtil::Format(R"(
 		WITH
@@ -221,7 +200,7 @@ string RankingSQL(const CoverageParams &p, const string &query_cte, const string
 		ORDER BY score DESC, entity_id
 		LIMIT %lld
 	)",
-	                          FeatureMultisetSQL(p), query_cte, exclude, measure, score, FormatDouble(p.min_score),
+	                          FeatureMultisetSQL(p), query_cte, exclude, measure, score, DoubleLiteral(p.min_score),
 	                          (long long)p.k);
 }
 
@@ -234,7 +213,7 @@ unique_ptr<TableRef> FindCoveringEntitiesBindReplace(ClientContext &context, Tab
 	}
 	auto query_sql = QuoteSQLStringLiteral(input.inputs[0].GetValue<string>());
 	auto q = "SELECT feature_id, weight FROM fm WHERE entity_id = " + query_sql;
-	return ParseSubquery(RankingSQL(p, q, query_sql), context, "Failed to parse find_covering_entities query");
+	return CoverageSubquery(RankingSQL(p, q, query_sql), context, "find_covering_entities");
 }
 
 unique_ptr<TableRef> FindCoveringEntitiesForBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -273,12 +252,12 @@ unique_ptr<TableRef> FindCoveringEntitiesForBindReplace(ClientContext &context, 
 				w = 1.0;
 			}
 			auto key = QuoteSQLStringLiteral(kv[0].ToString());
-			rows += (rows.empty() ? "" : ", ") + StringUtil::Format("(%s, %s::DOUBLE)", key, FormatDouble(w));
+			rows += (rows.empty() ? "" : ", ") + StringUtil::Format("(%s, %s)", key, DoubleLiteral(w));
 		}
 	}
 	string q = rows.empty() ? "SELECT NULL::VARCHAR AS feature_id, NULL::DOUBLE AS weight WHERE false"
 	                        : "SELECT * FROM (VALUES " + rows + ") v(feature_id, weight)";
-	return ParseSubquery(RankingSQL(p, q, ""), context, "Failed to parse find_covering_entities_for query");
+	return CoverageSubquery(RankingSQL(p, q, ""), context, "find_covering_entities_for");
 }
 
 const char *NAMED_DOC = "Named parameters: mode ('containment' | 'jaccard' | 'tversky'), alpha, beta (Tversky "

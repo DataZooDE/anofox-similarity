@@ -202,18 +202,8 @@ unique_ptr<FunctionData> CalibratedCosineBind() {
 void RegisterScalar(ExtensionLoader &loader, const string &name, vector<LogicalType> args, scalar_function_t fn,
                     bind_scalar_function_t bind, vector<string> names, const string &description,
                     vector<string> examples) {
-	ScalarFunction f(duckdb_compat::FunctionName(name), args, LogicalType::DOUBLE, fn, bind);
-	duckdb_compat::SetFallible(f);
-	CreateScalarFunctionInfo info(f);
-	FunctionDescription d;
-	d.description = description;
-	d.examples = std::move(examples);
-	d.categories = {"coverage", "classification"};
-	d.parameter_names = std::move(names);
-	d.parameter_types = args;
-	info.descriptions.push_back(std::move(d));
-	duckdb_compat::NameArgumentsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
+	RegisterCoverageScalar(loader, {name, LogicalType::DOUBLE, fn, bind, description, {"coverage", "classification"}},
+	                       {{std::move(args), std::move(names), std::move(examples), ""}});
 }
 
 //------------------------------------------------------------------------------

@@ -889,9 +889,6 @@ unique_ptr<FunctionData> CoverageKernelBind() {
 
 
 
-string D(double v) {
-	return StringUtil::Format("%.17g::DOUBLE", v);
-}
 
 struct CoverageParams {
 	vector<string> query_ids;
@@ -1129,7 +1126,7 @@ string Stage1SQL(const CoverageParams &p) {
 		),
 		top AS MATERIALIZED (%s)
 	)",
-	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, D(p.tie_break), top);
+	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, DoubleLiteral(p.tie_break), top);
 }
 
 //! Attributes of one side, packed per node, with default bounds and name vectors.
@@ -1212,8 +1209,8 @@ string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weigh
 	return StringUtil::Format(
 	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
 	    "name_floor := %s, trace := %s, rules := %s)",
-	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, D(p.partition_gate),
-	    D(p.count_gate), D(p.name_floor), trace ? "true" : "false", rules);
+	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, DoubleLiteral(p.partition_gate),
+	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), trace ? "true" : "false", rules);
 }
 
 string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
@@ -1223,7 +1220,7 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 	        ? ""
 	        : StringUtil::Format("\n\t\tcn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM c_ids)),",
 	                             ResolvedNodesSQL(p.c));
-	string options = OptionsSQL(p, trace, D(p.label_weight), D(p.mu));
+	string options = OptionsSQL(p, trace, DoubleLiteral(p.label_weight), DoubleLiteral(p.mu));
 	return StringUtil::Format(R"(
 		WITH %s,
 		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
@@ -1249,7 +1246,7 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 	)",
 	                          Stage1SQL(p), candidate_nodes, AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
 	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
-	                          PackedSQL("cn", "ca", "cl", "c_ids"), options, D(p.stage1_weight));
+	                          PackedSQL("cn", "ca", "cl", "c_ids"), options, DoubleLiteral(p.stage1_weight));
 }
 
 unique_ptr<TableRef> TreeCoverageBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1302,7 +1299,7 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 		}
 		string list;
 		for (auto d : out) {
-			list += (list.empty() ? "" : ", ") + D(d);
+			list += (list.empty() ? "" : ", ") + DoubleLiteral(d);
 		}
 		return "[" + list + "]";
 	};
