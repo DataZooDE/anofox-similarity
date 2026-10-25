@@ -161,11 +161,11 @@ CREATE TABLE per_row AS SELECT * FROM (VALUES
 query RRT
 SELECT parse_quantity(txt, 'en', ut).lo, normalize_quantity(3, 'lanes', ut).value,
        coalesce(normalize_quantity(3, 'lanes', ut).dimension, 'none')
-FROM per_row ORDER BY parse_quantity(txt, 'en', ut).lo NULLS LAST;
+FROM per_row ORDER BY parse_quantity(txt, 'en', ut).lo;
 ----
+3.0	3.0	none
 9.0	9.0	length
 10.5	10.5	length
-3.0	3.0	none
 
 # user units must have a positive, finite factor (NULL only for currencies)
 statement error
