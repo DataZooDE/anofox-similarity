@@ -1,5 +1,6 @@
 #include "modules/coverage_kernel.hpp"
 #include "modules/property_tree.hpp"
+#include "modules/coverage_sql.hpp"
 #include "modules/quantity.hpp"
 #include "duckdb_compat.hpp"
 #include "compat_anofox/scalar_bind.hpp"
@@ -934,12 +935,14 @@ const Value *Named(const duckdb_compat::BindNamedParameters &named, const char *
 }
 
 CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
-                                  bool stage2) {
+                                  bool stage2, bool fit = false) {
 	CoverageParams p;
-	if (input.inputs.empty() || input.inputs[0].IsNull()) {
-		throw BinderException("%s: query_tree_id must not be NULL", fn.c_str());
+	if (!fit) {
+		if (input.inputs.empty() || input.inputs[0].IsNull()) {
+			throw BinderException("%s: query_tree_id must not be NULL", fn.c_str());
+		}
+		p.query_ids = StringListParameter(input.inputs[0], "query_tree_id");
 	}
-	p.query_ids = StringListParameter(input.inputs[0], "query_tree_id");
 	auto &named = input.named_parameters;
 	auto str = [&](const char *name, string &target) {
 		if (auto v = Named(named, name); v && !v->IsNull()) {
@@ -984,7 +987,7 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 	p.q.overrides_table = p.c.overrides_table = overrides;
 	p.q.label_table = p.c.label_table = labels_table;
 	p.q.tree_ids = p.query_ids;
-	p.q.has_tree_ids = true; // an empty list selects nothing
+	p.q.has_tree_ids = !fit; // an empty list selects nothing; the fit takes its pairs from a table
 	if (p.has_candidates) {
 		p.c.tree_ids = p.candidates;
 		p.c.has_tree_ids = true;
@@ -1215,24 +1218,29 @@ string PackedSQL(const string &nodes_cte, const string &attrs_cte, const string 
 	    nodes_cte, attrs_cte, labels_cte, ids_cte);
 }
 
-string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
+//! The kernel's options STRUCT; label_weight and mu as SQL expressions (literals or grid columns).
+string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weight, const string &mu) {
 	string rules = p.rules_table.empty()
 	                   ? "NULL"
 	                   : StringUtil::Format("(SELECT list(struct_pack(dimension := CAST(dimension AS VARCHAR), required "
 	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
 	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
 	                                        Quoted(p.rules_table));
+	return StringUtil::Format(
+	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
+	    "name_floor := %s, trace := %s, rules := %s)",
+	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, D(p.partition_gate),
+	    D(p.count_gate), D(p.name_floor), trace ? "true" : "false", rules);
+}
+
+string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 	// with an index, stage 1 did not resolve the candidate trees: resolve the top k only
 	string candidate_nodes =
 	    p.multiset_table.empty()
 	        ? ""
 	        : StringUtil::Format("\n\t\tcn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM c_ids)),",
 	                             ResolvedNodesSQL(p.c));
-	string options = StringUtil::Format(
-	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
-	    "name_floor := %s, trace := %s, rules := %s)",
-	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), D(p.label_weight), D(p.mu),
-	    D(p.partition_gate), D(p.count_gate), D(p.name_floor), trace ? "true" : "false", rules);
+	string options = OptionsSQL(p, trace, D(p.label_weight), D(p.mu));
 	return StringUtil::Format(R"(
 		WITH %s,
 		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
@@ -1285,6 +1293,71 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
 	return ParseSubquery(sql, context, "tree_coverage_trace");
+}
+
+//! fit_coverage_weights: the kernel over reviewed pairs for every grid point (HLD §4.8, BR-52).
+unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("fit_coverage_weights");
+	const string fn = "fit_coverage_weights";
+	CoverageParamReader reader {context, input.named_parameters, fn};
+	auto reviewed = reader.Positional(input, 0, "reviewed_matches", {"query_id", "candidate_id", "true_coverage"});
+	auto p = ReadCoverageParams(context, input, fn, true, true);
+	auto grid = [&](const char *name, vector<double> fallback) {
+		vector<double> out = std::move(fallback);
+		if (auto v = reader.Get(name); v && !v->IsNull()) {
+			out.clear();
+			for (auto &x : ListValue::GetChildren(*v)) {
+				double d = x.IsNull() ? -1 : x.GetValue<double>();
+				if (!(d >= 0 && d <= 1)) {
+					throw BinderException("%s: %s must be between 0 and 1", fn, name);
+				}
+				out.push_back(d);
+			}
+		}
+		if (out.empty()) {
+			throw BinderException("%s: %s must not be empty", fn, name);
+		}
+		string list;
+		for (auto d : out) {
+			list += (list.empty() ? "" : ", ") + D(d);
+		}
+		return "[" + list + "]";
+	};
+	auto label_weights = grid("label_weights", {0.0, 0.1, 0.2, 0.3, 0.5});
+	auto mus = grid("mus", {0.0, 0.1, 0.2, 0.3});
+	auto sql = StringUtil::Format(R"(
+		WITH top AS (
+			SELECT DISTINCT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id,
+			       CAST(true_coverage AS DOUBLE) AS true_coverage
+			FROM %s WHERE true_coverage IS NOT NULL
+		),
+		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
+		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),
+		qn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM q_ids)),
+		cn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM c_ids)),
+		qa AS (%s),
+		ca AS (%s),
+		ql AS (%s),
+		cl AS (%s),
+		qp AS (%s),
+		cp AS (%s),
+		grid AS (SELECT lw, mu FROM (SELECT unnest(%s) AS lw) CROSS JOIN (SELECT unnest(%s) AS mu)),
+		k AS (
+			SELECT g.lw, g.mu, t.true_coverage,
+			       coverage_kernel(qp.nodes, cp.nodes, %s).coverage AS coverage
+			FROM top t JOIN qp ON qp.tree_id = t.query_id JOIN cp ON cp.tree_id = t.candidate_id CROSS JOIN grid g
+		)
+		SELECT lw AS label_weight, mu, avg(abs(COALESCE(coverage, 0) - true_coverage)) AS mae, count(*) AS n_pairs,
+		       row_number() OVER (ORDER BY avg(abs(COALESCE(coverage, 0) - true_coverage)), lw, mu) AS rank
+		FROM k GROUP BY lw, mu
+		ORDER BY rank
+	)",
+	                              Quoted(reviewed), ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c),
+	                              AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
+	                              LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
+	                              PackedSQL("cn", "ca", "cl", "c_ids"), label_weights, mus,
+	                              OptionsSQL(p, false, "g.lw", "g.mu"));
+	return ParseSubquery(sql, context, fn);
 }
 
 unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1412,6 +1485,37 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "is reviewed and weighted jaccard otherwise (BRD risk R1)." +
 	        common,
 	    {"SELECT * FROM coverage_recall('R01', k := 20, candidate_nodes_table := 'programme_nodes');"}, false);
+	{
+		auto vc = LogicalType(LogicalTypeId::VARCHAR);
+		auto dbl = LogicalType::DOUBLE;
+		RegisterCoverageTableFunction(
+		    loader, "fit_coverage_weights", {vc}, {"reviewed_matches"}, FitWeightsBindReplace,
+		    {{"label_weights", LogicalType::LIST(dbl)},
+		     {"mus", LogicalType::LIST(dbl)},
+		     {"nodes_table", vc},
+		     {"attrs_table", vc},
+		     {"candidate_nodes_table", vc},
+		     {"candidate_attrs_table", vc},
+		     {"overrides_table", vc},
+		     {"label_table", vc},
+		     {"labels", vc},
+		     {"assignment", vc},
+		     {"partition_gate", dbl},
+		     {"count_gate", dbl},
+		     {"default_bounds", vc},
+		     {"templates_table", vc},
+		     {"rules_table", vc},
+		     {"name_vectors", vc},
+		     {"name_floor", dbl}},
+		    "Fits the kernel weights on reviewed matches (HLD §4.8, BR-52): for every grid point of label_weights "
+		    "(lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of "
+		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs "
+		    "and rank (best first). The trees and options are given as for tree_coverage. The classifier's beta "
+		    "and tau are tuned with classify_to_catalogue and eval_ranking instead.",
+		    {"SELECT * FROM fit_coverage_weights('reviewed_matches', candidate_nodes_table := 'programme_nodes', "
+		     "candidate_attrs_table := 'programme_attributes') LIMIT 3;"},
+		    {"coverage", "evaluation"});
+	}
 }
 
 } // namespace anofox

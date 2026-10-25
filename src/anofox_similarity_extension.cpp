@@ -10,6 +10,9 @@
 #include "modules/coverage_kernel.hpp"
 #include "modules/pivot_classifier.hpp"
 #include "modules/vocabulary_review.hpp"
+#include "modules/evaluation.hpp"
+#include "modules/recall_accelerators.hpp"
+#include "modules/entity_clustering.hpp"
 #include "modules/wl_kernel.hpp"
 #include "modules/predecessor_inference.hpp"
 #include "modules/sap_transformations.hpp"
@@ -136,6 +139,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterCoverageKernelFunctions(loader);
 	anofox::RegisterPivotClassifierFunctions(loader);
 	anofox::RegisterVocabularyReviewFunctions(loader);
+	anofox::RegisterEvaluationFunctions(loader);
+	anofox::RegisterRecallAcceleratorFunctions(loader);
+	anofox::RegisterEntityClusteringFunctions(loader);
 	anofox::RegisterPredecessorInferenceFunctions(loader);
 	anofox::RegisterEmbeddingFunctions(loader);
 	anofox::RegisterTransactionalEmbeddingFunctions(loader);

@@ -5,6 +5,11 @@
 #include "duckdb/parser/tableref/subqueryref.hpp"
 #include "duckdb/parser/statement/select_statement.hpp"
 #include "core/sql_safety.hpp"
+#include "modules/property_tree.hpp"
+#include "duckdb/function/table_function.hpp"
+#include "duckdb/parser/parsed_data/create_table_function_info.hpp"
+
+#include <cmath>
 
 namespace duckdb {
 namespace anofox {
@@ -50,6 +55,100 @@ inline string JsonStringSQL(const string &expr) {
 inline string JsonNumberSQL(const string &expr) {
 	return "CASE WHEN (" + expr + ") IS NULL OR NOT isfinite(" + expr + ") THEN 'null' ELSE CAST(round(" + expr +
 	       ", 6) AS VARCHAR) END";
+}
+
+//! Named parameters and table checks of a coverage table function (bind_replace).
+struct CoverageParamReader {
+	ClientContext &context;
+	const duckdb_compat::BindNamedParameters &named;
+	string fn;
+
+	const Value *Get(const char *name) const {
+		return duckdb_compat::FindNamedParameter(named, name);
+	}
+	//! The parameter's string, the fallback when not given, "" when given as NULL.
+	string Str(const char *name, const string &fallback = "") const {
+		auto v = Get(name);
+		if (!v) {
+			return fallback;
+		}
+		return v->IsNull() ? string() : v->GetValue<string>();
+	}
+	double Dbl(const char *name, double fallback) const {
+		auto v = Get(name);
+		if (!v || v->IsNull()) {
+			return fallback;
+		}
+		double d = v->GetValue<double>();
+		if (!std::isfinite(d)) {
+			throw BinderException("%s: %s must be finite", fn, name);
+		}
+		return d;
+	}
+	int64_t Int(const char *name, int64_t fallback) const {
+		auto v = Get(name);
+		return !v || v->IsNull() ? fallback : v->GetValue<int64_t>();
+	}
+	//! A validated, existing table with the required columns.
+	string Check(string table, const char *name, const vector<string> &columns) const {
+		if (table.empty()) {
+			return table;
+		}
+		table = ValidateSQLIdentifierPath(table, name);
+		if (!TableExists(context, table)) {
+			throw BinderException("%s: %s '%s' does not exist", fn, name, table);
+		}
+		ValidateTableColumns(context, table, columns, name);
+		return table;
+	}
+	//! A table parameter ("" when NULL, or when not given and there is no fallback).
+	string Table(const char *name, const string &fallback, const vector<string> &columns) const {
+		return Check(Str(name, fallback), name, columns);
+	}
+	//! A required positional table argument.
+	string Positional(const TableFunctionBindInput &input, idx_t i, const char *name,
+	                  const vector<string> &columns) const {
+		if (input.inputs.size() <= i || input.inputs[i].IsNull()) {
+			throw BinderException("%s: %s must not be NULL", fn, name);
+		}
+		return Check(input.inputs[i].GetValue<string>(), name, columns);
+	}
+	bool Has(const string &table, const char *column) const {
+		return TableHasColumn(context, table, column);
+	}
+	//! A validated plain column name, quoted.
+	string Column(const string &table, const char *name, const string &fallback) const {
+		auto column = Str(name, fallback);
+		if (column.empty() || column.find('.') != string::npos) {
+			throw BinderException("%s: %s must be a column name", fn, name);
+		}
+		ValidateSQLIdentifierPath(column, name);
+		ValidateTableColumns(context, table, {column}, name);
+		return QuotedIdentifier(column);
+	}
+};
+
+//! Register a coverage table function with its documentation.
+inline void RegisterCoverageTableFunction(ExtensionLoader &loader, const string &name, vector<LogicalType> positional,
+                                          vector<string> positional_names, table_function_bind_replace_t fn,
+                                          vector<std::pair<string, LogicalType>> named, const string &description,
+                                          vector<string> examples, vector<string> categories) {
+	TableFunction f(duckdb_compat::FunctionName(name), positional, nullptr, nullptr);
+	f.bind_replace = fn;
+	FunctionDescription desc;
+	desc.description = description;
+	desc.examples = std::move(examples);
+	desc.categories = std::move(categories);
+	desc.parameter_names = std::move(positional_names);
+	for (auto &spec : named) {
+		duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
+		desc.parameter_names.emplace_back(spec.first);
+	}
+	desc.parameter_types = positional;
+	CreateTableFunctionInfo info(f);
+	info.descriptions.push_back(std::move(desc));
+	duckdb_compat::NameFunctionsFromDescriptions(info);
+	loader.RegisterFunction(std::move(info));
 }
 
 } // namespace anofox
