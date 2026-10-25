@@ -1,0 +1,98 @@
+# name: test/sql/coverage/r5/minhash_lsh.test
+# description: Sub-linear recall accelerators (HLD §4.7): weighted MinHash (ICWS) signatures
+#              estimate weighted Jaccard; LSH bands find candidates; containment is derived
+#              from the Jaccard estimate and the set sizes. Exact recall stays the default.
+# group: [coverage]
+
+require anofox_similarity
+
+query I
+SELECT len(weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 64));
+----
+64
+
+# identical multisets share every sample; disjoint ones none
+query RR
+SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 128), weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 128)),
+       minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 128), weighted_minhash(MAP {'b': 1.0}, 128));
+----
+1.0	0.0
+
+# the estimate is close to the exact weighted Jaccard (256 samples)
+statement ok
+CREATE TABLE ms AS SELECT i, map_from_entries([('f' || (j % 13), 1.0 + ((i * 7 + j) % 5)::DOUBLE) FOR j IN range(i % 9 + 3)]) AS m
+FROM range(40) t(i);
+
+query I
+SELECT avg(abs(minhash_similarity(weighted_minhash(a.m, 256), weighted_minhash(b.m, 256)) - weighted_jaccard(a.m, b.m))) < 0.05
+FROM ms a, ms b WHERE a.i < b.i;
+----
+true
+
+# weights scale: a heavier element dominates; the same seed gives the same signature
+query I
+SELECT weighted_minhash(MAP {'a': 1.0}, 16, 7) = weighted_minhash(MAP {'a': 1.0}, 16, 7)
+   AND weighted_minhash(MAP {'a': 1.0}, 16, 7) <> weighted_minhash(MAP {'a': 1.0}, 16, 8);
+----
+true
+
+query II
+SELECT weighted_minhash(NULL, 16) IS NULL, weighted_minhash(MAP {}::MAP(VARCHAR, DOUBLE), 16) IS NULL;
+----
+true	true
+
+statement error
+SELECT weighted_minhash(MAP {'a': -1.0}, 16);
+----
+must not be negative
+
+# bands: one hash per band of rows = num_hashes / bands
+query I
+SELECT len(lsh_bands(weighted_minhash(MAP {'a': 1.0}, 64), 16));
+----
+16
+
+statement error
+SELECT lsh_bands(weighted_minhash(MAP {'a': 1.0}, 64), 5);
+----
+divisible
+
+statement error
+SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 16), weighted_minhash(MAP {'a': 1.0}, 32));
+----
+same length
+
+# ---------------------------------------------------------------- index and search
+
+statement ok
+CREATE TABLE feature_multiset AS SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+statement ok
+CREATE TABLE idx AS SELECT * FROM minhash_index(feature_table := 'feature_multiset', num_hashes := 64, bands := 32);
+
+query II
+SELECT count(*) = (SELECT count(DISTINCT entity_id) FROM feature_multiset), bool_and(len(signature) = 64 AND len(band_hashes) = 32)
+FROM idx;
+----
+true	true
+
+# a query equal to an entity finds it with estimate 1
+statement ok
+CREATE TABLE queries AS SELECT 'S2' AS query_id, feature_id, weight FROM feature_multiset WHERE entity_id = 'S2';
+
+query TTR
+SELECT query_id, entity_id, jaccard_estimate FROM find_covering_entities_lsh('queries', 'idx', k := 5, mode := 'jaccard')
+WHERE entity_id = 'S2';
+----
+S2	S2	1.0
+
+# containment: the estimate is derived from Jaccard and the sizes, capped at 1
+query I
+SELECT bool_and(estimate BETWEEN 0 AND 1) FROM find_covering_entities_lsh('queries', 'idx', k := 5);
+----
+true
+
+statement error
+SELECT * FROM find_covering_entities_lsh('queries', 'idx', mode := 'bogus');
+----
+mode must be 'containment' or 'jaccard'

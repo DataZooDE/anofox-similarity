@@ -1,0 +1,47 @@
+# name: test/sql/coverage/r5/uc_04_lsh_recall_on_the_archive.test
+# description: For a large archive the team indexes the programmes' class multisets with
+#              weighted MinHash and finds candidates through LSH bands instead of scanning
+#              every programme. Exact recall stays the reference (HLD §4.7).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE programme_ms AS SELECT * FROM read_csv_auto('test/data/coverage/programme_class_multiset.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight FROM tree_class_multiset('req_nodes');
+
+statement ok
+CREATE TABLE idx AS SELECT * FROM minhash_index(feature_table := 'programme_ms', num_hashes := 128, bands := 64);
+
+statement ok
+CREATE TABLE lsh AS SELECT * FROM find_covering_entities_lsh('request_ms', 'idx', k := 20);
+
+# the exact reference: containment over all 300 programmes
+statement ok
+CREATE TABLE exact AS
+SELECT q.query_id, p.entity_id, sum(least(q.weight, p.weight)) / any_value(t.total) AS containment
+FROM request_ms q JOIN programme_ms p ON p.feature_id = q.feature_id
+JOIN (SELECT query_id, sum(weight) AS total FROM request_ms GROUP BY ALL) t ON t.query_id = q.query_id
+GROUP BY ALL
+QUALIFY row_number() OVER (PARTITION BY q.query_id ORDER BY containment DESC, p.entity_id) <= 20;
+
+query I
+SELECT count(DISTINCT query_id) FROM lsh;
+----
+80
+
+# recall of the exact top 20 within the LSH top 20
+query T
+SELECT avg(n) >= 0.8 FROM (
+    SELECT e.query_id, count(l.entity_id) / 20.0 AS n
+    FROM exact e LEFT JOIN lsh l ON l.query_id = e.query_id AND l.entity_id = e.entity_id GROUP BY ALL);
+----
+true

@@ -1,0 +1,53 @@
+# name: test/sql/coverage/r5/cluster_matches.test
+# description: Entity clustering (HLD §4.9): a union-find over the pairs above a threshold;
+#              cluster ids are the smallest member id; entities below the threshold stay
+#              alone.
+# group: [coverage]
+
+require anofox_similarity
+
+# a-b 0.9, b-c 0.86, c-d 0.5, e-f 0.95 at threshold 0.85 -> {a, b, c}, {d}, {e, f}
+statement ok
+CREATE TABLE pairs AS SELECT * FROM (VALUES
+    ('a', 'b', 0.9::DOUBLE), ('b', 'c', 0.86), ('c', 'd', 0.5), ('e', 'f', 0.95)) t(a, b, score);
+
+query TTI
+SELECT entity_id, cluster_id, cluster_size FROM cluster_matches('pairs', threshold := 0.85) ORDER BY entity_id;
+----
+a	a	3
+b	a	3
+c	a	3
+d	d	1
+e	e	2
+f	e	2
+
+# column mapping
+statement ok
+CREATE TABLE links AS SELECT a AS left_id, b AS right_id, score AS sim FROM pairs;
+
+query I
+SELECT count(DISTINCT cluster_id) FROM cluster_matches('links', threshold := 0.5, left_col := 'left_id', right_col := 'right_id',
+                                                        score_col := 'sim');
+----
+2
+
+# the scalar behind it
+query T
+SELECT connected_components([{'a': 'x', 'b': 'y'}, {'a': 'y', 'b': 'z'}, {'a': 'q', 'b': 'q'}]);
+----
+[{'entity_id': q, 'cluster_id': q}, {'entity_id': x, 'cluster_id': x}, {'entity_id': y, 'cluster_id': x}, {'entity_id': z, 'cluster_id': x}]
+
+query I
+SELECT connected_components(NULL) IS NULL;
+----
+true
+
+statement error
+SELECT * FROM cluster_matches('pairs', threshold := 1.5);
+----
+threshold must be between 0 and 1
+
+statement error
+SELECT * FROM cluster_matches('pairs', left_col := 'nope');
+----
+nope
