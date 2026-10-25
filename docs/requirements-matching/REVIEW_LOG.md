@@ -408,3 +408,50 @@ misleading wordings) and hurts both modes alike (regret 0.102 vs 0.100 with hard
 | F12 | low | Doc drift | Fixed (function count, share wording) |
 
 **R4 status:** done on DuckDB 1.5.6 (R4: 462 assertions); 2.0 check with the R5 batch.
+
+## R5-1 — 2026-10-25 — after R5 red batch (evaluation, recall accelerators, clustering)
+
+- **Crew:** correctness, testing, design, usability (codex/claude). Verdict:
+  REQUEST_CHANGES (non-blocking). All hand values recomputed: correct.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | med | Cluster threshold inclusivity decided by a side test | Explicit test: inclusive |
+| F2 | med | eval_ranking rules unpinned | q3 case: gold-only best, unknown gold = 0, 1e-9 tie, rank before score; rank_col |
+| F3 | med | recall_at_k vs the BRD recall@20 | Kept both (HLD §4.8 names); documented: top_k_accuracy is the BRD KPI |
+| F4 | med | uc_01 pinned exact KPI values | Replaced by equivalence with the hand formulas + floors |
+| F5 | med | Spearman ties, zero variance | Tests (0.632456; NULL) |
+| F6 | med | uc_04 tie order, sub-linearity | Tie-aware reference; n_candidates; the 22-class pivot scores about 165 of 300 (HLD §4.1), a large-vocabulary test shows the selectivity |
+| F7 | med | Containment LSH without size partitions (HLD §4.7) | Implemented (size partitions, rows per band from the containment threshold); test with a small query in a large candidate |
+| F8 | med | uc_05 holdout missing | Added (fitted vs default MAE on R21–R80) |
+| F9 | med | uc_03 loose bound, missing customers | Self-pairs for all records; bound 10 mixed clusters (measured 8); tuned-on-gold note |
+| F10 | low | Bootstrap pooled mean, seed | Unequal-cluster test (0.75); seed sensitivity not pinned (DuckDB hash) |
+| F11 | low | MinHash weight sensitivity, formula | Tests |
+| F12 | low | LSH naming, rank switch | rank_col explicit; positional tables kept |
+| F13 | low | Threshold ties, unreachable | Tests |
+| F14 | low | cluster_matches edge cases | Tests (NULLs, self-pairs, integers, no pairs) |
+| F15 | low | No per-query eval output | Deferred: uc_02 builds per-request metrics in SQL |
+
+Found at green: `target` cannot be a named parameter (`target_precision`), a single-element
+ICWS signature is seed-independent (test changed), `precision` must be quoted in
+`struct_pack`.
+
+## R5-2 — 2026-10-25 — after R5 green step
+
+- **Crew:** correctness, security, performance, design (codex/claude). Verdict:
+  REQUEST_CHANGES (one crash). No SQL injection; ICWS, band offsets, J* and Spearman correct.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | connected_components(ANY) crashes on malformed input | Fixed: type check (red test first) |
+| F2 | high | LSH search linear (unnest per call) | minhash_bands + bands_table (hash join); 20 000 entities: 80 candidates per query |
+| F3 | med | Negative weights in LSH | Error |
+| F4 | med | Mixed index settings; band layout contract | Error; one BandsSQL helper |
+| F5 | med | bootstrap NULL clusters, unbounded n x m, name collision | NULL error, bound 10^8, internal name `__anofox_cluster`; default metrics via TRY_CAST (documented) |
+| F6 | med | eval_ranking query universe; duplicates | Decided: the gold queries (a missing result is a miss); duplicates keep the best rank. Decided without escalation (not a HANDOVER §8 case) |
+| F7 | med | fit resolves everything, drops pairs silently, uncapped grid | Resolution scoped to the reviewed ids; n_unresolved; at most 20 values per axis |
+| F8 | med | cluster_matches folds one list | Measured: 100 000 pairs in one call (test); an aggregate is deferred |
+| F9 | low | ICWS overflow | Log space, t clamped; test with 1e300 |
+| F10 | low | Several rank-1 picks per query | One pick per query |
+| F11 | low | Helper layering | Shared helpers in coverage_sql.hpp; TableExists stays in property_tree |
+| F12 | low | Optional columns on views | TableHasColumn handles views (R3-2 F11) |

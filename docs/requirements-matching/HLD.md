@@ -700,3 +700,7 @@ precedence over the text above.
       Hashing (FNV-1a, SplitMix64) is version-stable.
     - `cluster_matches` includes every entity of the pairs table and merges pairs at or above
       the threshold; cluster ids are the smallest member id.
+    - `eval_ranking` scores the queries with gold: a gold query without results is a miss
+      with full regret; duplicate result rows keep the best rank. `threshold_at_precision`
+      takes one top-1 pick per query. `minhash_bands` stores the band hashes in long form for
+      a hash-join search (`bands_table`).

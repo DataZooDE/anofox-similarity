@@ -1810,7 +1810,8 @@ optional accelerators.
 | `minhash_similarity(a, b)` | share of equal positions |
 | `lsh_bands(signature, bands)` | one hash per band |
 | `minhash_index(feature_table [, num_hashes := 128, seed := 7, partitions := 4, entity_col, feature_col, weight_col])` | `entity_id, total_weight, partition, signature, band_hashes, num_hashes, seed` |
-| `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
+| `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5, bands_table])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
+| `minhash_bands(index_table)` | the band hashes in long form `(entity_id, part, r, j, h)`, for `bands_table` |
 
 The index works in the LSH-Ensemble style. Entities are split into size partitions, and for
 each query and partition the containment threshold becomes a Jaccard threshold for the
@@ -1818,12 +1819,20 @@ partition's largest set. The rows per band (1, 2, 4 or 8) are chosen so that the
 passes below that threshold. The containment estimate is J (|q| + |c|) / ((1 + J) |q|), capped
 at 1. With a pivot vocabulary of about 20 classes the multisets overlap so much that LSH still
 scores about half the candidates (r5/uc_04). It pays off for large raw vocabularies such as BOM
-components.
+components. With 20 000 entities over 5 000 features, it scores 80 candidates per query; a
+stored `minhash_bands` table turns the band lookup into a hash join, while without it the
+index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
+`(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
+
+The scores are defined as follows. `eval_ranking` scores the gold queries: a query without
+results counts as a miss with full regret, and results for queries without gold are ignored.
 
 ```sql
 CREATE TABLE programme_index AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
+CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');   -- store once
 CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight FROM tree_class_multiset('request_nodes');
-SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_index', k := 20, threshold := 0.9);
+SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_index', k := 20, threshold := 0.9,
+                                         bands_table := 'programme_bands');
 ```
 
 **Entity clustering** (HLD §4.9). `cluster_matches(pairs_table [, threshold := 0.8, left_col
