@@ -365,3 +365,24 @@ The documented failure mode "partition on unreviewed labels is worse than best m
 (HANDOVER §5.3, open since R3) now shows on the request side (MAE 0.19 vs 0.038). On the
 unreviewed archive it does not reproduce: there the label noise is systematic (four
 misleading wordings) and hurts both modes alike (regret 0.102 vs 0.100 with hard labels).
+
+## R4-2 — 2026-10-25 — after R4 green step
+
+- **Crew:** correctness, security, performance, design (codex/claude). Verdict:
+  REQUEST_CHANGES. SQL injection: none found; the `auto` change is correct.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | An override/decision class outside the catalogue gives p = 0 everywhere with overridden = true | Fixed: guard error (red test first) |
+| F2 | high | Duplicate catalogue class ids | Fixed: guard error |
+| F3 | med | Duplicate items | Fixed: guard error |
+| F4 | med | NaN/inf/NULL vector elements | Fixed: guard errors in SQL and in maxsim/calibrated_cosine |
+| F5 | med | Queue stacks node-level and wording-level distributions | Fixed: one distribution per wording (node > exact source > NULL source); p validated |
+| F6 | med | apply keeps duplicate old keys, accepts NULL classes | Fixed; extra columns are dropped (documented) |
+| F7 | med | Performance unmeasured | Measured: centroid 10⁵ × 200 in 8.7 s; maxsim rewritten without Value boxing (late interaction 10⁴ × 200: 30 s → 1.6 s); cosine_floor 10⁵ vectors 2.6 s |
+| F8 | low | cosine_floor cross-version determinism; exact-path pruning | Pruning confirmed (10⁵ vectors in 2.6 s). The sample depends on DuckDB's hash; tests pin properties (same call twice, n_pairs, |sample − exact| < 0.01), not a value |
+| F9 | low | `reviewed` output is the candidate side | Documented (API reference); `assignment_used` shows the decision |
+| F10 | low | NULL node_id, empty catalogue, NULL exemplar tokens | Fixed: guard errors |
+| F11 | low | attrs/decisions without tree_id leak across trees | Fixed: error when the items have tree_id |
+| F12 | low | any_value, control characters, p validation | Fixed: min(); \b \f escaped, other control characters stripped (documented); p validated in the queue |
+| F13 | low | Duplicated helpers | Deferred to the R5 refactor |

@@ -1717,7 +1717,15 @@ it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets 
 targets.
 
 **`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
-are reviewed (HLD §11.12). Classifier labels are not reviewed, so `auto` uses best match.
+are reviewed (HLD §11.12). Classifier labels are not reviewed, so `auto` uses best match. The
+`reviewed` output column of `tree_coverage` describes the candidate tree; `assignment_used`
+shows the decision.
+
+**Input checks.** `classify_to_catalogue` rejects an override or decision whose class is not in
+the catalogue, duplicate class ids or items, an empty catalogue, NULL node ids and non-finite
+vector elements. `apply_vocabulary_review` keeps the columns wording, source, class_id,
+reviewed_by and reviewed_at; JSON text escapes quotes, backslashes, \n, \r, \t, \b and \f and
+drops other control characters.
 ---
 
 ## Function Coverage Matrix
