@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
     "node_id": "R33.n0"
    },
    {
@@ -14,29 +14,182 @@
       "attributes": [
        {
         "attr_id": "a1",
-        "bound": null,
-        "hi": 250.0,
-        "lo": 250.0,
-        "name": "Stauchhärte",
-        "text": "250 N",
-        "unit": "N"
+        "bound": "at_least",
+        "hi": 34.0,
+        "lo": 34.0,
+        "name": "Winkelbereich",
+        "text": "≥ 34 °",
+        "unit": "°"
        },
        {
         "attr_id": "a2",
+        "bound": null,
+        "hi": 2350.0,
+        "lo": 2350.0,
+        "name": "Festigkeit",
+        "text": "2350 N·m",
+        "unit": "N·m"
+       },
+       {
+        "attr_id": "a3",
         "bound": "at_most",
-        "hi": 2100.0,
-        "lo": 2100.0,
-        "name": "Gewicht",
-        "text": "bis zu 2100 g",
-        "unit": "g"
+        "hi": 39.0,
+        "lo": 39.0,
+        "name": "Geräusch",
+        "text": "max. 39 dB(A)",
+        "unit": "dB(A)"
        }
       ],
       "context": "1 Struktur und Mechanik",
       "count": 1.0,
       "edge": "AND",
       "kind": "item",
-      "label": "Fahrersitz: Sitzanlage mit PU-Schaumpolster mit Stauchhärte 250 N und Gewicht bis zu 2100 g.",
-      "node_id": "R33.r03"
+      "label": "Fahrersitz: Sitzanlage mit Lehnenbeschläge mit Winkelbereich ≥ 34 ° und Festigkeit 2350 N·m und Geräusch max. 39 dB(A).",
+      "node_id": "R33.r09"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 38.0,
+        "lo": 38.0,
+        "name": "Lehnenwinkel",
+        "text": "mindestens 38 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2500.0,
+        "lo": 2500.0,
+        "name": "Festigkeit",
+        "text": "minimal 2500 N·m",
+        "unit": "N·m"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 42.0,
+        "lo": 42.0,
+        "name": "Betriebsgeräusch",
+        "text": "max. 42 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Sitzanlage mit eine Lehnenneigungsverstellung mit Lehnenwinkel mindestens 38 ° und Festigkeit minimal 2500 N·m und Betriebsgeräusch max. 42 dB(A).",
+      "node_id": "R33.r23"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 21000.0,
+          "lo": 21000.0,
+          "name": "Masse",
+          "text": "21000 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 56.0,
+          "lo": 56.0,
+          "name": "Crashlast",
+          "text": "56 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "Zielpreis",
+          "text": "maximal 150 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.2 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Sitzstruktur mit Masse 21000 g und Crashlast 56 kN und Zielpreis maximal 150 €.",
+        "node_id": "R33.r10"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 58.0,
+          "lo": 58.0,
+          "name": "Crashfestigkeit",
+          "text": "58 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "Zielpreis",
+          "text": "bis zu 150 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.2 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Lehnen- und Kissenrahmen mit Crashfestigkeit 58 kN und Zielpreis bis zu 150 €.",
+        "node_id": "R33.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzstruktur",
+      "node_id": "R33.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "Martindale",
+          "text": "min. 25.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F2"
+         }
+        ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit einen Sitzbezug mit Martindale min. 25.000 Zyklen und Brennbarkeitsklasse min. F2.",
+        "node_id": "R33.r12"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Anforderung",
+      "node_id": "R33.c1.s3"
      },
      {
       "children": [
@@ -47,353 +200,93 @@
            {
             "attr_id": "a1",
             "bound": "at_least",
-            "hi": 48.0,
-            "lo": 48.0,
-            "name": "Hub",
-            "text": "mindestens 48 mm",
-            "unit": "mm"
+            "hi": 23.5,
+            "lo": 23.5,
+            "name": "Längsverstellweg",
+            "text": "nicht weniger als 23,5 cm",
+            "unit": "cm"
            },
            {
             "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 5000.0,
-            "lo": 5000.0,
-            "name": "Verstellzeit",
-            "text": "≤ 5000 ms",
-            "unit": "ms"
+            "bound": "within",
+            "hi": 2.4,
+            "lo": 1.9,
+            "name": "Geschwindigkeit",
+            "text": "zwischen 1,9 und 2,4 cm/s",
+            "unit": "cm/s"
            },
            {
             "attr_id": "a3",
             "bound": "at_least",
-            "hi": 11500.0,
-            "lo": 11500.0,
-            "name": "Haltekraft",
-            "text": "nicht weniger als 11500 N",
-            "unit": "N"
-           }
-          ],
-          "context": "1.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Sitzanlage mit einen Sitzheber mit Hub mindestens 48 mm und Verstellzeit ≤ 5000 ms und Haltekraft nicht weniger als 11500 N.",
-          "node_id": "R33.r04"
-         },
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 5.0,
-            "lo": 5.0,
-            "name": "Laufzeit",
-            "text": "bis zu 5 s",
-            "unit": "s"
-           },
-           {
-            "attr_id": "a2",
-            "bound": null,
-            "hi": 13.0,
-            "lo": 13.0,
-            "name": "Haltekraft",
-            "text": "13 kN",
+            "hi": 19.5,
+            "lo": 19.5,
+            "name": "Haltelast",
+            "text": "minimal 19,5 kN",
             "unit": "kN"
            }
           ],
-          "context": "1.2.1 Leistungsdaten",
+          "context": "1.4.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Beifahrersitz: Sitzanlage mit einen Sitzheber mit Laufzeit bis zu 5 s und Haltekraft 13 kN.",
+          "label": "Beifahrersitz: Sitzanlage mit ein Schienensystem längs mit Längsverstellweg nicht weniger als 23,5 cm und Geschwindigkeit zwischen 1,9 und 2,4 cm/s und Haltelast minimal 19,5 kN.",
           "node_id": "R33.r16"
          }
         ],
         "edge": "AND",
         "kind": "container",
-        "label": "1.2.1 Leistungsdaten",
-        "node_id": "R33.c1.s2.1"
+        "label": "1.4.1 Leistungsdaten",
+        "node_id": "R33.c1.s4.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 Sitzhöhenverstellung",
-      "node_id": "R33.c1.s2"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 5000.0,
-          "lo": 5000.0,
-          "name": "Festigkeit",
-          "text": "min. 5000 Nm",
-          "unit": "Nm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 20.0,
-          "lo": 20.0,
-          "name": "Geräusch",
-          "text": "maximal 20 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "1.3 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit eine Lehnenneigungsverstellung mit Festigkeit min. 5000 Nm und Geräusch maximal 20 dB(A).",
-        "node_id": "R33.r06"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 56.0,
-          "lo": 56.0,
-          "name": "Winkelbereich",
-          "text": "mindestens 56 °",
-          "unit": "°"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 48.0,
-          "lo": 48.0,
-          "name": "Betriebsgeräusch",
-          "text": "maximal 48 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "1.3 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit Rückenlehnenverstellung mit Winkelbereich mindestens 56 ° und Betriebsgeräusch maximal 48 dB(A).",
-        "node_id": "R33.r19"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.3 Lehnenverstellung",
-      "node_id": "R33.c1.s3"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 15.0,
-          "lo": 15.0,
-          "name": "Masse",
-          "text": "bis zu 15 kg",
-          "unit": "kg"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 175.0,
-          "lo": 175.0,
-          "name": "Zielpreis",
-          "text": "175 €",
-          "unit": "€"
-         }
-        ],
-        "context": "1.4 Sitzstruktur",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit Sitzstruktur mit Masse bis zu 15 kg und Zielpreis 175 €.",
-        "node_id": "R33.r07"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 14000.0,
-          "lo": 14000.0,
-          "name": "Gewicht",
-          "text": "höchstens 14000 g",
-          "unit": "g"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 175.0,
-          "lo": 175.0,
-          "name": "Zielpreis",
-          "text": "175 EUR",
-          "unit": "EUR"
-         }
-        ],
-        "context": "1.4 Sitzstruktur",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit tragende Sitzstruktur mit Gewicht höchstens 14000 g und Zielpreis 175 EUR.",
-        "node_id": "R33.r20"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.4 Sitzstruktur",
+      "label": "1.4 Sitzlängsverstellung",
       "node_id": "R33.c1.s4"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 21.0,
-          "lo": 21.0,
-          "name": "Betriebsgeräusch",
-          "text": "21 dB(A)",
-          "unit": "dB(A)"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 290.0,
+            "lo": 290.0,
+            "name": "Härte",
+            "text": "290 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 600.0,
+            "lo": 600.0,
+            "name": "Gewicht",
+            "text": "≤ 600 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Formschaumteile mit Härte 290 N und Gewicht ≤ 600 g.",
+          "node_id": "R33.r18"
          }
         ],
-        "context": "1.5 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit eine Längsverstellung mit Betriebsgeräusch 21 dB(A).",
-        "node_id": "R33.r09"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 22.5,
-          "lo": 22.5,
-          "name": "Weg",
-          "text": "22,5 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "within",
-          "hi": 2.8,
-          "lo": 1.5,
-          "name": "Geschwindigkeit",
-          "text": "zwischen 1,5 und 2,8 cm/s",
-          "unit": "cm/s"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 40.0,
-          "lo": 40.0,
-          "name": "Betriebsgeräusch",
-          "text": "max. 40 dB(A)",
-          "unit": "dB(A)"
-         },
-         {
-          "attr_id": "a4",
-          "bound": null,
-          "hi": 21.0,
-          "lo": 21.0,
-          "name": "Haltekraft",
-          "text": "21 kN",
-          "unit": "kN"
-         }
-        ],
-        "context": "1.5 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit eine Längsverstellung mit Weg 22,5 cm und Geschwindigkeit zwischen 1,5 und 2,8 cm/s und Betriebsgeräusch max. 40 dB(A) und Haltekraft 21 kN.",
-        "node_id": "R33.r22"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.5 Sitzlängsverstellung",
-      "node_id": "R33.c1.s5"
-     },
-     {
-      "children": [
-       {
         "edge": "AND",
         "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R33.c1.s6.n1"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 50000.0,
-          "lo": 50000.0,
-          "name": "Scheuerbeständigkeit",
-          "text": "50.000 Zyklen",
-          "unit": "Zyklen"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "category": "F2",
-          "name": "Brennbarkeitsklasse",
-          "text": "mindestens F2"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 125.0,
-          "lo": 125.0,
-          "name": "Zielpreis",
-          "text": "höchstens 125 EUR",
-          "unit": "EUR"
-         }
-        ],
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit Lederbezüge mit Scheuerbeständigkeit 50.000 Zyklen und Brennbarkeitsklasse mindestens F2 und Zielpreis höchstens 125 EUR.",
-        "node_id": "R33.r11"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 40000.0,
-          "lo": 40000.0,
-          "name": "Scheuerbeständigkeit",
-          "text": "minimal 40.000 Zyklen",
-          "unit": "Zyklen"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "category": "F3",
-          "name": "Brennbarkeitsklasse",
-          "text": "F3 oder besser"
-         }
-        ],
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit Polsterbezug mit Scheuerbeständigkeit minimal 40.000 Zyklen und Brennbarkeitsklasse F3 oder besser.",
-        "node_id": "R33.r24"
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R33.c1.s5.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 Sitzbezug",
-      "node_id": "R33.c1.s6"
+      "label": "1.5 Anforderung",
+      "node_id": "R33.c1.s5"
      }
     ],
     "edge": "AND",
@@ -404,176 +297,158 @@
    {
     "children": [
      {
-      "children": [
+      "attributes": [
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 125.0,
-          "lo": 125.0,
-          "name": "Höhenverstellweg",
-          "text": "mindestens 125 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 5.9,
-          "lo": 5.9,
-          "name": "Neigungsweg",
-          "text": "mindestens 5,9 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "within",
-          "hi": 4.1,
-          "lo": 1.7,
-          "name": "Verstellgeschwindigkeit",
-          "text": "1,7–4,1 cm/s",
-          "unit": "cm/s"
-         }
-        ],
-        "context": "2.1 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit motorische Kopfstütze mit Höhenverstellweg mindestens 125 mm und Neigungsweg mindestens 5,9 cm und Verstellgeschwindigkeit 1,7–4,1 cm/s.",
-        "node_id": "R33.r01"
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 90.0,
+        "lo": 55.0,
+        "name": "Heizleistung",
+        "text": "55–90 W",
+        "unit": "W"
        },
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 135.0,
-          "lo": 135.0,
-          "name": "Höhenverstellweg",
-          "text": "135 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 53.0,
-          "lo": 53.0,
-          "name": "Neigungsverstellung",
-          "text": "min. 53 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "within",
-          "hi": 4.3,
-          "lo": 1.7,
-          "name": "Verstellgeschwindigkeit",
-          "text": "1,7 bis 4,3 cm/s",
-          "unit": "cm/s"
-         },
-         {
-          "attr_id": "a4",
-          "bound": "at_most",
-          "hi": 0.6,
-          "lo": 0.6,
-          "name": "Stromaufnahme",
-          "text": "maximal 0,6 A",
-          "unit": "A"
-         }
-        ],
-        "context": "2.1 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit eine elektrische Kopfstütze mit Höhenverstellweg 135 mm und Neigungsverstellung min. 53 mm und Verstellgeschwindigkeit 1,7 bis 4,3 cm/s und Stromaufnahme maximal 0,6 A.",
-        "node_id": "R33.r13"
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 200.0,
+        "lo": 200.0,
+        "name": "Aufheizzeit",
+        "text": "200 s",
+        "unit": "s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 54.0,
+        "lo": 54.0,
+        "name": "Oberflächentemperatur",
+        "text": "54 °C",
+        "unit": "°C"
        }
       ],
+      "context": "2 Komfortfunktionen",
+      "count": 2.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "2.1 Kopfstütze elektrisch",
-      "node_id": "R33.c2.s1"
+      "kind": "item",
+      "label": "Fahrersitz: Sitzanlage mit 2 × beheizte Sitzflächen mit Heizleistung 55–90 W und Aufheizzeit 200 s und Oberflächentemperatur 54 °C.",
+      "node_id": "R33.r01"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 100.0,
+        "lo": 55.0,
+        "name": "Leistung",
+        "text": "55–100 W",
+        "unit": "W"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 3.4,
+        "lo": 3.4,
+        "name": "Aufheizzeit auf 37 °C",
+        "text": "bis zu 3,4 min",
+        "unit": "min"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 5000.0,
+        "lo": 5000.0,
+        "name": "Stromaufnahme",
+        "text": "5000 mA",
+        "unit": "mA"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_most",
+        "hi": 52.0,
+        "lo": 52.0,
+        "name": "Oberflächentemperatur",
+        "text": "max. 52 °C",
+        "unit": "°C"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Sitzanlage mit 2 × Heizmatten in Kissen und Lehne mit Leistung 55–100 W und Aufheizzeit auf 37 °C bis zu 3,4 min und Stromaufnahme 5000 mA und Oberflächentemperatur max. 52 °C.",
+      "node_id": "R33.r14"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 7.4,
-          "lo": 7.4,
-          "name": "Tiefe",
-          "text": "7,4 cm",
-          "unit": "cm"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 620.0,
+            "lo": 320.0,
+            "name": "Luftmenge",
+            "text": "320 bis 620 l/min",
+            "unit": "l/min"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 3.4,
+            "lo": 3.4,
+            "name": "Stromverbrauch",
+            "text": "3,4 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit aktive Sitzklimatisierung mit Luftmenge 320 bis 620 l/min und Stromverbrauch 3,4 A.",
+          "node_id": "R33.r02"
          },
          {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 6.0,
-          "lo": 6.0,
-          "name": "Wege",
-          "text": "minimal 6",
-          "unit": ""
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 500.0,
-          "lo": 500.0,
-          "name": "Stromaufnahme",
-          "text": "max. 500 mA",
-          "unit": "mA"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 33.0,
+            "lo": 23.0,
+            "name": "Luftvolumenstrom",
+            "text": "23–33 m³/h",
+            "unit": "m³/h"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 47.0,
+            "lo": 47.0,
+            "name": "Geräusch",
+            "text": "bis zu 47 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Lüfter im Sitz mit Luftvolumenstrom 23–33 m³/h und Geräusch bis zu 47 dB(A).",
+          "node_id": "R33.r15"
          }
         ],
-        "context": "2.2 Lordosenstütze",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit eine Lordosenstütze mit Tiefe 7,4 cm und Wege minimal 6 und Stromaufnahme max. 500 mA.",
-        "node_id": "R33.r05"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 3.6,
-          "lo": 3.6,
-          "name": "Lordosenhub",
-          "text": "nicht weniger als 3,6 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 2.0,
-          "lo": 2.0,
-          "name": "Wege",
-          "text": "mindestens 2",
-          "unit": ""
-         },
-         {
-          "attr_id": "a3",
-          "bound": null,
-          "hi": 1200.0,
-          "lo": 1200.0,
-          "name": "Strom",
-          "text": "1200 mA",
-          "unit": "mA"
-         }
-        ],
-        "context": "2.2 Lordosenstütze",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit Lendenwirbelstütze mit Lordosenhub nicht weniger als 3,6 cm und Wege mindestens 2 und Strom 1200 mA.",
-        "node_id": "R33.r17"
+        "kind": "container",
+        "label": "2.2.1 Leistungsdaten",
+        "node_id": "R33.c2.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.2 Lordosenstütze",
+      "label": "2.2 Sitzbelüftung",
       "node_id": "R33.c2.s2"
      },
      {
@@ -582,81 +457,154 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "within",
-          "hi": 95.0,
-          "lo": 70.0,
-          "name": "Leistung",
-          "text": "70 bis 95 W",
-          "unit": "W"
+          "bound": "at_least",
+          "hi": 23.0,
+          "lo": 23.0,
+          "name": "Neigungsweg",
+          "text": "nicht weniger als 23 mm",
+          "unit": "mm"
          },
          {
           "attr_id": "a2",
           "bound": "at_most",
-          "hi": 5000.0,
-          "lo": 5000.0,
-          "name": "Stromaufnahme",
-          "text": "höchstens 5000 mA",
+          "hi": 1300.0,
+          "lo": 1300.0,
+          "name": "Strom",
+          "text": "bis zu 1300 mA",
           "unit": "mA"
          }
         ],
-        "context": "2.3 Sitzheizung",
-        "count": 2.0,
+        "context": "2.3 Kopfstütze elektrisch",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit 2 × beheizte Sitzflächen mit Leistung 70 bis 95 W und Stromaufnahme höchstens 5000 mA.",
+        "label": "Fahrersitz: Sitzanlage mit eine elektrische Kopfstütze mit Neigungsweg nicht weniger als 23 mm und Strom bis zu 1300 mA.",
+        "node_id": "R33.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "Höhenverstellweg",
+          "text": "≥ 50 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 23.0,
+          "lo": 23.0,
+          "name": "Neigungsverstellung",
+          "text": "mindestens 23 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 2.1,
+          "lo": 1.7,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,7 bis 2,1 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 1.2,
+          "lo": 1.2,
+          "name": "Stromaufnahme",
+          "text": "max. 1,2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Kopfstütze mit Antrieb mit Höhenverstellweg ≥ 50 mm und Neigungsverstellung mindestens 23 mm und Verstellgeschwindigkeit 1,7 bis 2,1 cm/s und Stromaufnahme max. 1,2 A.",
+        "node_id": "R33.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Kopfstütze elektrisch",
+      "node_id": "R33.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Lordosenhub",
+          "text": "nicht weniger als 5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "Wege",
+          "text": "minimal 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 1000.0,
+          "lo": 1000.0,
+          "name": "Strom",
+          "text": "1000 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.4 Lordosenstütze",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit eine Lordosenstütze mit Lordosenhub nicht weniger als 5 cm und Wege minimal 2 und Strom 1000 mA.",
         "node_id": "R33.r08"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "within",
-          "hi": 90.0,
-          "lo": 70.0,
-          "name": "Heizleistung",
-          "text": "zwischen 70 und 90 W",
-          "unit": "W"
+          "bound": "at_least",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "Lordosenhub",
+          "text": "nicht weniger als 38 mm",
+          "unit": "mm"
          },
          {
           "attr_id": "a2",
           "bound": "at_most",
-          "hi": 4.6,
-          "lo": 4.6,
-          "name": "Aufheizzeit",
-          "text": "maximal 4,6 min",
-          "unit": "min"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 4500.0,
-          "lo": 4500.0,
-          "name": "Strom",
-          "text": "maximal 4500 mA",
-          "unit": "mA"
-         },
-         {
-          "attr_id": "a4",
-          "bound": "at_most",
-          "hi": 44.0,
-          "lo": 44.0,
-          "name": "Oberflächentemperatur",
-          "text": "max. 44 °C",
-          "unit": "°C"
+          "hi": 1.0,
+          "lo": 1.0,
+          "name": "Stromverbrauch",
+          "text": "höchstens 1 A",
+          "unit": "A"
          }
         ],
-        "context": "2.3 Sitzheizung",
-        "count": 2.0,
+        "context": "2.4 Lordosenstütze",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit 2 × beheizte Sitzflächen mit Heizleistung zwischen 70 und 90 W und Aufheizzeit maximal 4,6 min und Strom maximal 4500 mA und Oberflächentemperatur max. 44 °C.",
+        "label": "Beifahrersitz: Sitzanlage mit eine Lordosenstütze mit Lordosenhub nicht weniger als 38 mm und Stromverbrauch höchstens 1 A.",
         "node_id": "R33.r21"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.3 Sitzheizung",
-      "node_id": "R33.c2.s3"
+      "label": "2.4 Lordosenstütze",
+      "node_id": "R33.c2.s4"
      }
     ],
     "edge": "AND",
@@ -669,56 +617,45 @@
      {
       "children": [
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 6.0,
-          "lo": 6.0,
-          "name": "Nahtöffnungszeit",
-          "text": "6 ms",
-          "unit": "ms"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 330.0,
-          "lo": 330.0,
-          "name": "Nahtfestigkeit",
-          "text": "nicht weniger als 330 N",
-          "unit": "N"
-         }
-        ],
-        "context": "3.1 Seitenairbag-Integration",
+        "context": "3.1 Kopfstütze manuell",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit Airbag-Aufreißnaht mit Nahtöffnungszeit 6 ms und Nahtfestigkeit nicht weniger als 330 N.",
-        "node_id": "R33.r10"
+        "label": "Fahrersitz: Sitzanlage mit Kopfstütze mit Rasten.",
+        "node_id": "R33.r06"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Höhenverstellweg",
+          "text": "minimal 6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
           "hi": 3.0,
           "lo": 3.0,
-          "name": "Nahtöffnungszeit",
-          "text": "≤ 3 ms",
-          "unit": "ms"
+          "name": "Raststellungen",
+          "text": "minimal 3",
+          "unit": ""
          }
         ],
-        "context": "3.1 Seitenairbag-Integration",
+        "context": "3.1 Kopfstütze manuell",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit Seitenairbag im Sitz mit Nahtöffnungszeit ≤ 3 ms.",
-        "node_id": "R33.r23"
+        "label": "Beifahrersitz: Sitzanlage mit Kopfstütze handverstellbar mit Höhenverstellweg minimal 6 cm und Raststellungen minimal 3.",
+        "node_id": "R33.r19"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.1 Seitenairbag-Integration",
+      "label": "3.1 Kopfstütze manuell",
       "node_id": "R33.c3.s1"
      },
      {
@@ -727,35 +664,90 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 3.0,
-          "lo": 3.0,
-          "name": "Erkennungsschwelle",
-          "text": "bis zu 3 kg",
-          "unit": "kg"
+          "bound": null,
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "Auslösezeit",
+          "text": "8 ms",
+          "unit": "ms"
          },
          {
           "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 0.03,
-          "lo": 0.03,
-          "name": "Ansprechzeit",
-          "text": "max. 0,03 s",
-          "unit": "s"
+          "bound": "at_least",
+          "hi": 0.54,
+          "lo": 0.54,
+          "name": "Nahtfestigkeit",
+          "text": "≥ 0,54 kN",
+          "unit": "kN"
          }
         ],
-        "context": "3.2 Sitzbelegungserkennung",
+        "context": "3.2 Seitenairbag-Integration",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit Insassenerkennung mit Erkennungsschwelle bis zu 3 kg und Ansprechzeit max. 0,03 s.",
-        "node_id": "R33.r18"
+        "label": "Fahrersitz: Sitzanlage mit Seitenairbag im Sitz mit Auslösezeit 8 ms und Nahtfestigkeit ≥ 0,54 kN.",
+        "node_id": "R33.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.5,
+          "lo": 8.5,
+          "name": "Auslösezeit",
+          "text": "höchstens 8,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 0.55,
+          "lo": 0.55,
+          "name": "Nahtfestigkeit",
+          "text": "mindestens 0,55 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Thoraxairbag mit Auslösezeit höchstens 8,5 ms und Nahtfestigkeit mindestens 0,55 kN.",
+        "node_id": "R33.r25"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.2 Sitzbelegungserkennung",
+      "label": "3.2 Seitenairbag-Integration",
       "node_id": "R33.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 9000.0,
+          "lo": 9000.0,
+          "name": "Erkennungsschwelle",
+          "text": "9000 g",
+          "unit": "g"
+         }
+        ],
+        "context": "3.3 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit eine Sitzbelegungserkennung mit Erkennungsschwelle 9000 g.",
+        "node_id": "R33.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R33.c3.s3"
      }
     ],
     "edge": "AND",
@@ -771,133 +763,50 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 9.0,
-          "lo": 9.0,
-          "name": "Abtriebsmoment",
-          "text": "≥ 9 Nm",
-          "unit": "Nm"
+          "bound": null,
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Strombelastbarkeit",
+          "text": "10 A",
+          "unit": "A"
          },
          {
           "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 5000.0,
-          "lo": 5000.0,
-          "name": "Stromaufnahme",
-          "text": "max. 5000 mA",
-          "unit": "mA"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 46.0,
-          "lo": 46.0,
-          "name": "Geräusch",
-          "text": "bis zu 46 dB(A)",
-          "unit": "dB(A)"
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "mindestens IP54"
          }
         ],
-        "context": "4.1 Sitzverstellmotor",
-        "count": 2.0,
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Sitzanlage mit 2 × Antriebseinheiten mit Abtriebsmoment ≥ 9 Nm und Stromaufnahme max. 5000 mA und Geräusch bis zu 46 dB(A).",
-        "node_id": "R33.r02"
+        "label": "Fahrersitz: Sitzanlage mit Kabelsatz Sitz mit Strombelastbarkeit 10 A und Schutzart mindestens IP54.",
+        "node_id": "R33.r13"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 9.5,
-          "lo": 9.5,
-          "name": "Drehmoment",
-          "text": "min. 9,5 N·m",
-          "unit": "N·m"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 5500.0,
-          "lo": 5500.0,
-          "name": "Stromaufnahme",
-          "text": "max. 5500 mA",
-          "unit": "mA"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 46.0,
-          "lo": 46.0,
-          "name": "Betriebsgeräusch",
-          "text": "höchstens 46 dB(A)",
-          "unit": "dB(A)"
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "IP54 oder besser"
          }
         ],
-        "context": "4.1 Sitzverstellmotor",
-        "count": 2.0,
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Sitzanlage mit 2 × Sitzverstellmotoren mit Drehmoment min. 9,5 N·m und Stromaufnahme max. 5500 mA und Betriebsgeräusch höchstens 46 dB(A).",
-        "node_id": "R33.r14"
+        "label": "Beifahrersitz: Sitzanlage mit Kabelsatz Sitz mit Schutzart IP54 oder besser.",
+        "node_id": "R33.r27"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.1 Sitzverstellmotor",
+      "label": "4.1 Sitzkabelsatz",
       "node_id": "R33.c4.s1"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": null,
-        "hi": 11.0,
-        "lo": 11.0,
-        "name": "Strombelastbarkeit",
-        "text": "11 A",
-        "unit": "A"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "category": "IP40",
-        "name": "Schutzart",
-        "text": "IP40 oder besser"
-       }
-      ],
-      "context": "4 Elektrik und Elektronik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Sitzanlage mit Steckverbinder mit Strombelastbarkeit 11 A und Schutzart IP40 oder besser.",
-      "node_id": "R33.r12"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 27.0,
-        "lo": 27.0,
-        "name": "Strombelastbarkeit",
-        "text": "minimal 27 A",
-        "unit": "A"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "category": "IP40",
-        "name": "Schutzart",
-        "text": "IP40 oder besser"
-       }
-      ],
-      "context": "4 Elektrik und Elektronik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Sitzanlage mit Kabelsatz Sitz mit Strombelastbarkeit minimal 27 A und Schutzart IP40 oder besser.",
-      "node_id": "R33.r25"
      }
     ],
     "edge": "AND",

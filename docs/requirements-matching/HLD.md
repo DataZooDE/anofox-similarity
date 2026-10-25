@@ -515,3 +515,34 @@ differentiator, explainable coverage. R4 makes it robust on free text.
    a later release?
 5. **Default for `labels`.** `soft` keeps uncertain alternatives alive; `hard` is simpler to
    explain. The proposal is `soft` for stage 2 and `hard` (arg-max or reviewed) for stage 1.
+
+## 11. Amendments (2026-10-25)
+
+Decided with the product owner during R0 (HANDOVER §8 escalation; see
+[REVIEW_LOG.md](REVIEW_LOG.md) R0-2). They change the semantics of §4.2 and §4.6 and take
+precedence over the text above.
+
+1. **Unqualified values take a default bound.** `value_satisfies` gains
+   `default_bound := NULL` (a bound used when the requirement has none). `tree_coverage`
+   and `tree_coverage_trace` gain `default_bounds := NULL | 'catalogue'` and
+   `templates_table := 'catalogue_attributes'`. With `'catalogue'`, an unqualified
+   requirement value gets the bound of the catalogue attribute template with the same
+   class and dimension. If the template is missing or ambiguous, the widened-point rule of
+   §4.2 applies. Without the option, behaviour is as in §4.2. Reason: about 30 % of values
+   in real specifications have no bound word. Treating them as points cost regret and MAE
+   beyond the BRD targets on the benchmark.
+2. **Label agreement gates the value score.** The item score is
+   `score(q, c) = λ·L(q, c) + (1 − λ)·L(q, c)·a(q, c)` with **default λ = 0**, i.e.
+   `L·a`. With hard labels a same-class item scores `a`; an item of another class scores
+   0. With soft labels the score is the expected share satisfied. A λ > 0 adds label
+   credit that does not depend on the values. Reason: the BRD MAE KPI covers all stage-2
+   results. The additive `λ·L + (1 − λ)·a` gave a candidate 0.3 per item even when every
+   value failed, so the MAE over top-k stayed at about 0.07–0.12.
+3. **Affine units use an absolute tolerance.** For temperature (stored in K) the
+   tolerance is 1 K and the soft band 2.5 K, and `distance` is absolute, in K. A relative
+   tolerance on Kelvin made "max. 37 °C" vs 45 °C score 0.88.
+4. **One offer item serves one request block** (HANDOVER §7.3) also for ties. When
+   several request items tie for `argmax_q L(q, c)` (e.g. a driver-seat and a
+   passenger-seat requirement of the same class), the candidate item goes to the tied
+   request item with the largest remaining count deficit, then to the lowest node id.
+   Assignment stays at class level; seats or other scopes are context only.

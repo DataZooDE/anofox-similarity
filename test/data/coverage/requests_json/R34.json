@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
     "node_id": "R34.n0"
    },
    {
@@ -16,33 +16,71 @@
         "attributes": [
          {
           "attr_id": "a1",
+          "bound": "within",
+          "hi": 2.4,
+          "lo": 1.7,
+          "name": "speed",
+          "text": "1.7–2.4 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a2",
           "bound": null,
-          "hi": 0.8,
-          "lo": 0.8,
-          "name": "weight",
-          "text": "0.8 kg",
-          "unit": "kg"
+          "hi": 29.0,
+          "lo": 29.0,
+          "name": "noise level",
+          "text": "29 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 17.5,
+          "lo": 17.5,
+          "name": "holding load",
+          "text": "at least 17.5 kN",
+          "unit": "kN"
          }
         ],
-        "context": "1.1 foam pad",
+        "context": "1.1 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver a moulded foam pad with weight 0.8 kg.",
-        "node_id": "R34.r02"
+        "label": "Driver seat: Scope includes a longitudinal seat adjuster with speed 1.7–2.4 cm/s and noise level 29 dB(A) and holding load at least 17.5 kN.",
+        "node_id": "R34.r01"
        },
        {
-        "context": "1.1 foam pad",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 23.0,
+          "lo": 15.0,
+          "name": "speed",
+          "text": "between 15 and 23 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "noise level",
+          "text": "at most 44 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.1 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver cushion foam.",
-        "node_id": "R34.r12"
+        "label": "Passenger seat: Scope includes a seat slide track with speed between 15 and 23 mm/s and noise level at most 44 dB(A).",
+        "node_id": "R34.r14"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 foam pad",
+      "label": "1.1 Requirement",
       "node_id": "R34.c1.s1"
      },
      {
@@ -51,76 +89,126 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 96.0,
-          "lo": 96.0,
-          "name": "height stroke",
-          "text": "at least 96 mm",
-          "unit": "mm"
+          "bound": null,
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "vertical travel",
+          "text": "3.6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 6500.0,
+          "lo": 6500.0,
+          "name": "full-stroke time",
+          "text": "max. 6500 ms",
+          "unit": "ms"
          }
         ],
-        "context": "1.2 height adjuster",
+        "context": "1.2 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver a seat lifter with height stroke at least 96 mm.",
+        "label": "Driver seat: Scope includes height pumping mechanism with vertical travel 3.6 cm and full-stroke time max. 6500 ms.",
+        "node_id": "R34.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "height stroke",
+          "text": "4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "full-stroke time",
+          "text": "not more than 7 s",
+          "unit": "s"
+         }
+        ],
+        "context": "1.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes height pumping mechanism with height stroke 4 cm and full-stroke time not more than 7 s.",
+        "node_id": "R34.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Requirement",
+      "node_id": "R34.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 340.0,
+          "lo": 340.0,
+          "name": "hardness",
+          "text": "340 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 800.0,
+          "lo": 800.0,
+          "name": "weight",
+          "text": "max. 800 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes PU foam padding with hardness 340 N and weight max. 800 g.",
         "node_id": "R34.r04"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 8.0,
-          "lo": 8.0,
-          "name": "holding load",
-          "text": "min. 8 kN",
-          "unit": "kN"
+          "bound": null,
+          "hi": 340.0,
+          "lo": 340.0,
+          "name": "hardness",
+          "text": "340 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 0.8,
+          "lo": 0.8,
+          "name": "mass",
+          "text": "at most 0.8 kg",
+          "unit": "kg"
          }
         ],
-        "context": "1.2 height adjuster",
+        "context": "1.3 foam pad",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver a seat lifter with holding load min. 8 kN.",
-        "node_id": "R34.r14"
+        "label": "Passenger seat: Scope includes PU foam padding with hardness 340 N and mass at most 0.8 kg.",
+        "node_id": "R34.r17"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 height adjuster",
-      "node_id": "R34.c1.s2"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "1.3.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Driver seat: Supplier shall deliver a backrest recliner.",
-          "node_id": "R34.r05"
-         },
-         {
-          "context": "1.3.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Passenger seat: Supplier shall deliver backrest tilt fitting.",
-          "node_id": "R34.r15"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "1.3.1 Performance",
-        "node_id": "R34.c1.s3.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.3 recliner",
+      "label": "1.3 foam pad",
       "node_id": "R34.c1.s3"
      },
      {
@@ -129,42 +217,34 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 12.0,
-          "lo": 12.0,
-          "name": "mass",
-          "text": "at most 12 kg",
-          "unit": "kg"
+          "bound": "at_least",
+          "hi": 30.0,
+          "lo": 30.0,
+          "name": "crash load",
+          "text": "minimum 30 kN",
+          "unit": "kN"
          },
          {
           "attr_id": "a2",
           "bound": null,
-          "hi": 250.0,
-          "lo": 250.0,
+          "hi": 115.0,
+          "lo": 115.0,
           "name": "target price",
-          "text": "250 €",
-          "unit": "€"
+          "text": "115 EUR",
+          "unit": "EUR"
          }
         ],
-        "context": "1.4 seat frame / structure",
+        "context": "1.4 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver seat structure with mass at most 12 kg and target price 250 €.",
-        "node_id": "R34.r06"
-       },
-       {
-        "context": "1.4 seat frame / structure",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver backrest and cushion frames.",
-        "node_id": "R34.r16"
+        "label": "Driver seat: Scope includes seat structure with crash load minimum 30 kN and target price 115 EUR.",
+        "node_id": "R34.r08"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 seat frame / structure",
+      "label": "1.4 Requirement",
       "node_id": "R34.c1.s4"
      },
      {
@@ -173,57 +253,109 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "within",
-          "hi": 23.0,
-          "lo": 17.0,
-          "name": "adjustment speed",
-          "text": "17–23 mm/s",
-          "unit": "mm/s"
+          "bound": null,
+          "hi": 50000.0,
+          "lo": 50000.0,
+          "name": "abrasion resistance",
+          "text": "50,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "at least F3"
          }
         ],
-        "context": "1.5 seat track",
+        "context": "1.5 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver track adjuster fore/aft with adjustment speed 17–23 mm/s.",
-        "node_id": "R34.r07"
+        "label": "Driver seat: Scope includes a trim cover with abrasion resistance 50,000 cycles and flammability class at least F3.",
+        "node_id": "R34.r12"
        },
        {
-        "context": "1.5 seat track",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50000.0,
+          "lo": 50000.0,
+          "name": "abrasion resistance",
+          "text": "at least 50,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "F3 or better"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 125.0,
+          "lo": 125.0,
+          "name": "piece price",
+          "text": "125 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver a longitudinal seat adjuster.",
-        "node_id": "R34.r17"
+        "label": "Passenger seat: Scope includes leather trim with abrasion resistance at least 50,000 cycles and flammability class F3 or better and piece price 125 €.",
+        "node_id": "R34.r26"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 seat track",
+      "label": "1.5 trim cover",
       "node_id": "R34.c1.s5"
      },
      {
       "children": [
        {
-        "context": "1.6 trim cover",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver trim cover set.",
-        "node_id": "R34.r09"
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R34.c1.s6.n1"
        },
        {
-        "context": "1.6 trim cover",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "angle range",
+          "text": "min. 40 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2700.0,
+          "lo": 2700.0,
+          "name": "static strength",
+          "text": "not less than 2700 N·m",
+          "unit": "N·m"
+         }
+        ],
+        "context": "1.6 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver seat upholstery.",
-        "node_id": "R34.r19"
+        "label": "Passenger seat: Scope includes a reclining joint with angle range min. 40 ° and static strength not less than 2700 N·m.",
+        "node_id": "R34.r21"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 trim cover",
+      "label": "1.6 Requirement",
       "node_id": "R34.c1.s6"
      }
     ],
@@ -237,26 +369,304 @@
      {
       "children": [
        {
-        "context": "2.1 armrest",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1500.0,
+            "lo": 1500.0,
+            "name": "vertical load",
+            "text": "at least 1500 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 50.0,
+            "lo": 50.0,
+            "name": "pivot angle",
+            "text": "≥ 50 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes arm support with vertical load at least 1500 N and pivot angle ≥ 50 °.",
+          "node_id": "R34.r03"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.5,
+            "lo": 1.5,
+            "name": "vertical load",
+            "text": "minimum 1.5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes arm support with vertical load minimum 1.5 kN.",
+          "node_id": "R34.r16"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver arm support.",
-        "node_id": "R34.r01"
-       },
-       {
-        "context": "2.1 armrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver folding centre armrest.",
-        "node_id": "R34.r11"
+        "kind": "container",
+        "label": "2.1.1 Performance",
+        "node_id": "R34.c2.s1.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.1 armrest",
+      "label": "2.1 Requirement",
       "node_id": "R34.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 75.0,
+        "lo": 75.0,
+        "name": "height travel",
+        "text": "minimum 75 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.1,
+        "lo": 2.1,
+        "name": "tilt travel",
+        "text": "min. 2.1 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "within",
+        "hi": 2.3,
+        "lo": 1.6,
+        "name": "adjustment speed",
+        "text": "1.6 to 2.3 cm/s",
+        "unit": "cm/s"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_most",
+        "hi": 2.8,
+        "lo": 2.8,
+        "name": "current draw",
+        "text": "up to 2.8 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes motorised headrest with height travel minimum 75 mm and tilt travel min. 2.1 cm and adjustment speed 1.6 to 2.3 cm/s and current draw up to 2.8 A.",
+      "node_id": "R34.r05"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 7.5,
+        "lo": 7.5,
+        "name": "height travel",
+        "text": "min. 7.5 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.2,
+        "lo": 2.2,
+        "name": "tilt travel",
+        "text": "≥ 2.2 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "within",
+        "hi": 23.0,
+        "lo": 17.0,
+        "name": "adjustment speed",
+        "text": "between 17 and 23 mm/s",
+        "unit": "mm/s"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_most",
+        "hi": 2900.0,
+        "lo": 2900.0,
+        "name": "current draw",
+        "text": "max. 2900 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes motorised headrest with height travel min. 7.5 cm and tilt travel ≥ 2.2 cm and adjustment speed between 17 and 23 mm/s and current draw max. 2900 mA.",
+      "node_id": "R34.r18"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "depth",
+        "text": "44 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "adjustment ways",
+        "text": "not less than 6",
+        "unit": ""
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 1300.0,
+        "lo": 1300.0,
+        "name": "supply current",
+        "text": "1300 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes lumbar bladder system with depth 44 mm and adjustment ways not less than 6 and supply current 1300 mA.",
+      "node_id": "R34.r06"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "lumbar travel",
+        "text": "≥ 44 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "ways",
+        "text": "min. 2",
+        "unit": ""
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes 4-way lumbar with lumbar travel ≥ 44 mm and ways min. 2.",
+      "node_id": "R34.r19"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 95.0,
+          "lo": 60.0,
+          "name": "power",
+          "text": "between 60 and 95 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 140.0,
+          "lo": 140.0,
+          "name": "time to 37 °C",
+          "text": "not more than 140 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "current consumption",
+          "text": "≤ 9 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "surface temperature",
+          "text": "up to 47 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.4 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes 2 × heater mats with power between 60 and 95 W and time to 37 °C not more than 140 s and current consumption ≤ 9 A and surface temperature up to 47 °C.",
+        "node_id": "R34.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 100.0,
+          "lo": 60.0,
+          "name": "heating power",
+          "text": "between 60 and 100 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 9000.0,
+          "lo": 9000.0,
+          "name": "supply current",
+          "text": "≤ 9000 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.4 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes 2 × heated seat cushion and backrest with heating power between 60 and 100 W and supply current ≤ 9000 mA.",
+        "node_id": "R34.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 seat heating",
+      "node_id": "R34.c2.s4"
      }
     ],
     "edge": "AND",
@@ -267,71 +677,53 @@
    {
     "children": [
      {
-      "children": [
+      "attributes": [
        {
-        "context": "3.1 manual headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver headrest with detents.",
-        "node_id": "R34.r03"
-       },
-       {
-        "context": "3.1 manual headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver a manual headrest.",
-        "node_id": "R34.r13"
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 340.0,
+        "lo": 340.0,
+        "name": "response time",
+        "text": "at most 340 ms",
+        "unit": "ms"
        }
       ],
+      "context": "3 Safety",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "3.1 manual headrest",
-      "node_id": "R34.c3.s1"
+      "kind": "item",
+      "label": "Passenger seat: Scope includes seat occupancy sensor with response time at most 340 ms.",
+      "node_id": "R34.r20"
      },
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
-        "node_id": "R34.c3.s2.n1"
-       },
-       {
-        "children": [
+        "attributes": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 15.0,
-            "lo": 15.0,
-            "name": "seam opening time",
-            "text": "max. 15 ms",
-            "unit": "ms"
-           }
-          ],
-          "context": "3.2.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Driver seat: Supplier shall deliver seat-mounted side airbag with seam opening time max. 15 ms.",
-          "node_id": "R34.r08"
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "seam opening time",
+          "text": "≤ 9.5 ms",
+          "unit": "ms"
          },
          {
-          "context": "3.2.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Passenger seat: Supplier shall deliver thorax airbag in the backrest.",
-          "node_id": "R34.r18"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 0.5,
+          "lo": 0.5,
+          "name": "seam strength",
+          "text": "at least 0.5 kN",
+          "unit": "kN"
          }
         ],
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "3.2.1 Performance",
-        "node_id": "R34.c3.s2.1"
+        "kind": "item",
+        "label": "Passenger seat: Scope includes side airbag integration with seam opening time ≤ 9.5 ms and seam strength at least 0.5 kN.",
+        "node_id": "R34.r25"
        }
       ],
       "edge": "AND",
@@ -350,26 +742,81 @@
      {
       "children": [
        {
-        "context": "4.1 wiring and connectors",
-        "count": 1.0,
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "torque",
+          "text": "≥ 9.5 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "4.1 seat motor drive",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver seat cabling and connectors.",
+        "label": "Driver seat: Scope includes 2 × power seat actuators with torque ≥ 9.5 Nm.",
         "node_id": "R34.r10"
        },
        {
-        "context": "4.1 wiring and connectors",
-        "count": 1.0,
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "current consumption",
+          "text": "up to 7 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "noise",
+          "text": "max. 42 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 seat motor drive",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver electrical harness.",
-        "node_id": "R34.r20"
+        "label": "Passenger seat: Scope includes 2 × electric seat drives with current consumption up to 7 A and noise max. 42 dB(A).",
+        "node_id": "R34.r24"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.1 wiring and connectors",
+      "label": "4.1 seat motor drive",
       "node_id": "R34.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes seat cabling and connectors.",
+          "node_id": "R34.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.2.1 Performance",
+        "node_id": "R34.c4.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Requirement",
+      "node_id": "R34.c4.s2"
      }
     ],
     "edge": "AND",
@@ -380,9 +827,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification BRH-R34",
+  "label": "Seat system specification GRV-R34",
   "node_id": "R34"
  },
- "source": "brennholt",
+ "source": "grovania",
  "tree_id": "R34"
 }

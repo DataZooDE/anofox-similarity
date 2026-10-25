@@ -25,14 +25,16 @@ from . import customers as customers_mod
 from . import vectors as vectors_mod
 from .domain import (BASE_UNIT, CLASS_BY_ID, CLASSES, COMBOS, FRAMES, GROUP_LABELS, INTERNAL_SOURCE,
                      MAKERS, ORDINALS, PHRASINGS, UNITS, VOCABULARY, AttrTemplate, from_base, to_base)
-from .reference import oracle_satisfies, ordinal_satisfies
+from .reference import oracle_assignment_coverage, oracle_satisfies, ordinal_satisfies
 
 N_PROGRAMMES = 300
 N_REQUESTS = 80
 N_UNMEETABLE = 10
 N_UNSEEN = 200
+TARGET_REQUIREMENTS = 1500
 CAPABILITY_ONLY_SHARE = 0.4
 UNQUALIFIED_SHARE = 0.28  # of at_least / at_most values; within is always a range
+RANGED_SHARE = 0.14  # provided at_least / at_most values given as a range
 
 
 def rng_for(seed: int, name: str) -> np.random.Generator:
@@ -155,6 +157,12 @@ def sample_value(rng, tmpl: AttrTemplate, centre: float | None = None):
     v = round_to(v, tmpl.step, "near")
     if tmpl.dimension == "count" and tmpl.key == "ways":
         v = max(lo, round_to(v, 2, "near"))
+    if tmpl.bound in ("at_least", "at_most") and tmpl.dimension != "count" and rng.random() < RANGED_SHARE:
+        # a value that depends on the operating point, e.g. noise across adjustment speeds
+        a = round_to(v * rng.uniform(0.8, 0.92), tmpl.step, "down")
+        b = round_to(v * rng.uniform(1.08, 1.2), tmpl.step, "up")
+        if 0 < a < b:
+            return (to_base(a, tmpl.natural_unit), to_base(b, tmpl.natural_unit))
     b = to_base(v, tmpl.natural_unit)
     return (b, b)
 
@@ -309,6 +317,7 @@ def build_programmes(seed: int, mod_nodes, apps):
     wordings = defaultdict(list)
     for w in VOCABULARY:
         wordings[w.class_id].append(w.text)
+    misleading_of = {w.class_id: w.text for w in VOCABULARY if w.misleading}
 
     n_cap = int(round(CAPABILITY_ONLY_SHARE * N_PROGRAMMES))
     cap_idx = set(int(i) for i in rng.choice(N_PROGRAMMES, size=n_cap, replace=False))
@@ -329,7 +338,10 @@ def build_programmes(seed: int, mod_nodes, apps):
                 cls = CLASS_BY_ID[c]
                 k += 1
                 it = Item(c, sample_count(rng, cls), {t.key: sample_value(rng, t) for t in cls.attrs})
-                items.append((f"{pid}.I{k:02d}", it, pick(rng, wordings[c]), ""))
+                # archives favour the old (often misleading) wording where one exists
+                label = misleading_of[c] if c in misleading_of and rng.random() < 0.65 else \
+                    pick(rng, [w for w in wordings[c] if w != misleading_of.get(c)])
+                items.append((f"{pid}.I{k:02d}", it, label, ""))
         else:
             remaining = list(classes)
             for cset, entries in combos:
@@ -402,6 +414,7 @@ AT_MOST = {"en": ["max. {v}", "at most {v}", "≤ {v}", "up to {v}", "not more t
            "de": ["max. {v}", "höchstens {v}", "≤ {v}", "bis zu {v}", "maximal {v}"]}
 WITHIN = {"en": ["{a}–{b} {u}", "{a} to {b} {u}", "between {a} and {b} {u}"],
           "de": ["{a}–{b} {u}", "{a} bis {b} {u}", "zwischen {a} und {b} {u}"]}
+EQUALS = {"en": ["{v} ± 2 %", "nominal {v}"], "de": ["{v} ± 2 %", "Nennwert {v}"]}
 ORDINAL_TXT = {"en": ["{c} or better", "at least {c}", "min. {c}"],
                "de": ["{c} oder besser", "mindestens {c}", "min. {c}"]}
 WITH = {"en": " with ", "de": " mit "}
@@ -414,6 +427,7 @@ NOTES = {"en": ["Note: all values apply at 23 °C ambient unless stated otherwis
                 "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze."]}
 TITLES = {"en": "Seat system specification", "de": "Lastenheft Sitzanlage"}
 SUBSECTION = {"en": "Performance", "de": "Leistungsdaten"}
+GENERIC_HEADING = {"en": "Requirement", "de": "Anforderung"}
 
 
 @dataclass
@@ -474,6 +488,8 @@ def render_value(rng, tmpl: AttrTemplate, lang: str, bound: str, lo: float, hi: 
         text = pick(rng, AT_LEAST[lang]).format(v=text)
     elif qualified and bound == "at_most":
         text = pick(rng, AT_MOST[lang]).format(v=text)
+    elif qualified and bound == "equals":
+        text = pick(rng, EQUALS[lang]).format(v=text)
     return text, v, v
 
 
@@ -503,7 +519,7 @@ def derive_value(rng, tmpl: AttrTemplate, src, level: int, qualified: bool, unit
     b = tmpl.bound
     if b == "at_least":
         if level == 0:
-            v = cu(p_hi, "down", fine=True) if not qualified else cu(scale(p_hi, rng.uniform(0.85, 0.98)), "down")
+            v = cu(scale(p_hi, rng.uniform(0.85, 0.98)), "down")
             if v <= 0:
                 v = cu(p_hi, "down", fine=True)
         elif level == 1:
@@ -513,7 +529,7 @@ def derive_value(rng, tmpl: AttrTemplate, src, level: int, qualified: bool, unit
         return v, v
     if b == "at_most":
         if level == 0:
-            v = cu(p_lo, "up", fine=True) if not qualified else cu(scale(p_lo, rng.uniform(1.02, 1.15)), "up")
+            v = cu(scale(p_lo, rng.uniform(1.02, 1.15)), "up")
         elif level == 1:
             v = cu(scale(p_lo, 1 / rng.uniform(1.15, 1.3)), "down")
         else:
@@ -546,18 +562,22 @@ def build_requests(seed: int, progs: list[Programme], modules_items):
     rng = rng_for(seed, "requests")
     pids = phrasing_ids()
     # sources: bias towards front-row programmes, which carry more items
-    weights = np.array([1.6 if p.row == "front" else 1.0 for p in progs])
+    weights = np.array([1.25 if p.row == "front" else 1.0 for p in progs])
     src_idx = rng.choice(len(progs), size=N_REQUESTS, replace=False, p=weights / weights.sum())
     unmeetable = set(int(i) for i in rng.choice(N_REQUESTS, size=N_UNMEETABLE, replace=False))
+    # requests leave out some source items; the rate keeps the total near the target
+    total_src = sum(len(progs[int(i)].items) for i in src_idx)
+    skip = max(0.04, 1.0 - TARGET_REQUIREMENTS / total_src)
     requests = []
     for r, pi in enumerate(sorted(int(i) for i in src_idx)):
         p = progs[pi]
         rid = f"R{r + 1:02d}"
         lang = "de" if r % 2 == 0 else "en"
-        granularity = "coarse" if rng.random() < 0.3 else "detailed"
+        # a coarse spec of a small seat would fit half the archive; small seats get detailed specs
+        granularity = "coarse" if rng.random() < 0.3 and len(p.items) >= 14 else "detailed"
         items = []
         for j, (_, it, _, _, side) in enumerate(p.items, start=1):
-            if rng.random() < 0.04:
+            if rng.random() < skip:
                 continue
             cls = CLASS_BY_ID[it.class_id]
             cands = [(k, ph) for (cid, split, k), (_, ph) in sorted(pids.items())
@@ -569,12 +589,12 @@ def build_requests(seed: int, progs: list[Programme], modules_items):
         # which attributes the request states
         for ri in items:
             cls = CLASS_BY_ID[ri.class_id]
-            p_state = 0.8 if granularity == "detailed" else 0.12
+            p_state = 0.8 if granularity == "detailed" else 0.25
             ri.attrs = [t for t in cls.attrs if rng.random() < p_state]
         # stretch plan
         if r in unmeetable:
             numeric_items = [ri for ri in items if any(not t.is_ordinal for t in CLASS_BY_ID[ri.class_id].attrs)]
-            chosen = rng.choice(len(numeric_items), size=min(len(numeric_items), int(rng.integers(7, 10))),
+            chosen = rng.choice(len(numeric_items), size=min(len(numeric_items), int(rng.integers(10, 15))),
                                 replace=False)
             for c in sorted(int(x) for x in chosen):
                 ri = numeric_items[c]
@@ -611,8 +631,11 @@ def materialise(rng, req):
         cls = CLASS_BY_ID[ri.class_id]
         order = {t.key: i for i, t in enumerate(cls.attrs)}
         ri.attrs = sorted(ri.attrs, key=lambda t: order[t.key])
-        # level 1 stretches one attribute; level 2 stretches every numeric attribute
-        level1_key = None
+        # level 1 stretches one attribute beyond the source; level 2 stretches one numeric
+        # attribute beyond every module and programme
+        level1_key = level2_key = None
+        if ri.stretch_level == 2:
+            level2_key = pick(rng, [t for t in ri.attrs if not t.is_ordinal]).key
         if ri.stretch_level == 1:
             stretchable = [t for t in ri.attrs if not t.is_ordinal or
                            ORDINALS[t.dimension].index(ri.source_item.values[t.key]) < len(ORDINALS[t.dimension]) - 1]
@@ -622,7 +645,7 @@ def materialise(rng, req):
         for t in ri.attrs:
             src = ri.source_item.values[t.key]
             name = pick(rng, t.names_de if lang == "de" else t.names_en)
-            level = 2 if (ri.stretch_level == 2 and not t.is_ordinal) else (1 if t.key == level1_key else 0)
+            level = 2 if t.key == level2_key else (1 if t.key == level1_key else 0)
             if t.is_ordinal:
                 scale = ORDINALS[t.dimension]
                 si = scale.index(src)
@@ -634,7 +657,7 @@ def materialise(rng, req):
             if t.bound in ("at_least", "at_most"):
                 qualified = rng.random() >= UNQUALIFIED_SHARE
             elif t.bound == "equals":
-                qualified = False
+                qualified = rng.random() < 0.4
             unit = choose_unit(rng, t, lang)
             lo, hi = derive_value(rng, t, src, level, qualified, unit)
             text, vlo, vhi = render_value(rng, t, lang, t.bound, lo, hi, qualified, unit)
@@ -680,7 +703,10 @@ def request_tree(rng, req):
                 parent, context = chap, chap_label
             else:
                 sec = f"{chap}.s{si}"
-                heading = f"{ci}.{si} {cls.label_de if lang == 'de' else cls.label_en}"
+                # most headings name the function, some are generic
+                topic = (cls.label_de if lang == "de" else cls.label_en) if rng.random() < 0.7 else \
+                    GENERIC_HEADING[lang]
+                heading = f"{ci}.{si} {topic}"
                 nodes.append(Node(rid, sec, chap, "container", "AND", heading, source=p.maker))
                 parent, context = sec, heading
                 if rng.random() < 0.1:
@@ -723,21 +749,37 @@ def oracle_item_score(ri: ReqItem, cands: list[Item]) -> float:
     return a * min(1.0, sum(c.count for c in cands) / ri.count)
 
 
+def attr_share(attrs: list, values: dict) -> float:
+    if not attrs:
+        return 1.0
+    s = 0
+    for x in attrs:
+        v = values.get(x.tmpl.key)
+        if x.category:
+            s += ordinal_satisfies(x.tmpl.dimension, x.category, v)
+        else:
+            s += oracle_satisfies(x.bound, x.lo, x.hi, v[0], v[1])
+    return s / len(attrs)
+
+
 def oracle_coverage(req, prog: Programme) -> float:
-    by_class = defaultdict(list)
-    for _, it, _, _, _ in prog.items:
-        by_class[it.class_id].append(it)
-    scores = [oracle_item_score(ri, by_class.get(ri.class_id, [])) for ri in req["items"]]
-    return sum(scores) / len(scores)
+    """Gold coverage: one-to-one use of offer items (see reference.oracle_assignment_coverage)."""
+    q = [(ri.node_id, ri.class_id, ri.count, ri.attrs) for ri in req["items"]]
+    c = [(nid, it.class_id, it.count, it.values) for nid, it, _, _, _ in prog.items]
+    return oracle_assignment_coverage(q, c, attr_share)
 
 
 def calibrate_requests(seed, requests, progs):
-    """Make every request land clearly on its side of the 0.95 flag threshold."""
+    """Land every request clearly on its side of the 0.95 flag threshold.
+
+    Meetable requests reach >= 0.97 with some programme; unmeetable ones stay within
+    [0.5, 0.90] for every programme (not degenerate, not borderline).
+    """
     rng = rng_for(seed, "calibrate")
     for req in requests:
-        for _ in range(20):
+        for _ in range(40):
             best = max(oracle_coverage(req, p) for p in progs)
-            if req["unmeetable_plan"] and best >= 0.95:
+            if req["unmeetable_plan"] and best > 0.90:
                 cand = [ri for ri in req["items"] if ri.stretch_level < 2 and
                         any(not t.is_ordinal for t in CLASS_BY_ID[ri.class_id].attrs)]
                 ri = pick(rng, cand)
@@ -746,14 +788,19 @@ def calibrate_requests(seed, requests, progs):
                 keep = {a.tmpl.key for a in ri.attrs}
                 ri.attrs = [t for t in CLASS_BY_ID[ri.class_id].attrs if t.key in keep or t.key == cls_attrs[0].key]
                 rematerialise(rng, req, ri)
-            elif not req["unmeetable_plan"] and best < 0.95:
+            elif req["unmeetable_plan"] and best < 0.5:
+                ri = [ri for ri in req["items"] if ri.stretch_level == 2][-1]
+                ri.stretch_level = 0
+                rematerialise(rng, req, ri)
+            elif not req["unmeetable_plan"] and best < 0.97:
                 stretched = [ri for ri in req["items"] if ri.stretch_level]
                 ri = stretched[-1]
                 ri.stretch_level = 0
-                ri.attrs = [a.tmpl for a in ri.attrs]
                 rematerialise(rng, req, ri)
             else:
                 break
+        else:
+            raise RuntimeError(f"could not calibrate {req['rid']}")
 
 
 def rematerialise(rng, req, ri):
@@ -860,6 +907,8 @@ def main(argv=None):
         r_nodes += n
         r_attrs += [(req["rid"], nid, at) for nid, at in a]
     write_csv(out, "request_nodes", NODE_HEADER, [node_row(n) for n in r_nodes])
+    write_csv(out, "requests", ["request_id", "title", "source", "lang"],
+              [[req["rid"], req["nodes"][0].label, req["programme"].maker, req["lang"]] for req in requests])
     write_csv(out, "request_attributes", ["tree_id", "node_id", "attr_id", "name", "value_text", "role"],
               [[rid, nid, a.attr_id, a.name, a.text, "required"] for rid, nid, a in r_attrs])
     write_csv(out, "gold_request_attributes",

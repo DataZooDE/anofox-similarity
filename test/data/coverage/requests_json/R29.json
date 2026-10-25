@@ -15,12 +15,23 @@
        {
         "children": [
          {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "equals",
+            "hi": 180.0,
+            "lo": 180.0,
+            "name": "Stauchhärte",
+            "text": "180 N ± 2 %",
+            "unit": "N"
+           }
+          ],
           "context": "1.1.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Sitzanlage mit PU-Schaumpolster.",
-          "node_id": "R29.r01"
+          "label": "Der Sitz muss PU-Schaumpolster mit Stauchhärte 180 N ± 2 % bereitstellen.",
+          "node_id": "R29.r02"
          }
         ],
         "edge": "AND",
@@ -35,44 +46,157 @@
       "node_id": "R29.c1.s1"
      },
      {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "Umlegezeit",
+        "text": "6 s",
+        "unit": "s"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 90.0,
+        "lo": 90.0,
+        "name": "Bedienkraft",
+        "text": "≤ 90 N",
+        "unit": "N"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_least",
+        "hi": 10000.0,
+        "lo": 10000.0,
+        "name": "Dauerhaltbarkeit",
+        "text": "nicht weniger als 10.000 Zyklen",
+        "unit": "Zyklen"
+       }
+      ],
       "context": "1 Struktur und Mechanik",
       "count": 1.0,
       "edge": "AND",
       "kind": "item",
-      "label": "Sitzanlage mit Flachklappmechanik.",
-      "node_id": "R29.r02"
+      "label": "Der Sitz muss Flachklappmechanik mit Umlegezeit 6 s und Bedienkraft ≤ 90 N und Dauerhaltbarkeit nicht weniger als 10.000 Zyklen bereitstellen.",
+      "node_id": "R29.r03"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "Winkelbereich",
+        "text": "mindestens 30 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 3050.0,
+        "lo": 3050.0,
+        "name": "Haltemoment",
+        "text": "min. 3050 Nm",
+        "unit": "Nm"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Sitz muss Rückenlehnenverstellung mit Winkelbereich mindestens 30 ° und Haltemoment min. 3050 Nm bereitstellen.",
+      "node_id": "R29.r06"
      },
      {
       "children": [
        {
-        "context": "1.3 Sitzstruktur",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 11.0,
+          "lo": 11.0,
+          "name": "Gewicht",
+          "text": "höchstens 11 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 63.0,
+          "lo": 63.0,
+          "name": "Crashlast",
+          "text": "63 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "Zielpreis",
+          "text": "75 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Sitzanlage mit Sitzstruktur.",
-        "node_id": "R29.r04"
+        "label": "Der Sitz muss tragende Sitzstruktur mit Gewicht höchstens 11 kg und Crashlast 63 kN und Zielpreis 75 EUR bereitstellen.",
+        "node_id": "R29.r07"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 Sitzstruktur",
-      "node_id": "R29.c1.s3"
-     },
-     {
-      "children": [
-       {
-        "context": "1.4 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Sitzanlage mit Polsterbezug.",
-        "node_id": "R29.r05"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.4 Sitzbezug",
+      "label": "1.4 Sitzstruktur",
       "node_id": "R29.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 55000.0,
+          "lo": 55000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "nicht weniger als 55.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F2"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 115.0,
+          "lo": 115.0,
+          "name": "Stückpreis",
+          "text": "höchstens 115 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss Stoffbezug mit Scheuerbeständigkeit nicht weniger als 55.000 Zyklen und Brennbarkeitsklasse mindestens F2 und Stückpreis höchstens 115 EUR bereitstellen.",
+        "node_id": "R29.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R29.c1.s5"
      }
     ],
     "edge": "AND",
@@ -83,12 +207,157 @@
    {
     "children": [
      {
-      "context": "3 Sicherheit",
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 900.0,
+          "lo": 900.0,
+          "name": "Vertikallast",
+          "text": "min. 900 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss Ellbogenauflage mit Vertikallast min. 900 N bereitstellen.",
+        "node_id": "R29.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Anforderung",
+      "node_id": "R29.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "Neigungsweg",
+        "text": "mindestens 30 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "within",
+        "hi": 23.0,
+        "lo": 15.0,
+        "name": "Verstellgeschwindigkeit",
+        "text": "zwischen 15 und 23 mm/s",
+        "unit": "mm/s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 2700.0,
+        "lo": 2700.0,
+        "name": "Strom",
+        "text": "höchstens 2700 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
       "count": 1.0,
       "edge": "AND",
       "kind": "item",
-      "label": "Sitzanlage mit Kopfstütze handverstellbar.",
-      "node_id": "R29.r03"
+      "label": "Der Sitz muss elektrisch verstellbare Kopfstütze mit Neigungsweg mindestens 30 mm und Verstellgeschwindigkeit zwischen 15 und 23 mm/s und Strom höchstens 2700 mA bereitstellen.",
+      "node_id": "R29.r05"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 100.0,
+          "lo": 45.0,
+          "name": "Heizleistung",
+          "text": "45 bis 100 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "maximal 5 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Oberflächentemperatur",
+          "text": "46 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.3 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss 4 × Sitzwärmer mit Heizleistung 45 bis 100 W und Aufheizzeit auf 37 °C maximal 5 min und Oberflächentemperatur 46 °C bereitstellen.",
+        "node_id": "R29.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Sitzheizung",
+      "node_id": "R29.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R29.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 65.0,
+          "lo": 65.0,
+          "name": "Verstellweg",
+          "text": "65 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "≥ 4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss mechanische Kopfstütze mit Verstellweg 65 mm und Raststellungen ≥ 4 bereitstellen.",
+        "node_id": "R29.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Anforderung",
+      "node_id": "R29.c3.s1"
      }
     ],
     "edge": "AND",
@@ -99,12 +368,76 @@
    {
     "children": [
      {
-      "context": "4 Elektrik und Elektronik",
-      "count": 1.0,
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Drehmoment",
+          "text": "min. 6 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 8500.0,
+          "lo": 8500.0,
+          "name": "Strom",
+          "text": "höchstens 8500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "Geräusch",
+          "text": "max. 47 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss 2 × Antriebseinheiten mit Drehmoment min. 6 Nm und Strom höchstens 8500 mA und Geräusch max. 47 dB(A) bereitstellen.",
+        "node_id": "R29.r09"
+       }
+      ],
       "edge": "AND",
-      "kind": "item",
-      "label": "Sitzanlage mit Sitzverkabelung.",
-      "node_id": "R29.r06"
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R29.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Strombelastbarkeit",
+          "text": "min. 6 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Sitz muss Steckverbinder mit Strombelastbarkeit min. 6 A bereitstellen.",
+        "node_id": "R29.r12"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R29.c4.s2"
      }
     ],
     "edge": "AND",
@@ -115,9 +448,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage EST-R29",
+  "label": "Lastenheft Sitzanlage AUR-R29",
   "node_id": "R29"
  },
- "source": "estrelo",
+ "source": "aurivon",
  "tree_id": "R29"
 }

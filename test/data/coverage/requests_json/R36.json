@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
     "node_id": "R36.n0"
    },
    {
@@ -17,8 +17,27 @@
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Scope includes seat padding.",
-        "node_id": "R36.r04"
+        "label": "Driver seat: It is required that the seat has foam cushion pad.",
+        "node_id": "R36.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 220.0,
+          "lo": 220.0,
+          "name": "indentation hardness",
+          "text": "nominal 220 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has cushion foam with indentation hardness nominal 220 N.",
+        "node_id": "R36.r21"
        }
       ],
       "edge": "AND",
@@ -29,45 +48,35 @@
      {
       "children": [
        {
-        "children": [
-         {
-          "context": "1.2.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Scope includes tumble seat function.",
-          "node_id": "R36.r05"
-         }
-        ],
         "edge": "AND",
         "kind": "container",
-        "label": "1.2.1 Performance",
-        "node_id": "R36.c1.s2.1"
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R36.c1.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4000.0,
+          "lo": 4000.0,
+          "name": "full-stroke time",
+          "text": "4000 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "1.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has cushion lifting kinematics with full-stroke time 4000 ms.",
+        "node_id": "R36.r05"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 fold-flat / tumble mechanism",
+      "label": "1.2 Requirement",
       "node_id": "R36.c1.s2"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 48.0,
-        "lo": 48.0,
-        "name": "recline angle",
-        "text": "at least 48 °",
-        "unit": "°"
-       }
-      ],
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Scope includes backrest tilt fitting with recline angle at least 48 °.",
-      "node_id": "R36.r08"
      },
      {
       "children": [
@@ -76,163 +85,93 @@
          {
           "attr_id": "a1",
           "bound": null,
-          "hi": 180.0,
-          "lo": 180.0,
-          "name": "target price",
-          "text": "180 EUR",
-          "unit": "EUR"
+          "hi": 27.0,
+          "lo": 27.0,
+          "name": "noise level",
+          "text": "27 dB(A)",
+          "unit": "dB(A)"
          }
         ],
-        "context": "1.4 seat frame / structure",
+        "context": "1.3 recliner",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Scope includes load-bearing seat structure with target price 180 EUR.",
+        "label": "Driver seat: It is required that the seat has a reclining joint with noise level 27 dB(A).",
         "node_id": "R36.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3250.0,
+          "lo": 3250.0,
+          "name": "static strength",
+          "text": "at least 3250 N·m",
+          "unit": "N·m"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has seat back angle adjustment with static strength at least 3250 N·m.",
+        "node_id": "R36.r27"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 seat frame / structure",
+      "label": "1.3 recliner",
+      "node_id": "R36.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 36.0,
+          "lo": 36.0,
+          "name": "noise",
+          "text": "max. 36 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has a longitudinal seat adjuster with noise max. 36 dB(A).",
+        "node_id": "R36.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Requirement",
       "node_id": "R36.c1.s4"
      },
      {
       "children": [
        {
-        "context": "1.5 seat track",
+        "context": "1.5 seat frame / structure",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Scope includes a seat slide track.",
-        "node_id": "R36.r11"
+        "label": "Passenger seat: It is required that the seat has backrest and cushion frames.",
+        "node_id": "R36.r28"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 seat track",
+      "label": "1.5 seat frame / structure",
       "node_id": "R36.c1.s5"
-     },
-     {
-      "children": [
-       {
-        "context": "1.6 trim cover",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Scope includes leather trim.",
-        "node_id": "R36.r12"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.6 trim cover",
-      "node_id": "R36.c1.s6"
      }
     ],
     "edge": "AND",
     "kind": "container",
     "label": "1 Structure and mechanisms",
     "node_id": "R36.c1"
-   },
-   {
-    "children": [
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "within",
-        "hi": 115.0,
-        "lo": 50.0,
-        "name": "heating power",
-        "text": "between 50 and 115 W",
-        "unit": "W"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_most",
-        "hi": 170.0,
-        "lo": 170.0,
-        "name": "heat-up time",
-        "text": "up to 170 s",
-        "unit": "s"
-       }
-      ],
-      "context": "2 Comfort functions",
-      "count": 4.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Scope includes 4 × heated seat cushion and backrest with heating power between 50 and 115 W and heat-up time up to 170 s.",
-      "node_id": "R36.r01"
-     },
-     {
-      "children": [
-       {
-        "context": "2.2 seat ventilation",
-        "count": 2.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Scope includes 2 × ventilated seats.",
-        "node_id": "R36.r02"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.2 seat ventilation",
-      "node_id": "R36.c2.s2"
-     },
-     {
-      "children": [
-       {
-        "context": "2.3 armrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Scope includes elbow rest.",
-        "node_id": "R36.r03"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.3 armrest",
-      "node_id": "R36.c2.s3"
-     },
-     {
-      "context": "2 Comfort functions",
-      "count": 6.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Scope includes 6 × massage programmes in the backrest.",
-      "node_id": "R36.r07"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "2 Comfort functions",
-    "node_id": "R36.c2"
-   },
-   {
-    "children": [
-     {
-      "children": [
-       {
-        "context": "3.1 manual headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Scope includes height-adjustable head restraint.",
-        "node_id": "R36.r06"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.1 manual headrest",
-      "node_id": "R36.c3.s1"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "3 Safety",
-    "node_id": "R36.c3"
    },
    {
     "children": [
@@ -245,47 +184,449 @@
            {
             "attr_id": "a1",
             "bound": "at_least",
-            "hi": 5.0,
-            "lo": 5.0,
-            "name": "output torque",
-            "text": "not less than 5 N·m",
-            "unit": "N·m"
+            "hi": 40.0,
+            "lo": 40.0,
+            "name": "height travel",
+            "text": "minimum 40 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "within",
+            "hi": 24.0,
+            "lo": 17.0,
+            "name": "adjustment speed",
+            "text": "17 to 24 mm/s",
+            "unit": "mm/s"
            }
           ],
-          "context": "4.1.1 Performance",
-          "count": 6.0,
+          "context": "2.1.1 Performance",
+          "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Scope includes 6 × motor drive units with output torque not less than 5 N·m.",
-          "node_id": "R36.r10"
+          "label": "Driver seat: It is required that the seat has e-headrest with height travel minimum 40 mm and adjustment speed 17 to 24 mm/s.",
+          "node_id": "R36.r04"
+         },
+         {
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has motorised headrest.",
+          "node_id": "R36.r22"
          }
         ],
         "edge": "AND",
         "kind": "container",
-        "label": "4.1.1 Performance",
-        "node_id": "R36.c4.s1.1"
+        "label": "2.1.1 Performance",
+        "node_id": "R36.c2.s1.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.1 seat motor drive",
+      "label": "2.1 powered headrest",
+      "node_id": "R36.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 6.0,
+            "lo": 6.0,
+            "name": "programs",
+            "text": "6",
+            "unit": ""
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has 4 × a massage function with programs 6.",
+          "node_id": "R36.r07"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 6.0,
+            "lo": 6.0,
+            "name": "massage programs",
+            "text": "≥ 6",
+            "unit": ""
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has 4 × a massage function with massage programs ≥ 6.",
+          "node_id": "R36.r25"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Performance",
+        "node_id": "R36.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 massage",
+      "node_id": "R36.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R36.c2.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 105.0,
+          "lo": 45.0,
+          "name": "heating power",
+          "text": "45–105 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4500.0,
+          "lo": 4500.0,
+          "name": "supply current",
+          "text": "not more than 4500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 51.0,
+          "lo": 51.0,
+          "name": "surface temperature",
+          "text": "at most 51 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.3 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has 2 × seat heating with heating power 45–105 W and supply current not more than 4500 mA and surface temperature at most 51 °C.",
+        "node_id": "R36.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 60.0,
+          "name": "power",
+          "text": "between 60 and 85 W",
+          "unit": "W"
+         }
+        ],
+        "context": "2.3 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has 2 × cushion heating elements with power between 60 and 85 W.",
+        "node_id": "R36.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 seat heating",
+      "node_id": "R36.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 460.0,
+          "lo": 300.0,
+          "name": "airflow",
+          "text": "between 300 and 460 l/min",
+          "unit": "l/min"
+         }
+        ],
+        "context": "2.4 seat ventilation",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat ventilation with airflow between 300 and 460 l/min.",
+        "node_id": "R36.r14"
+       },
+       {
+        "context": "2.4 seat ventilation",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has active seat climate airflow.",
+        "node_id": "R36.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 seat ventilation",
+      "node_id": "R36.c2.s4"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has adjustable side bolsters.",
+      "node_id": "R36.r16"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "adjustment time",
+        "text": "6 s",
+        "unit": "s"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has lateral support wings with adjustment time 6 s.",
+      "node_id": "R36.r34"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has elbow rest.",
+      "node_id": "R36.r19"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "ways",
+          "text": "2",
+          "unit": ""
+         }
+        ],
+        "context": "2.7 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has lumbar basket with ways 2.",
+        "node_id": "R36.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 lumbar support",
+      "node_id": "R36.c2.s7"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R36.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat-belt presenter.",
+        "node_id": "R36.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 20.5,
+          "lo": 20.5,
+          "name": "reach",
+          "text": "min. 20.5 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has seat-belt presenter with reach min. 20.5 cm.",
+        "node_id": "R36.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 seat-belt buckle presenter",
+      "node_id": "R36.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has airbag tear seam.",
+        "node_id": "R36.r15"
+       },
+       {
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has airbag chute.",
+        "node_id": "R36.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 side airbag integration",
+      "node_id": "R36.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 15000.0,
+          "lo": 15000.0,
+          "name": "detection threshold",
+          "text": "max. 15000 g",
+          "unit": "g"
+         }
+        ],
+        "context": "3.3 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has occupant detection with detection threshold max. 15000 g.",
+        "node_id": "R36.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Requirement",
+      "node_id": "R36.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R36.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 0.08,
+          "lo": 0.08,
+          "name": "response time",
+          "text": "0.08 s",
+          "unit": "s"
+         }
+        ],
+        "context": "4.1 seat memory module",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat position memory with response time 0.08 s.",
+        "node_id": "R36.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat memory module",
       "node_id": "R36.c4.s1"
      },
      {
       "children": [
        {
-        "context": "4.2 wiring and connectors",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 8000.0,
+            "lo": 8000.0,
+            "name": "current draw",
+            "text": "not more than 8000 mA",
+            "unit": "mA"
+           }
+          ],
+          "context": "4.2.1 Performance",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has 2 × power seat actuators with current draw not more than 8000 mA.",
+          "node_id": "R36.r30"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "Scope includes electrical harness.",
-        "node_id": "R36.r13"
+        "kind": "container",
+        "label": "4.2.1 Performance",
+        "node_id": "R36.c4.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.2 wiring and connectors",
+      "label": "4.2 seat motor drive",
       "node_id": "R36.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has electrical harness.",
+        "node_id": "R36.r36"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 wiring and connectors",
+      "node_id": "R36.c4.s3"
      }
     ],
     "edge": "AND",
@@ -296,9 +637,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification GRV-R36",
+  "label": "Seat system specification FKM-R36",
   "node_id": "R36"
  },
- "source": "grovania",
+ "source": "falkmoor",
  "tree_id": "R36"
 }

@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
     "node_id": "R37.n0"
    },
    {
@@ -13,39 +13,32 @@
      {
       "children": [
        {
-        "children": [
+        "attributes": [
          {
-          "context": "1.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Das System muss Formschaumteile enthalten.",
-          "node_id": "R37.r02"
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "Härte",
+          "text": "260 N",
+          "unit": "N"
          },
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 540.0,
-            "lo": 540.0,
-            "name": "Stauchhärte",
-            "text": "540 N",
-            "unit": "N"
-           }
-          ],
-          "context": "1.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Das System muss Polsterschaum mit Stauchhärte 540 N enthalten.",
-          "node_id": "R37.r14"
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1.6,
+          "lo": 1.6,
+          "name": "Gewicht",
+          "text": "1,6 kg",
+          "unit": "kg"
          }
         ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.1.1 Leistungsdaten",
-        "node_id": "R37.c1.s1.1"
+        "kind": "item",
+        "label": "Sitzanlage mit Formschaumteile mit Härte 260 N und Gewicht 1,6 kg.",
+        "node_id": "R37.r01"
        }
       ],
       "edge": "AND",
@@ -56,42 +49,46 @@
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R37.c1.s2.n1"
-       },
-       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_most",
-          "hi": 7.5,
-          "lo": 7.5,
-          "name": "Verstellzeit",
-          "text": "max. 7,5 s",
-          "unit": "s"
+          "hi": 6500.0,
+          "lo": 6500.0,
+          "name": "Klappzeit",
+          "text": "≤ 6500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 80.0,
+          "lo": 80.0,
+          "name": "Bedienkraft",
+          "text": "höchstens 80 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 26000.0,
+          "lo": 26000.0,
+          "name": "Dauerhaltbarkeit",
+          "text": "minimal 26000 Zyklen",
+          "unit": "Zyklen"
          }
         ],
-        "context": "1.2 Sitzhöhenverstellung",
+        "context": "1.2 Klapp-/Tumblemechanik",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Das System muss Höhenverstellmechanik mit Verstellzeit max. 7,5 s enthalten.",
-        "node_id": "R37.r03"
-       },
-       {
-        "context": "1.2 Sitzhöhenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Das System muss Höhenverstellmechanik enthalten.",
-        "node_id": "R37.r15"
+        "label": "Sitzanlage mit eine Umklappfunktion mit Klappzeit ≤ 6500 ms und Bedienkraft höchstens 80 N und Dauerhaltbarkeit minimal 26000 Zyklen.",
+        "node_id": "R37.r02"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 Sitzhöhenverstellung",
+      "label": "1.2 Klapp-/Tumblemechanik",
       "node_id": "R37.c1.s2"
      },
      {
@@ -100,153 +97,62 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 17.0,
-          "lo": 17.0,
-          "name": "Betriebsgeräusch",
-          "text": "≤ 17 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "1.3 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss eine Lehnenneigungsverstellung mit Betriebsgeräusch ≤ 17 dB(A) enthalten.",
-        "node_id": "R37.r05"
-       },
-       {
-        "attributes": [
+          "bound": null,
+          "hi": 13.5,
+          "lo": 13.5,
+          "name": "Masse",
+          "text": "13,5 kg",
+          "unit": "kg"
+         },
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 2600.0,
-          "lo": 2600.0,
-          "name": "Haltemoment",
-          "text": "minimal 2600 Nm",
-          "unit": "Nm"
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Crashfestigkeit",
+          "text": "42 kN",
+          "unit": "kN"
          }
         ],
-        "context": "1.3 Lehnenverstellung",
+        "context": "1.3 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Das System muss Rückenlehnenverstellung mit Haltemoment minimal 2600 Nm enthalten.",
-        "node_id": "R37.r18"
+        "label": "Sitzanlage mit tragende Sitzstruktur mit Masse 13,5 kg und Crashfestigkeit 42 kN.",
+        "node_id": "R37.r04"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 Lehnenverstellung",
+      "label": "1.3 Anforderung",
       "node_id": "R37.c1.s3"
      },
      {
       "children": [
        {
-        "context": "1.4 Sitzstruktur",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss ein Sitzgestell enthalten.",
-        "node_id": "R37.r06"
-       },
-       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 85.0,
-          "lo": 85.0,
-          "name": "Crashlast",
-          "text": "≥ 85 kN",
-          "unit": "kN"
+          "hi": 35000.0,
+          "lo": 35000.0,
+          "name": "Martindale",
+          "text": "min. 35.000 Zyklen",
+          "unit": "Zyklen"
          }
         ],
-        "context": "1.4 Sitzstruktur",
+        "context": "1.4 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Das System muss Lehnen- und Kissenrahmen mit Crashlast ≥ 85 kN enthalten.",
-        "node_id": "R37.r19"
+        "label": "Sitzanlage mit Lederbezüge mit Martindale min. 35.000 Zyklen.",
+        "node_id": "R37.r05"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 Sitzstruktur",
+      "label": "1.4 Anforderung",
       "node_id": "R37.c1.s4"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
-        "node_id": "R37.c1.s5.n1"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 30.0,
-          "lo": 23.0,
-          "name": "Geschwindigkeit",
-          "text": "23 bis 30 mm/s",
-          "unit": "mm/s"
-         }
-        ],
-        "context": "1.5 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss ein Schienensystem längs mit Geschwindigkeit 23 bis 30 mm/s enthalten.",
-        "node_id": "R37.r09"
-       },
-       {
-        "context": "1.5 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Das System muss eine Längsverstellung enthalten.",
-        "node_id": "R37.r22"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.5 Sitzlängsverstellung",
-      "node_id": "R37.c1.s5"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "1.6.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Das System muss Polsterbezug enthalten.",
-          "node_id": "R37.r11"
-         },
-         {
-          "context": "1.6.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Das System muss Polsterbezug enthalten.",
-          "node_id": "R37.r24"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "1.6.1 Leistungsdaten",
-        "node_id": "R37.c1.s6.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.6 Sitzbezug",
-      "node_id": "R37.c1.s6"
      }
     ],
     "edge": "AND",
@@ -259,183 +165,38 @@
      {
       "children": [
        {
-        "context": "2.1 Lordosenstütze",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss eine Lordosenstütze enthalten.",
-        "node_id": "R37.r04"
-       },
-       {
-        "context": "2.1 Lordosenstütze",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Das System muss Lendenwirbelstütze enthalten.",
-        "node_id": "R37.r16"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.1 Lordosenstütze",
-      "node_id": "R37.c2.s1"
-     },
-     {
-      "children": [
-       {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 7500.0,
-          "lo": 7500.0,
-          "name": "Stromaufnahme",
-          "text": "höchstens 7500 mA",
-          "unit": "mA"
-         }
-        ],
-        "context": "2.2 Sitzheizung",
-        "count": 4.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss 4 × Sitzwärmer mit Stromaufnahme höchstens 7500 mA enthalten.",
-        "node_id": "R37.r07"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 41.0,
-          "lo": 41.0,
-          "name": "Oberflächentemperatur",
-          "text": "41 °C",
-          "unit": "°C"
-         }
-        ],
-        "context": "2.2 Sitzheizung",
-        "count": 4.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Das System muss 4 × Sitzwärmer mit Oberflächentemperatur 41 °C enthalten.",
-        "node_id": "R37.r20"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.2 Sitzheizung",
-      "node_id": "R37.c2.s2"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "2 Komfortfunktionen",
-    "node_id": "R37.c2"
-   },
-   {
-    "children": [
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 37.0,
-        "lo": 37.0,
-        "name": "Hub",
-        "text": "mindestens 37 cm",
-        "unit": "cm"
-       }
-      ],
-      "context": "3 Sicherheit",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Das System muss einen Gurtschlossbringer mit Hub mindestens 37 cm enthalten.",
-      "node_id": "R37.r01"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 3.0,
-        "lo": 3.0,
-        "name": "Taktzeit",
-        "text": "bis zu 3 s",
-        "unit": "s"
-       }
-      ],
-      "context": "3 Sicherheit",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Das System muss einen Gurtschlossbringer mit Taktzeit bis zu 3 s enthalten.",
-      "node_id": "R37.r13"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
-        "node_id": "R37.c3.s2.n1"
-       },
-       {
-        "children": [
-         {
-          "context": "3.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Das System muss Airbag-Aufreißnaht enthalten.",
-          "node_id": "R37.r10"
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Höhenverstellweg",
+          "text": "mindestens 6 cm",
+          "unit": "cm"
          },
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 3.0,
-            "lo": 3.0,
-            "name": "Nahtöffnungszeit",
-            "text": "maximal 3 ms",
-            "unit": "ms"
-           }
-          ],
-          "context": "3.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Das System muss Thoraxairbag mit Nahtöffnungszeit maximal 3 ms enthalten.",
-          "node_id": "R37.r23"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "minimal 4",
+          "unit": ""
          }
         ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "3.2.1 Leistungsdaten",
-        "node_id": "R37.c3.s2.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.2 Seitenairbag-Integration",
-      "node_id": "R37.c3.s2"
-     },
-     {
-      "children": [
-       {
-        "context": "3.3 Sitzbelegungserkennung",
+        "context": "3.1 Kopfstütze manuell",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Das System muss Sensormatte Sitzbelegung enthalten.",
-        "node_id": "R37.r17"
+        "label": "Sitzanlage mit Kopfstütze mit Rasten mit Höhenverstellweg mindestens 6 cm und Raststellungen minimal 4.",
+        "node_id": "R37.r03"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.3 Sitzbelegungserkennung",
-      "node_id": "R37.c3.s3"
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R37.c3.s1"
      }
     ],
     "edge": "AND",
@@ -446,104 +207,21 @@
    {
     "children": [
      {
-      "children": [
+      "attributes": [
        {
-        "children": [
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 46.0,
-            "lo": 46.0,
-            "name": "Betriebsgeräusch",
-            "text": "bis zu 46 dB(A)",
-            "unit": "dB(A)"
-           }
-          ],
-          "context": "4.1.1 Leistungsdaten",
-          "count": 3.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Das System muss 3 × Antriebseinheiten mit Betriebsgeräusch bis zu 46 dB(A) enthalten.",
-          "node_id": "R37.r08"
-         },
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_least",
-            "hi": 16.5,
-            "lo": 16.5,
-            "name": "Abtriebsmoment",
-            "text": "≥ 16,5 N·m",
-            "unit": "N·m"
-           }
-          ],
-          "context": "4.1.1 Leistungsdaten",
-          "count": 3.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Das System muss 3 × Sitzverstellmotoren mit Abtriebsmoment ≥ 16,5 N·m enthalten.",
-          "node_id": "R37.r21"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Leistungsdaten",
-        "node_id": "R37.c4.s1.1"
+        "attr_id": "a1",
+        "bound": "at_least",
+        "category": "IP40",
+        "name": "Schutzart",
+        "text": "min. IP40"
        }
       ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "4.1 Sitzverstellmotor",
-      "node_id": "R37.c4.s1"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 27.0,
-          "lo": 27.0,
-          "name": "Strombelastbarkeit",
-          "text": "≥ 27 A",
-          "unit": "A"
-         }
-        ],
-        "context": "4.2 Sitzkabelsatz",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Das System muss einen Sitzkabelbaum mit Strombelastbarkeit ≥ 27 A enthalten.",
-        "node_id": "R37.r12"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 30.0,
-          "lo": 30.0,
-          "name": "Strombelastbarkeit",
-          "text": "30 A",
-          "unit": "A"
-         }
-        ],
-        "context": "4.2 Sitzkabelsatz",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Das System muss einen Sitzkabelbaum mit Strombelastbarkeit 30 A enthalten.",
-        "node_id": "R37.r25"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "4.2 Sitzkabelsatz",
-      "node_id": "R37.c4.s2"
+      "kind": "item",
+      "label": "Sitzanlage mit Sitzverkabelung mit Schutzart min. IP40.",
+      "node_id": "R37.r06"
      }
     ],
     "edge": "AND",
@@ -554,9 +232,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage DRV-R37",
+  "label": "Lastenheft Sitzanlage EST-R37",
   "node_id": "R37"
  },
- "source": "dravik",
+ "source": "estrelo",
  "tree_id": "R37"
 }

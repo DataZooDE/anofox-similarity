@@ -11,191 +11,144 @@
    {
     "children": [
      {
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Supplier shall deliver a moulded foam pad.",
-      "node_id": "R70.r03"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 2100.0,
-        "lo": 2100.0,
-        "name": "mass",
-        "text": "up to 2100 g",
-        "unit": "g"
-       }
-      ],
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Supplier shall deliver seat padding with mass up to 2100 g.",
-      "node_id": "R70.r16"
-     },
-     {
       "children": [
        {
-        "children": [
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 11.8,
-            "lo": 11.8,
-            "name": "height stroke",
-            "text": "11.8 cm",
-            "unit": "cm"
-           }
-          ],
-          "context": "1.2.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Driver seat: Supplier shall deliver a seat lifter with height stroke 11.8 cm.",
-          "node_id": "R70.r04"
-         }
-        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.2.1 Performance",
-        "node_id": "R70.c1.s2.1"
+        "kind": "item",
+        "label": "Scope includes cushion foam.",
+        "node_id": "R70.r02"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 height adjuster",
-      "node_id": "R70.c1.s2"
-     },
-     {
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Supplier shall deliver recliner fittings.",
-      "node_id": "R70.r06"
-     },
-     {
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Supplier shall deliver a backrest recliner.",
-      "node_id": "R70.r20"
+      "label": "1.1 foam pad",
+      "node_id": "R70.c1.s1"
      },
      {
       "children": [
-       {
-        "context": "1.4 seat frame / structure",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver backrest and cushion frames.",
-        "node_id": "R70.r07"
-       },
-       {
-        "context": "1.4 seat frame / structure",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver backrest and cushion frames.",
-        "node_id": "R70.r21"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.4 seat frame / structure",
-      "node_id": "R70.c1.s4"
-     },
-     {
-      "children": [
-       {
-        "context": "1.5 seat track",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver track adjuster fore/aft.",
-        "node_id": "R70.r10"
-       },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "within",
-          "hi": 3.0,
-          "lo": 1.4,
-          "name": "adjustment speed",
-          "text": "between 1.4 and 3 cm/s",
-          "unit": "cm/s"
+          "bound": null,
+          "hi": 7.5,
+          "lo": 7.5,
+          "name": "folding time",
+          "text": "7.5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "operating force",
+          "text": "max. 45 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 28000.0,
+          "lo": 28000.0,
+          "name": "endurance",
+          "text": "not less than 28,000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes folding rear seat with folding time 7.5 s and operating force max. 45 N and endurance not less than 28,000 cycles.",
+        "node_id": "R70.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Requirement",
+      "node_id": "R70.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 32.0,
+          "lo": 32.0,
+          "name": "angle range",
+          "text": "minimum 32 °",
+          "unit": "°"
          },
          {
           "attr_id": "a2",
           "bound": "at_least",
-          "hi": 19500.0,
-          "lo": 19500.0,
-          "name": "holding load",
-          "text": "minimum 19500 N",
-          "unit": "N"
+          "hi": 2150.0,
+          "lo": 2150.0,
+          "name": "locking strength",
+          "text": "minimum 2150 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "noise",
+          "text": "at most 38 dB(A)",
+          "unit": "dB(A)"
          }
         ],
-        "context": "1.5 seat track",
+        "context": "1.3 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver a seat slide track with adjustment speed between 1.4 and 3 cm/s and holding load minimum 19500 N.",
-        "node_id": "R70.r24"
+        "label": "Scope includes recliner fittings with angle range minimum 32 ° and locking strength minimum 2150 N·m and noise at most 38 dB(A).",
+        "node_id": "R70.r05"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 seat track",
-      "node_id": "R70.c1.s5"
+      "label": "1.3 Requirement",
+      "node_id": "R70.c1.s3"
      },
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
-        "node_id": "R70.c1.s6.n1"
-       },
-       {
         "attributes": [
          {
           "attr_id": "a1",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "flammability class",
+          "text": "min. F2"
+         },
+         {
+          "attr_id": "a2",
           "bound": "at_most",
-          "hi": 20.0,
-          "lo": 20.0,
-          "name": "target price",
-          "text": "up to 20 EUR",
+          "hi": 140.0,
+          "lo": 140.0,
+          "name": "piece price",
+          "text": "≤ 140 EUR",
           "unit": "EUR"
          }
         ],
-        "context": "1.6 trim cover",
+        "context": "1.4 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver trim cover set with target price up to 20 EUR.",
-        "node_id": "R70.r12"
-       },
-       {
-        "context": "1.6 trim cover",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver seat upholstery.",
-        "node_id": "R70.r26"
+        "label": "Scope includes a trim cover with flammability class min. F2 and piece price ≤ 140 EUR.",
+        "node_id": "R70.r07"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 trim cover",
-      "node_id": "R70.c1.s6"
+      "label": "1.4 trim cover",
+      "node_id": "R70.c1.s4"
      }
     ],
     "edge": "AND",
@@ -206,120 +159,20 @@
    {
     "children": [
      {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 2.7,
-        "lo": 2.7,
-        "name": "vertical load",
-        "text": "minimum 2.7 kN",
-        "unit": "kN"
-       }
-      ],
-      "context": "2 Comfort functions",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Supplier shall deliver arm support with vertical load minimum 2.7 kN.",
-      "node_id": "R70.r01"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": null,
-        "hi": 1600.0,
-        "lo": 1600.0,
-        "name": "vertical load",
-        "text": "1600 N",
-        "unit": "N"
-       }
-      ],
-      "context": "2 Comfort functions",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Supplier shall deliver arm support with vertical load 1600 N.",
-      "node_id": "R70.r14"
-     },
-     {
       "children": [
        {
-        "context": "2.2 lumbar support",
+        "context": "2.1 armrest",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver a lumbar support.",
-        "node_id": "R70.r05"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 2.0,
-          "lo": 2.0,
-          "name": "adjustment ways",
-          "text": "minimum 2",
-          "unit": ""
-         }
-        ],
-        "context": "2.2 lumbar support",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver 4-way lumbar with adjustment ways minimum 2.",
-        "node_id": "R70.r18"
+        "label": "Scope includes an armrest.",
+        "node_id": "R70.r01"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.2 lumbar support",
-      "node_id": "R70.c2.s2"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 2.6,
-            "lo": 2.6,
-            "name": "heat-up time",
-            "text": "not more than 2.6 min",
-            "unit": "min"
-           }
-          ],
-          "context": "2.3.1 Performance",
-          "count": 2.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Driver seat: Supplier shall deliver 2 × heated seat cushion and backrest with heat-up time not more than 2.6 min.",
-          "node_id": "R70.r08"
-         },
-         {
-          "context": "2.3.1 Performance",
-          "count": 2.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Passenger seat: Supplier shall deliver 2 × cushion heating elements.",
-          "node_id": "R70.r22"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "2.3.1 Performance",
-        "node_id": "R70.c2.s3.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.3 seat heating",
-      "node_id": "R70.c2.s3"
+      "label": "2.1 armrest",
+      "node_id": "R70.c2.s1"
      }
     ],
     "edge": "AND",
@@ -332,83 +185,18 @@
      {
       "children": [
        {
-        "context": "3.1 side airbag integration",
+        "context": "3.1 manual headrest",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Supplier shall deliver airbag chute.",
-        "node_id": "R70.r11"
-       },
-       {
-        "context": "3.1 side airbag integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver airbag chute.",
-        "node_id": "R70.r25"
+        "label": "Scope includes notched head restraint.",
+        "node_id": "R70.r04"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.1 side airbag integration",
+      "label": "3.1 manual headrest",
       "node_id": "R70.c3.s1"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "3.2.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Passenger seat: Supplier shall deliver buckle presenter actuator.",
-          "node_id": "R70.r15"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "3.2.1 Performance",
-        "node_id": "R70.c3.s2.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.2 seat-belt buckle presenter",
-      "node_id": "R70.c3.s2"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
-        "node_id": "R70.c3.s3.n1"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 30.0,
-          "lo": 30.0,
-          "name": "response time",
-          "text": "max. 30 ms",
-          "unit": "ms"
-         }
-        ],
-        "context": "3.3 occupant detection mat",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver occupant detection with response time max. 30 ms.",
-        "node_id": "R70.r19"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.3 occupant detection mat",
-      "node_id": "R70.c3.s3"
      }
     ],
     "edge": "AND",
@@ -421,83 +209,36 @@
      {
       "children": [
        {
-        "children": [
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_least",
-            "hi": 18.0,
-            "lo": 18.0,
-            "name": "output torque",
-            "text": "min. 18 Nm",
-            "unit": "Nm"
-           }
-          ],
-          "context": "4.1.1 Performance",
-          "count": 3.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Driver seat: Supplier shall deliver 3 × motor drive units with output torque min. 18 Nm.",
-          "node_id": "R70.r09"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Performance",
-        "node_id": "R70.c4.s1.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "4.1 seat motor drive",
-      "node_id": "R70.c4.s1"
-     },
-     {
-      "children": [
-       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 29.0,
-          "lo": 29.0,
+          "hi": 16.0,
+          "lo": 16.0,
           "name": "current rating",
-          "text": "minimum 29 A",
+          "text": "at least 16 A",
           "unit": "A"
-         }
-        ],
-        "context": "4.2 wiring and connectors",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Supplier shall deliver a seat wiring harness with current rating minimum 29 A.",
-        "node_id": "R70.r13"
-       },
-       {
-        "attributes": [
+         },
          {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 30.0,
-          "lo": 30.0,
-          "name": "current rating",
-          "text": "30 A",
-          "unit": "A"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "IP54 or better"
          }
         ],
-        "context": "4.2 wiring and connectors",
+        "context": "4.1 wiring and connectors",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Supplier shall deliver connector set with current rating 30 A.",
-        "node_id": "R70.r27"
+        "label": "Scope includes connector set with current rating at least 16 A and protection class IP54 or better.",
+        "node_id": "R70.r08"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.2 wiring and connectors",
-      "node_id": "R70.c4.s2"
+      "label": "4.1 wiring and connectors",
+      "node_id": "R70.c4.s1"
      }
     ],
     "edge": "AND",
@@ -508,9 +249,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification BRH-R70",
+  "label": "Seat system specification GRV-R70",
   "node_id": "R70"
  },
- "source": "brennholt",
+ "source": "grovania",
  "tree_id": "R70"
 }

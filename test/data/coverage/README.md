@@ -53,11 +53,14 @@ travel and tilt travel, so the attribute name has to tell them apart.
 - Item labels come from the closed internal vocabulary. `count` is the extensive
   multiplicity, such as heated zones, massage zones or motors.
 - `module_attributes` holds the provided values (`role = provided`). Point values have
-  `lo = hi`; ranges have `lo < hi`.
+  `lo = hi`; ranges have `lo < hi`. Every `within` attribute is a range (a capability
+  such as an adjustable speed). About 14 % of `at_least`/`at_most` values are ranges too
+  (e.g. noise over the adjustment speeds). There `at_most` is judged on `p_lo` and
+  `at_least` on `p_hi`, so a p_lo/p_hi swap changes results.
 
 ### Programme archive (past solutions)
 
-`programme_nodes` (7 970 rows), `programme_attributes` (17 323 rows), 300 programmes
+`programme_nodes` (7 763 rows), `programme_attributes` (16 828 rows), 300 programmes
 (`P001`…`P300`), source `internal`.
 
 - Front-row programmes list a driver seat (`.D`) and a passenger seat (`.B`) as containers.
@@ -88,9 +91,11 @@ to rank them first.
 
 ### Requests (customer specifications)
 
-`request_nodes` (3 196 rows) and `request_attributes` (2 550 rows) cover 80 requests
-(`R01`…`R80`) with 1 627 requirement items. `requests_json/<request_id>.json` holds the
-same trees as nested JSON, the way an upstream extraction delivers them.
+`request_nodes` (3 128 rows) and `request_attributes` (2 736 rows) cover 80 requests
+(`R01`…`R80`) with 1 520 requirement items. `requests` (`request_id, title, source, lang`)
+gives each request's language, which parsing needs (`2.500` is 2500 in German).
+`requests_json/<request_id>.json` holds the same trees as nested JSON, the way an
+upstream extraction delivers them.
 
 - Each request is derived from a hidden source programme (`gold_requests`). The wording is
   German or English (50/50), and the units are customer units (mm or cm, A or mA, s or min,
@@ -98,17 +103,21 @@ same trees as nested JSON, the way an upstream extraction delivers them.
   some counts use thousands separators.
 - The hierarchy is spec → chapter → section (→ subsection) → requirement, with notes as
   leaf containers. A requirement sits at depth 2, 3 or 4. `context` is the enclosing
-  heading.
+  heading. About 70 % of section headings name the function, the rest are generic
+  ("Anforderung"). Front-row specs state requirements per seat ("Fahrersitz: …").
 - The label is the full requirement sentence, in the maker's sentence frame
   ("Der Lieferant liefert …"), and may state several values.
 - `request_attributes` holds what extraction found: `name` and `value_text`
   (e.g. `max. 33 dB(A)`, `mindestens 24 cm`, `15–25 mm/s`, `IP54 or better`). Parse it
   with `parse_quantity`. In JSON the same attribute also has separate fields (`lo`, `hi`,
   `unit` in customer units, and `bound`, which is `null` when unqualified).
-- About 30 % of the numeric values are **unqualified**, with no bound word (`noise 38 dB(A)`).
-  About 11 % of the requirements are **stretched** beyond their source programme. In 10
-  requests the stretch goes beyond every module and programme, so these requests are
-  **unmeetable**.
+- About 30 % of the numeric values are **unqualified**, with no bound word
+  (`noise 38 dB(A)`). They are derived with the same slack as qualified values, so they do
+  not copy the source. Some `equals` values are qualified (`220 N ± 2 %`, `Nennwert 220 N`).
+- About 11 % of the requirements are **stretched**: one attribute is beyond their source
+  programme. In 10 requests further attributes are stretched beyond every module and
+  programme, so these requests are **unmeetable**. Their best coverage lies between 0.5
+  and 0.90; every other request reaches at least 0.97 with some programme.
 - Detailed requests state most attribute values; coarse requests omit most of them.
 
 ### Phrasing pool and unseen requirements
@@ -137,10 +146,13 @@ classifier, top-1 accuracy is:
 
 | Setting | Top-1 |
 |---|---|
-| raw cosine, request items | ≈ 0.58 |
-| per-source centring (+ z-score), request items | ≈ 0.86 |
+| raw cosine, request items | ≈ 0.59 |
+| per-source centring (+ z-score), request items | ≈ 0.85 |
 | centring, held-out phrasings | ≈ 0.75 |
-| MaxSim over token vectors, held-out phrasings | ≈ 0.99 |
+| MaxSim over token vectors, held-out phrasings | ≈ 0.94 |
+
+Concept tokens are placed using development phrasings only. Tokens that occur only in
+held-out phrasings get no pull towards a class.
 
 Misleading wordings sit closest to their apparent class. Unrelated attribute names have a
 raw cosine of about 0.85, and synonyms of the same attribute about 0.98.
@@ -157,7 +169,9 @@ merged.
 ## Ground truth and oracle semantics
 
 The oracle sees gold classes and exact values. It uses the **true** bound, even when the
-text is unqualified.
+text is unqualified. This is deliberate: a matcher that treats `12500 g` as a point can
+disagree with gold without any parsing error. Report results for qualified and
+unqualified values separately where that matters.
 
 | Bound | Satisfied when (provided interval `[p_lo, p_hi]`) |
 |---|---|
@@ -167,12 +181,17 @@ text is unqualified.
 | `equals v` | `|p − v| ≤ 2 % of |v|` |
 | ordinal | provided class at least as good as the required class |
 
-For a request item *q* (class *k*, count *n_q*) against a programme, with *C* the programme
-items of class *k*:
+Coverage of a request by a programme uses each programme item **once**
+(HANDOVER §7.3). Every programme item of class *k* goes to exactly one request item of
+class *k*, and the oracle takes the assignment with the highest total. A request item *q*
+with block *B* of programme items scores:
 
-- item score = `max_{c∈C} (share of q's attributes c satisfies)` × `min(1, Σ_{c∈C} n_c / n_q)`,
-  and 1 for the attribute part when *q* states no values; 0 if *C* is empty
+- `max_{c∈B} (share of q's attributes c satisfies)` × `min(1, Σ_{c∈B} n_c / n_q)`,
+  where the attribute part is 1 when *q* states no values, and 0 for an empty block
 - coverage = mean item score over the request's items
+
+Assignment is at class level. A driver-seat requirement is not restricted to
+driver-seat items (decision of 2026-10-25, HLD §11).
 
 Gold files:
 
@@ -186,7 +205,28 @@ Gold files:
 | `gold_unseen`, `gold_vocabulary`, `gold_customer_clusters` | see above |
 
 Ties are common: several programmes can reach the best coverage. A top-1 pick is correct
-when its true coverage equals `best_coverage`.
+when its true coverage equals `best_coverage`. No request ties more than 10 % of the archive
+at the best.
+
+## Feasibility of the BRD KPIs
+
+`scripts/src/scripts/coverage/reference.py` holds a reference kernel that follows HLD §4.6
+with the §11 amendments. It is an oracle-parsed ceiling: it takes values from
+`gold_request_attributes` and does not parse `value_text`. With reviewed labels, stage-1
+containment top-20 and stage-2 coverage:
+
+| KPI | Target | `default_bounds := 'catalogue'` | unqualified as points (HLD §4.2) |
+|---|---|---|---|
+| recall@20 | ≥ 0.90 | 0.925 | 0.925 |
+| top-1 = best | ≥ 0.85 | 0.925 | 0.838 |
+| mean regret | ≤ 0.01 | 0.009 | 0.024 |
+| MAE, all top-20 pairs | ≤ 0.05 | 0.037 | 0.075 |
+| unmeetable flagged | ≥ 0.95 | 1.0 | 1.0 |
+| precision at 0.9 | ≥ 0.95 | 0.985 | 1.0 |
+
+Stage-1 recall@20 shows the documented failure mode: on unreviewed labels containment
+recalls the best candidate less often than weighted Jaccard (0.55 vs 0.64); on reviewed
+labels it recalls it more often (0.925 vs 0.85).
 
 ## Mini fixture (`mini/`, hand-made)
 

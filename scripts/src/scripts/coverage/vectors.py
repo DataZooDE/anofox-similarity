@@ -66,13 +66,13 @@ class Space:
         for i, s in enumerate(sources):
             h1, h2 = self.class_ids[(3 * i) % len(self.class_ids)], self.class_ids[(3 * i + 7) % len(self.class_ids)]
             self.boiler[s] = _unit(_rand_unit(seed, f"boiler:{s}") + HUB_WEIGHT * (self.mu[h1] + self.mu[h2]))
-        # concept tokens lean towards the classes whose phrasings use them
+        # concept tokens lean towards the classes whose development phrasings use
+        # them; concepts seen only in held-out phrasings get no pull (no label leak)
         users = {}
         for cid in sorted(PHRASINGS):
-            for split in ("dev", "test"):
-                for ph in PHRASINGS[cid][split]:
-                    for c in ph.concepts:
-                        users.setdefault(c, set()).add(cid)
+            for ph in PHRASINGS[cid]["dev"]:
+                for c in ph.concepts:
+                    users.setdefault(c, set()).add(cid)
         self.concept = {c: _unit(CONCEPT_PULL * _unit(sum(self.mu[k] for k in sorted(ks)))
                                  + _rand_unit(seed, f"concept:{c}"))
                         for c, ks in sorted(users.items())}

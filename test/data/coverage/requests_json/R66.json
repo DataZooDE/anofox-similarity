@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
     "node_id": "R66.n0"
    },
    {
@@ -16,270 +16,161 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 1.7,
-          "lo": 1.7,
-          "name": "mass",
-          "text": "not more than 1.7 kg",
-          "unit": "kg"
+          "bound": null,
+          "hi": 22.0,
+          "lo": 22.0,
+          "name": "adjustment travel",
+          "text": "22 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 23.0,
+          "lo": 16.0,
+          "name": "speed",
+          "text": "16–23 mm/s",
+          "unit": "mm/s"
          }
         ],
-        "context": "1.1 foam pad",
+        "context": "1.1 seat track",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Function: seat padding with mass not more than 1.7 kg.",
+        "label": "Driver seat: Supplier shall deliver track adjuster fore/aft with adjustment travel 22 cm and speed 16–23 mm/s.",
         "node_id": "R66.r03"
        },
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 300.0,
-          "lo": 300.0,
-          "name": "mass",
-          "text": "not more than 300 g",
-          "unit": "g"
-         }
-        ],
-        "context": "1.1 foam pad",
+        "context": "1.1 seat track",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: a moulded foam pad with mass not more than 300 g.",
-        "node_id": "R66.r21"
+        "label": "Passenger seat: Supplier shall deliver sliding rails for the seat.",
+        "node_id": "R66.r18"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 foam pad",
+      "label": "1.1 seat track",
       "node_id": "R66.c1.s1"
      },
      {
       "children": [
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 30.0,
-          "lo": 30.0,
-          "name": "recline angle",
-          "text": "30 °",
-          "unit": "°"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 2850.0,
-          "lo": 2850.0,
-          "name": "locking strength",
-          "text": "2850 Nm",
-          "unit": "Nm"
-         },
-         {
-          "attr_id": "a3",
-          "bound": null,
-          "hi": 42.0,
-          "lo": 42.0,
-          "name": "noise level",
-          "text": "42 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "1.2 recliner",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: a reclining joint with recline angle 30 ° and locking strength 2850 Nm and noise level 42 dB(A).",
-        "node_id": "R66.r09"
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R66.c1.s2.n1"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": null,
-          "hi": 42.0,
-          "lo": 42.0,
-          "name": "noise level",
-          "text": "42 dB(A)",
-          "unit": "dB(A)"
+          "hi": 3.8,
+          "lo": 3.8,
+          "name": "height stroke",
+          "text": "3.8 cm",
+          "unit": "cm"
          }
         ],
-        "context": "1.2 recliner",
+        "context": "1.2 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: a reclining joint with noise level 42 dB(A).",
-        "node_id": "R66.r27"
+        "label": "Driver seat: Supplier shall deliver vertical cushion adjustment with height stroke 3.8 cm.",
+        "node_id": "R66.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "full-stroke time",
+          "text": "6.5 s",
+          "unit": "s"
+         }
+        ],
+        "context": "1.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver a seat height adjuster with full-stroke time 6.5 s.",
+        "node_id": "R66.r19"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 recliner",
+      "label": "1.2 Requirement",
       "node_id": "R66.c1.s2"
      },
      {
-      "attributes": [
+      "children": [
        {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 20500.0,
-        "lo": 20500.0,
-        "name": "weight",
-        "text": "up to 20500 g",
-        "unit": "g"
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver a moulded foam pad.",
+        "node_id": "R66.r08"
        },
        {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "hi": 38.0,
-        "lo": 38.0,
-        "name": "crash load",
-        "text": "min. 38 kN",
-        "unit": "kN"
-       },
-       {
-        "attr_id": "a3",
-        "bound": "at_most",
-        "hi": 95.0,
-        "lo": 95.0,
-        "name": "target price",
-        "text": "≤ 95 €",
-        "unit": "€"
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "equals",
+          "hi": 250.0,
+          "lo": 250.0,
+          "name": "indentation hardness",
+          "text": "nominal 250 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver a moulded foam pad with indentation hardness nominal 250 N.",
+        "node_id": "R66.r22"
        }
       ],
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
       "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Function: load-bearing seat structure with weight up to 20500 g and crash load min. 38 kN and target price ≤ 95 €.",
-      "node_id": "R66.r10"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 20.0,
-        "lo": 20.0,
-        "name": "mass",
-        "text": "≤ 20 kg",
-        "unit": "kg"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "hi": 36.0,
-        "lo": 36.0,
-        "name": "crash strength",
-        "text": "≥ 36 kN",
-        "unit": "kN"
-       },
-       {
-        "attr_id": "a3",
-        "bound": null,
-        "hi": 85.0,
-        "lo": 85.0,
-        "name": "target price",
-        "text": "85 €",
-        "unit": "€"
-       }
-      ],
-      "context": "1 Structure and mechanisms",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Function: load-bearing seat structure with mass ≤ 20 kg and crash strength ≥ 36 kN and target price 85 €.",
-      "node_id": "R66.r28"
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R66.c1.s3"
      },
      {
       "children": [
        {
         "children": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_least",
-            "hi": 24.0,
-            "lo": 24.0,
-            "name": "fore-aft travel",
-            "text": "minimum 24 cm",
-            "unit": "cm"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 35.0,
-            "lo": 35.0,
-            "name": "noise level",
-            "text": "up to 35 dB(A)",
-            "unit": "dB(A)"
-           },
-           {
-            "attr_id": "a3",
-            "bound": "at_least",
-            "hi": 19.5,
-            "lo": 19.5,
-            "name": "retention load",
-            "text": "at least 19.5 kN",
-            "unit": "kN"
-           }
-          ],
           "context": "1.4.1 Performance",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Driver seat: Function: fore-aft seat rails with fore-aft travel minimum 24 cm and noise level up to 35 dB(A) and retention load at least 19.5 kN.",
-          "node_id": "R66.r13"
+          "label": "Driver seat: Supplier shall deliver seat back angle adjustment.",
+          "node_id": "R66.r11"
          },
          {
           "attributes": [
            {
             "attr_id": "a1",
             "bound": "at_least",
-            "hi": 24.0,
-            "lo": 24.0,
-            "name": "fore-aft travel",
-            "text": "minimum 24 cm",
-            "unit": "cm"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "within",
-            "hi": 30.0,
-            "lo": 20.0,
-            "name": "adjustment speed",
-            "text": "20 to 30 mm/s",
-            "unit": "mm/s"
-           },
-           {
-            "attr_id": "a3",
-            "bound": null,
-            "hi": 32.0,
-            "lo": 32.0,
-            "name": "noise level",
-            "text": "32 dB(A)",
-            "unit": "dB(A)"
-           },
-           {
-            "attr_id": "a4",
-            "bound": "at_least",
-            "hi": 21000.0,
-            "lo": 21000.0,
-            "name": "retention load",
-            "text": "not less than 21000 N",
-            "unit": "N"
+            "hi": 3150.0,
+            "lo": 3150.0,
+            "name": "static strength",
+            "text": "≥ 3150 Nm",
+            "unit": "Nm"
            }
           ],
           "context": "1.4.1 Performance",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Passenger seat: Function: a longitudinal seat adjuster with fore-aft travel minimum 24 cm and adjustment speed 20 to 30 mm/s and noise level 32 dB(A) and retention load not less than 21000 N.",
-          "node_id": "R66.r31"
+          "label": "Passenger seat: Supplier shall deliver a backrest recliner with static strength ≥ 3150 Nm.",
+          "node_id": "R66.r26"
          }
         ],
         "edge": "AND",
@@ -290,76 +181,61 @@
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 seat track",
+      "label": "1.4 Requirement",
       "node_id": "R66.c1.s4"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 55000.0,
-          "lo": 55000.0,
-          "name": "Martindale",
-          "text": "min. 55000 cycles",
-          "unit": "cycles"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 17500.0,
+            "lo": 17500.0,
+            "name": "mass",
+            "text": "at most 17500 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.5.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Supplier shall deliver load-bearing seat structure with mass at most 17500 g.",
+          "node_id": "R66.r12"
          },
          {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "category": "F3",
-          "name": "flammability class",
-          "text": "at least F3"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 95.0,
-          "lo": 95.0,
-          "name": "piece price",
-          "text": "up to 95 €",
-          "unit": "€"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 36.0,
+            "lo": 36.0,
+            "name": "crash load",
+            "text": "min. 36 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.5.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver a seat frame with crash load min. 36 kN.",
+          "node_id": "R66.r27"
          }
         ],
-        "context": "1.5 trim cover",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: leather trim with Martindale min. 55000 cycles and flammability class at least F3 and piece price up to 95 €.",
-        "node_id": "R66.r17"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "category": "F3",
-          "name": "flammability class",
-          "text": "F3 or better"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 85.0,
-          "lo": 85.0,
-          "name": "target price",
-          "text": "≤ 85 EUR",
-          "unit": "EUR"
-         }
-        ],
-        "context": "1.5 trim cover",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: fabric seat covers with flammability class F3 or better and target price ≤ 85 EUR.",
-        "node_id": "R66.r35"
+        "kind": "container",
+        "label": "1.5.1 Performance",
+        "node_id": "R66.c1.s5.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 trim cover",
+      "label": "1.5 seat frame / structure",
       "node_id": "R66.c1.s5"
      },
      {
@@ -369,42 +245,24 @@
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 4.8,
-          "lo": 4.8,
-          "name": "vertical travel",
-          "text": "≥ 4.8 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 4000.0,
-          "lo": 4000.0,
-          "name": "adjustment time",
-          "text": "not more than 4000 ms",
-          "unit": "ms"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_least",
-          "hi": 12.5,
-          "lo": 12.5,
-          "name": "holding load",
-          "text": "min. 12.5 kN",
-          "unit": "kN"
+          "hi": 25000.0,
+          "lo": 25000.0,
+          "name": "Martindale",
+          "text": "not less than 25000 cycles",
+          "unit": "cycles"
          }
         ],
-        "context": "1.6 height adjuster",
+        "context": "1.6 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: a seat height adjuster with vertical travel ≥ 4.8 cm and adjustment time not more than 4000 ms and holding load min. 12.5 kN.",
-        "node_id": "R66.r23"
+        "label": "Driver seat: Supplier shall deliver leather trim with Martindale not less than 25000 cycles.",
+        "node_id": "R66.r14"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 height adjuster",
+      "label": "1.6 trim cover",
       "node_id": "R66.c1.s6"
      }
     ],
@@ -418,139 +276,68 @@
      {
       "children": [
        {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R66.c2.s1.n1"
+       },
+       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": null,
-          "hi": 60.0,
-          "lo": 60.0,
-          "name": "pivot angle",
-          "text": "60 °",
-          "unit": "°"
+          "hi": 3.4,
+          "lo": 3.4,
+          "name": "time to 37 °C",
+          "text": "3.4 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 49.0,
+          "lo": 49.0,
+          "name": "surface temperature",
+          "text": "not more than 49 °C",
+          "unit": "°C"
          }
         ],
-        "context": "2.1 armrest",
-        "count": 1.0,
+        "context": "2.1 seat heating",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Function: an armrest with pivot angle 60 °.",
+        "label": "Driver seat: Supplier shall deliver 2 × seat warmer with time to 37 °C 3.4 min and surface temperature not more than 49 °C.",
         "node_id": "R66.r01"
        },
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 1700.0,
-          "lo": 1700.0,
-          "name": "vertical load",
-          "text": "1700 N",
-          "unit": "N"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 55.0,
-          "lo": 55.0,
-          "name": "pivot angle",
-          "text": "minimum 55 °",
-          "unit": "°"
-         }
-        ],
-        "context": "2.1 armrest",
-        "count": 1.0,
+        "context": "2.1 seat heating",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: elbow rest with vertical load 1700 N and pivot angle minimum 55 °.",
-        "node_id": "R66.r19"
+        "label": "Passenger seat: Supplier shall deliver 2 × heater mats.",
+        "node_id": "R66.r16"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.1 armrest",
+      "label": "2.1 seat heating",
       "node_id": "R66.c2.s1"
      },
      {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 3.5,
-          "lo": 3.5,
-          "name": "height travel",
-          "text": "at least 3.5 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 1.0,
-          "lo": 1.0,
-          "name": "tilt travel",
-          "text": "at least 1 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a3",
-          "bound": null,
-          "hi": 3.1,
-          "lo": 3.1,
-          "name": "current draw",
-          "text": "3.1 A",
-          "unit": "A"
-         }
-        ],
-        "context": "2.2 powered headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: e-headrest with height travel at least 3.5 cm and tilt travel at least 1 cm and current draw 3.1 A.",
-        "node_id": "R66.r04"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 5.9,
-          "lo": 5.9,
-          "name": "fore-aft tilt",
-          "text": "5.9 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "within",
-          "hi": 45.0,
-          "lo": 14.0,
-          "name": "adjustment speed",
-          "text": "14 to 45 mm/s",
-          "unit": "mm/s"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 600.0,
-          "lo": 600.0,
-          "name": "current draw",
-          "text": "≤ 600 mA",
-          "unit": "mA"
-         }
-        ],
-        "context": "2.2 powered headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: e-headrest with fore-aft tilt 5.9 cm and adjustment speed 14 to 45 mm/s and current draw ≤ 600 mA.",
-        "node_id": "R66.r22"
-       }
-      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "2.2 powered headrest",
-      "node_id": "R66.c2.s2"
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver a cushion length extension.",
+      "node_id": "R66.r07"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Supplier shall deliver cushion depth adjustment.",
+      "node_id": "R66.r21"
      },
      {
       "children": [
@@ -559,378 +346,85 @@
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 2.0,
-          "lo": 2.0,
-          "name": "adjustment ways",
-          "text": "≥ 2",
-          "unit": ""
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 2000.0,
-          "lo": 2000.0,
-          "name": "max. current",
-          "text": "at most 2000 mA",
-          "unit": "mA"
-         }
-        ],
-        "context": "2.3 lumbar support",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: lumbar basket with adjustment ways ≥ 2 and max. current at most 2000 mA.",
-        "node_id": "R66.r06"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 3.4,
-          "lo": 3.4,
-          "name": "depth",
-          "text": "at least 3.4 cm",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "height travel",
+          "text": "≥ 5.5 cm",
           "unit": "cm"
          },
          {
           "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 2.0,
-          "lo": 2.0,
-          "name": "adjustment ways",
-          "text": "not less than 2",
-          "unit": ""
+          "bound": "at_most",
+          "hi": 2.6,
+          "lo": 2.6,
+          "name": "current draw",
+          "text": "max. 2.6 A",
+          "unit": "A"
          }
         ],
-        "context": "2.3 lumbar support",
+        "context": "2.3 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: 4-way lumbar with depth at least 3.4 cm and adjustment ways not less than 2.",
-        "node_id": "R66.r24"
+        "label": "Driver seat: Supplier shall deliver e-headrest with height travel ≥ 5.5 cm and current draw max. 2.6 A.",
+        "node_id": "R66.r09"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.3 lumbar support",
+      "label": "2.3 Requirement",
       "node_id": "R66.c2.s3"
      },
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: where no seat is named, the requirement applies to both front seats.",
-        "node_id": "R66.c2.s4.n1"
-       },
-       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 3.0,
-          "lo": 3.0,
-          "name": "programs",
-          "text": "min. 3",
-          "unit": ""
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 51.0,
-          "lo": 51.0,
-          "name": "operating noise",
-          "text": "up to 51 dB(A)",
-          "unit": "dB(A)"
-         },
-         {
-          "attr_id": "a3",
-          "bound": null,
-          "hi": 4000.0,
-          "lo": 4000.0,
-          "name": "current draw",
-          "text": "4000 mA",
-          "unit": "mA"
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "lumbar travel",
+          "text": "min. 3.6 cm",
+          "unit": "cm"
          }
         ],
-        "context": "2.4 massage",
-        "count": 6.0,
+        "context": "2.4 lumbar support",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Function: 6 × massage programmes in the backrest with programs min. 3 and operating noise up to 51 dB(A) and current draw 4000 mA.",
-        "node_id": "R66.r07"
+        "label": "Driver seat: Supplier shall deliver 4-way lumbar with lumbar travel min. 3.6 cm.",
+        "node_id": "R66.r10"
        },
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 52.0,
-          "lo": 52.0,
-          "name": "noise",
-          "text": "not more than 52 dB(A)",
-          "unit": "dB(A)"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 4.5,
-          "lo": 4.5,
-          "name": "max. current",
-          "text": "not more than 4.5 A",
-          "unit": "A"
-         }
-        ],
-        "context": "2.4 massage",
-        "count": 6.0,
+        "context": "2.4 lumbar support",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Passenger seat: Function: 6 × kneading massage with noise not more than 52 dB(A) and max. current not more than 4.5 A.",
-        "node_id": "R66.r25"
+        "label": "Passenger seat: Supplier shall deliver 4-way lumbar.",
+        "node_id": "R66.r24"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.4 massage",
+      "label": "2.4 lumbar support",
       "node_id": "R66.c2.s4"
      },
      {
       "children": [
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 80.0,
-          "lo": 70.0,
-          "name": "heating power",
-          "text": "70 to 80 W",
-          "unit": "W"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 270.0,
-          "lo": 270.0,
-          "name": "heat-up time",
-          "text": "270 s",
-          "unit": "s"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 7500.0,
-          "lo": 7500.0,
-          "name": "current consumption",
-          "text": "up to 7500 mA",
-          "unit": "mA"
-         },
-         {
-          "attr_id": "a4",
-          "bound": null,
-          "hi": 45.0,
-          "lo": 45.0,
-          "name": "surface temperature",
-          "text": "45 °C",
-          "unit": "°C"
-         }
-        ],
-        "context": "2.5 seat heating",
-        "count": 4.0,
+        "context": "2.5 seat ventilation",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Driver seat: Function: 4 × cushion heating elements with heating power 70 to 80 W and heat-up time 270 s and current consumption up to 7500 mA and surface temperature 45 °C.",
-        "node_id": "R66.r11"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 165.0,
-          "lo": 70.0,
-          "name": "power",
-          "text": "70–165 W",
-          "unit": "W"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 1.0,
-          "lo": 1.0,
-          "name": "time to 37 °C",
-          "text": "1 min",
-          "unit": "min"
-         },
-         {
-          "attr_id": "a3",
-          "bound": null,
-          "hi": 2.0,
-          "lo": 2.0,
-          "name": "current consumption",
-          "text": "2 A",
-          "unit": "A"
-         },
-         {
-          "attr_id": "a4",
-          "bound": "at_most",
-          "hi": 25.0,
-          "lo": 25.0,
-          "name": "surface temperature",
-          "text": "not more than 25 °C",
-          "unit": "°C"
-         }
-        ],
-        "context": "2.5 seat heating",
-        "count": 4.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: 4 × seat warmer with power 70–165 W and time to 37 °C 1 min and current consumption 2 A and surface temperature not more than 25 °C.",
-        "node_id": "R66.r29"
+        "label": "Passenger seat: Supplier shall deliver 2 × seat cooling blowers.",
+        "node_id": "R66.r17"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.5 seat heating",
+      "label": "2.5 seat ventilation",
       "node_id": "R66.c2.s5"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 440.0,
-          "lo": 360.0,
-          "name": "airflow",
-          "text": "between 360 and 440 l/min",
-          "unit": "l/min"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 34.0,
-          "lo": 34.0,
-          "name": "noise",
-          "text": "max. 34 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "2.6 seat ventilation",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: seat ventilation with airflow between 360 and 440 l/min and noise max. 34 dB(A).",
-        "node_id": "R66.r14"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 460.0,
-          "lo": 340.0,
-          "name": "airflow",
-          "text": "340–460 l/min",
-          "unit": "l/min"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 33.0,
-          "lo": 33.0,
-          "name": "noise",
-          "text": "at most 33 dB(A)",
-          "unit": "dB(A)"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 4.4,
-          "lo": 4.4,
-          "name": "current consumption",
-          "text": "at most 4.4 A",
-          "unit": "A"
-         }
-        ],
-        "context": "2.6 seat ventilation",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: seat cooling blowers with airflow 340–460 l/min and noise at most 33 dB(A) and current consumption at most 4.4 A.",
-        "node_id": "R66.r32"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.6 seat ventilation",
-      "node_id": "R66.c2.s6"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 5.8,
-          "lo": 5.8,
-          "name": "bolster travel",
-          "text": "min. 5.8 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 1.0,
-          "lo": 1.0,
-          "name": "adjustment time",
-          "text": "1 s",
-          "unit": "s"
-         }
-        ],
-        "context": "2.7 side bolster adjustment",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: side support adjustment with bolster travel min. 5.8 cm and adjustment time 1 s.",
-        "node_id": "R66.r16"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 1.5,
-          "lo": 1.5,
-          "name": "bolster travel",
-          "text": "at least 1.5 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 4000.0,
-          "lo": 4000.0,
-          "name": "adjustment time",
-          "text": "4000 ms",
-          "unit": "ms"
-         }
-        ],
-        "context": "2.7 side bolster adjustment",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: lateral support wings with bolster travel at least 1.5 cm and adjustment time 4000 ms.",
-        "node_id": "R66.r34"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.7 side bolster adjustment",
-      "node_id": "R66.c2.s7"
      }
     ],
     "edge": "AND",
@@ -941,98 +435,28 @@
    {
     "children": [
      {
-      "attributes": [
+      "children": [
        {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 345.0,
-        "lo": 345.0,
-        "name": "reach",
-        "text": "at least 345 mm",
-        "unit": "mm"
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Supplier shall deliver seat-mounted side airbag.",
+        "node_id": "R66.r13"
        },
        {
-        "attr_id": "a2",
-        "bound": "at_most",
-        "hi": 500.0,
-        "lo": 500.0,
-        "name": "cycle time",
-        "text": "max. 500 ms",
-        "unit": "ms"
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Supplier shall deliver airbag tear seam.",
+        "node_id": "R66.r28"
        }
       ],
-      "context": "3 Safety",
-      "count": 1.0,
       "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Function: buckle presenter actuator with reach at least 345 mm and cycle time max. 500 ms.",
-      "node_id": "R66.r02"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": null,
-        "hi": 4.0,
-        "lo": 4.0,
-        "name": "cycle time",
-        "text": "4 s",
-        "unit": "s"
-       }
-      ],
-      "context": "3 Safety",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Function: buckle lifter with cycle time 4 s.",
-      "node_id": "R66.r20"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 14.0,
-        "lo": 14.0,
-        "name": "deployment time",
-        "text": "≤ 14 ms",
-        "unit": "ms"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "hi": 710.0,
-        "lo": 710.0,
-        "name": "seam strength",
-        "text": "minimum 710 N",
-        "unit": "N"
-       }
-      ],
-      "context": "3 Safety",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Function: airbag chute with deployment time ≤ 14 ms and seam strength minimum 710 N.",
-      "node_id": "R66.r15"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": null,
-        "hi": 12.5,
-        "lo": 12.5,
-        "name": "seam opening time",
-        "text": "12.5 ms",
-        "unit": "ms"
-       }
-      ],
-      "context": "3 Safety",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Function: side airbag integration with seam opening time 12.5 ms.",
-      "node_id": "R66.r33"
+      "kind": "container",
+      "label": "3.1 side airbag integration",
+      "node_id": "R66.c3.s1"
      },
      {
       "children": [
@@ -1042,32 +466,32 @@
           "attributes": [
            {
             "attr_id": "a1",
-            "bound": null,
-            "hi": 27.0,
-            "lo": 27.0,
+            "bound": "at_most",
+            "hi": 9000.0,
+            "lo": 9000.0,
             "name": "detection threshold",
-            "text": "27 kg",
-            "unit": "kg"
+            "text": "max. 9000 g",
+            "unit": "g"
            }
           ],
-          "context": "3.3.1 Performance",
+          "context": "3.2.1 Performance",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Passenger seat: Function: occupant detection with detection threshold 27 kg.",
-          "node_id": "R66.r26"
+          "label": "Passenger seat: Supplier shall deliver seat occupancy sensor with detection threshold max. 9000 g.",
+          "node_id": "R66.r25"
          }
         ],
         "edge": "AND",
         "kind": "container",
-        "label": "3.3.1 Performance",
-        "node_id": "R66.c3.s3.1"
+        "label": "3.2.1 Performance",
+        "node_id": "R66.c3.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.3 occupant detection mat",
-      "node_id": "R66.c3.s3"
+      "label": "3.2 occupant detection mat",
+      "node_id": "R66.c3.s2"
      }
     ],
     "edge": "AND",
@@ -1078,165 +502,44 @@
    {
     "children": [
      {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 8.0,
-          "lo": 8.0,
-          "name": "memorised ways",
-          "text": "min. 8",
-          "unit": ""
-         },
-         {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 0.0034,
-          "lo": 0.0034,
-          "name": "standby current",
-          "text": "0.0034 A",
-          "unit": "A"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 0.13,
-          "lo": 0.13,
-          "name": "response time",
-          "text": "up to 0.13 s",
-          "unit": "s"
-         }
-        ],
-        "context": "4.1 seat memory module",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: seat position memory with memorised ways min. 8 and standby current 0.0034 A and response time up to 0.13 s.",
-        "node_id": "R66.r08"
-       }
-      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "4.1 seat memory module",
-      "node_id": "R66.c4.s1"
+      "kind": "item",
+      "label": "Driver seat: Supplier shall deliver stored seat positions.",
+      "node_id": "R66.r05"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 8.0,
-          "lo": 8.0,
-          "name": "torque",
-          "text": "at least 8 Nm",
-          "unit": "Nm"
+          "context": "4.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Supplier shall deliver electrical harness.",
+          "node_id": "R66.r15"
          },
          {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 13000.0,
-          "lo": 13000.0,
-          "name": "max. current",
-          "text": "up to 13000 mA",
-          "unit": "mA"
+          "context": "4.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Supplier shall deliver connector set.",
+          "node_id": "R66.r30"
          }
         ],
-        "context": "4.2 seat motor drive",
-        "count": 4.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Driver seat: Function: 4 × electric seat drives with torque at least 8 Nm and max. current up to 13000 mA.",
-        "node_id": "R66.r12"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 1.5,
-          "lo": 1.5,
-          "name": "current draw",
-          "text": "1.5 A",
-          "unit": "A"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 20.0,
-          "lo": 20.0,
-          "name": "operating noise",
-          "text": "not more than 20 dB(A)",
-          "unit": "dB(A)"
-         }
-        ],
-        "context": "4.2 seat motor drive",
-        "count": 4.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Passenger seat: Function: 4 × electric seat drives with current draw 1.5 A and operating noise not more than 20 dB(A).",
-        "node_id": "R66.r30"
+        "kind": "container",
+        "label": "4.2.1 Performance",
+        "node_id": "R66.c4.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.2 seat motor drive",
+      "label": "4.2 wiring and connectors",
       "node_id": "R66.c4.s2"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 29.0,
-        "lo": 29.0,
-        "name": "current rating",
-        "text": "at least 29 A",
-        "unit": "A"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "category": "IP54",
-        "name": "protection class",
-        "text": "min. IP54"
-       }
-      ],
-      "context": "4 Electrics and electronics",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Driver seat: Function: seat cabling and connectors with current rating at least 29 A and protection class min. IP54.",
-      "node_id": "R66.r18"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "at_least",
-        "hi": 16.0,
-        "lo": 16.0,
-        "name": "current rating",
-        "text": "minimum 16 A",
-        "unit": "A"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_least",
-        "category": "IP54",
-        "name": "protection class",
-        "text": "IP54 or better"
-       }
-      ],
-      "context": "4 Electrics and electronics",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Passenger seat: Function: connector set with current rating minimum 16 A and protection class IP54 or better.",
-      "node_id": "R66.r36"
      }
     ],
     "edge": "AND",
@@ -1247,9 +550,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification HIR-R66",
+  "label": "Seat system specification BRH-R66",
   "node_id": "R66"
  },
- "source": "hirschtal",
+ "source": "brennholt",
  "tree_id": "R66"
 }

@@ -45,9 +45,10 @@ def _pick(rng, seq):
 
 
 def _typo(rng, s: str) -> str:
+    """Swap two different neighbouring letters or drop one; never returns s unchanged."""
     letters = [i for i, ch in enumerate(s) if ch.isalpha()]
     i = _pick(rng, letters[1:-1] or letters)
-    if rng.random() < 0.5 and i + 1 < len(s):
+    if rng.random() < 0.5 and i + 1 < len(s) and s[i] != s[i + 1]:
         return s[:i] + s[i + 1] + s[i] + s[i + 2:]
     return s[:i] + s[i + 1:]
 

@@ -40,3 +40,44 @@ measurable.
 (and the 2 % equals tolerance). The kernel's tolerance bands are what the MAE KPI measures
 against. The hidden source programmes are part of the archive. If the HLD unqualified rule
 makes the KPIs unreachable, I escalate (HANDOVER §8) and do not deviate silently.
+
+---
+
+## R0-2 — 2026-10-25 — after R0 dataset (generator, data README, sample rows)
+
+- **Crew:** correctness (claude), design (codex), testing (claude), usability (codex).
+  Verdict: REQUEST_CHANGES.
+- **Unit:** generator at f97df0a, README, sample rows.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | The partition puts one offer item into every tied same-class request block | Fixed: reference kernel gives each candidate one block (largest remaining deficit, then lowest node id); the oracle uses the best one-to-one assignment; test computes it by brute force (ad41ae4, this commit). Recorded as HLD §11.4 |
+| F2 | high | Unqualified values are copies of the source, so the HLD point rule looked feasible only because of the rendering | Fixed: same slack as qualified values. The KPIs then failed under the HLD rule → **escalated (HANDOVER §8)** |
+| F3 | high | MAE measured on top-1 only narrows the BRD KPI | **Escalated.** Decision: MAE over all top-k pairs; label credit no longer added when values fail (HLD §11.2). Guard asserts `mae_top_k` |
+| F4 | high | Provided at_least/at_most values are always points, so a p_lo/p_hi swap is invisible | Fixed: 14 % of directional provided values are ranges; test counts requirement pairs where the swap changes the answer (≥ 50). Mini ranges follow with the R2 tests |
+| F5 | high | Temperature tolerance is relative to Kelvin | **Escalated.** Decision: absolute tolerance 1 K, band 2.5 K, distance in K (HLD §11.3) |
+| F6 | med | Concept vectors pulled towards their class through held-out labels | Fixed: development phrasings only; held-out MaxSim 0.94 (bounded ≤ 0.95) |
+| F7 | med | Flag margin too narrow, tautological unmeetable test | Fixed: meetable ≥ 0.97, unmeetable 0.5–0.90 asserted |
+| F8 | med | R50 has coverage 0 against every programme | Fixed: level-2 stretch on one attribute per item, best ≥ 0.5; no request ties ≥ 10 % of the archive (coarse specs only for seats with ≥ 14 items) |
+| F9 | med | Seat scope: counts pooled across seats | **Escalated.** Decision: class-level one-to-one assignment, seats are context only (HLD §11.4) |
+| F10 | med | Request language only in gold | Fixed: public `requests` table with `lang` |
+| F11 | med | The guard is an oracle-parsed ceiling | Documented in reference.py and README. R2 adds a parse accuracy test, R3 adds variant-aware and partition-vs-best-match tests |
+| F12 | low | Gold uses the true bound for unqualified text | Documented in README |
+| F13–F16 | low | "max. current" name, identical typo swap, gzip bytes in the committed check, equals always unqualified, headings give classes away | Fixed: name changed, typo never returns the input, committed data compared on decompressed content, 40 % of equals qualified, 30 % generic headings |
+
+**Escalation (HANDOVER §8) and decisions, 2026-10-25.** With the source-copy leak removed,
+the HLD reference kernel missed the regret and MAE targets (regret 0.024, MAE over top-20
+0.075, top-1 0.838). The product owner decided:
+1. unqualified values take a default bound from the catalogue through a kernel option
+   (`default_bounds := 'catalogue'`);
+2. the MAE KPI covers all top-k pairs;
+3. affine units get an absolute tolerance;
+4. assignment stays class-level and one-to-one.
+
+All four are recorded in HLD §11. With them, every BRD KPI passes on the reference kernel:
+recall@20 0.925, top-1 0.925, regret 0.009, MAE over top-20 0.037, unmeetable flagged 1.0,
+precision@0.9 0.985.
+
+**Other open questions from the crew.** at_most is judged on `p_lo` ("configurable down
+to"), as HLD §4.2 states; no change. Source programmes stay in the archive. Precision at
+0.9 counts a top-1 pick whose true coverage is ≥ 0.9.

@@ -18,57 +18,84 @@
           "attributes": [
            {
             "attr_id": "a1",
-            "bound": null,
-            "hi": 270.0,
-            "lo": 270.0,
-            "name": "Härte",
-            "text": "270 N",
-            "unit": "N"
+            "bound": "at_least",
+            "hi": 21.0,
+            "lo": 21.0,
+            "name": "Weg",
+            "text": "≥ 21 cm",
+            "unit": "cm"
            },
            {
             "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 0.7,
-            "lo": 0.7,
-            "name": "Masse",
-            "text": "max. 0,7 kg",
-            "unit": "kg"
+            "bound": "within",
+            "hi": 26.0,
+            "lo": 14.0,
+            "name": "Geschwindigkeit",
+            "text": "14–26 mm/s",
+            "unit": "mm/s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 44.0,
+            "lo": 44.0,
+            "name": "Betriebsgeräusch",
+            "text": "44 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a4",
+            "bound": "at_least",
+            "hi": 20.0,
+            "lo": 20.0,
+            "name": "Haltekraft",
+            "text": "mindestens 20 kN",
+            "unit": "kN"
            }
           ],
           "context": "1.1.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Fahrersitz: Anforderung: Sitzpolsterung mit Härte 270 N und Masse max. 0,7 kg.",
-          "node_id": "R17.r02"
+          "label": "Fahrersitz: Das System muss ein Schienensystem längs mit Weg ≥ 21 cm und Geschwindigkeit 14–26 mm/s und Betriebsgeräusch 44 dB(A) und Haltekraft mindestens 20 kN enthalten.",
+          "node_id": "R17.r01"
          },
          {
           "attributes": [
            {
             "attr_id": "a1",
-            "bound": null,
-            "hi": 270.0,
-            "lo": 270.0,
-            "name": "Härte",
-            "text": "270 N",
-            "unit": "N"
+            "bound": "at_least",
+            "hi": 30.0,
+            "lo": 30.0,
+            "name": "Verstellweg",
+            "text": "mindestens 30 cm",
+            "unit": "cm"
            },
            {
             "attr_id": "a2",
-            "bound": null,
-            "hi": 0.6,
-            "lo": 0.6,
-            "name": "Gewicht",
-            "text": "0,6 kg",
-            "unit": "kg"
+            "bound": "within",
+            "hi": 27.0,
+            "lo": 12.0,
+            "name": "Verstellgeschwindigkeit",
+            "text": "12–27 mm/s",
+            "unit": "mm/s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 19.5,
+            "lo": 19.5,
+            "name": "Haltelast",
+            "text": "mindestens 19,5 kN",
+            "unit": "kN"
            }
           ],
           "context": "1.1.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Beifahrersitz: Anforderung: PU-Schaumpolster mit Härte 270 N und Gewicht 0,6 kg.",
-          "node_id": "R17.r14"
+          "label": "Beifahrersitz: Das System muss Sitzlängsführung mit Verstellweg mindestens 30 cm und Verstellgeschwindigkeit 12–27 mm/s und Haltelast mindestens 19,5 kN enthalten.",
+          "node_id": "R17.r13"
          }
         ],
         "edge": "AND",
@@ -79,75 +106,83 @@
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 Polsterschaum",
+      "label": "1.1 Sitzlängsverstellung",
       "node_id": "R17.c1.s1"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 50.0,
-          "lo": 50.0,
-          "name": "Höhenhub",
-          "text": "min. 50 mm",
-          "unit": "mm"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 3.8,
+            "lo": 3.8,
+            "name": "Hub",
+            "text": "3,8 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 7000.0,
+            "lo": 7000.0,
+            "name": "Laufzeit",
+            "text": "höchstens 7000 ms",
+            "unit": "ms"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 8.5,
+            "lo": 8.5,
+            "name": "Haltekraft",
+            "text": "min. 8,5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Das System muss einen Sitzheber mit Hub 3,8 cm und Laufzeit höchstens 7000 ms und Haltekraft min. 8,5 kN enthalten.",
+          "node_id": "R17.r02"
          },
          {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 12500.0,
-          "lo": 12500.0,
-          "name": "Haltekraft",
-          "text": "12500 N",
-          "unit": "N"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 4.0,
+            "lo": 4.0,
+            "name": "Hub",
+            "text": "nicht weniger als 4 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 6.5,
+            "lo": 6.5,
+            "name": "Verstellzeit",
+            "text": "max. 6,5 s",
+            "unit": "s"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Das System muss eine Sitzhöhenverstellung mit Hub nicht weniger als 4 cm und Verstellzeit max. 6,5 s enthalten.",
+          "node_id": "R17.r14"
          }
         ],
-        "context": "1.2 Sitzhöhenverstellung",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Anforderung: eine Sitzhöhenverstellung mit Höhenhub min. 50 mm und Haltekraft 12500 N.",
-        "node_id": "R17.r03"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 56.0,
-          "lo": 56.0,
-          "name": "Höhenhub",
-          "text": "56 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 7.0,
-          "lo": 7.0,
-          "name": "Verstellzeit",
-          "text": "maximal 7 s",
-          "unit": "s"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_least",
-          "hi": 10.5,
-          "lo": 10.5,
-          "name": "Haltekraft",
-          "text": "nicht weniger als 10,5 kN",
-          "unit": "kN"
-         }
-        ],
-        "context": "1.2 Sitzhöhenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Anforderung: Pumpe für Sitzhöhe mit Höhenhub 56 mm und Verstellzeit maximal 7 s und Haltekraft nicht weniger als 10,5 kN.",
-        "node_id": "R17.r15"
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R17.c1.s2.1"
        }
       ],
       "edge": "AND",
@@ -156,112 +191,136 @@
       "node_id": "R17.c1.s2"
      },
      {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 52.0,
+        "lo": 52.0,
+        "name": "Lehnenwinkel",
+        "text": "minimal 52 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 3100.0,
+        "lo": 3100.0,
+        "name": "Haltemoment",
+        "text": "3100 N·m",
+        "unit": "N·m"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 37.0,
+        "lo": 37.0,
+        "name": "Geräusch",
+        "text": "max. 37 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Das System muss eine Lehnenneigungsverstellung mit Lehnenwinkel minimal 52 ° und Haltemoment 3100 N·m und Geräusch max. 37 dB(A) enthalten.",
+      "node_id": "R17.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 56.0,
+        "lo": 56.0,
+        "name": "Winkelbereich",
+        "text": "≥ 56 °",
+        "unit": "°"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 3200.0,
+        "lo": 3200.0,
+        "name": "Festigkeit",
+        "text": "mindestens 3200 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 35.0,
+        "lo": 35.0,
+        "name": "Betriebsgeräusch",
+        "text": "höchstens 35 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Das System muss Neigungsgelenk Lehne mit Winkelbereich ≥ 56 ° und Festigkeit mindestens 3200 Nm und Betriebsgeräusch höchstens 35 dB(A) enthalten.",
+      "node_id": "R17.r20"
+     },
+     {
       "children": [
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 2800.0,
-          "lo": 2800.0,
-          "name": "Haltemoment",
-          "text": "minimal 2800 Nm",
-          "unit": "Nm"
+          "bound": "at_most",
+          "hi": 16.5,
+          "lo": 16.5,
+          "name": "Masse",
+          "text": "maximal 16,5 kg",
+          "unit": "kg"
          }
         ],
-        "context": "1.3 Lehnenverstellung",
+        "context": "1.4 Sitzstruktur",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Anforderung: eine Lehnenneigungsverstellung mit Haltemoment minimal 2800 Nm.",
-        "node_id": "R17.r05"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.3 Lehnenverstellung",
-      "node_id": "R17.c1.s3"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R17.c1.s4.n1"
+        "label": "Fahrersitz: Das System muss tragende Sitzstruktur mit Masse maximal 16,5 kg enthalten.",
+        "node_id": "R17.r08"
        },
        {
-        "children": [
+        "attributes": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 16.5,
-            "lo": 16.5,
-            "name": "Masse",
-            "text": "16,5 kg",
-            "unit": "kg"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 170.0,
-            "lo": 170.0,
-            "name": "Zielpreis",
-            "text": "max. 170 €",
-            "unit": "€"
-           }
-          ],
-          "context": "1.4.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Anforderung: ein Sitzgestell mit Masse 16,5 kg und Zielpreis max. 170 €.",
-          "node_id": "R17.r06"
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 16500.0,
+          "lo": 16500.0,
+          "name": "Gewicht",
+          "text": "max. 16500 g",
+          "unit": "g"
          },
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 17.0,
-            "lo": 17.0,
-            "name": "Masse",
-            "text": "max. 17 kg",
-            "unit": "kg"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_least",
-            "hi": 37.0,
-            "lo": 37.0,
-            "name": "Crashlast",
-            "text": "min. 37 kN",
-            "unit": "kN"
-           },
-           {
-            "attr_id": "a3",
-            "bound": "at_most",
-            "hi": 170.0,
-            "lo": 170.0,
-            "name": "Zielpreis",
-            "text": "maximal 170 EUR",
-            "unit": "EUR"
-           }
-          ],
-          "context": "1.4.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Anforderung: Lehnen- und Kissenrahmen mit Masse max. 17 kg und Crashlast min. 37 kN und Zielpreis maximal 170 EUR.",
-          "node_id": "R17.r19"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Crashfestigkeit",
+          "text": "nicht weniger als 40 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 125.0,
+          "lo": 125.0,
+          "name": "Zielpreis",
+          "text": "höchstens 125 €",
+          "unit": "€"
          }
         ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.4.1 Leistungsdaten",
-        "node_id": "R17.c1.s4.1"
+        "kind": "item",
+        "label": "Beifahrersitz: Das System muss tragende Sitzstruktur mit Gewicht max. 16500 g und Crashfestigkeit nicht weniger als 40 kN und Zielpreis höchstens 125 € enthalten.",
+        "node_id": "R17.r21"
        }
       ],
       "edge": "AND",
@@ -277,93 +336,46 @@
           "attributes": [
            {
             "attr_id": "a1",
-            "bound": "at_least",
-            "hi": 20.5,
-            "lo": 20.5,
-            "name": "Weg",
-            "text": "mindestens 20,5 cm",
-            "unit": "cm"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "within",
-            "hi": 3.2,
-            "lo": 1.9,
-            "name": "Verstellgeschwindigkeit",
-            "text": "1,9 bis 3,2 cm/s",
-            "unit": "cm/s"
-           },
-           {
-            "attr_id": "a3",
             "bound": "at_most",
-            "hi": 44.0,
-            "lo": 44.0,
-            "name": "Geräuschpegel",
-            "text": "höchstens 44 dB(A)",
-            "unit": "dB(A)"
-           },
-           {
-            "attr_id": "a4",
-            "bound": "at_least",
-            "hi": 9000.0,
-            "lo": 9000.0,
-            "name": "Haltelast",
-            "text": "mindestens 9000 N",
-            "unit": "N"
+            "hi": 110.0,
+            "lo": 110.0,
+            "name": "Zielpreis",
+            "text": "max. 110 €",
+            "unit": "€"
            }
           ],
           "context": "1.5.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Fahrersitz: Anforderung: Sitzlängsführung mit Weg mindestens 20,5 cm und Verstellgeschwindigkeit 1,9 bis 3,2 cm/s und Geräuschpegel höchstens 44 dB(A) und Haltelast mindestens 9000 N.",
-          "node_id": "R17.r08"
+          "label": "Fahrersitz: Das System muss einen Sitzbezug mit Zielpreis max. 110 € enthalten.",
+          "node_id": "R17.r11"
          },
          {
           "attributes": [
            {
             "attr_id": "a1",
             "bound": "at_least",
-            "hi": 200.0,
-            "lo": 200.0,
-            "name": "Weg",
-            "text": "nicht weniger als 200 mm",
-            "unit": "mm"
+            "category": "F3",
+            "name": "Brennbarkeitsklasse",
+            "text": "F3 oder besser"
            },
            {
             "attr_id": "a2",
-            "bound": "within",
-            "hi": 3.0,
-            "lo": 2.2,
-            "name": "Geschwindigkeit",
-            "text": "zwischen 2,2 und 3 cm/s",
-            "unit": "cm/s"
-           },
-           {
-            "attr_id": "a3",
             "bound": "at_most",
-            "hi": 43.0,
-            "lo": 43.0,
-            "name": "Betriebsgeräusch",
-            "text": "max. 43 dB(A)",
-            "unit": "dB(A)"
-           },
-           {
-            "attr_id": "a4",
-            "bound": null,
-            "hi": 10.0,
-            "lo": 10.0,
-            "name": "Haltelast",
-            "text": "10 kN",
-            "unit": "kN"
+            "hi": 115.0,
+            "lo": 115.0,
+            "name": "Stückpreis",
+            "text": "bis zu 115 EUR",
+            "unit": "EUR"
            }
           ],
           "context": "1.5.1 Leistungsdaten",
           "count": 1.0,
           "edge": "AND",
           "kind": "item",
-          "label": "Beifahrersitz: Anforderung: ein Schienensystem längs mit Weg nicht weniger als 200 mm und Geschwindigkeit zwischen 2,2 und 3 cm/s und Betriebsgeräusch max. 43 dB(A) und Haltelast 10 kN.",
-          "node_id": "R17.r21"
+          "label": "Beifahrersitz: Das System muss Polsterbezug mit Brennbarkeitsklasse F3 oder besser und Stückpreis bis zu 115 EUR enthalten.",
+          "node_id": "R17.r24"
          }
         ],
         "edge": "AND",
@@ -374,76 +386,51 @@
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 Sitzlängsverstellung",
+      "label": "1.5 Sitzbezug",
       "node_id": "R17.c1.s5"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 65000.0,
-          "lo": 65000.0,
-          "name": "Martindale",
-          "text": "≥ 65000 Zyklen",
-          "unit": "Zyklen"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "category": "F1",
-          "name": "Brennbarkeitsklasse",
-          "text": "min. F1"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 170.0,
-          "lo": 170.0,
-          "name": "Zielpreis",
-          "text": "höchstens 170 €",
-          "unit": "€"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 310.0,
+            "lo": 310.0,
+            "name": "Stauchhärte",
+            "text": "310 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 700.0,
+            "lo": 700.0,
+            "name": "Gewicht",
+            "text": "maximal 700 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Das System muss Sitzpolsterung mit Stauchhärte 310 N und Gewicht maximal 700 g enthalten.",
+          "node_id": "R17.r16"
          }
         ],
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Anforderung: Polsterbezug mit Martindale ≥ 65000 Zyklen und Brennbarkeitsklasse min. F1 und Zielpreis höchstens 170 €.",
-        "node_id": "R17.r11"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 65000.0,
-          "lo": 65000.0,
-          "name": "Scheuerbeständigkeit",
-          "text": "≥ 65000 Zyklen",
-          "unit": "Zyklen"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "category": "F1",
-          "name": "Brennbarkeitsklasse",
-          "text": "mindestens F1"
-         }
-        ],
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Anforderung: einen Sitzbezug mit Scheuerbeständigkeit ≥ 65000 Zyklen und Brennbarkeitsklasse mindestens F1.",
-        "node_id": "R17.r24"
+        "kind": "container",
+        "label": "1.6.1 Leistungsdaten",
+        "node_id": "R17.c1.s6.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 Sitzbezug",
+      "label": "1.6 Anforderung",
       "node_id": "R17.c1.s6"
      }
     ],
@@ -461,10 +448,156 @@
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 3.0,
-          "lo": 3.0,
+          "hi": 1.7,
+          "lo": 1.7,
+          "name": "Belastbarkeit",
+          "text": "minimal 1,7 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Schwenkwinkel",
+          "text": "min. 40 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Das System muss Armauflage mit Belastbarkeit minimal 1,7 kN und Schwenkwinkel min. 40 ° enthalten.",
+        "node_id": "R17.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1800.0,
+          "lo": 1800.0,
+          "name": "Vertikallast",
+          "text": "minimal 1800 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "Schwenkwinkel",
+          "text": "40 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Das System muss eine Armlehne mit Vertikallast minimal 1800 N und Schwenkwinkel 40 ° enthalten.",
+        "node_id": "R17.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R17.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 60.0,
+          "lo": 60.0,
+          "name": "Höhenverstellweg",
+          "text": "60 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2400.0,
+          "lo": 2400.0,
+          "name": "Strom",
+          "text": "bis zu 2400 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Das System muss eine elektrische Kopfstütze mit Höhenverstellweg 60 mm und Strom bis zu 2400 mA enthalten.",
+        "node_id": "R17.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 55.0,
+          "lo": 55.0,
+          "name": "Höhenverstellweg",
+          "text": "minimal 55 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "Neigungsverstellung",
+          "text": "17 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 2.1,
+          "lo": 1.7,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,7–2,1 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 2400.0,
+          "lo": 2400.0,
+          "name": "Stromverbrauch",
+          "text": "max. 2400 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Das System muss elektrisch verstellbare Kopfstütze mit Höhenverstellweg minimal 55 mm und Neigungsverstellung 17 mm und Verstellgeschwindigkeit 1,7–2,1 cm/s und Stromverbrauch max. 2400 mA enthalten.",
+        "node_id": "R17.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Kopfstütze elektrisch",
+      "node_id": "R17.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
           "name": "Lordosenhub",
-          "text": "nicht weniger als 3 cm",
+          "text": "≥ 4 cm",
           "unit": "cm"
          },
          {
@@ -478,192 +611,126 @@
          },
          {
           "attr_id": "a3",
-          "bound": null,
-          "hi": 2500.0,
-          "lo": 2500.0,
-          "name": "Stromaufnahme",
-          "text": "2500 mA",
-          "unit": "mA"
+          "bound": "at_most",
+          "hi": 1.2,
+          "lo": 1.2,
+          "name": "Stromverbrauch",
+          "text": "≤ 1,2 A",
+          "unit": "A"
          }
         ],
-        "context": "2.1 Lordosenstütze",
+        "context": "2.3 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Anforderung: Lordosenverstellung mit Lordosenhub nicht weniger als 3 cm und Wege ≥ 2 und Stromaufnahme 2500 mA.",
-        "node_id": "R17.r04"
+        "label": "Fahrersitz: Das System muss Lendenwirbelstütze mit Lordosenhub ≥ 4 cm und Wege ≥ 2 und Stromverbrauch ≤ 1,2 A enthalten.",
+        "node_id": "R17.r06"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 2.2,
-          "lo": 2.2,
+          "bound": null,
+          "hi": 42.0,
+          "lo": 42.0,
           "name": "Tiefe",
-          "text": "min. 2,2 cm",
-          "unit": "cm"
+          "text": "42 mm",
+          "unit": "mm"
          },
          {
           "attr_id": "a2",
-          "bound": null,
-          "hi": 4.0,
-          "lo": 4.0,
-          "name": "Wege",
-          "text": "4",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "Verstellrichtungen",
+          "text": "nicht weniger als 2",
           "unit": ""
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 2.9,
-          "lo": 2.9,
-          "name": "Stromaufnahme",
-          "text": "maximal 2,9 A",
-          "unit": "A"
          }
         ],
-        "context": "2.1 Lordosenstütze",
+        "context": "2.3 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Anforderung: Lendenwirbelstütze mit Tiefe min. 2,2 cm und Wege 4 und Stromaufnahme maximal 2,9 A.",
-        "node_id": "R17.r16"
+        "label": "Beifahrersitz: Das System muss Lendenwirbelstütze mit Tiefe 42 mm und Verstellrichtungen nicht weniger als 2 enthalten.",
+        "node_id": "R17.r18"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.1 Lordosenstütze",
-      "node_id": "R17.c2.s1"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "within",
-        "hi": 100.0,
-        "lo": 65.0,
-        "name": "Leistung",
-        "text": "65–100 W",
-        "unit": "W"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_most",
-        "hi": 190.0,
-        "lo": 190.0,
-        "name": "Aufheizzeit auf 37 °C",
-        "text": "maximal 190 s",
-        "unit": "s"
-       },
-       {
-        "attr_id": "a3",
-        "bound": null,
-        "hi": 3000.0,
-        "lo": 3000.0,
-        "name": "Stromaufnahme",
-        "text": "3000 mA",
-        "unit": "mA"
-       }
-      ],
-      "context": "2 Komfortfunktionen",
-      "count": 2.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Anforderung: 2 × Sitzwärmer mit Leistung 65–100 W und Aufheizzeit auf 37 °C maximal 190 s und Stromaufnahme 3000 mA.",
-      "node_id": "R17.r07"
-     },
-     {
-      "attributes": [
-       {
-        "attr_id": "a1",
-        "bound": "within",
-        "hi": 100.0,
-        "lo": 65.0,
-        "name": "Leistung",
-        "text": "zwischen 65 und 100 W",
-        "unit": "W"
-       },
-       {
-        "attr_id": "a2",
-        "bound": "at_most",
-        "hi": 44.0,
-        "lo": 44.0,
-        "name": "Oberflächentemperatur",
-        "text": "max. 44 °C",
-        "unit": "°C"
-       }
-      ],
-      "context": "2 Komfortfunktionen",
-      "count": 2.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Anforderung: 2 × eine Sitzheizung mit Leistung zwischen 65 und 100 W und Oberflächentemperatur max. 44 °C.",
-      "node_id": "R17.r20"
+      "label": "2.3 Anforderung",
+      "node_id": "R17.c2.s3"
      },
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 34.0,
-          "lo": 23.0,
-          "name": "Luftmenge",
-          "text": "23 bis 34 m³/h",
-          "unit": "m³/h"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 160.0,
+            "lo": 160.0,
+            "name": "Aufheizzeit",
+            "text": "160 s",
+            "unit": "s"
+           }
+          ],
+          "context": "2.4.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Das System muss 2 × beheizte Sitzflächen mit Aufheizzeit 160 s enthalten.",
+          "node_id": "R17.r09"
          },
          {
-          "attr_id": "a2",
-          "bound": null,
-          "hi": 37.0,
-          "lo": 37.0,
-          "name": "Geräusch",
-          "text": "37 dB(A)",
-          "unit": "dB(A)"
-         },
-         {
-          "attr_id": "a3",
-          "bound": "at_most",
-          "hi": 3000.0,
-          "lo": 3000.0,
-          "name": "Strom",
-          "text": "max. 3000 mA",
-          "unit": "mA"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 85.0,
+            "lo": 55.0,
+            "name": "Leistung",
+            "text": "55 bis 85 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 6.5,
+            "lo": 6.5,
+            "name": "Stromverbrauch",
+            "text": "6,5 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 53.0,
+            "lo": 53.0,
+            "name": "Oberflächentemperatur",
+            "text": "höchstens 53 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.4.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Das System muss 2 × Sitzwärmer mit Leistung 55 bis 85 W und Stromverbrauch 6,5 A und Oberflächentemperatur höchstens 53 °C enthalten.",
+          "node_id": "R17.r22"
          }
         ],
-        "context": "2.3 Sitzbelüftung",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Anforderung: eine Sitzbelüftung mit Luftmenge 23 bis 34 m³/h und Geräusch 37 dB(A) und Strom max. 3000 mA.",
-        "node_id": "R17.r09"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "within",
-          "hi": 33.0,
-          "lo": 21.0,
-          "name": "Luftmenge",
-          "text": "21–33 m³/h",
-          "unit": "m³/h"
-         }
-        ],
-        "context": "2.3 Sitzbelüftung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Anforderung: aktive Sitzklimatisierung mit Luftmenge 21–33 m³/h.",
-        "node_id": "R17.r22"
+        "kind": "container",
+        "label": "2.4.1 Leistungsdaten",
+        "node_id": "R17.c2.s4.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.3 Sitzbelüftung",
-      "node_id": "R17.c2.s3"
+      "label": "2.4 Sitzheizung",
+      "node_id": "R17.c2.s4"
      }
     ],
     "edge": "AND",
@@ -674,59 +741,60 @@
    {
     "children": [
      {
-      "children": [
+      "attributes": [
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 14.5,
-          "lo": 14.5,
-          "name": "Bringerhub",
-          "text": "≥ 14,5 cm",
-          "unit": "cm"
-         }
-        ],
-        "context": "3.1 Gurtschlossbringer",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Anforderung: Gurtschlossanhebung mit Bringerhub ≥ 14,5 cm.",
-        "node_id": "R17.r01"
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 10.0,
+        "lo": 10.0,
+        "name": "Auslösezeit",
+        "text": "maximal 10 ms",
+        "unit": "ms"
        },
        {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 140.0,
-          "lo": 140.0,
-          "name": "Bringerhub",
-          "text": "≥ 140 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_most",
-          "hi": 4500.0,
-          "lo": 4500.0,
-          "name": "Zykluszeit",
-          "text": "höchstens 4500 ms",
-          "unit": "ms"
-         }
-        ],
-        "context": "3.1 Gurtschlossbringer",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Anforderung: einen Gurtschlossbringer mit Bringerhub ≥ 140 mm und Zykluszeit höchstens 4500 ms.",
-        "node_id": "R17.r13"
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 0.61,
+        "lo": 0.61,
+        "name": "Nahtfestigkeit",
+        "text": "min. 0,61 kN",
+        "unit": "kN"
        }
       ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "3.1 Gurtschlossbringer",
-      "node_id": "R17.c3.s1"
+      "kind": "item",
+      "label": "Fahrersitz: Das System muss Seitenairbag im Sitz mit Auslösezeit maximal 10 ms und Nahtfestigkeit min. 0,61 kN enthalten.",
+      "node_id": "R17.r10"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 10.0,
+        "lo": 10.0,
+        "name": "Auslösezeit",
+        "text": "höchstens 10 ms",
+        "unit": "ms"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 630.0,
+        "lo": 630.0,
+        "name": "Nahtfestigkeit",
+        "text": "minimal 630 N",
+        "unit": "N"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Das System muss Thoraxairbag mit Auslösezeit höchstens 10 ms und Nahtfestigkeit minimal 630 N enthalten.",
+      "node_id": "R17.r23"
      },
      {
       "children": [
@@ -735,98 +803,34 @@
          {
           "attr_id": "a1",
           "bound": "at_most",
-          "hi": 8.0,
-          "lo": 8.0,
-          "name": "Nahtöffnungszeit",
-          "text": "bis zu 8 ms",
-          "unit": "ms"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 610.0,
-          "lo": 610.0,
-          "name": "Nahtfestigkeit",
-          "text": "≥ 610 N",
-          "unit": "N"
-         }
-        ],
-        "context": "3.2 Seitenairbag-Integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Anforderung: Airbag-Aufreißnaht mit Nahtöffnungszeit bis zu 8 ms und Nahtfestigkeit ≥ 610 N.",
-        "node_id": "R17.r10"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 8.0,
-          "lo": 8.0,
-          "name": "Auslösezeit",
-          "text": "max. 8 ms",
-          "unit": "ms"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 0.64,
-          "lo": 0.64,
-          "name": "Nahtfestigkeit",
-          "text": "minimal 0,64 kN",
-          "unit": "kN"
-         }
-        ],
-        "context": "3.2 Seitenairbag-Integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Anforderung: eine Seitenairbag-Integration mit Auslösezeit max. 8 ms und Nahtfestigkeit minimal 0,64 kN.",
-        "node_id": "R17.r23"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.2 Seitenairbag-Integration",
-      "node_id": "R17.c3.s2"
-     },
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 27000.0,
-          "lo": 27000.0,
+          "hi": 10.0,
+          "lo": 10.0,
           "name": "Ansprechschwelle",
-          "text": "bis zu 27000 g",
-          "unit": "g"
+          "text": "max. 10 kg",
+          "unit": "kg"
          },
          {
           "attr_id": "a2",
-          "bound": null,
-          "hi": 0.12,
-          "lo": 0.12,
+          "bound": "at_most",
+          "hi": 330.0,
+          "lo": 330.0,
           "name": "Ansprechzeit",
-          "text": "0,12 s",
-          "unit": "s"
+          "text": "höchstens 330 ms",
+          "unit": "ms"
          }
         ],
-        "context": "3.3 Sitzbelegungserkennung",
+        "context": "3.2 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Anforderung: Sensormatte Sitzbelegung mit Ansprechschwelle bis zu 27000 g und Ansprechzeit 0,12 s.",
-        "node_id": "R17.r17"
+        "label": "Beifahrersitz: Das System muss Insassenerkennung mit Ansprechschwelle max. 10 kg und Ansprechzeit höchstens 330 ms enthalten.",
+        "node_id": "R17.r19"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.3 Sitzbelegungserkennung",
-      "node_id": "R17.c3.s3"
+      "label": "3.2 Anforderung",
+      "node_id": "R17.c3.s2"
      }
     ],
     "edge": "AND",
@@ -839,69 +843,43 @@
      {
       "children": [
        {
-        "children": [
+        "context": "4.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Das System muss Kabelsatz Sitz enthalten.",
+        "node_id": "R17.r12"
+       },
+       {
+        "attributes": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_least",
-            "hi": 15.0,
-            "lo": 15.0,
-            "name": "Strombelastbarkeit",
-            "text": "nicht weniger als 15 A",
-            "unit": "A"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_least",
-            "category": "IP40",
-            "name": "Schutzart",
-            "text": "IP40 oder besser"
-           }
-          ],
-          "context": "4.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Anforderung: Steckverbinder mit Strombelastbarkeit nicht weniger als 15 A und Schutzart IP40 oder besser.",
-          "node_id": "R17.r12"
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Strombelastbarkeit",
+          "text": "nicht weniger als 10 A",
+          "unit": "A"
          },
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 18.0,
-            "lo": 18.0,
-            "name": "Strombelastbarkeit",
-            "text": "18 A",
-            "unit": "A"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_least",
-            "category": "IP54",
-            "name": "Schutzart",
-            "text": "IP54 oder besser"
-           }
-          ],
-          "context": "4.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Anforderung: Kabelsatz Sitz mit Strombelastbarkeit 18 A und Schutzart IP54 oder besser.",
-          "node_id": "R17.r25"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "Schutzart",
+          "text": "min. IP65"
          }
         ],
+        "context": "4.1 Anforderung",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Leistungsdaten",
-        "node_id": "R17.c4.s1.1"
+        "kind": "item",
+        "label": "Beifahrersitz: Das System muss Kabelsatz Sitz mit Strombelastbarkeit nicht weniger als 10 A und Schutzart min. IP65 enthalten.",
+        "node_id": "R17.r25"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.1 Sitzkabelsatz",
+      "label": "4.1 Anforderung",
       "node_id": "R17.c4.s1"
      }
     ],
@@ -913,9 +891,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage CAL-R17",
+  "label": "Lastenheft Sitzanlage DRV-R17",
   "node_id": "R17"
  },
- "source": "calvento",
+ "source": "dravik",
  "tree_id": "R17"
 }

@@ -13,114 +13,155 @@
      {
       "children": [
        {
-        "context": "1.1 Polsterschaum",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 20.0,
+          "lo": 20.0,
+          "name": "Geräuschpegel",
+          "text": "maximal 20 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.1 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Der Sitz muss Polsterschaum bereitstellen.",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine Längsverstellung mit Geräuschpegel maximal 20 dB(A) hat.",
         "node_id": "R73.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 49.0,
+          "lo": 18.0,
+          "name": "Geschwindigkeit",
+          "text": "zwischen 18 und 49 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 20.0,
+          "lo": 20.0,
+          "name": "Haltekraft",
+          "text": "minimal 20 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.1 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Sitzschienen für die Längsverstellung mit Geschwindigkeit zwischen 18 und 49 mm/s und Haltekraft minimal 20 kN hat.",
+        "node_id": "R73.r11"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 Polsterschaum",
+      "label": "1.1 Anforderung",
       "node_id": "R73.c1.s1"
      },
      {
       "children": [
        {
-        "children": [
+        "attributes": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 4.5,
-            "lo": 4.5,
-            "name": "Klappzeit",
-            "text": "4,5 s",
-            "unit": "s"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 90.0,
-            "lo": 90.0,
-            "name": "Bedienkraft",
-            "text": "bis zu 90 N",
-            "unit": "N"
-           },
-           {
-            "attr_id": "a3",
-            "bound": null,
-            "hi": 34000.0,
-            "lo": 34000.0,
-            "name": "Lebensdauer",
-            "text": "34000 Zyklen",
-            "unit": "Zyklen"
-           }
-          ],
-          "context": "1.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Der Sitz muss eine Umklappfunktion mit Klappzeit 4,5 s und Bedienkraft bis zu 90 N und Lebensdauer 34000 Zyklen bereitstellen.",
-          "node_id": "R73.r02"
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Laufzeit",
+          "text": "6 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 28000.0,
+          "lo": 28000.0,
+          "name": "Haltekraft",
+          "text": "min. 28000 N",
+          "unit": "N"
          }
         ],
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.2.1 Leistungsdaten",
-        "node_id": "R73.c1.s2.1"
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine Sitzhöhenverstellung mit Laufzeit 6 s und Haltekraft min. 28000 N hat.",
+        "node_id": "R73.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 36.0,
+          "lo": 36.0,
+          "name": "Höhenhub",
+          "text": "36 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 27.0,
+          "lo": 27.0,
+          "name": "Haltekraft",
+          "text": "nicht weniger als 27 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Pumpe für Sitzhöhe mit Höhenhub 36 mm und Haltekraft nicht weniger als 27 kN hat.",
+        "node_id": "R73.r12"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 Klapp-/Tumblemechanik",
+      "label": "1.2 Sitzhöhenverstellung",
       "node_id": "R73.c1.s2"
      },
      {
       "children": [
        {
-        "children": [
+        "attributes": [
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 50.0,
-            "lo": 50.0,
-            "name": "Lehnenwinkel",
-            "text": "50 °",
-            "unit": "°"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_least",
-            "hi": 1850.0,
-            "lo": 1850.0,
-            "name": "Festigkeit",
-            "text": "minimal 1850 Nm",
-            "unit": "Nm"
-           }
-          ],
-          "context": "1.3.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Der Sitz muss Rückenlehnenverstellung mit Lehnenwinkel 50 ° und Festigkeit minimal 1850 Nm bereitstellen.",
-          "node_id": "R73.r04"
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 530.0,
+          "lo": 530.0,
+          "name": "Härte",
+          "text": "530 N",
+          "unit": "N"
          }
         ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.3.1 Leistungsdaten",
-        "node_id": "R73.c1.s3.1"
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Polsterschaum mit Härte 530 N hat.",
+        "node_id": "R73.r03"
+       },
+       {
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Polsterschaum hat.",
+        "node_id": "R73.r13"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 Lehnenverstellung",
+      "label": "1.3 Anforderung",
       "node_id": "R73.c1.s3"
      },
      {
@@ -129,51 +170,116 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 22000.0,
-          "lo": 22000.0,
-          "name": "Gewicht",
-          "text": "höchstens 22000 g",
-          "unit": "g"
-         },
-         {
-          "attr_id": "a2",
           "bound": "at_least",
-          "hi": 20.0,
-          "lo": 20.0,
-          "name": "Crashlast",
-          "text": "minimal 20 kN",
-          "unit": "kN"
+          "hi": 2550.0,
+          "lo": 2550.0,
+          "name": "Haltemoment",
+          "text": "≥ 2550 Nm",
+          "unit": "Nm"
          }
         ],
-        "context": "1.4 Sitzstruktur",
+        "context": "1.4 Lehnenverstellung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Der Sitz muss ein Sitzgestell mit Gewicht höchstens 22000 g und Crashlast minimal 20 kN bereitstellen.",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Lehnenbeschläge mit Haltemoment ≥ 2550 Nm hat.",
         "node_id": "R73.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 86.0,
+          "lo": 86.0,
+          "name": "Winkelbereich",
+          "text": "minimal 86 °",
+          "unit": "°"
+         }
+        ],
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Neigungsgelenk Lehne mit Winkelbereich minimal 86 ° hat.",
+        "node_id": "R73.r16"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 Sitzstruktur",
+      "label": "1.4 Lehnenverstellung",
       "node_id": "R73.c1.s4"
      },
      {
       "children": [
        {
-        "context": "1.5 Sitzbezug",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 20.0,
+          "lo": 20.0,
+          "name": "Masse",
+          "text": "max. 20 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 57.0,
+          "lo": 57.0,
+          "name": "Crashfestigkeit",
+          "text": "min. 57 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.5 Sitzstruktur",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Der Sitz muss Polsterbezug bereitstellen.",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz ein Sitzgestell mit Masse max. 20 kg und Crashfestigkeit min. 57 kN hat.",
         "node_id": "R73.r06"
+       },
+       {
+        "context": "1.5 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Lehnen- und Kissenrahmen hat.",
+        "node_id": "R73.r17"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 Sitzbezug",
+      "label": "1.5 Sitzstruktur",
       "node_id": "R73.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50000.0,
+          "lo": 50000.0,
+          "name": "Martindale",
+          "text": "nicht weniger als 50.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Lederbezüge mit Martindale nicht weniger als 50.000 Zyklen hat.",
+        "node_id": "R73.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R73.c1.s6"
      }
     ],
     "edge": "AND",
@@ -186,51 +292,236 @@
      {
       "children": [
        {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 180.0,
+            "lo": 60.0,
+            "name": "Leistung",
+            "text": "60 bis 180 W",
+            "unit": "W"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz 2 × beheizte Sitzflächen mit Leistung 60 bis 180 W hat.",
+          "node_id": "R73.r07"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 170.0,
+            "lo": 55.0,
+            "name": "Leistung",
+            "text": "55–170 W",
+            "unit": "W"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Es wird gefordert, dass der Sitz 2 × Sitzwärmer mit Leistung 55–170 W hat.",
+          "node_id": "R73.r18"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R73.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R73.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R73.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R73.c3.s1.n1"
+       },
+       {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": null,
-          "hi": 45.0,
-          "lo": 45.0,
-          "name": "Höhenverstellweg",
-          "text": "45 mm",
-          "unit": "mm"
-         },
-         {
-          "attr_id": "a2",
           "bound": "at_least",
-          "hi": 5.0,
-          "lo": 5.0,
-          "name": "Raststellungen",
-          "text": "minimal 5",
-          "unit": ""
+          "hi": 135.0,
+          "lo": 135.0,
+          "name": "Höhenverstellweg",
+          "text": "≥ 135 mm",
+          "unit": "mm"
          }
         ],
         "context": "3.1 Kopfstütze manuell",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Der Sitz muss mechanische Kopfstütze mit Höhenverstellweg 45 mm und Raststellungen minimal 5 bereitstellen.",
-        "node_id": "R73.r03"
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz eine manuelle Kopfstütze mit Höhenverstellweg ≥ 135 mm hat.",
+        "node_id": "R73.r04"
        }
       ],
       "edge": "AND",
       "kind": "container",
       "label": "3.1 Kopfstütze manuell",
       "node_id": "R73.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Es wird gefordert, dass der Sitz Seitenairbag im Sitz hat.",
+        "node_id": "R73.r08"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Auslösezeit",
+          "text": "3 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Airbag-Aufreißnaht mit Auslösezeit 3 ms hat.",
+        "node_id": "R73.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R73.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R73.c3.s3.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 3000.0,
+          "lo": 3000.0,
+          "name": "Ansprechschwelle",
+          "text": "3000 g",
+          "unit": "g"
+         }
+        ],
+        "context": "3.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Es wird gefordert, dass der Sitz eine Sitzbelegungserkennung mit Ansprechschwelle 3000 g hat.",
+        "node_id": "R73.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Anforderung",
+      "node_id": "R73.c3.s3"
      }
     ],
     "edge": "AND",
     "kind": "container",
     "label": "3 Sicherheit",
     "node_id": "R73.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Es wird gefordert, dass der Sitz Sitzverkabelung hat.",
+          "node_id": "R73.r10"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "Strombelastbarkeit",
+            "text": "10 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "Schutzart",
+            "text": "mindestens IP54"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Es wird gefordert, dass der Sitz Kabelsatz Sitz mit Strombelastbarkeit 10 A und Schutzart mindestens IP54 hat.",
+          "node_id": "R73.r21"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R73.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Anforderung",
+      "node_id": "R73.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R73.c4"
    }
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage AUR-R73",
+  "label": "Lastenheft Sitzanlage FKM-R73",
   "node_id": "R73"
  },
- "source": "aurivon",
+ "source": "falkmoor",
  "tree_id": "R73"
 }

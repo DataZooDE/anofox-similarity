@@ -13,83 +13,287 @@
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
-        "node_id": "R40.c1.s1.n1"
-       },
-       {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 1200.0,
-          "lo": 1200.0,
-          "name": "mass",
-          "text": "up to 1200 g",
-          "unit": "g"
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 100.0,
+            "lo": 100.0,
+            "name": "forward travel",
+            "text": "min. 100 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 60.0,
+            "lo": 60.0,
+            "name": "release force",
+            "text": "max. 60 N",
+            "unit": "N"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Supplier shall deliver easy entry for rear passengers with forward travel min. 100 mm and release force max. 60 N.",
+          "node_id": "R40.r02"
          }
         ],
-        "context": "1.1 foam pad",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Function: seat padding with mass up to 1200 g.",
-        "node_id": "R40.r01"
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R40.c1.s1.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 foam pad",
+      "label": "1.1 easy-entry mechanism",
       "node_id": "R40.c1.s1"
      },
      {
       "children": [
        {
-        "context": "1.2 fold-flat / tumble mechanism",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "equals",
+            "hi": 180.0,
+            "lo": 180.0,
+            "name": "hardness",
+            "text": "nominal 180 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 1500.0,
+            "lo": 1500.0,
+            "name": "weight",
+            "text": "≤ 1500 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Supplier shall deliver PU foam padding with hardness nominal 180 N and weight ≤ 1500 g.",
+          "node_id": "R40.r03"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "Function: flat-folding backrest.",
-        "node_id": "R40.r02"
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R40.c1.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 fold-flat / tumble mechanism",
+      "label": "1.2 foam pad",
       "node_id": "R40.c1.s2"
      },
      {
       "children": [
        {
-        "context": "1.3 seat frame / structure",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "folding time",
+          "text": "up to 8 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 85.0,
+          "lo": 85.0,
+          "name": "operating force",
+          "text": "85 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.3 Requirement",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Function: a seat frame.",
+        "label": "Supplier shall deliver flat-folding backrest with folding time up to 8 s and operating force 85 N.",
         "node_id": "R40.r04"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 seat frame / structure",
+      "label": "1.3 Requirement",
       "node_id": "R40.c1.s3"
      },
      {
       "children": [
        {
-        "context": "1.4 trim cover",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 26.0,
+          "lo": 26.0,
+          "name": "recline angle",
+          "text": "minimum 26 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "noise",
+          "text": "up to 42 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Function: leather trim.",
-        "node_id": "R40.r05"
+        "label": "Supplier shall deliver backrest tilt fitting with recline angle minimum 26 ° and noise up to 42 dB(A).",
+        "node_id": "R40.r07"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.4 trim cover",
+      "label": "1.4 recliner",
       "node_id": "R40.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 17.5,
+          "lo": 17.5,
+          "name": "mass",
+          "text": "≤ 17.5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 95.0,
+          "lo": 95.0,
+          "name": "target price",
+          "text": "95 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver seat frame structure with mass ≤ 17.5 kg and target price 95 €.",
+        "node_id": "R40.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat frame / structure",
+      "node_id": "R40.c1.s5"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 240.0,
+        "lo": 240.0,
+        "name": "adjustment travel",
+        "text": "minimum 240 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "within",
+        "hi": 3.3,
+        "lo": 2.1,
+        "name": "speed",
+        "text": "between 2.1 and 3.3 cm/s",
+        "unit": "cm/s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 39.0,
+        "lo": 39.0,
+        "name": "operating noise",
+        "text": "max. 39 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_least",
+        "hi": 17000.0,
+        "lo": 17000.0,
+        "name": "holding load",
+        "text": "at least 17000 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Supplier shall deliver fore-aft seat rails with adjustment travel minimum 240 mm and speed between 2.1 and 3.3 cm/s and operating noise max. 39 dB(A) and holding load at least 17000 N.",
+      "node_id": "R40.r10"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 70000.0,
+          "lo": 70000.0,
+          "name": "Martindale",
+          "text": "≥ 70,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "flammability class",
+          "text": "at least F1"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 115.0,
+          "lo": 115.0,
+          "name": "piece price",
+          "text": "up to 115 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.7 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver trim cover set with Martindale ≥ 70,000 cycles and flammability class at least F1 and piece price up to 115 EUR.",
+        "node_id": "R40.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.7 trim cover",
+      "node_id": "R40.c1.s7"
      }
     ],
     "edge": "AND",
@@ -102,25 +306,126 @@
      {
       "children": [
        {
-        "children": [
+        "attributes": [
          {
-          "context": "3.1.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Function: notched head restraint.",
-          "node_id": "R40.r03"
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1100.0,
+          "lo": 1100.0,
+          "name": "vertical load",
+          "text": "min. 1100 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "pivot angle",
+          "text": "min. 70 °",
+          "unit": "°"
          }
         ],
+        "context": "2.1 armrest",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "3.1.1 Performance",
-        "node_id": "R40.c3.s1.1"
+        "kind": "item",
+        "label": "Supplier shall deliver an armrest with vertical load min. 1100 N and pivot angle min. 70 °.",
+        "node_id": "R40.r01"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.1 manual headrest",
+      "label": "2.1 armrest",
+      "node_id": "R40.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "height travel",
+          "text": "at least 5.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 18.0,
+          "lo": 11.0,
+          "name": "adjustment speed",
+          "text": "between 11 and 18 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 2.2,
+          "lo": 2.2,
+          "name": "current consumption",
+          "text": "up to 2.2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver motorised headrest with height travel at least 5.5 cm and adjustment speed between 11 and 18 mm/s and current consumption up to 2.2 A.",
+        "node_id": "R40.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 powered headrest",
+      "node_id": "R40.c2.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R40.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "height travel",
+          "text": "70 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "positions",
+          "text": "at least 5",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver a manual headrest with height travel 70 mm and positions at least 5.",
+        "node_id": "R40.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Requirement",
       "node_id": "R40.c3.s1"
      }
     ],
@@ -132,12 +437,20 @@
    {
     "children": [
      {
-      "context": "4 Electrics and electronics",
-      "count": 1.0,
+      "children": [
+       {
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Supplier shall deliver connector set.",
+        "node_id": "R40.r12"
+       }
+      ],
       "edge": "AND",
-      "kind": "item",
-      "label": "Function: electrical harness.",
-      "node_id": "R40.r06"
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R40.c4.s1"
      }
     ],
     "edge": "AND",
@@ -148,9 +461,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification HIR-R40",
+  "label": "Seat system specification BRH-R40",
   "node_id": "R40"
  },
- "source": "hirschtal",
+ "source": "brennholt",
  "tree_id": "R40"
 }

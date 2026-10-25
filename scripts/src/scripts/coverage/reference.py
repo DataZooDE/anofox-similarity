@@ -16,6 +16,7 @@ internals, so it doubles as a check that the files carry what a user needs.
 
 import csv
 import gzip
+import itertools
 import json
 import math
 import re
@@ -25,6 +26,8 @@ from pathlib import Path
 import numpy as np
 
 from .domain import LINEAR_DIMENSIONS, ORDINALS
+
+AFFINE_DIMENSIONS = {"temperature"}
 
 EQUALS_TOL = 0.02
 
@@ -46,6 +49,38 @@ def oracle_satisfies(bound: str, r_lo: float, r_hi: float, p_lo: float, p_hi: fl
     if bound == "equals":
         return abs(p_lo - r_lo) <= EQUALS_TOL * abs(r_lo) and abs(p_hi - r_lo) <= EQUALS_TOL * abs(r_lo)
     raise ValueError(f"unknown bound {bound!r}")
+
+
+def oracle_assignment_coverage(req_items, cand_items, share) -> float:
+    """Coverage with one-to-one use of offer items (HANDOVER §7.3).
+
+    req_items:  [(id, class, count, attrs)]; cand_items: [(id, class, count, values)];
+    share(attrs, values) -> share of the attributes the values satisfy (1 if no attrs).
+    Every offer item of a class serves exactly one request item of that class; the
+    assignment that maximises the total is taken. A request item scores
+    max_{c in block} share * min(1, sum of block counts / its count), 0 for an empty block.
+    """
+    if not req_items:
+        return 0.0
+    by_cls_q, by_cls_c = defaultdict(list), defaultdict(list)
+    for q in req_items:
+        by_cls_q[q[1]].append(q)
+    for c in cand_items:
+        by_cls_c[c[1]].append(c)
+    total = 0.0
+    for cls, qs in by_cls_q.items():
+        cs = by_cls_c.get(cls, [])
+        shares = [[share(q[3], c[3]) for c in cs] for q in qs]
+        best = 0.0
+        for choice in itertools.product(range(len(qs)), repeat=len(cs)):
+            s = 0.0
+            for qi, q in enumerate(qs):
+                block = [ci for ci, a in enumerate(choice) if a == qi]
+                if block:
+                    s += max(shares[qi][ci] for ci in block) * min(1.0, sum(cs[ci][2] for ci in block) / q[2])
+            best = max(best, s)
+        total += best
+    return total / len(req_items)
 
 
 def ordinal_rank(dimension: str, category: str) -> int:
@@ -111,9 +146,32 @@ def _ell(lo: float, hi: float) -> tuple[float, float]:
     return math.log10(lo), math.log10(hi)
 
 
+AFFINE_TOL, AFFINE_BAND = 1.0, 2.5  # K; amended 2026-10-25 (HLD §11)
+
+
 def value_satisfies(bound: str | None, r_lo: float, r_hi: float, p_lo: float, p_hi: float,
-                    scale: str) -> tuple[float, float]:
-    """HLD §4.2 `value_satisfies`: (score, distance). bound None = unqualified point."""
+                    scale: str, affine: bool = False) -> tuple[float, float]:
+    """HLD §4.2 `value_satisfies`: (score, distance). bound None = unqualified point.
+
+    Affine dimensions (temperature) use an absolute tolerance and band in the base
+    unit (K), and the distance is absolute (K)."""
+    if affine:
+        def soft_abs(d: float) -> float:
+            return 1.0 if d <= AFFINE_TOL else max(0.0, 1.0 - (d - AFFINE_TOL) / AFFINE_BAND)
+        if bound == "at_least":
+            d = max(0.0, r_lo - p_hi)
+            return soft_abs(d), d
+        if bound == "at_most":
+            d = max(0.0, p_lo - r_hi)
+            return soft_abs(d), d
+        if bound == "equals":
+            d = min(abs(r_lo - p_lo), abs(r_lo - p_hi))
+            return soft_abs(d), d
+        lo, hi = (r_lo, r_hi) if bound == "within" else (r_lo - AFFINE_TOL, r_hi + AFFINE_TOL)
+        width = hi - lo
+        inter = max(0.0, min(hi, p_hi + AFFINE_TOL) - max(lo, p_lo - AFFINE_TOL))
+        share = 1.0 if width <= 0 else inter / width
+        return share, 1.0 - share
     log = scale == "log" and r_lo > 0 and p_lo > 0
     tol_rel = (1 - 10 ** -LOG_TOL) if log else LIN_TOL
 
@@ -168,7 +226,7 @@ def _read(data_dir: Path, name: str) -> list[dict]:
 
 
 BOUND_RE = re.compile(
-    r"(at least|at most|min\.|max\.|minimum|maximum|up to|not more than|not less than|or better|"
+    r"(at least|at most|min\.|max\.|minimum|maximum|up to|not more than|not less than|or better|±|nominal|Nennwert|"
     r"mindestens|höchstens|bis zu|maximal|minimal|nicht mehr als|nicht weniger als|oder besser|≥|≤|"
     r"\d\s*(–|…|to|bis)\s*\d|between|zwischen)", re.I)
 
@@ -262,73 +320,90 @@ def stage1_rank(d: _Data, ms: dict, rid: str, mode: str, tie_break: float = 0.01
     return scored
 
 
-def stage1_top1(data_dir: Path, multiset_name: str) -> dict:
-    """Top-1 accuracy (regret <= 0.01) of stage-1 ranking alone."""
+def stage1_recall(data_dir: Path, multiset_name: str, k: int = 20) -> dict:
+    """Recall@k of a gold-best candidate for stage-1 ranking alone, per mode."""
     d = _Data(data_dir)
     ms = _multiset(data_dir, multiset_name)
     out = {}
     for mode in ("containment", "jaccard"):
         hits = []
         for r in d.requests:
-            rid = r["request_id"]
-            top = stage1_rank(d, ms, rid, mode)[0][0]
-            hits.append(d.gold_cov[rid][top] >= float(r["best_coverage"]) - 0.01)
+            rid, best = r["request_id"], float(r["best_coverage"])
+            hits.append(any(d.gold_cov[rid][p] >= best - 1e-9 for p, _ in stage1_rank(d, ms, rid, mode)[:k]))
         out[mode] = float(np.mean(hits))
     return out
 
 
 # --------------------------------------------------------------------------- HLD kernel
 
-LAMBDA, MU = 0.3, 0.2
+# lambda: label credit. Amended 2026-10-25 (HLD §11): the item score is
+# lambda*L + (1-lambda)*L*a, default lambda 0, so label agreement gates the value
+# score instead of adding credit when values fail.
+LAMBDA, MU = 0.0, 0.2
 PARTITION_GATE, COUNT_GATE = 0.3, 0.5
 STAGE1_WEIGHT = 0.05
 
 
-def _attr_score(d: _Data, x: dict, y: dict) -> float:
+def _attr_score(d: _Data, x: dict, y: dict, default_bounds: str | None = "catalogue") -> float:
     if x["dimension"] != y["dimension"]:
         return 0.0  # dimension gate
     name = MU * d.s_name(x["name"], y["name"]) + (1 - MU)
     if x["category"]:
         return name * compat(x["dimension"], x["category"], y["category"], d.rules)
-    bound = x["bound"] if x["qualified"] else None
+    # an unqualified value takes the template bound (default_bounds) or is a widened point (HLD)
+    bound = x["bound"] if x["qualified"] or default_bounds == "catalogue" else None
     score, _ = value_satisfies(bound, float(x["lo"]), float(x["hi"]), float(y["lo"]), float(y["hi"]),
-                               _scale(x["dimension"]))
+                               _scale(x["dimension"]), affine=x["dimension"] in AFFINE_DIMENSIONS)
     return name * score
 
 
-def _a(d: _Data, rid: str, q_nid: str, pid: str, c_nid: str) -> float:
+def _a(d: _Data, rid: str, q_nid: str, pid: str, c_nid: str, default_bounds: str | None = "catalogue") -> float:
     xs = d.req_attrs[(rid, q_nid)]
     if not xs:
         return 1.0
     ys = d.prog_attrs[(pid, c_nid)]
-    return sum(max((_attr_score(d, x, y) for y in ys), default=0.0) for x in xs) / len(xs)
+    return sum(max((_attr_score(d, x, y, default_bounds) for y in ys), default=0.0) for x in xs) / len(xs)
 
 
-def kernel_coverage(d: _Data, rid: str, pid: str, label_of) -> float:
-    """Partition assignment with hard labels (reviewed candidates, HLD `auto`)."""
+def kernel_coverage(d: _Data, rid: str, pid: str, label_of, default_bounds: str | None = "catalogue") -> float:
+    """Partition assignment with hard labels (reviewed candidates, HLD `auto`).
+
+    Each candidate item goes to q*(c) = argmax_q L(q, c) if L >= partition_gate. Ties
+    between request items (e.g. driver and passenger seat) go to the tied request
+    item with the largest remaining count deficit, then the lowest node id, so one
+    offer item serves one request block (HANDOVER §7.3).
+    """
     q_items = d.req_items[rid]
     blocks = defaultdict(list)
-    for c_nid, n_c in d.prog_items[pid]:
+    need = {q_nid: n_q for q_nid, _, n_q in q_items}
+    for c_nid, n_c in sorted(d.prog_items[pid]):
         c_cls = label_of(pid, c_nid)
-        ls = [1.0 if cls == c_cls else 0.0 for _, cls, _ in q_items]
-        best = max(ls, default=0.0)
-        if best >= PARTITION_GATE:
-            for (q_nid, _, _), l in zip(q_items, ls):
-                if l == best:
-                    blocks[q_nid].append((c_nid, n_c, l))
+        ls = [(1.0 if cls == c_cls else 0.0, q_nid) for q_nid, cls, _ in q_items]
+        best = max((l for l, _ in ls), default=0.0)
+        if best < PARTITION_GATE:
+            continue
+        tied = [q for l, q in ls if l == best]
+        q_star = min(tied, key=lambda q: (-need[q], q))
+        need[q_star] -= n_c
+        blocks[q_star].append((c_nid, n_c, best))
     scores = []
     for q_nid, _, n_q in q_items:
         block = blocks.get(q_nid, [])
         if not block:
             scores.append(0.0)
             continue
-        best = max(LAMBDA * l + (1 - LAMBDA) * _a(d, rid, q_nid, pid, c) for c, _, l in block)
+        best = max(LAMBDA * l + (1 - LAMBDA) * l * _a(d, rid, q_nid, pid, c, default_bounds) for c, _, l in block)
         count = min(1.0, sum(n for _, n, l in block if l >= COUNT_GATE) / n_q)
         scores.append(best * count)
     return sum(scores) / len(scores)
 
 
-def kernel_kpis(data_dir: Path, k: int = 20) -> dict:
+def kernel_kpis(data_dir: Path, k: int = 20, default_bounds: str | None = "catalogue") -> dict:
+    """BRD §6 KPIs of the reference kernel, an oracle-parsed ceiling: values come from
+    the gold attributes, not from parsing value_text.
+
+    default_bounds='catalogue' gives unqualified values the bound of their catalogue
+    template (HLD §11 amendment); None treats them as widened points (HLD §4.2)."""
     d = _Data(data_dir)
     ms = _multiset(data_dir, "programme_class_multiset")
 
@@ -343,7 +418,7 @@ def kernel_kpis(data_dir: Path, k: int = 20) -> dict:
         recall.append(any(gold[p] >= best - 1e-9 for p, _ in ranked))
         rescored = []
         for pid, s1 in ranked:
-            cov = kernel_coverage(d, rid, pid, label_of)
+            cov = kernel_coverage(d, rid, pid, label_of, default_bounds)
             rescored.append((cov + STAGE1_WEIGHT * s1, cov, pid))
             errs_k.append(abs(cov - gold[pid]))
         rescored.sort(key=lambda t: (-t[0], t[2]))
@@ -359,9 +434,7 @@ def kernel_kpis(data_dir: Path, k: int = 20) -> dict:
         "recall_at_20": float(np.mean(recall)),
         "top1": float(np.mean(top1)),
         "mean_regret": float(np.mean(regret)),
-        # MAE of the coverage reported for the recommended (top-1) candidate. Over all
-        # top-k pairs the HLD label credit (lambda) overstates weak candidates; reported
-        # separately for transparency.
+        # MAE of the top-1 coverage and over all evaluated top-k pairs (the gated KPI)
         "mae": float(np.mean(errs)),
         "mae_top_k": float(np.mean(errs_k)),
         "unmeetable_flagged": float(np.mean(flagged)) if flagged else 1.0,

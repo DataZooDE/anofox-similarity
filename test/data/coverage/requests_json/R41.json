@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
     "node_id": "R41.n0"
    },
    {
@@ -13,77 +13,163 @@
      {
       "children": [
        {
-        "context": "1.1 Sitzlängsverstellung",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 73.0,
+          "lo": 73.0,
+          "name": "Auslösekraft",
+          "text": "höchstens 73 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Easy-Entry-Mechanik",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Sitzschienen für die Längsverstellung.",
-        "node_id": "R41.r01"
-       },
-       {
-        "context": "1.1 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Sitzschienen für die Längsverstellung.",
-        "node_id": "R41.r14"
+        "label": "Anforderung: eine Easy-Entry-Funktion mit Auslösekraft höchstens 73 N.",
+        "node_id": "R41.r02"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 Sitzlängsverstellung",
+      "label": "1.1 Easy-Entry-Mechanik",
       "node_id": "R41.c1.s1"
      },
      {
       "children": [
        {
-        "context": "1.2 Sitzhöhenverstellung",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 4.5,
+            "lo": 4.5,
+            "name": "Umlegezeit",
+            "text": "4,5 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 110.0,
+            "lo": 110.0,
+            "name": "Bedienkraft",
+            "text": "110 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 10000.0,
+            "lo": 10000.0,
+            "name": "Dauerhaltbarkeit",
+            "text": "min. 10000 Zyklen",
+            "unit": "Zyklen"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Anforderung: Tumble-Funktion mit Umlegezeit 4,5 s und Bedienkraft 110 N und Dauerhaltbarkeit min. 10000 Zyklen.",
+          "node_id": "R41.r04"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert eine Sitzhöhenverstellung.",
-        "node_id": "R41.r02"
-       },
-       {
-        "context": "1.2 Sitzhöhenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert einen Sitzheber.",
-        "node_id": "R41.r15"
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R41.c1.s2.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 Sitzhöhenverstellung",
+      "label": "1.2 Klapp-/Tumblemechanik",
       "node_id": "R41.c1.s2"
      },
      {
-      "attributes": [
+      "children": [
        {
-        "attr_id": "a1",
-        "bound": "at_most",
-        "hi": 1.7,
-        "lo": 1.7,
-        "name": "Gewicht",
-        "text": "bis zu 1,7 kg",
-        "unit": "kg"
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 3300.0,
+          "lo": 3300.0,
+          "name": "Festigkeit",
+          "text": "3300 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 29.0,
+          "lo": 29.0,
+          "name": "Geräuschpegel",
+          "text": "bis zu 29 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Anforderung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Rückenlehnenverstellung mit Festigkeit 3300 Nm und Geräuschpegel bis zu 29 dB(A).",
+        "node_id": "R41.r06"
        }
       ],
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
       "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Der Lieferant liefert Polsterschaum mit Gewicht bis zu 1,7 kg.",
-      "node_id": "R41.r06"
+      "kind": "container",
+      "label": "1.3 Anforderung",
+      "node_id": "R41.c1.s3"
      },
      {
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 17000.0,
+          "lo": 17000.0,
+          "name": "Gewicht",
+          "text": "maximal 17000 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 38.0,
+          "lo": 38.0,
+          "name": "Crashlast",
+          "text": "≥ 38 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 130.0,
+          "lo": 130.0,
+          "name": "Zielpreis",
+          "text": "bis zu 130 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Lehnen- und Kissenrahmen mit Gewicht maximal 17000 g und Crashlast ≥ 38 kN und Zielpreis bis zu 130 EUR.",
+        "node_id": "R41.r07"
+       }
+      ],
       "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Der Lieferant liefert Formschaumteile.",
-      "node_id": "R41.r19"
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R41.c1.s4"
      },
      {
       "children": [
@@ -92,98 +178,41 @@
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 3150.0,
-          "lo": 3150.0,
-          "name": "Festigkeit",
-          "text": "≥ 3150 Nm",
-          "unit": "Nm"
-         }
-        ],
-        "context": "1.4 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Lehnenbeschläge mit Festigkeit ≥ 3150 Nm.",
-        "node_id": "R41.r08"
-       },
-       {
-        "context": "1.4 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert eine Lehnenneigungsverstellung.",
-        "node_id": "R41.r22"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.4 Lehnenverstellung",
-      "node_id": "R41.c1.s4"
-     },
-     {
-      "children": [
-       {
-        "context": "1.5 Sitzstruktur",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Sitzstruktur.",
-        "node_id": "R41.r09"
-       },
-       {
-        "attributes": [
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "mindestens 45.000 Zyklen",
+          "unit": "Zyklen"
+         },
          {
-          "attr_id": "a1",
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F0",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F0"
+         },
+         {
+          "attr_id": "a3",
           "bound": "at_most",
-          "hi": 190.0,
-          "lo": 190.0,
+          "hi": 125.0,
+          "lo": 125.0,
           "name": "Zielpreis",
-          "text": "≤ 190 EUR",
+          "text": "max. 125 EUR",
           "unit": "EUR"
          }
         ],
-        "context": "1.5 Sitzstruktur",
+        "context": "1.5 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert tragende Sitzstruktur mit Zielpreis ≤ 190 EUR.",
-        "node_id": "R41.r23"
+        "label": "Anforderung: Polsterbezug mit Scheuerbeständigkeit mindestens 45.000 Zyklen und Brennbarkeitsklasse min. F0 und Zielpreis max. 125 EUR.",
+        "node_id": "R41.r08"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 Sitzstruktur",
+      "label": "1.5 Anforderung",
       "node_id": "R41.c1.s5"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
-        "node_id": "R41.c1.s6.n1"
-       },
-       {
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Lederbezüge.",
-        "node_id": "R41.r12"
-       },
-       {
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert einen Sitzbezug.",
-        "node_id": "R41.r26"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.6 Sitzbezug",
-      "node_id": "R41.c1.s6"
      }
     ],
     "edge": "AND",
@@ -196,82 +225,44 @@
      {
       "children": [
        {
-        "context": "2.1 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert eine elektrische Kopfstütze.",
-        "node_id": "R41.r03"
-       },
-       {
-        "context": "2.1 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert elektrisch verstellbare Kopfstütze.",
-        "node_id": "R41.r16"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.1 Kopfstütze elektrisch",
-      "node_id": "R41.c2.s1"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "2.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Der Lieferant liefert eine Lordosenstütze.",
-          "node_id": "R41.r07"
-         },
-         {
-          "context": "2.2.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert Lendenwirbelstütze.",
-          "node_id": "R41.r20"
-         }
-        ],
         "edge": "AND",
         "kind": "container",
-        "label": "2.2.1 Leistungsdaten",
-        "node_id": "R41.c2.s2.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.2 Lordosenstütze",
-      "node_id": "R41.c2.s2"
-     },
-     {
-      "children": [
-       {
-        "context": "2.3 Sitzheizung",
-        "count": 2.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert 2 × Heizmatten in Kissen und Lehne.",
-        "node_id": "R41.r10"
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R41.c2.s1.n1"
        },
        {
-        "context": "2.3 Sitzheizung",
-        "count": 2.0,
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1400.0,
+          "lo": 1400.0,
+          "name": "Belastbarkeit",
+          "text": "≥ 1400 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 35.0,
+          "lo": 35.0,
+          "name": "Schwenkwinkel",
+          "text": "mindestens 35 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert 2 × beheizte Sitzflächen.",
-        "node_id": "R41.r24"
+        "label": "Anforderung: Armauflage mit Belastbarkeit ≥ 1400 N und Schwenkwinkel mindestens 35 °.",
+        "node_id": "R41.r01"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.3 Sitzheizung",
-      "node_id": "R41.c2.s3"
+      "label": "2.1 Armlehne",
+      "node_id": "R41.c2.s1"
      }
     ],
     "edge": "AND",
@@ -284,85 +275,24 @@
      {
       "children": [
        {
-        "context": "3.1 Gurtschlossbringer",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Gurtzuführung.",
-        "node_id": "R41.r05"
-       },
-       {
-        "context": "3.1 Gurtschlossbringer",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Gurtschlossanhebung.",
-        "node_id": "R41.r18"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.1 Gurtschlossbringer",
-      "node_id": "R41.c3.s1"
-     },
-     {
-      "children": [
-       {
-        "context": "3.2 Seitenairbag-Integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Thoraxairbag.",
-        "node_id": "R41.r11"
-       },
-       {
-        "context": "3.2 Seitenairbag-Integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Airbag-Aufreißnaht.",
-        "node_id": "R41.r25"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.2 Seitenairbag-Integration",
-      "node_id": "R41.c3.s2"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": "at_most",
-            "hi": 21.0,
-            "lo": 21.0,
-            "name": "Ansprechschwelle",
-            "text": "höchstens 21 kg",
-            "unit": "kg"
-           }
-          ],
-          "context": "3.3.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert Belegungssensor mit Ansprechschwelle höchstens 21 kg.",
-          "node_id": "R41.r21"
-         }
-        ],
         "edge": "AND",
         "kind": "container",
-        "label": "3.3.1 Leistungsdaten",
-        "node_id": "R41.c3.s3.1"
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R41.c3.s1.n1"
+       },
+       {
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Kopfstütze handverstellbar.",
+        "node_id": "R41.r05"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.3 Sitzbelegungserkennung",
-      "node_id": "R41.c3.s3"
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R41.c3.s1"
      }
     ],
     "edge": "AND",
@@ -375,28 +305,21 @@
      {
       "children": [
        {
-        "children": [
+        "attributes": [
          {
-          "context": "4.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Der Lieferant liefert einen Sitzkabelbaum.",
-          "node_id": "R41.r13"
-         },
-         {
-          "context": "4.1.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert Steckverbinder.",
-          "node_id": "R41.r27"
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "IP54 oder besser"
          }
         ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Leistungsdaten",
-        "node_id": "R41.c4.s1.1"
+        "kind": "item",
+        "label": "Anforderung: Kabelsatz Sitz mit Schutzart IP54 oder besser.",
+        "node_id": "R41.r09"
        }
       ],
       "edge": "AND",
@@ -413,9 +336,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage BRH-R41",
+  "label": "Lastenheft Sitzanlage CAL-R41",
   "node_id": "R41"
  },
- "source": "brennholt",
+ "source": "calvento",
  "tree_id": "R41"
 }

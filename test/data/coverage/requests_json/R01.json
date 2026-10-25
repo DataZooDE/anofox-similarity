@@ -13,197 +13,185 @@
      {
       "children": [
        {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R01.c1.s1.n1"
+       },
+       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_most",
-          "hi": 33.0,
-          "lo": 33.0,
-          "name": "Betriebsgeräusch",
-          "text": "max. 33 dB(A)",
-          "unit": "dB(A)"
+          "hi": 0.4,
+          "lo": 0.4,
+          "name": "Gewicht",
+          "text": "bis zu 0,4 kg",
+          "unit": "kg"
          }
         ],
-        "context": "1.1 Sitzlängsverstellung",
+        "context": "1.1 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert eine Längsverstellung mit Betriebsgeräusch max. 33 dB(A).",
-        "node_id": "R01.r03"
-       },
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": null,
-          "hi": 17.0,
-          "lo": 17.0,
-          "name": "Haltelast",
-          "text": "17 kN",
-          "unit": "kN"
-         }
-        ],
-        "context": "1.1 Sitzlängsverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert eine Längsverstellung mit Haltelast 17 kN.",
-        "node_id": "R01.r17"
+        "label": "Das System muss PU-Schaumpolster mit Gewicht bis zu 0,4 kg enthalten.",
+        "node_id": "R01.r01"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 Sitzlängsverstellung",
+      "label": "1.1 Anforderung",
       "node_id": "R01.c1.s1"
      },
      {
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Der Lieferant liefert einen Sitzheber.",
-      "node_id": "R01.r04"
-     },
-     {
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Der Lieferant liefert einen Sitzheber.",
-      "node_id": "R01.r18"
-     },
-     {
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Der Lieferant liefert Formschaumteile.",
-      "node_id": "R01.r08"
-     },
-     {
-      "context": "1 Struktur und Mechanik",
-      "count": 1.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Beifahrersitz: Der Lieferant liefert PU-Schaumpolster.",
-      "node_id": "R01.r22"
-     },
-     {
-      "children": [
+      "attributes": [
        {
-        "context": "1.4 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Neigungsgelenk Lehne.",
-        "node_id": "R01.r10"
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 7.0,
+        "lo": 7.0,
+        "name": "Umlegezeit",
+        "text": "≤ 7 s",
+        "unit": "s"
        },
        {
-        "context": "1.4 Lehnenverstellung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Rückenlehnenverstellung.",
-        "node_id": "R01.r25"
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 25.0,
+        "lo": 25.0,
+        "name": "Bedienkraft",
+        "text": "bis zu 25 N",
+        "unit": "N"
        }
       ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
       "edge": "AND",
-      "kind": "container",
-      "label": "1.4 Lehnenverstellung",
-      "node_id": "R01.c1.s4"
+      "kind": "item",
+      "label": "Das System muss Tumble-Funktion mit Umlegezeit ≤ 7 s und Bedienkraft bis zu 25 N enthalten.",
+      "node_id": "R01.r02"
      },
      {
       "children": [
        {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R01.c1.s5.n1"
-       },
-       {
-        "children": [
+        "attributes": [
          {
-          "context": "1.5.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Der Lieferant liefert tragende Sitzstruktur.",
-          "node_id": "R01.r11"
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "Winkelbereich",
+          "text": "min. 52 °",
+          "unit": "°"
          },
          {
-          "attributes": [
-           {
-            "attr_id": "a1",
-            "bound": null,
-            "hi": 12500.0,
-            "lo": 12500.0,
-            "name": "Gewicht",
-            "text": "12500 g",
-            "unit": "g"
-           },
-           {
-            "attr_id": "a2",
-            "bound": "at_most",
-            "hi": 180.0,
-            "lo": 180.0,
-            "name": "Zielpreis",
-            "text": "höchstens 180 €",
-            "unit": "€"
-           }
-          ],
-          "context": "1.5.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert tragende Sitzstruktur mit Gewicht 12500 g und Zielpreis höchstens 180 €.",
-          "node_id": "R01.r26"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 5050.0,
+          "lo": 5050.0,
+          "name": "Festigkeit",
+          "text": "minimal 5050 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 31.0,
+          "lo": 31.0,
+          "name": "Geräusch",
+          "text": "maximal 31 dB(A)",
+          "unit": "dB(A)"
          }
         ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
         "edge": "AND",
-        "kind": "container",
-        "label": "1.5.1 Leistungsdaten",
-        "node_id": "R01.c1.s5.1"
+        "kind": "item",
+        "label": "Das System muss Rückenlehnenverstellung mit Winkelbereich min. 52 ° und Festigkeit minimal 5050 N·m und Geräusch maximal 31 dB(A) enthalten.",
+        "node_id": "R01.r04"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 Sitzstruktur",
-      "node_id": "R01.c1.s5"
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R01.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "Masse",
+        "text": "≤ 5 kg",
+        "unit": "kg"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "Crashfestigkeit",
+        "text": "nicht weniger als 30 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Das System muss tragende Sitzstruktur mit Masse ≤ 5 kg und Crashfestigkeit nicht weniger als 30 kN enthalten.",
+      "node_id": "R01.r05"
      },
      {
       "children": [
        {
-        "context": "1.6 Sitzbezug",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert einen Sitzbezug.",
-        "node_id": "R01.r13"
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R01.c1.s5.n1"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": null,
-          "hi": 65000.0,
-          "lo": 65000.0,
-          "name": "Scheuerbeständigkeit",
-          "text": "65000 Zyklen",
+          "bound": "at_least",
+          "hi": 145000.0,
+          "lo": 145000.0,
+          "name": "Martindale",
+          "text": "nicht weniger als 145000 Zyklen",
           "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F3"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 80.0,
+          "lo": 80.0,
+          "name": "Zielpreis",
+          "text": "maximal 80 EUR",
+          "unit": "EUR"
          }
         ],
-        "context": "1.6 Sitzbezug",
+        "context": "1.5 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Polsterbezug mit Scheuerbeständigkeit 65000 Zyklen.",
-        "node_id": "R01.r28"
+        "label": "Das System muss Stoffbezug mit Martindale nicht weniger als 145000 Zyklen und Brennbarkeitsklasse mindestens F3 und Zielpreis maximal 80 EUR enthalten.",
+        "node_id": "R01.r06"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.6 Sitzbezug",
-      "node_id": "R01.c1.s6"
+      "label": "1.5 Anforderung",
+      "node_id": "R01.c1.s5"
      }
     ],
     "edge": "AND",
@@ -214,238 +202,38 @@
    {
     "children": [
      {
-      "context": "2 Komfortfunktionen",
-      "count": 4.0,
-      "edge": "AND",
-      "kind": "item",
-      "label": "Fahrersitz: Der Lieferant liefert 4 × beheizte Sitzflächen.",
-      "node_id": "R01.r01"
-     },
-     {
       "children": [
        {
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": null,
-          "hi": 30.0,
-          "lo": 30.0,
-          "name": "Neigungsweg",
-          "text": "30 mm",
-          "unit": "mm"
-         }
-        ],
-        "context": "2.2 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert eine elektrische Kopfstütze mit Neigungsweg 30 mm.",
-        "node_id": "R01.r05"
-       },
-       {
-        "context": "2.2 Kopfstütze elektrisch",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert motorische Kopfstütze.",
-        "node_id": "R01.r19"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.2 Kopfstütze elektrisch",
-      "node_id": "R01.c2.s2"
-     },
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "2.3.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Der Lieferant liefert Ellbogenauflage.",
-          "node_id": "R01.r07"
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Strombelastbarkeit",
+          "text": "mindestens 10 A",
+          "unit": "A"
          },
          {
-          "context": "2.3.1 Leistungsdaten",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert eine Armlehne.",
-          "node_id": "R01.r21"
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "mindestens IP40"
          }
         ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "2.3.1 Leistungsdaten",
-        "node_id": "R01.c2.s3.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.3 Armlehne",
-      "node_id": "R01.c2.s3"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R01.c2.s4.n1"
-       },
-       {
-        "context": "2.4 Lordosenstütze",
+        "context": "4.1 Anforderung",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert eine Lordosenstütze.",
-        "node_id": "R01.r09"
+        "label": "Das System muss Kabelsatz Sitz mit Strombelastbarkeit mindestens 10 A und Schutzart mindestens IP40 enthalten.",
+        "node_id": "R01.r07"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "2.4 Lordosenstütze",
-      "node_id": "R01.c2.s4"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
-        "node_id": "R01.c2.s5.n1"
-       },
-       {
-        "context": "2.5 Sitzbelüftung",
-        "count": 2.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert 2 × eine Sitzbelüftung.",
-        "node_id": "R01.r16"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.5 Sitzbelüftung",
-      "node_id": "R01.c2.s5"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "2 Komfortfunktionen",
-    "node_id": "R01.c2"
-   },
-   {
-    "children": [
-     {
-      "children": [
-       {
-        "attributes": [
-         {
-          "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 27.0,
-          "lo": 27.0,
-          "name": "Erkennungsschwelle",
-          "text": "bis zu 27 kg",
-          "unit": "kg"
-         }
-        ],
-        "context": "3.1 Sitzbelegungserkennung",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Sensormatte Sitzbelegung mit Erkennungsschwelle bis zu 27 kg.",
-        "node_id": "R01.r24"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.1 Sitzbelegungserkennung",
-      "node_id": "R01.c3.s1"
-     },
-     {
-      "children": [
-       {
-        "context": "3.2 Seitenairbag-Integration",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Seitenairbag im Sitz.",
-        "node_id": "R01.r27"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.2 Seitenairbag-Integration",
-      "node_id": "R01.c3.s2"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "3 Sicherheit",
-    "node_id": "R01.c3"
-   },
-   {
-    "children": [
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "4.1.1 Leistungsdaten",
-          "count": 4.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Fahrersitz: Der Lieferant liefert 4 × Sitzverstellmotoren.",
-          "node_id": "R01.r06"
-         },
-         {
-          "context": "4.1.1 Leistungsdaten",
-          "count": 4.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Beifahrersitz: Der Lieferant liefert 4 × elektrische Sitzantriebe.",
-          "node_id": "R01.r20"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Leistungsdaten",
-        "node_id": "R01.c4.s1.1"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "4.1 Sitzverstellmotor",
+      "label": "4.1 Anforderung",
       "node_id": "R01.c4.s1"
-     },
-     {
-      "children": [
-       {
-        "context": "4.2 Sitzkabelsatz",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Fahrersitz: Der Lieferant liefert Steckverbinder.",
-        "node_id": "R01.r14"
-       },
-       {
-        "context": "4.2 Sitzkabelsatz",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Beifahrersitz: Der Lieferant liefert Sitzverkabelung.",
-        "node_id": "R01.r29"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "4.2 Sitzkabelsatz",
-      "node_id": "R01.c4.s2"
      }
     ],
     "edge": "AND",
@@ -456,9 +244,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Lastenheft Sitzanlage BRH-R01",
+  "label": "Lastenheft Sitzanlage DRV-R01",
   "node_id": "R01"
  },
- "source": "brennholt",
+ "source": "dravik",
  "tree_id": "R01"
 }

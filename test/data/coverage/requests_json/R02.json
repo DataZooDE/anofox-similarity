@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
     "node_id": "R02.n0"
    },
    {
@@ -16,11 +16,20 @@
         "attributes": [
          {
           "attr_id": "a1",
+          "bound": null,
+          "hi": 230.0,
+          "lo": 230.0,
+          "name": "indentation hardness",
+          "text": "230 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
           "bound": "at_most",
-          "hi": 1100.0,
-          "lo": 1100.0,
-          "name": "weight",
-          "text": "≤ 1100 g",
+          "hi": 1900.0,
+          "lo": 1900.0,
+          "name": "mass",
+          "text": "not more than 1900 g",
           "unit": "g"
          }
         ],
@@ -28,8 +37,8 @@
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "The system must include PU foam padding with weight ≤ 1100 g.",
-        "node_id": "R02.r01"
+        "label": "Requirement: a moulded foam pad with indentation hardness 230 N and mass not more than 1900 g.",
+        "node_id": "R02.r03"
        }
       ],
       "edge": "AND",
@@ -40,12 +49,32 @@
      {
       "children": [
        {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5500.0,
+          "lo": 5500.0,
+          "name": "folding time",
+          "text": "up to 5500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 44000.0,
+          "lo": 44000.0,
+          "name": "endurance",
+          "text": "at least 44,000 cycles",
+          "unit": "cycles"
+         }
+        ],
         "context": "1.2 fold-flat / tumble mechanism",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "The system must include tumble seat function.",
-        "node_id": "R02.r02"
+        "label": "Requirement: seat tumble mechanism with folding time up to 5500 ms and endurance at least 44,000 cycles.",
+        "node_id": "R02.r04"
        }
       ],
       "edge": "AND",
@@ -56,12 +85,49 @@
      {
       "children": [
        {
-        "context": "1.3 recliner",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 50.0,
+            "lo": 50.0,
+            "name": "angle range",
+            "text": "min. 50 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3550.0,
+            "lo": 3550.0,
+            "name": "locking strength",
+            "text": "at least 3550 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 40.0,
+            "lo": 40.0,
+            "name": "noise",
+            "text": "at most 40 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Requirement: seat back angle adjustment with angle range min. 50 ° and locking strength at least 3550 N·m and noise at most 40 dB(A).",
+          "node_id": "R02.r05"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "The system must include backrest tilt fitting.",
-        "node_id": "R02.r04"
+        "kind": "container",
+        "label": "1.3.1 Performance",
+        "node_id": "R02.c1.s3.1"
        }
       ],
       "edge": "AND",
@@ -72,12 +138,49 @@
      {
       "children": [
        {
-        "context": "1.4 seat frame / structure",
-        "count": 1.0,
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 11000.0,
+            "lo": 11000.0,
+            "name": "mass",
+            "text": "up to 11000 g",
+            "unit": "g"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 33.0,
+            "lo": 33.0,
+            "name": "crash strength",
+            "text": "minimum 33 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 120.0,
+            "lo": 120.0,
+            "name": "target price",
+            "text": "≤ 120 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Requirement: a seat frame with mass up to 11000 g and crash strength minimum 33 kN and target price ≤ 120 €.",
+          "node_id": "R02.r06"
+         }
+        ],
         "edge": "AND",
-        "kind": "item",
-        "label": "The system must include backrest and cushion frames.",
-        "node_id": "R02.r05"
+        "kind": "container",
+        "label": "1.4.1 Performance",
+        "node_id": "R02.c1.s4.1"
        }
       ],
       "edge": "AND",
@@ -88,12 +191,32 @@
      {
       "children": [
        {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 40000.0,
+          "lo": 40000.0,
+          "name": "abrasion resistance",
+          "text": "not less than 40000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "target price",
+          "text": "≤ 75 EUR",
+          "unit": "EUR"
+         }
+        ],
         "context": "1.5 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "The system must include seat upholstery.",
-        "node_id": "R02.r06"
+        "label": "Requirement: fabric seat covers with abrasion resistance not less than 40000 cycles and target price ≤ 75 EUR.",
+        "node_id": "R02.r11"
        }
       ],
       "edge": "AND",
@@ -112,56 +235,174 @@
      {
       "children": [
        {
-        "attributes": [
+        "children": [
          {
-          "attr_id": "a1",
-          "bound": "at_least",
-          "hi": 6.0,
-          "lo": 6.0,
-          "name": "height travel",
-          "text": "not less than 6 cm",
-          "unit": "cm"
-         },
-         {
-          "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 4.0,
-          "lo": 4.0,
-          "name": "positions",
-          "text": "≥ 4",
-          "unit": ""
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 1.6,
+            "lo": 1.6,
+            "name": "vertical load",
+            "text": "1.6 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 45.0,
+            "lo": 45.0,
+            "name": "pivot angle",
+            "text": "min. 45 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Requirement: an armrest with vertical load 1.6 kN and pivot angle min. 45 °.",
+          "node_id": "R02.r01"
          }
         ],
-        "context": "3.1 manual headrest",
-        "count": 1.0,
         "edge": "AND",
-        "kind": "item",
-        "label": "The system must include a manual headrest with height travel not less than 6 cm and positions ≥ 4.",
-        "node_id": "R02.r03"
+        "kind": "container",
+        "label": "2.1.1 Performance",
+        "node_id": "R02.c2.s1.1"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.1 manual headrest",
-      "node_id": "R02.c3.s1"
+      "label": "2.1 armrest",
+      "node_id": "R02.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 105.0,
+          "lo": 70.0,
+          "name": "heating power",
+          "text": "between 70 and 105 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 200.0,
+          "lo": 200.0,
+          "name": "time to 37 °C",
+          "text": "up to 200 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "supply current",
+          "text": "at most 6.5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "surface temperature",
+          "text": "not more than 47 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.2 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Requirement: 2 × cushion heating elements with heating power between 70 and 105 W and time to 37 °C up to 200 s and supply current at most 6.5 A and surface temperature not more than 47 °C.",
+        "node_id": "R02.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat heating",
+      "node_id": "R02.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 480.0,
+          "lo": 340.0,
+          "name": "air flow",
+          "text": "340 to 480 l/min",
+          "unit": "l/min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 49.0,
+          "lo": 49.0,
+          "name": "operating noise",
+          "text": "at most 49 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 2.1,
+          "lo": 2.1,
+          "name": "supply current",
+          "text": "up to 2.1 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 seat ventilation",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Requirement: cooling fans in the seat with air flow 340 to 480 l/min and operating noise at most 49 dB(A) and supply current up to 2.1 A.",
+        "node_id": "R02.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 seat ventilation",
+      "node_id": "R02.c2.s3"
      }
     ],
     "edge": "AND",
     "kind": "container",
-    "label": "3 Safety",
-    "node_id": "R02.c3"
+    "label": "2 Comfort functions",
+    "node_id": "R02.c2"
    },
    {
     "children": [
      {
       "children": [
        {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 14.0,
+          "lo": 14.0,
+          "name": "current rating",
+          "text": "min. 14 A",
+          "unit": "A"
+         }
+        ],
         "context": "4.1 wiring and connectors",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "The system must include connector set.",
-        "node_id": "R02.r07"
+        "label": "Requirement: wiring loom with current rating min. 14 A.",
+        "node_id": "R02.r12"
        }
       ],
       "edge": "AND",
@@ -178,9 +419,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification DRV-R02",
+  "label": "Seat system specification CAL-R02",
   "node_id": "R02"
  },
- "source": "dravik",
+ "source": "calvento",
  "tree_id": "R02"
 }

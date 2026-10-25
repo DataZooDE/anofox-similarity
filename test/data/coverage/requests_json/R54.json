@@ -13,28 +13,68 @@
      {
       "children": [
        {
-        "context": "1.1 easy-entry mechanism",
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 0.8,
+          "lo": 0.8,
+          "name": "weight",
+          "text": "0.8 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 foam pad",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Requirement: walk-in function.",
-        "node_id": "R54.r02"
+        "label": "Requirement: a moulded foam pad with weight 0.8 kg.",
+        "node_id": "R54.r01"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.1 easy-entry mechanism",
+      "label": "1.1 foam pad",
       "node_id": "R54.c1.s1"
      },
      {
       "children": [
        {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 6000.0,
+          "lo": 6000.0,
+          "name": "folding time",
+          "text": "≤ 6000 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 95.0,
+          "lo": 95.0,
+          "name": "operating force",
+          "text": "max. 95 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 16000.0,
+          "lo": 16000.0,
+          "name": "endurance",
+          "text": "min. 16,000 cycles",
+          "unit": "cycles"
+         }
+        ],
         "context": "1.2 fold-flat / tumble mechanism",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Requirement: a fold-flat mechanism.",
-        "node_id": "R54.r04"
+        "label": "Requirement: folding rear seat with folding time ≤ 6000 ms and operating force max. 95 N and endurance min. 16,000 cycles.",
+        "node_id": "R54.r02"
        }
       ],
       "edge": "AND",
@@ -48,51 +88,33 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": "at_most",
-          "hi": 14500.0,
-          "lo": 14500.0,
-          "name": "mass",
-          "text": "up to 14500 g",
-          "unit": "g"
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "F3 or better"
          },
          {
           "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 22.0,
-          "lo": 22.0,
-          "name": "crash strength",
-          "text": "min. 22 kN",
-          "unit": "kN"
+          "bound": "at_most",
+          "hi": 145.0,
+          "lo": 145.0,
+          "name": "piece price",
+          "text": "≤ 145 €",
+          "unit": "€"
          }
         ],
-        "context": "1.3 seat frame / structure",
+        "context": "1.3 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Requirement: a seat frame with mass up to 14500 g and crash strength min. 22 kN.",
-        "node_id": "R54.r06"
+        "label": "Requirement: a trim cover with flammability class F3 or better and piece price ≤ 145 €.",
+        "node_id": "R54.r05"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 seat frame / structure",
+      "label": "1.3 trim cover",
       "node_id": "R54.c1.s3"
-     },
-     {
-      "children": [
-       {
-        "context": "1.4 trim cover",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Requirement: seat upholstery.",
-        "node_id": "R54.r07"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.4 trim cover",
-      "node_id": "R54.c1.s4"
      }
     ],
     "edge": "AND",
@@ -105,79 +127,27 @@
      {
       "children": [
        {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R54.c4.s1.n1"
+       },
+       {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 1.4,
-          "lo": 1.4,
-          "name": "vertical load",
-          "text": "not less than 1.4 kN",
-          "unit": "kN"
+          "category": "IP54",
+          "name": "protection class",
+          "text": "min. IP54"
          }
         ],
-        "context": "2.1 armrest",
+        "context": "4.1 wiring and connectors",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "Requirement: folding centre armrest with vertical load not less than 1.4 kN.",
-        "node_id": "R54.r01"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "2.1 armrest",
-      "node_id": "R54.c2.s1"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "2 Comfort functions",
-    "node_id": "R54.c2"
-   },
-   {
-    "children": [
-     {
-      "children": [
-       {
-        "context": "3.1 manual headrest",
-        "count": 1.0,
-        "edge": "AND",
-        "kind": "item",
-        "label": "Requirement: notched head restraint.",
-        "node_id": "R54.r05"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "3.1 manual headrest",
-      "node_id": "R54.c3.s1"
-     }
-    ],
-    "edge": "AND",
-    "kind": "container",
-    "label": "3 Safety",
-    "node_id": "R54.c3"
-   },
-   {
-    "children": [
-     {
-      "children": [
-       {
-        "children": [
-         {
-          "context": "4.1.1 Performance",
-          "count": 1.0,
-          "edge": "AND",
-          "kind": "item",
-          "label": "Requirement: connector set.",
-          "node_id": "R54.r08"
-         }
-        ],
-        "edge": "AND",
-        "kind": "container",
-        "label": "4.1.1 Performance",
-        "node_id": "R54.c4.s1.1"
+        "label": "Requirement: wiring loom with protection class min. IP54.",
+        "node_id": "R54.r06"
        }
       ],
       "edge": "AND",

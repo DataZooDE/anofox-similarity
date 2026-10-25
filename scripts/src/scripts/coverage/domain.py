@@ -138,7 +138,7 @@ NOISE = lambda lo, hi: _a("noise", "operating noise", "Betriebsgeräusch", "soun
 
 def CURRENT(lo, hi, step, cu=("A", "mA"), key="current_draw"):  # noqa: N802
     return _a(key, "current draw", "Stromaufnahme", "current", "at_most", "A", lo, hi, step, cu,
-              ["current draw", "current consumption", "max. current"],
+              ["current draw", "current consumption", "supply current"],
               ["Stromaufnahme", "Stromverbrauch", "Strom"])
 
 

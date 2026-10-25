@@ -5,7 +5,7 @@
    {
     "edge": "AND",
     "kind": "container",
-    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
     "node_id": "R48.n0"
    },
    {
@@ -16,86 +16,125 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": null,
-          "hi": 230.0,
-          "lo": 230.0,
-          "name": "hardness",
-          "text": "230 N",
-          "unit": "N"
+          "bound": "within",
+          "hi": 24.0,
+          "lo": 20.0,
+          "name": "speed",
+          "text": "between 20 and 24 mm/s",
+          "unit": "mm/s"
          },
          {
           "attr_id": "a2",
           "bound": "at_most",
-          "hi": 2100.0,
-          "lo": 2100.0,
-          "name": "weight",
-          "text": "≤ 2100 g",
-          "unit": "g"
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "noise level",
+          "text": "up to 48 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 28.5,
+          "lo": 28.5,
+          "name": "holding load",
+          "text": "not less than 28.5 kN",
+          "unit": "kN"
          }
         ],
-        "context": "1.1 foam pad",
+        "context": "1.1 seat track",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has a moulded foam pad with hardness 230 N and weight ≤ 2100 g.",
-        "node_id": "R48.r01"
-       }
-      ],
-      "edge": "AND",
-      "kind": "container",
-      "label": "1.1 foam pad",
-      "node_id": "R48.c1.s1"
-     },
-     {
-      "children": [
-       {
-        "edge": "AND",
-        "kind": "container",
-        "label": "Note: where no seat is named, the requirement applies to both front seats.",
-        "node_id": "R48.c1.s2.n1"
+        "label": "Driver seat: Function: sliding rails for the seat with speed between 20 and 24 mm/s and noise level up to 48 dB(A) and holding load not less than 28.5 kN.",
+        "node_id": "R48.r03"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": null,
-          "hi": 7000.0,
-          "lo": 7000.0,
-          "name": "folding time",
-          "text": "7000 ms",
-          "unit": "ms"
+          "hi": 210.0,
+          "lo": 210.0,
+          "name": "adjustment travel",
+          "text": "210 mm",
+          "unit": "mm"
          },
          {
           "attr_id": "a2",
-          "bound": null,
-          "hi": 75.0,
-          "lo": 75.0,
-          "name": "operating force",
-          "text": "75 N",
-          "unit": "N"
+          "bound": "within",
+          "hi": 26.0,
+          "lo": 20.0,
+          "name": "adjustment speed",
+          "text": "20–26 mm/s",
+          "unit": "mm/s"
          },
          {
           "attr_id": "a3",
-          "bound": "at_least",
-          "hi": 27000.0,
-          "lo": 27000.0,
-          "name": "durability",
-          "text": "≥ 27,000 cycles",
-          "unit": "cycles"
+          "bound": "at_most",
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "noise level",
+          "text": "up to 48 dB(A)",
+          "unit": "dB(A)"
          }
         ],
-        "context": "1.2 fold-flat / tumble mechanism",
+        "context": "1.1 seat track",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has folding rear seat with folding time 7000 ms and operating force 75 N and durability ≥ 27,000 cycles.",
-        "node_id": "R48.r02"
+        "label": "Passenger seat: Function: a longitudinal seat adjuster with adjustment travel 210 mm and adjustment speed 20–26 mm/s and noise level up to 48 dB(A).",
+        "node_id": "R48.r20"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.2 fold-flat / tumble mechanism",
-      "node_id": "R48.c1.s2"
+      "label": "1.1 seat track",
+      "node_id": "R48.c1.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 4.0,
+        "lo": 4.0,
+        "name": "height stroke",
+        "text": "minimum 4 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 15.0,
+        "lo": 15.0,
+        "name": "holding load",
+        "text": "min. 15 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Function: a seat lifter with height stroke minimum 4 cm and holding load min. 15 kN.",
+      "node_id": "R48.r04"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: cushion foam.",
+        "node_id": "R48.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R48.c1.s3"
      },
      {
       "children": [
@@ -104,62 +143,71 @@
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 3150.0,
-          "lo": 3150.0,
-          "name": "locking strength",
-          "text": "not less than 3150 N·m",
-          "unit": "N·m"
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "recline angle",
+          "text": "≥ 44 °",
+          "unit": "°"
          },
          {
           "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2600.0,
+          "lo": 2600.0,
+          "name": "static strength",
+          "text": "not less than 2600 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
           "bound": "at_most",
-          "hi": 46.0,
-          "lo": 46.0,
+          "hi": 36.0,
+          "lo": 36.0,
           "name": "noise level",
-          "text": "max. 46 dB(A)",
+          "text": "not more than 36 dB(A)",
           "unit": "dB(A)"
          }
         ],
-        "context": "1.3 recliner",
+        "context": "1.4 recliner",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has backrest tilt fitting with locking strength not less than 3150 N·m and noise level max. 46 dB(A).",
-        "node_id": "R48.r04"
+        "label": "Driver seat: Function: seat back angle adjustment with recline angle ≥ 44 ° and static strength not less than 2600 N·m and noise level not more than 36 dB(A).",
+        "node_id": "R48.r12"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.3 recliner",
-      "node_id": "R48.c1.s3"
+      "label": "1.4 recliner",
+      "node_id": "R48.c1.s4"
      },
      {
       "attributes": [
        {
         "attr_id": "a1",
         "bound": "at_most",
-        "hi": 14500.0,
-        "lo": 14500.0,
-        "name": "mass",
-        "text": "≤ 14500 g",
-        "unit": "g"
+        "hi": 16.0,
+        "lo": 16.0,
+        "name": "weight",
+        "text": "max. 16 kg",
+        "unit": "kg"
        },
        {
         "attr_id": "a2",
-        "bound": null,
-        "hi": 23.0,
-        "lo": 23.0,
+        "bound": "at_least",
+        "hi": 41.0,
+        "lo": 41.0,
         "name": "crash strength",
-        "text": "23 kN",
+        "text": "minimum 41 kN",
         "unit": "kN"
        },
        {
         "attr_id": "a3",
         "bound": "at_most",
-        "hi": 135.0,
-        "lo": 135.0,
+        "hi": 130.0,
+        "lo": 130.0,
         "name": "target price",
-        "text": "≤ 135 €",
+        "text": "up to 130 €",
         "unit": "€"
        }
       ],
@@ -167,8 +215,36 @@
       "count": 1.0,
       "edge": "AND",
       "kind": "item",
-      "label": "It is required that the seat has a seat frame with mass ≤ 14500 g and crash strength 23 kN and target price ≤ 135 €.",
-      "node_id": "R48.r05"
+      "label": "Driver seat: Function: load-bearing seat structure with weight max. 16 kg and crash strength minimum 41 kN and target price up to 130 €.",
+      "node_id": "R48.r13"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 40.0,
+        "lo": 40.0,
+        "name": "crash load",
+        "text": "not less than 40 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 130.0,
+        "lo": 130.0,
+        "name": "target price",
+        "text": "up to 130 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Function: seat structure with crash load not less than 40 kN and target price up to 130 €.",
+      "node_id": "R48.r30"
      },
      {
       "children": [
@@ -176,48 +252,48 @@
         "edge": "AND",
         "kind": "container",
         "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
-        "node_id": "R48.c1.s5.n1"
+        "node_id": "R48.c1.s6.n1"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 55000.0,
-          "lo": 55000.0,
-          "name": "Martindale",
-          "text": "at least 55,000 cycles",
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "abrasion resistance",
+          "text": "min. 45,000 cycles",
           "unit": "cycles"
          },
          {
           "attr_id": "a2",
           "bound": "at_least",
-          "category": "F3",
+          "category": "F0",
           "name": "flammability class",
-          "text": "min. F3"
+          "text": "min. F0"
          },
          {
           "attr_id": "a3",
           "bound": "at_most",
-          "hi": 150.0,
-          "lo": 150.0,
+          "hi": 120.0,
+          "lo": 120.0,
           "name": "piece price",
-          "text": "not more than 150 EUR",
+          "text": "not more than 120 EUR",
           "unit": "EUR"
          }
         ],
-        "context": "1.5 trim cover",
+        "context": "1.6 trim cover",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has leather trim with Martindale at least 55,000 cycles and flammability class min. F3 and piece price not more than 150 EUR.",
-        "node_id": "R48.r06"
+        "label": "Driver seat: Function: a trim cover with abrasion resistance min. 45,000 cycles and flammability class min. F0 and piece price not more than 120 EUR.",
+        "node_id": "R48.r16"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "1.5 trim cover",
-      "node_id": "R48.c1.s5"
+      "label": "1.6 trim cover",
+      "node_id": "R48.c1.s6"
      }
     ],
     "edge": "AND",
@@ -233,35 +309,471 @@
         "attributes": [
          {
           "attr_id": "a1",
-          "bound": null,
-          "hi": 65.0,
-          "lo": 65.0,
-          "name": "height travel",
-          "text": "65 mm",
-          "unit": "mm"
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 50.0,
+          "name": "heating power",
+          "text": "between 50 and 85 W",
+          "unit": "W"
          },
          {
           "attr_id": "a2",
-          "bound": "at_least",
-          "hi": 3.0,
-          "lo": 3.0,
-          "name": "detent positions",
-          "text": "not less than 3",
-          "unit": ""
+          "bound": "at_most",
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "time to 37 °C",
+          "text": "at most 3.6 min",
+          "unit": "min"
          }
         ],
-        "context": "3.1 manual headrest",
-        "count": 1.0,
+        "context": "2.1 seat heating",
+        "count": 2.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has headrest with detents with height travel 65 mm and detent positions not less than 3.",
-        "node_id": "R48.r03"
+        "label": "Driver seat: Function: 2 × heater mats with heating power between 50 and 85 W and time to 37 °C at most 3.6 min.",
+        "node_id": "R48.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 90.0,
+          "lo": 50.0,
+          "name": "heating power",
+          "text": "between 50 and 90 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "heat-up time",
+          "text": "at most 3.6 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "current draw",
+          "text": "5.5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 51.0,
+          "lo": 51.0,
+          "name": "surface temperature",
+          "text": "≤ 51 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: 2 × heater mats with heating power between 50 and 90 W and heat-up time at most 3.6 min and current draw 5.5 A and surface temperature ≤ 51 °C.",
+        "node_id": "R48.r18"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "3.1 manual headrest",
+      "label": "2.1 seat heating",
+      "node_id": "R48.c2.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 41.0,
+        "lo": 41.0,
+        "name": "operating noise",
+        "text": "41 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 3000.0,
+        "lo": 3000.0,
+        "name": "current draw",
+        "text": "≤ 3000 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Function: 2 × ventilated seats with operating noise 41 dB(A) and current draw ≤ 3000 mA.",
+      "node_id": "R48.r02"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 29.0,
+        "lo": 19.0,
+        "name": "airflow",
+        "text": "19 to 29 m³/h",
+        "unit": "m³/h"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 41.0,
+        "lo": 41.0,
+        "name": "noise level",
+        "text": "at most 41 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 3.1,
+        "lo": 3.1,
+        "name": "current draw",
+        "text": "up to 3.1 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Function: 2 × seat ventilation with airflow 19 to 29 m³/h and noise level at most 41 dB(A) and current draw up to 3.1 A.",
+      "node_id": "R48.r19"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "depth",
+          "text": "minimum 4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "adjustment ways",
+          "text": "at least 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 1.2,
+          "lo": 1.2,
+          "name": "current draw",
+          "text": "1.2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: adjustable lower-back support with depth minimum 4 cm and adjustment ways at least 2 and current draw 1.2 A.",
+        "node_id": "R48.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4.2,
+          "lo": 4.2,
+          "name": "depth",
+          "text": "4.2 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "adjustment ways",
+          "text": "at least 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 1.1,
+          "lo": 1.1,
+          "name": "current draw",
+          "text": "max. 1.1 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: lumbar basket with depth 4.2 cm and adjustment ways at least 2 and current draw max. 1.1 A.",
+        "node_id": "R48.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 lumbar support",
+      "node_id": "R48.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "adjustment time",
+          "text": "4 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.4 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: bolster bladders with adjustment time 4 s.",
+        "node_id": "R48.r15"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2.4,
+          "lo": 2.4,
+          "name": "bolster travel",
+          "text": "min. 2.4 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4000.0,
+          "lo": 4000.0,
+          "name": "adjustment time",
+          "text": "max. 4000 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "2.4 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: lateral support wings with bolster travel min. 2.4 cm and adjustment time max. 4000 ms.",
+        "node_id": "R48.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 side bolster adjustment",
+      "node_id": "R48.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 66.0,
+          "lo": 66.0,
+          "name": "extension travel",
+          "text": "66 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 6500.0,
+          "lo": 6500.0,
+          "name": "adjustment time",
+          "text": "up to 6500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "2.5 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: thigh support extension with extension travel 66 mm and adjustment time up to 6500 ms.",
+        "node_id": "R48.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 Requirement",
+      "node_id": "R48.c2.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 60.0,
+            "lo": 60.0,
+            "name": "height travel",
+            "text": "at least 60 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 1000.0,
+            "lo": 1000.0,
+            "name": "supply current",
+            "text": "1000 mA",
+            "unit": "mA"
+           }
+          ],
+          "context": "2.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Function: a powered headrest with height travel at least 60 mm and supply current 1000 mA.",
+          "node_id": "R48.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.6.1 Performance",
+        "node_id": "R48.c2.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 powered headrest",
+      "node_id": "R48.c2.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R48.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "presenter stroke",
+          "text": "minimum 15 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "cycle time",
+          "text": "up to 5 s",
+          "unit": "s"
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: seat-belt presenter with presenter stroke minimum 15 cm and cycle time up to 5 s.",
+        "node_id": "R48.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 140.0,
+          "lo": 140.0,
+          "name": "presenter stroke",
+          "text": "≥ 140 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4500.0,
+          "lo": 4500.0,
+          "name": "cycle time",
+          "text": "≤ 4500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: seat-belt presenter with presenter stroke ≥ 140 mm and cycle time ≤ 4500 ms.",
+        "node_id": "R48.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Requirement",
       "node_id": "R48.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "deployment time",
+          "text": "at most 9 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 490.0,
+          "lo": 490.0,
+          "name": "seam strength",
+          "text": "490 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.2 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: airbag chute with deployment time at most 9 ms and seam strength 490 N.",
+        "node_id": "R48.r14"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Requirement",
+      "node_id": "R48.c3.s2"
      }
     ],
     "edge": "AND",
@@ -274,42 +786,188 @@
      {
       "children": [
        {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "memorised ways",
+          "text": "not less than 8",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2.1,
+          "lo": 2.1,
+          "name": "standby current",
+          "text": "not more than 2.1 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "response time",
+          "text": "≤ 150 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "4.1 Requirement",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: a seat memory module with memorised ways not less than 8 and standby current not more than 2.1 mA and response time ≤ 150 ms.",
+        "node_id": "R48.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Requirement",
+      "node_id": "R48.c4.s1"
+     },
+     {
+      "children": [
+       {
         "edge": "AND",
         "kind": "container",
-        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
-        "node_id": "R48.c4.s1.n1"
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R48.c4.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "torque",
+          "text": "6.5 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 11000.0,
+          "lo": 11000.0,
+          "name": "current draw",
+          "text": "not more than 11000 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "noise",
+          "text": "≤ 48 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 Requirement",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Function: 6 × motor drive units with torque 6.5 Nm and current draw not more than 11000 mA and noise ≤ 48 dB(A).",
+        "node_id": "R48.r06"
        },
        {
         "attributes": [
          {
           "attr_id": "a1",
           "bound": "at_least",
-          "hi": 14.0,
-          "lo": 14.0,
+          "hi": 4.5,
+          "lo": 4.5,
+          "name": "torque",
+          "text": "≥ 4.5 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 11.0,
+          "lo": 11.0,
+          "name": "supply current",
+          "text": "≤ 11 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "noise",
+          "text": "not more than 46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 Requirement",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: 6 × power seat actuators with torque ≥ 4.5 N·m and supply current ≤ 11 A and noise not more than 46 dB(A).",
+        "node_id": "R48.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Requirement",
+      "node_id": "R48.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 18.0,
+          "lo": 18.0,
           "name": "current rating",
-          "text": "at least 14 A",
+          "text": "18 A",
           "unit": "A"
          },
          {
           "attr_id": "a2",
           "bound": "at_least",
-          "category": "IP54",
+          "category": "IP40",
           "name": "protection class",
-          "text": "IP54 or better"
+          "text": "at least IP40"
          }
         ],
-        "context": "4.1 wiring and connectors",
+        "context": "4.3 wiring and connectors",
         "count": 1.0,
         "edge": "AND",
         "kind": "item",
-        "label": "It is required that the seat has wiring loom with current rating at least 14 A and protection class IP54 or better.",
-        "node_id": "R48.r07"
+        "label": "Driver seat: Function: connector set with current rating 18 A and protection class at least IP40.",
+        "node_id": "R48.r17"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "current rating",
+          "text": "minimum 18 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Function: wiring loom with current rating minimum 18 A.",
+        "node_id": "R48.r34"
        }
       ],
       "edge": "AND",
       "kind": "container",
-      "label": "4.1 wiring and connectors",
-      "node_id": "R48.c4.s1"
+      "label": "4.3 wiring and connectors",
+      "node_id": "R48.c4.s3"
      }
     ],
     "edge": "AND",
@@ -320,9 +978,9 @@
   ],
   "edge": "AND",
   "kind": "container",
-  "label": "Seat system specification FKM-R48",
+  "label": "Seat system specification HIR-R48",
   "node_id": "R48"
  },
- "source": "falkmoor",
+ "source": "hirschtal",
  "tree_id": "R48"
 }
