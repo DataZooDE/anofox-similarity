@@ -1169,9 +1169,7 @@ string AttrsSQL(ClientContext &context, const CoverageParams &p, const TreeSourc
 	string vec = "NULL::DOUBLE[]";
 	string vec_join;
 	if (!p.name_vectors.empty()) {
-		vec_join = StringUtil::Format(" LEFT JOIN (SELECT CAST(name AS VARCHAR) AS name, any_value(CAST(vec AS DOUBLE[])) "
-		                              "AS vec FROM %s GROUP BY ALL) v ON v.name = x.name",
-		                              QuotedIdentifier(p.name_vectors));
+		vec_join = " LEFT JOIN (" + NameVectorsSQL(p.name_vectors) + ") v ON v.name = x.name";
 		vec = "v.vec";
 	}
 	return StringUtil::Format(

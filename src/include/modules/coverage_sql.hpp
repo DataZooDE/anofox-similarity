@@ -50,6 +50,15 @@ inline string QuotedList(const vector<string> &values) {
 	return out + "]";
 }
 
+//! One vector per attribute name from a name_vectors table (name, vec); different vectors for
+//! one name are an error, so name similarity does not depend on the run.
+inline string NameVectorsSQL(const string &table) {
+	return "SELECT CAST(name AS VARCHAR) AS name, CASE WHEN count(DISTINCT CAST(vec AS DOUBLE[])) > 1 THEN "
+	       "error('name_vectors has different vectors for the name ''' || CAST(name AS VARCHAR) || '''') ELSE "
+	       "any_value(CAST(vec AS DOUBLE[])) END AS vec FROM " +
+	       QuotedIdentifier(table) + " GROUP BY CAST(name AS VARCHAR)";
+}
+
 //! A DOUBLE literal with full precision.
 inline string DoubleLiteral(double v) {
 	return StringUtil::Format("%.17g::DOUBLE", v);

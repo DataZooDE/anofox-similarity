@@ -388,12 +388,8 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		string s_name = "1.0::DOUBLE"; // no name vectors: the dimension gate alone
 		string vec_joins;
 		if (!name_vectors.empty()) {
-			vec_joins = StringUtil::Format(
-			    " LEFT JOIN (SELECT CAST(name AS VARCHAR) AS name, any_value(CAST(vec AS DOUBLE[])) AS vec FROM %s "
-			    "GROUP BY ALL) va ON va.name = ia.name"
-			    " LEFT JOIN (SELECT CAST(name AS VARCHAR) AS name, any_value(CAST(vec AS DOUBLE[])) AS vec FROM %s "
-			    "GROUP BY ALL) vt ON vt.name = t.tname",
-			    QuotedIdentifier(name_vectors), QuotedIdentifier(name_vectors));
+			vec_joins = " LEFT JOIN (" + NameVectorsSQL(name_vectors) + ") va ON va.name = ia.name LEFT JOIN (" +
+			            NameVectorsSQL(name_vectors) + ") vt ON vt.name = t.tname";
 			s_name = StringUtil::Format(
 			    "CASE WHEN va.vec IS NULL OR vt.vec IS NULL THEN 0.0 ELSE calibrated_cosine(va.vec, vt.vec, %s) END",
 			    DoubleLiteral(name_floor));
