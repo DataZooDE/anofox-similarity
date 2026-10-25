@@ -1,0 +1,172 @@
+# name: test/sql/coverage/r3/tree_store_regressions.test
+# description: Robustness of the property-tree store (REVIEW_LOG R3-2): nesting and depth
+#              limits, stage-1/stage-2 consistency on broken trees, JSON edge cases, views.
+# group: [coverage]
+
+require anofox_similarity
+
+# deeply nested JSON is a clean error, not a crash
+statement error
+SELECT tree_from_json('{"root":' || repeat('[', 500000) || repeat(']', 500000) || '}');
+----
+nested too deeply
+
+# a 100 000-level chain from a table is a clean error in every function (limit 1000 levels)
+statement ok
+CREATE TABLE chain AS
+SELECT 'C' AS tree_id, 'n' || i AS node_id, CASE WHEN i = 0 THEN NULL ELSE 'n' || (i - 1) END AS parent_id,
+       CASE WHEN i = 99999 THEN 'item' ELSE 'container' END AS node_kind, 'AND' AS edge_type, 'x' AS label,
+       CASE WHEN i = 99999 THEN 'seat_track' END AS class_id, 1.0 AS count
+FROM range(100000) t(i);
+
+statement error
+SELECT * FROM tree_class_multiset('chain');
+----
+deeper than 1000 levels
+
+query T
+SELECT DISTINCT issue FROM validate_trees('chain') WHERE severity = 'error';
+----
+too_deep
+
+# a 300-level chain works everywhere and agrees between stage 1 and stage 2
+statement ok
+CREATE TABLE chain300 AS SELECT * FROM chain WHERE CAST(substr(node_id, 2) AS INT) < 300;
+
+statement ok
+UPDATE chain300 SET node_kind = 'item', class_id = 'seat_track' WHERE node_id = 'n299';
+
+query TR
+SELECT feature_id, weight FROM tree_class_multiset('chain300');
+----
+seat_track	1.0
+
+query I
+SELECT depth FROM tree_anchors('chain300');
+----
+299
+
+# stage 1 sees what stage 2 sees: an orphan and a duplicate row do not count
+statement ok
+CREATE TABLE broken AS SELECT * FROM (VALUES
+    ('X', 'X', NULL, 'container', 'AND', 'root', NULL, 1.0),
+    ('X', 'X.1', 'X', 'item', 'AND', 'ok', 'seat_track', 1.0),
+    ('X', 'X.1', 'X', 'item', 'AND', 'duplicate row', 'seat_track', 1.0),
+    ('X', 'X.2', 'X.9', 'item', 'AND', 'orphan', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query TR
+SELECT feature_id, weight FROM tree_class_multiset('broken');
+----
+seat_track	1.0
+
+query I
+SELECT count(*) FROM tree_anchors('broken');
+----
+1
+
+# validate_trees(tree_ids := ...) filters attributes too
+statement ok
+CREATE TABLE ok_nodes AS SELECT * FROM (VALUES
+    ('A', 'A', NULL, 'container', 'AND', 'a', NULL, 1.0), ('A', 'A.1', 'A', 'item', 'AND', 'a1', 'seat_track', 1.0),
+    ('B', 'B', NULL, 'container', 'AND', 'b', NULL, 1.0), ('B', 'B.1', 'B', 'item', 'AND', 'b1', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE ok_attrs AS SELECT * FROM (VALUES ('A', 'A.1', 'a1', 'travel', 'length', 0.2, 0.2),
+                                              ('B', 'B.1', 'a1', 'travel', 'length', 0.2, 0.2))
+    t(tree_id, node_id, attr_id, name, dimension, lo, hi);
+
+query I
+SELECT count(*) FROM validate_trees('ok_nodes', 'ok_attrs', tree_ids := ['A']);
+----
+0
+
+# below a cycle: the descendants are unreachable
+statement ok
+CREATE TABLE below_cycle AS SELECT * FROM (VALUES
+    ('Y', 'Y', NULL, 'container', 'AND', 'root', NULL, 1.0),
+    ('Y', 'Y.a', 'Y.b', 'container', 'AND', 'cycle a', NULL, 1.0),
+    ('Y', 'Y.b', 'Y.a', 'container', 'AND', 'cycle b', NULL, 1.0),
+    ('Y', 'Y.c', 'Y.a', 'item', 'AND', 'below the cycle', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query TT
+SELECT node_id, issue FROM validate_trees('below_cycle') ORDER BY node_id, issue;
+----
+Y.a	cycle
+Y.b	cycle
+Y.c	unreachable
+
+# ---------------------------------------------------------------- JSON edge cases
+
+# without a bound field, or with "bound": null, the text's bound is used
+query TT
+SELECT list_extract(n.attributes, 1).bound, list_extract(m.attributes, 1).bound
+FROM (SELECT unnest(tree_from_json('{"root": {"node_id": "X", "kind": "item", "attributes": [
+        {"name": "I", "text": "max. 3 A", "lo": 3, "unit": "A"}]}}')) AS n),
+     (SELECT unnest(tree_from_json('{"root": {"node_id": "X", "kind": "item", "attributes": [
+        {"name": "I", "text": "max. 3 A", "lo": 3, "unit": "A", "bound": null}]}}')) AS m);
+----
+at_most	at_most
+
+# a lone surrogate is invalid JSON
+statement error
+SELECT tree_from_json('{"root": {"node_id": "\ud800", "kind": "item"}}');
+----
+surrogate
+
+# a valid surrogate pair is decoded
+query T
+SELECT n.label FROM (SELECT unnest(tree_from_json('{"root": {"node_id": "X", "kind": "item", "label": "😀"}}')) AS n);
+----
+😀
+
+# kinds are validated and lower-cased
+query T
+SELECT n.node_kind FROM (SELECT unnest(tree_from_json('{"root": {"node_id": "X", "kind": "Item"}}')) AS n);
+----
+item
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "X", "kind": "widget"}}');
+----
+node 'X': kind must be container, item or variant_group
+
+# numeric ids keep their digits
+query T
+SELECT n.node_id FROM (SELECT unnest(tree_from_json('{"root": {"node_id": 12345678901234567, "kind": "item"}}')) AS n);
+----
+12345678901234567
+
+# numbers follow the JSON grammar
+statement error
+SELECT tree_from_json('{"root": {"node_id": "X", "kind": "item", "count": 1.2.3}}');
+----
+invalid JSON
+
+# generated attribute ids do not collide with given ones; duplicate given ids are an error
+query T
+SELECT list_transform(n.attributes, x -> x.attr_id)::VARCHAR FROM (SELECT unnest(tree_from_json(
+  '{"root": {"node_id": "X", "kind": "item", "attributes": [{"name": "p"}, {"attr_id": "a1", "name": "q"}, {"name": "r"}]}}')) AS n);
+----
+[a2, a1, a3]
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "X", "kind": "item", "attributes": [{"attr_id": "k", "name": "p"}, {"attr_id": "k", "name": "q"}]}}');
+----
+duplicate attr_id 'k'
+
+# ---------------------------------------------------------------- views
+
+# a view without the optional source and context columns works
+statement ok
+CREATE TABLE base_nodes AS SELECT * FROM ok_nodes;
+
+statement ok
+CREATE VIEW v_nodes AS SELECT tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count FROM base_nodes;
+
+query I
+SELECT count(*) FROM tree_anchors('v_nodes');
+----
+2
