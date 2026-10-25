@@ -1,0 +1,267 @@
+# name: test/sql/coverage/r3/tree_store.test
+# description: Property-tree store (HLD §3.2, §4.3): tree_from_json, tree_anchors,
+#              validate_trees and tree_class_multiset on hand-made trees and the mini fixture.
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- tree_from_json
+
+# A small extracted spec: a container, a heating item with two attributes (one with
+# separate value fields, one with text only) and an OR group of two alternatives.
+statement ok
+SET VARIABLE doc = '{"tree_id": "T1", "source": "demo", "lang": "de", "root": {
+  "node_id": "T1", "kind": "container", "label": "Lastenheft", "children": [
+    {"node_id": "T1.1", "kind": "item", "label": "Sitzheizung 2 Zonen", "count": 2, "class_id": "seat_heating",
+     "context": "3.2 Sitzheizung",
+     "attributes": [
+       {"attr_id": "a1", "name": "Aufheizzeit", "text": "max. 3 min", "lo": 3, "hi": 3, "unit": "min", "bound": "at_most"},
+       {"attr_id": "a2", "name": "Strom", "text": "höchstens 7,5 A"}]},
+    {"node_id": "T1.v", "kind": "variant_group", "label": "Kopfstütze", "children": [
+       {"node_id": "T1.v1", "kind": "item", "edge": "OR", "label": "KS manuell"},
+       {"node_id": "T1.v2", "kind": "item", "edge": "OR", "label": "KS elektrisch"}]}]}}';
+
+statement ok
+CREATE TABLE t1 AS SELECT unnest(n) FROM (SELECT unnest(tree_from_json(getvariable('doc'))) AS n);
+
+query TTTTTTRTT
+SELECT tree_id, node_id, parent_id, node_kind, edge_type, label, count, class_id, source
+FROM t1 ORDER BY node_id;
+----
+T1	T1	NULL	container	AND	Lastenheft	1.0	NULL	demo
+T1	T1.1	T1	item	AND	Sitzheizung 2 Zonen	2.0	seat_heating	demo
+T1	T1.v	T1	variant_group	AND	Kopfstütze	1.0	NULL	demo
+T1	T1.v1	T1.v	item	OR	KS manuell	1.0	NULL	demo
+T1	T1.v2	T1.v	item	OR	KS elektrisch	1.0	NULL	demo
+
+# attributes come normalised: 3 min = 180 s; 'höchstens 7,5 A' is parsed from the text (lang de)
+statement ok
+CREATE TABLE t1_attrs AS SELECT node_id, unnest(attributes, recursive := true) FROM t1;
+
+query TTTTRRTTT
+SELECT node_id, attr_id, name, dimension, lo, hi, unit, bound, value_text FROM t1_attrs ORDER BY attr_id;
+----
+T1.1	a1	Aufheizzeit	time	180.0	180.0	s	at_most	max. 3 min
+T1.1	a2	Strom	current	7.5	7.5	A	at_most	höchstens 7,5 A
+
+# the tree id can be given, overriding the document
+query T
+SELECT DISTINCT n.tree_id FROM (SELECT unnest(tree_from_json(getvariable('doc'), 'SPEC-7')) AS n);
+----
+SPEC-7
+
+# NULL in, NULL out; malformed JSON is an error that says where
+query I
+SELECT tree_from_json(NULL) IS NULL;
+----
+true
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "x", ');
+----
+invalid JSON
+
+statement error
+SELECT tree_from_json('{"tree_id": "T", "root": {"kind": "item"}}');
+----
+node_id
+
+# A benchmark request: the JSON gives the same tree as the CSV tables
+statement ok
+CREATE TABLE r01 AS
+SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n
+                       FROM read_text('test/data/coverage/requests_json/R01.json'));
+
+statement ok
+CREATE TABLE r01_csv AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') WHERE tree_id = 'R01';
+
+query I
+SELECT count(*) FROM (
+    SELECT node_id, coalesce(parent_id, ''), node_kind, label FROM r01
+    EXCEPT SELECT node_id, coalesce(parent_id, ''), node_kind, label FROM r01_csv);
+----
+0
+
+query II
+SELECT (SELECT count(*) FROM r01), (SELECT count(*) FROM r01_csv);
+----
+16	16
+
+# its attributes match the verified normalised values
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_request_attributes.csv.gz') WHERE tree_id = 'R01';
+
+query II
+SELECT count(*), count(*) FILTER (WHERE abs(a.lo - g.lo) <= 1e-9 * abs(g.lo) AND a.dimension = g.dimension)
+FROM (SELECT r.node_id, unnest(r.attributes, recursive := true) FROM r01 r) a
+JOIN gold g USING (node_id, attr_id)
+WHERE g.category IS NULL;
+----
+13	13
+
+# ---------------------------------------------------------------- tree_anchors
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# one row per item; containers are transparent; the path and the OR choices are kept
+#   S2.1 sits under the container S2.g; M1.C2.A1 is an OR choice under the OR configuration M1.C2
+query TTITTRI
+SELECT tree_id, node_id, depth, anchor_path::VARCHAR, variant_path::VARCHAR, effective_count, n_attributes
+FROM tree_anchors('tree_nodes', 'tree_attributes', tree_ids := ['S2', 'M1'])
+ORDER BY tree_id, node_id;
+----
+M1	M1.C1.A1	2	[M1, M1.C1]	[M1.C1, M1.C1.A1]	1.0	2
+M1	M1.C1.A2	2	[M1, M1.C1]	[M1.C1, M1.C1.A2]	1.0	2
+M1	M1.C2.A1	2	[M1, M1.C2]	[M1.C2, M1.C2.A1]	1.0	2
+S2	S2.1	2	[S2, S2.g]	[]	2.0	2
+S2	S2.2	2	[S2, S2.g]	[]	4.0	0
+S2	S2.3	2	[S2, S2.g]	[]	1.0	1
+S2	S2.4	1	[S2]	[]	1.0	1
+
+# the combo application M3.C1.A1 is a container of AND items under OR choices
+query TTT
+SELECT node_id, class_id, variant_path::VARCHAR FROM tree_anchors('tree_nodes', tree_ids := ['M3']) ORDER BY node_id;
+----
+M3.C1.A1.h	seat_heating	[M3.C1, M3.C1.A1]
+M3.C1.A1.m	massage	[M3.C1, M3.C1.A1]
+M3.C1.A1.v	seat_ventilation	[M3.C1, M3.C1.A1]
+
+# a container with a count multiplies its items (2 identical seats)
+statement ok
+CREATE TABLE bench AS SELECT * FROM (VALUES
+    ('B', 'B', NULL, 'container', 'AND', 'bench', NULL, 1.0),
+    ('B', 'B.s', 'B', 'container', 'AND', 'seat', NULL, 2.0),
+    ('B', 'B.s.h', 'B.s', 'item', 'AND', 'heating', 'seat_heating', 2.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query R
+SELECT effective_count FROM tree_anchors('bench');
+----
+4.0
+
+# ---------------------------------------------------------------- tree_class_multiset
+
+# the mini programmes give exactly the hand-made feature multiset
+statement ok
+CREATE TABLE expected AS SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+
+query I
+SELECT count(*) FROM (
+    (SELECT entity_id, feature_id, weight FROM tree_class_multiset('tree_nodes', tree_ids := ['S1','S2','S3','S4','S5','S6'])
+     EXCEPT SELECT * FROM expected)
+    UNION ALL
+    (SELECT * FROM expected
+     EXCEPT SELECT entity_id, feature_id, weight FROM tree_class_multiset('tree_nodes', tree_ids := ['S1','S2','S3','S4','S5','S6'])));
+----
+0
+
+# counts never add across OR alternatives: M1 offers one seat track, whichever variant;
+# the combo M3 offers heating 2, ventilation 2, massage 4
+query TTR
+SELECT entity_id, feature_id, weight FROM tree_class_multiset('tree_nodes', tree_ids := ['M1', 'M3'])
+ORDER BY entity_id, feature_id;
+----
+M1	seat_track	1.0
+M3	massage	4.0
+M3	seat_heating	2.0
+M3	seat_ventilation	2.0
+
+# classes resolve: class_id, then the reviewed vocabulary, then classifier labels
+statement ok
+CREATE TABLE raw_nodes AS SELECT * FROM (VALUES
+    ('P', 'P', NULL, 'container', 'AND', 'programme', NULL, 1.0, 'internal'),
+    ('P', 'P.1', 'P', 'item', 'AND', 'Heizmatte', NULL, 2.0, 'internal'),
+    ('P', 'P.2', 'P', 'item', 'AND', 'Klimapaket Heizung', NULL, 2.0, 'internal'),
+    ('P', 'P.3', 'P', 'item', 'AND', 'Längsversteller', 'seat_track', 1.0, 'internal'),
+    ('P', 'P.4', 'P', 'item', 'AND', 'unknown thing', NULL, 1.0, 'internal'))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count, source);
+
+statement ok
+CREATE TABLE vocabulary_overrides AS SELECT * FROM (VALUES
+    ('Heizmatte', 'internal', 'seat_heating'), ('Klimapaket Heizung', 'internal', 'seat_ventilation'))
+    t(wording, source, class_id);
+
+statement ok
+CREATE TABLE labels AS SELECT * FROM (VALUES ('P', 'P.2', 'seat_heating', 0.9), ('P', 'P.4', 'armrest', 0.6))
+    t(tree_id, node_id, class_id, p);
+
+# the override beats the classifier for P.2 (ventilation, not heating); P.4 falls back to the label
+query TR
+SELECT feature_id, weight
+FROM tree_class_multiset('raw_nodes', overrides_table := 'vocabulary_overrides', label_table := 'labels')
+ORDER BY feature_id;
+----
+armrest	1.0
+seat_heating	2.0
+seat_track	1.0
+seat_ventilation	2.0
+
+# without the reviewed vocabulary the classifier's (wrong) label counts; unresolved items drop out
+query TR
+SELECT feature_id, weight FROM tree_class_multiset('raw_nodes', label_table := 'labels') ORDER BY feature_id;
+----
+armrest	1.0
+seat_heating	2.0
+seat_track	1.0
+
+# ---------------------------------------------------------------- validate_trees
+
+statement ok
+CREATE TABLE broken_nodes AS SELECT * FROM (VALUES
+    ('X', 'X', NULL, 'container', 'AND', 'root', NULL, 1.0),
+    ('X', 'X.1', 'X', 'item', 'AND', 'ok', 'seat_track', 1.0),
+    ('X', 'X.2', 'X.9', 'item', 'AND', 'orphan', 'seat_track', 1.0),
+    ('X', 'X.3', 'X', 'container', 'AND', 'container with attribute', NULL, 1.0),
+    ('X', 'X.4', 'X', 'widget', 'AND', 'bad kind', NULL, 1.0),
+    ('X', 'X.5', 'X', 'item', 'XOR', 'bad edge', NULL, 1.0),
+    ('X', 'X.6', 'X', 'item', 'AND', 'bad count', NULL, -1.0),
+    ('Y', 'Y.a', 'Y.b', 'item', 'AND', 'cycle a', NULL, 1.0),
+    ('Y', 'Y.b', 'Y.a', 'item', 'AND', 'cycle b', NULL, 1.0),
+    ('Z', 'Z1', NULL, 'container', 'AND', 'root 1', NULL, 1.0),
+    ('Z', 'Z2', NULL, 'container', 'AND', 'root 2', NULL, 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE broken_attrs AS SELECT * FROM (VALUES
+    ('X', 'X.1', 'a1', 'travel', 'length', 'm', 0.24, 0.24),
+    ('X', 'X.3', 'a1', 'travel', 'length', 'm', 0.24, 0.24),
+    ('X', 'X.1', 'a2', 'noise', NULL, 'furlongs', 3.0, 3.0),
+    ('Z', 'Z1', 'a1', 'travel', 'time', 's', 5.0, 5.0))
+    t(tree_id, node_id, attr_id, name, dimension, unit, lo, hi);
+
+# 'travel' is length in X and time in Z: every attribute of that name is flagged as mixed
+query TTTT
+SELECT tree_id, coalesce(node_id, ''), coalesce(attr_id, ''), issue
+FROM validate_trees('broken_nodes', 'broken_attrs')
+ORDER BY tree_id, issue, node_id, attr_id;
+----
+X	X.3	a1	attribute_on_container
+X	X.6		bad_count
+X	X.5		bad_edge_type
+X	X.4		bad_node_kind
+X	X.1	a1	mixed_dimensions
+X	X.3	a1	mixed_dimensions
+X	X.2		orphan
+X	X.1	a2	unknown_unit
+Y	Y.a		cycle
+Y	Y.b		cycle
+Y			no_root
+Z	Z1	a1	attribute_on_container
+Z	Z1	a1	mixed_dimensions
+Z			multiple_roots
+
+# the mini fixture and the benchmark requests are clean
+query I
+SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes');
+----
+0
+
+# invalid identifiers are rejected
+statement error
+SELECT * FROM validate_trees('tree_nodes; DROP TABLE x');
+----
+Invalid identifier
