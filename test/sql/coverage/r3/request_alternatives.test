@@ -70,7 +70,7 @@ C	1.0
 D	0.3333
 
 # the trace lists the requirements of the chosen alternative only
-query TTB
+query TTT
 SELECT candidate_id, req_node_id, is_gap
 FROM tree_coverage_trace('Q', candidates := ['A', 'B'], nodes_table := 'req', attrs_table := NULL,
                          candidate_nodes_table := 'offers', candidate_attrs_table := NULL, labels := 'hard')

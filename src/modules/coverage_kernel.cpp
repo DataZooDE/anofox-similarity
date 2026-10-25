@@ -16,6 +16,7 @@
 #include "anofox_similarity_banner.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -722,6 +723,13 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 			}
 			need[pick] -= c.count;
 			blocks[pick].push_back(&c);
+			// tied requirements in other alternatives of a request OR group exclude the pick:
+			// only one alternative counts, so the item may serve them too
+			for (auto i : tied) {
+				if (i != pick && !Compatible(Q.items[i], Q.items[pick])) {
+					blocks[i].push_back(&c);
+				}
+			}
 		}
 		for (idx_t i = 0; i < Q.items.size(); i++) {
 			finish(results[i], blocks[i]);
@@ -735,11 +743,60 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 			finish(r, all);
 		}
 	}
-	double total = 0;
+	// request-side OR groups: every node gives (sum of requirement scores, number of
+	// requirements); an OR group takes the alternative with the best mean (ties: the lowest
+	// alternative id). Without OR this is the mean over all items (HLD §3.2, §4.6, §11.11).
+	vector<bool> selected(results.size(), false);
+	std::function<std::pair<double, idx_t>(const vector<idx_t> &, idx_t)> aggregate =
+	    [&](const vector<idx_t> &members, idx_t level) -> std::pair<double, idx_t> {
+		double sum = 0;
+		idx_t n = 0;
+		std::map<string, std::map<string, vector<idx_t>>> groups; // OR parent -> alternative -> items
+		for (auto i : members) {
+			auto &choices = results[i].q->choices;
+			if (choices.size() <= level) {
+				selected[i] = true;
+				sum += results[i].score;
+				n++;
+			} else {
+				groups[choices[level].first][choices[level].second].push_back(i);
+			}
+		}
+		for (auto &group : groups) {
+			const vector<idx_t> *best = nullptr;
+			double best_mean = -1;
+			std::pair<double, idx_t> best_total {0, 0};
+			for (auto &alternative : group.second) {
+				vector<bool> saved = selected;
+				auto t = aggregate(alternative.second, level + 1);
+				selected = saved;
+				double mean = t.second ? t.first / double(t.second) : 1.0; // nothing required
+				if (mean > best_mean + 1e-12) {
+					best_mean = mean;
+					best = &alternative.second;
+					best_total = t;
+				}
+			}
+			aggregate(*best, level + 1); // mark the chosen alternative
+			sum += best_total.first;
+			n += best_total.second;
+		}
+		return {sum, n};
+	};
+	vector<idx_t> all_items(results.size());
+	for (idx_t i = 0; i < results.size(); i++) {
+		all_items[i] = i;
+	}
+	auto totals = aggregate(all_items, 0);
+	double total = totals.first;
+	idx_t n_requirements = totals.second;
 	int64_t gaps = 0;
 	vector<Value> trace;
-	for (auto &r : results) {
-		total += r.score;
+	for (idx_t ri = 0; ri < results.size(); ri++) {
+		auto &r = results[ri];
+		if (!selected[ri]) {
+			continue; // an alternative that was not chosen is not a requirement for this candidate
+		}
 		gaps += r.gap ? 1 : 0;
 		if (!o.trace) {
 			continue;
@@ -784,8 +841,8 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 		}
 	}
 	child_list_t<Value> out;
-	out.emplace_back("coverage", Q.items.empty() ? Value(LogicalType::DOUBLE) : Value::DOUBLE(total / Q.items.size()));
-	out.emplace_back("n_requirements", Value::BIGINT(int64_t(Q.items.size())));
+	out.emplace_back("coverage", n_requirements == 0 ? Value(LogicalType::DOUBLE) : Value::DOUBLE(total / n_requirements));
+	out.emplace_back("n_requirements", Value::BIGINT(int64_t(n_requirements)));
 	out.emplace_back("n_gaps", Value::BIGINT(gaps));
 	out.emplace_back("reviewed", Value::BOOLEAN(C.reviewed));
 	out.emplace_back("assignment_used", Value(assignment));
