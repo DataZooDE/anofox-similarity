@@ -44,7 +44,9 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity',
   -- coverage matching (R1)
   'containment','find_covering_entities','find_covering_entities_for','tversky_similarity',
-  'weighted_containment','weighted_jaccard','weighted_tversky');
+  'weighted_containment','weighted_jaccard','weighted_tversky',
+  -- coverage matching (R2)
+  'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -55,7 +57,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-44
+49
 
 # ============================================================================
 # ...and every one of them is documented
@@ -98,7 +100,7 @@ SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';
 ----
-4
+5
 
 # ============================================================================
 # Parameter names survive
@@ -181,3 +183,13 @@ query I
 SELECT parameters FROM ours WHERE function_name = 'compute_jaccard_embeddings';
 ----
 [bom_table]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'compat_score';
+----
+[dimension, required, provided, rules_table]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'value_satisfies';
+----
+[[requirement, provided], [requirement, provided, scale], [requirement, provided, scale, tol, soft_band], [requirement, provided, scale, tol, soft_band, default_bound]]
