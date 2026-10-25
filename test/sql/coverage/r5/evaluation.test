@@ -228,3 +228,44 @@ statement error
 SELECT * FROM fit_coverage_weights('reviewed_matches', label_weights := [1.5]);
 ----
 label_weights must be between 0 and 1
+
+# ---------------------------------------------------------------- green review R5-2
+
+# the queries are those with gold: a gold query without results is a miss with full regret;
+# results without gold are ignored; duplicate result rows keep the best rank
+statement ok
+CREATE TABLE results_gaps AS SELECT * FROM results WHERE query_id <> 'q3'
+UNION ALL SELECT 'q9', 'z1', 1, 0.5
+UNION ALL SELECT 'q1', 'c2', 5, 0.1;
+
+query IRR
+SELECT n_queries, round(top_k_accuracy, 6), round(mean_regret, 6) FROM eval_ranking('results_gaps', 'gold', k := [2]);
+----
+3	0.666667	0.466667
+
+# one top-1 pick per query, even with duplicate rank-1 rows
+statement ok
+CREATE TABLE picks_dup AS SELECT * FROM picks UNION ALL SELECT 'q5', 'zz', 1, 0.99;
+
+query I
+SELECT n_queries FROM threshold_at_precision('picks_dup', 'picks_gold', target_precision := 0.75);
+----
+5
+
+# bootstrap: NULL clusters are an error; n x clusters is bounded
+statement ok
+CREATE TABLE null_cluster AS SELECT * FROM per_query UNION ALL SELECT NULL, 'q5', 1.0, 1.0;
+
+statement error
+SELECT * FROM bootstrap_ci('null_cluster', 'maker', metrics := ['hit']);
+----
+cluster_col must not be NULL
+
+# the fit reports reviewed pairs it cannot resolve
+statement ok
+CREATE TABLE reviewed_missing AS SELECT * FROM reviewed_matches UNION ALL SELECT 'Q1', 'NOPE', 0.5;
+
+query II
+SELECT n_pairs, n_unresolved FROM fit_coverage_weights('reviewed_missing', label_weights := [0.0], mus := [0.0]);
+----
+6	1

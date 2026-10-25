@@ -159,3 +159,54 @@ SELECT bool_or(entity_id = 'e17' AND rank = 1), any_value(n_candidates) < 200
 FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8);
 ----
 true	true
+
+# ---------------------------------------------------------------- green review R5-2
+
+# a stored band table makes the search a hash join (sub-linear); the results are the same
+statement ok
+CREATE TABLE raw_bands AS SELECT * FROM minhash_bands('raw_idx');
+
+query I
+SELECT count(*) = (SELECT count(*) FROM raw_idx) * (64 + 32 + 16 + 8) * 2 FROM raw_bands;
+----
+true
+
+query I
+SELECT count(*) FROM (
+    SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8)
+    EXCEPT
+    SELECT query_id, entity_id, rank FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 5, threshold := 0.8, bands_table := 'raw_bands'));
+----
+0
+
+# negative weights are an error in the index and in the queries
+statement ok
+CREATE TABLE neg AS SELECT 'e' AS entity_id, 'f' AS feature_id, -1.0 AS weight;
+
+statement error
+SELECT * FROM minhash_index(feature_table := 'neg');
+----
+weights must not be negative
+
+statement ok
+CREATE TABLE neg_q AS SELECT 'q' AS query_id, 'f0' AS feature_id, -2.0 AS weight;
+
+statement error
+SELECT * FROM find_covering_entities_lsh('neg_q', 'raw_idx');
+----
+weights must not be negative
+
+# an index mixing signature settings is an error
+statement ok
+CREATE TABLE mixed_idx AS SELECT * FROM raw_idx UNION ALL SELECT * REPLACE (seed + 1 AS seed, entity_id || 'x' AS entity_id) FROM raw_idx LIMIT 3000;
+
+statement error
+SELECT * FROM find_covering_entities_lsh('raw_q', 'mixed_idx');
+----
+one num_hashes and seed
+
+# extreme weights do not overflow
+query I
+SELECT len(weighted_minhash(MAP {'a': 1e300, 'b': 1e-300}, 16));
+----
+16

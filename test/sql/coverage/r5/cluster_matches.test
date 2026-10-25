@@ -70,3 +70,36 @@ query I
 SELECT count(*) FROM cluster_matches('no_pairs');
 ----
 0
+
+# ---------------------------------------------------------------- green review R5-2
+
+# malformed input is a clean error and the database stays usable
+statement error
+SELECT connected_components(42);
+----
+connected_components: pairs must be a LIST of STRUCT
+
+statement error
+SELECT connected_components(['a']);
+----
+connected_components: pairs must be a LIST of STRUCT
+
+statement error
+SELECT connected_components([{'a': 'x'}]);
+----
+at least two fields
+
+query I
+SELECT 1;
+----
+1
+
+# scale: 100 000 pairs in one call (chains of 10 entities)
+statement ok
+CREATE TABLE big_pairs AS SELECT 'n' || i AS a, 'n' || (i + 1) AS b, CASE WHEN i % 10 = 9 THEN 0.1 ELSE 0.9 END AS score
+FROM range(100000) t(i);
+
+query II
+SELECT count(DISTINCT cluster_id), max(cluster_size) FROM cluster_matches('big_pairs', threshold := 0.5);
+----
+10001	10
