@@ -704,3 +704,6 @@ precedence over the text above.
       with full regret; duplicate result rows keep the best rank. `threshold_at_precision`
       takes one top-1 pick per query. `minhash_bands` stores the band hashes in long form for
       a hash-join search (`bands_table`).
+14. **Tree depth limit (CI, Windows).** `MAX_TREE_DEPTH` is 256 levels, not 1000: the
+    recursive JSON reader and tree builder must stay within a 1 MB thread stack (Windows), and
+    specification trees are typically 4–20 levels deep. Every function shares the limit.

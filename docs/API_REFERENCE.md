@@ -1510,7 +1510,8 @@ SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content, NULL, 'de')) AS n F
 vocabulary: `wording` matched exactly against `label`; a NULL `source` matches any source) →
 `label_table` (classifier output `tree_id, node_id, class_id, p`: arg-max, ties to the lowest
 class). A tree is *reviewed* when every item got its class from `class_id` or the vocabulary.
-Trees deeper than 1000 levels are rejected (`tree_anchors` stops there).
+Trees deeper than 256 levels are rejected (`tree_anchors` stops there); specification trees are
+typically 4–20 levels deep.
 
 ### Coverage: tree_coverage, tree_coverage_trace, coverage_recall
 

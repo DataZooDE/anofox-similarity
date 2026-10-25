@@ -11,7 +11,7 @@ SELECT tree_from_json('{"root":' || repeat('[', 500000) || repeat(']', 500000) |
 ----
 nested too deeply
 
-# a 100 000-level chain from a table is a clean error in every function (limit 1000 levels)
+# a 100 000-level chain from a table is a clean error in every function (limit 256 levels)
 statement ok
 CREATE TABLE chain AS
 SELECT 'C' AS tree_id, 'n' || i AS node_id, CASE WHEN i = 0 THEN NULL ELSE 'n' || (i - 1) END AS parent_id,
@@ -22,29 +22,29 @@ FROM range(100000) t(i);
 statement error
 SELECT * FROM tree_class_multiset('chain');
 ----
-deeper than 1000 levels
+deeper than 256 levels
 
 query T
 SELECT DISTINCT issue FROM validate_trees('chain') WHERE severity = 'error';
 ----
 too_deep
 
-# a 300-level chain works everywhere and agrees between stage 1 and stage 2
+# a 200-level chain works everywhere and agrees between stage 1 and stage 2
 statement ok
-CREATE TABLE chain300 AS SELECT * FROM chain WHERE CAST(substr(node_id, 2) AS INT) < 300;
+CREATE TABLE chain200 AS SELECT * FROM chain WHERE CAST(substr(node_id, 2) AS INT) < 200;
 
 statement ok
-UPDATE chain300 SET node_kind = 'item', class_id = 'seat_track' WHERE node_id = 'n299';
+UPDATE chain200 SET node_kind = 'item', class_id = 'seat_track' WHERE node_id = 'n199';
 
 query TR
-SELECT feature_id, weight FROM tree_class_multiset('chain300');
+SELECT feature_id, weight FROM tree_class_multiset('chain200');
 ----
 seat_track	1.0
 
 query I
-SELECT depth FROM tree_anchors('chain300');
+SELECT depth FROM tree_anchors('chain200');
 ----
-299
+199
 
 # stage 1 sees what stage 2 sees: an orphan and a duplicate row do not count
 statement ok
@@ -218,3 +218,10 @@ query TT
 SELECT class_id, reviewed FROM tree_anchors('src_nodes', overrides_table := 'ov_nosource');
 ----
 seat_heating	true
+
+# a 200-level tree loads from JSON (the reader and builder stay within a 1 MB stack)
+query I
+SELECT len(tree_from_json('{"root": ' || (SELECT string_agg('{"node_id": "n' || i || '", "children": [', '' ORDER BY i) FROM range(200) t(i))
+                          || '{"node_id": "leaf", "kind": "item"}' || repeat(']}', 200) || '}'));
+----
+201

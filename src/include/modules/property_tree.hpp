@@ -12,7 +12,9 @@ namespace anofox {
 //! The deepest tree any function follows (levels below the root). tree_from_json,
 //! tree_multiset and tree_class_multiset reject deeper trees; tree_anchors stops there;
 //! validate_trees reports too_deep.
-constexpr idx_t MAX_TREE_DEPTH = 1000;
+//! 256 keeps the recursive JSON reader and tree builder within a 1 MB thread stack (Windows);
+//! specification trees are typically 4-20 levels deep.
+constexpr idx_t MAX_TREE_DEPTH = 256;
 
 //! Where the nodes of a set of trees come from and how their classes resolve.
 struct TreeSource {
