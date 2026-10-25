@@ -31,12 +31,16 @@ statement ok
 CREATE TABLE deep_attrs AS SELECT 'D' AS tree_id, * EXCLUDE (tree_id) FROM tree_attributes WHERE tree_id = 'Q1';
 
 # S1 is flat, S2 has a group level: the deep spec gets exactly the coverage of Q1
-query I
-SELECT count(*) FROM (
-    SELECT candidate_id, coverage FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3'])
-    EXCEPT
-    SELECT candidate_id, coverage FROM tree_coverage('D', candidates := ['S1', 'S2', 'S3'], nodes_table := 'deep_nodes',
-                                                     attrs_table := 'deep_attrs', candidate_nodes_table := 'tree_nodes',
-                                                     candidate_attrs_table := 'tree_attributes'));
+statement ok
+CREATE TABLE flat AS SELECT candidate_id, coverage FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3']);
+
+statement ok
+CREATE TABLE deep AS SELECT candidate_id, coverage FROM tree_coverage('D', candidates := ['S1', 'S2', 'S3'],
+       nodes_table := 'deep_nodes', attrs_table := 'deep_attrs', candidate_nodes_table := 'tree_nodes',
+       candidate_attrs_table := 'tree_attributes');
+
+query III
+SELECT (SELECT count(*) FROM deep), (SELECT count(*) FROM (SELECT * FROM flat EXCEPT SELECT * FROM deep)),
+       (SELECT count(*) FROM (SELECT * FROM deep EXCEPT SELECT * FROM flat));
 ----
-0
+3	0	0

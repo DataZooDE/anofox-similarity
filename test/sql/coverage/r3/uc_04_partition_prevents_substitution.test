@@ -1,7 +1,7 @@
 # name: test/sql/coverage/r3/uc_04_partition_prevents_substitution.test
 # description: With a reviewed archive, an offer item may only stand in for the requirement of
 #              its own class (BR-06): a programme without massage cannot cover massage with its
-#              lumbar support, and one item cannot serve two requirements.
+#              lumbar support.
 # group: [coverage]
 
 require anofox_similarity

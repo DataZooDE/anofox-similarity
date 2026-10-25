@@ -36,7 +36,8 @@ S2	0.5	1.01	4	4	2	true	partition
 S4	0.125	0.25167	5	4	4	true	partition
 S5	0.0	0.12611	6	4	4	true	partition
 
-# without explicit candidates, stage 1 picks the top k from the candidate table
+# without explicit candidates, stage 1 picks the top k from the candidate table; the query tree
+# itself is never its own candidate
 query TR
 SELECT candidate_id, coverage FROM tree_coverage('Q1', k := 3, mu := 0.0,
        candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes')
@@ -182,6 +183,40 @@ SELECT (SELECT coverage FROM tree_coverage('F', candidates := ['S5'], nodes_tabl
 ----
 0.5	1.0
 
+# label_weight (lambda in HLD §4.6) adds label credit that does not depend on the values:
+#   Q1 vs S2 with label_weight 0.3: heating 0.3 + 0.7*0 = 0.3; massage 1; headrest 0.3; memory 1
+#   -> (0.3 + 1 + 0.3 + 1) / 4 = 0.65
+query R
+SELECT coverage FROM tree_coverage('Q1', candidates := ['S2'], mu := 0.0, label_weight := 0.3);
+----
+0.65
+
+# OR alternatives are options, not instances: under partition, both seats may use the module
+# M1 and each picks its best variant (HLD §4.6 'best variant per requirement', §11.9)
+query R
+SELECT coverage FROM tree_coverage('F', candidates := ['M1'], nodes_table := 'two_seats', attrs_table := NULL,
+                                   candidate_nodes_table := 'tree_nodes', candidate_attrs_table := NULL,
+                                   assignment := 'partition');
+----
+1.0
+
+# count_gate: with soft labels below the gate, the climate module does not count towards the
+# ventilation requirement's number of instances (L 0.6325 < 0.7 -> 0 available -> 0)
+query R
+SELECT round(coverage, 4) FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels',
+       assignment := 'best_match', count_gate := 0.7);
+----
+0.3873
+
+# partition_gate: an item whose best label agreement is below the gate joins no block
+query R
+SELECT coverage FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels',
+       assignment := 'partition', partition_gate := 0.8);
+----
+0.0
+
 # ---------------------------------------------------------------- unqualified values and default bounds
 
 # an unqualified noise of 38 dB(A) against 36 dB(A): as a point it misses (outside ±1 %); with the
@@ -253,9 +288,9 @@ SELECT * FROM tree_coverage('Q1', candidates := ['S1'], labels := 'fuzzy');
 labels must be 'soft' or 'hard'
 
 statement error
-SELECT * FROM tree_coverage('Q1', candidates := ['S1'], lambda := 1.5);
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], label_weight := 1.5);
 ----
-lambda must be between 0 and 1
+label_weight must be between 0 and 1
 
 statement error
 SELECT * FROM tree_coverage('Q1', candidates := ['S1'], candidate_nodes_table := 'x; DROP TABLE y');

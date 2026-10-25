@@ -6,7 +6,8 @@
 
 require anofox_similarity
 
-# The open requests: items labelled by upstream extraction, values parsed from the text
+# The open requests, values parsed from the text. Until R4's classifier, the items' classes come
+# from the benchmark's labels, standing in for an upstream labelling step (README: gold files)
 statement ok
 CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
 
