@@ -1,0 +1,118 @@
+# name: test/sql/coverage/r3/uc_07_unreviewed_labels_failure_mode.test
+# description: Before the vocabulary review, the archive's classes come from reading the
+#              internal wordings at face value; a few misleading wordings mislabel modules.
+#              The data team checks the documented failure mode (BRD risk R1): containment then
+#              recalls the best programme less often than weighted Jaccard, so mode 'auto' uses
+#              Jaccard until the vocabulary is reviewed.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests: items labelled by upstream extraction, values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+# the face-value reading of each wording (what an unreviewed classifier would say)
+statement ok
+CREATE TABLE face_value AS
+SELECT n.tree_id, n.node_id, v.apparent_class_id AS class_id, 1.0 AS p
+FROM prog_nodes n JOIN read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz') v
+  ON v.wording = n.label AND v.source = n.source
+WHERE n.node_kind = 'item';
+
+statement ok
+CREATE TABLE recall_c AS
+SELECT * FROM coverage_recall(getvariable('request_ids'), k := 20, mode := 'containment',
+       nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes', label_table := 'face_value');
+
+statement ok
+CREATE TABLE recall_j AS
+SELECT * FROM coverage_recall(getvariable('request_ids'), k := 20, mode := 'jaccard',
+       nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes', label_table := 'face_value');
+
+statement ok
+CREATE MACRO recall_at_20(t) AS TABLE
+SELECT avg(hit::INT) AS recall FROM (
+    SELECT q.request_id, bool_or(g.true_coverage >= q.best_coverage - 1e-9) AS hit
+    FROM gold_requests q JOIN query_table(t) r ON r.query_id = q.request_id
+    JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+    GROUP BY q.request_id);
+
+# unreviewed labels: containment recalls the best candidate less often than Jaccard
+query I
+SELECT (SELECT recall FROM recall_at_20('recall_c')) < (SELECT recall FROM recall_at_20('recall_j'));
+----
+true
+
+# so mode auto picks Jaccard for an unreviewed archive ...
+query T
+SELECT DISTINCT mode_used FROM coverage_recall(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes', label_table := 'face_value');
+----
+jaccard
+
+# ... and containment once the vocabulary is reviewed, which then recalls more than Jaccard
+statement ok
+CREATE TABLE recall_rc AS
+SELECT * FROM coverage_recall(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes', overrides_table := 'vocabulary_overrides');
+
+statement ok
+CREATE TABLE recall_rj AS
+SELECT * FROM coverage_recall(getvariable('request_ids'), k := 20, mode := 'jaccard',
+       nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes', overrides_table := 'vocabulary_overrides');
+
+query TI
+SELECT (SELECT DISTINCT mode_used FROM recall_rc),
+       (SELECT recall FROM recall_at_20('recall_rc')) > (SELECT recall FROM recall_at_20('recall_rj'));
+----
+containment	true

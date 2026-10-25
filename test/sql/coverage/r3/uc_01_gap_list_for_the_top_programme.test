@@ -1,0 +1,125 @@
+# name: test/sql/coverage/r3/uc_01_gap_list_for_the_top_programme.test
+# description: A request cannot be met by any past programme. The sales engineer takes the
+#              best-ranked programme and lists its gaps: which requirement fails, on which
+#              attribute, by how much. The gaps are exactly where the customer asked for more
+#              than any module provides.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests: items labelled by upstream extraction, values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+# the first unmeetable request
+statement ok
+SET VARIABLE rid = (SELECT min(request_id) FROM gold_requests WHERE is_unmeetable);
+
+statement ok
+SET VARIABLE top = (SELECT candidate_id FROM tree_coverage(getvariable('rid'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor')) WHERE rank = 1);
+
+statement ok
+CREATE TABLE gaps AS
+SELECT * FROM tree_coverage_trace(getvariable('rid'), candidates := [getvariable('top')],
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
+WHERE is_gap;
+
+# there are gaps, and each says why: no counterpart, a count shortfall or a failing value
+query I
+SELECT count(*) > 0 AND bool_and(matched_node_id IS NULL OR count_available < count_needed OR value_score < 1)
+FROM gaps;
+----
+true
+
+# every attribute the customer stretched beyond every module is in the gap list, failing,
+# with a positive distance
+statement ok
+CREATE TABLE stretched AS
+SELECT g.node_id, g.attr_id FROM read_csv_auto('test/data/coverage/gold_request_attributes.csv.gz') g
+WHERE g.tree_id = getvariable('rid') AND g.stretched AND g.category IS NULL
+  AND (g.bound IN ('at_least', 'within') AND g.hi > (SELECT max(hi) FROM prog_attrs p WHERE p.attr_id = g.attr_key AND p.dimension = g.dimension)
+       OR g.bound = 'at_most' AND g.lo < (SELECT min(lo) FROM prog_attrs p WHERE p.attr_id = g.attr_key AND p.dimension = g.dimension));
+
+query I
+SELECT count(*) > 0 FROM stretched;
+----
+true
+
+query I
+SELECT count(*) FROM stretched s
+WHERE NOT EXISTS (SELECT 1 FROM gaps t WHERE t.req_node_id = s.node_id AND t.attr_id = s.attr_id
+                  AND t.value_score < 1 AND t.distance > 0);
+----
+0
+
+# the coverage of the top programme agrees with the trace: mean of the requirement scores
+query I
+SELECT abs((SELECT coverage FROM tree_coverage(getvariable('rid'), candidates := [getvariable('top')],
+                   nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor')))
+           - (SELECT avg(req_score) FROM (SELECT DISTINCT req_node_id, req_score
+                  FROM tree_coverage_trace(getvariable('rid'), candidates := [getvariable('top')],
+                       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))))) < 1e-9;
+----
+true

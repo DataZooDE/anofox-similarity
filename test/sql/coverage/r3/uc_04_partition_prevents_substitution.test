@@ -1,0 +1,42 @@
+# name: test/sql/coverage/r3/uc_04_partition_prevents_substitution.test
+# description: With a reviewed archive, an offer item may only stand in for the requirement of
+#              its own class (BR-06): a programme without massage cannot cover massage with its
+#              lumbar support, and one item cannot serve two requirements.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# a request for heating and massage; a reviewed programme with heating and a lumbar support
+statement ok
+CREATE TABLE req AS SELECT * FROM (VALUES
+    ('RQ', 'RQ', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('RQ', 'RQ.h', 'RQ', 'item', 'AND', 'heating', 'seat_heating', 1.0),
+    ('RQ', 'RQ.m', 'RQ', 'item', 'AND', 'massage', 'massage', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE prog AS SELECT * FROM (VALUES
+    ('PG', 'PG', NULL, 'container', 'AND', 'programme', NULL, 1.0),
+    ('PG', 'PG.h', 'PG', 'item', 'AND', 'Heizmatte', 'seat_heating', 1.0),
+    ('PG', 'PG.l', 'PG', 'item', 'AND', 'Lordosenmodul', 'lumbar_support', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+# massage is a gap: 0.5, partition (the programme is reviewed)
+query RTT
+SELECT coverage, assignment_used, reviewed FROM tree_coverage('RQ', candidates := ['PG'], nodes_table := 'req',
+       attrs_table := NULL, candidate_nodes_table := 'prog', candidate_attrs_table := NULL);
+----
+0.5	partition	true
+
+query T
+SELECT req_node_id FROM tree_coverage_trace('RQ', candidates := ['PG'], nodes_table := 'req', attrs_table := NULL,
+                                            candidate_nodes_table := 'prog', candidate_attrs_table := NULL)
+WHERE is_gap;
+----
+RQ.m

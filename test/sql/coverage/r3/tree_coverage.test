@@ -1,0 +1,273 @@
+# name: test/sql/coverage/r3/tree_coverage.test
+# description: Stage-2 coverage kernel (HLD §4.6 with the §11 amendments): tree_coverage,
+#              tree_coverage_trace and coverage_recall on the mini fixture. Expected values are
+#              computed by hand; mu := 0 isolates the value rules unless stated otherwise.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# Q1 asks for: heating x2 (time to 37 °C <= 180 s, current <= 8 A), massage x4,
+# powered headrest (height travel >= 0.06 m), memory (>= 8 ways).
+#   S1: heating 150 s / 6 A, massage 4, headrest 0.07 m, memory 10        -> 1 + 1 + 1 + 1   = 1.0
+#   S2: heating 240 s (d 0.333 -> 0) / 9 A (d 0.125 -> 0) -> 0; massage 1;
+#       headrest 0.05 m (d 0.167 -> 0); memory 8 -> 1                     -> (0+1+0+1)/4     = 0.5
+#   S3: heating 1; massage 2 of 4 -> 0.5; headrest 0.06 -> 1; no memory 0 -> (1+0.5+1+0)/4   = 0.625
+#   S4: heating 4 zones, 160 s ok, 10 A (d 0.25 -> 0) -> a 0.5; nothing else -> 0.5/4       = 0.125
+#   S5: memory 6 ways (d 0.25 -> 0); nothing else                          -> 0
+#   S6: heating 150 s / 6 A, massage 4, headrest 0.07, memory 12          -> 1.0
+# stage-1 score (containment + 0.01 jaccard over class multisets): S2 1.01, S1 1.00889, S6 1.00667,
+# S3 0.63125, S4 0.25167, S5 0.12611; rank score = coverage + 0.05 * stage-1 score:
+#   S1 1.05044, S6 1.05033, S3 0.65656, S2 0.5505, S4 0.13758, S5 0.00631
+query TRRIIITT
+SELECT candidate_id, coverage, round(stage1_score, 5), rank, n_requirements, n_gaps, reviewed, assignment_used
+FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'], mu := 0.0)
+ORDER BY rank;
+----
+S1	1.0	1.00889	1	4	0	true	partition
+S6	1.0	1.00667	2	4	0	true	partition
+S3	0.625	0.63125	3	4	2	true	partition
+S2	0.5	1.01	4	4	2	true	partition
+S4	0.125	0.25167	5	4	4	true	partition
+S5	0.0	0.12611	6	4	4	true	partition
+
+# without explicit candidates, stage 1 picks the top k from the candidate table
+query TR
+SELECT candidate_id, coverage FROM tree_coverage('Q1', k := 3, mu := 0.0,
+       candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes')
+WHERE candidate_id LIKE 'S%' ORDER BY rank;
+----
+S1	1.0
+S6	1.0
+S2	0.5
+
+# a seat-track requirement (travel >= 0.24 m, noise <= 38 dB(A)) against the OR module M1:
+# the best variant counts (BR-05): M1.C2.A1 (0.25 m, 36 dB(A)) meets both -> 1.0
+#   (M1.C1.A1: travel 0.22 -> 0.2335, noise ok -> 0.617; M1.C1.A2: noise 41 -> 0 -> 0.5)
+query TR
+SELECT candidate_id, round(coverage, 4) FROM tree_coverage('Q2', candidates := ['M1', 'S5'], mu := 0.0) ORDER BY rank;
+----
+M1	1.0
+S5	0.6167
+
+# ---------------------------------------------------------------- the attribute-name discount
+
+# with the default mu = 0.2 and no name vectors, names compare by token overlap:
+#   'Verstellweg' = 'Verstellweg' -> 1; 'Geräusch' vs 'Betriebsgeräusch' -> no shared token -> 0
+#   attr = (0.2 * s + 0.8) * value: travel 1.0, noise 0.8 -> a = 0.9
+query R
+SELECT coverage FROM tree_coverage('Q2', candidates := ['S1']);
+----
+0.9
+
+# ---------------------------------------------------------------- trace and gaps
+
+# the gap list for S2: what fails, by how much (BR-21, BR-22)
+query TTTTRRT
+SELECT req_node_id, matched_node_id, attr_id, rule, value_score, round(distance, 4), is_gap
+FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
+ORDER BY req_node_id, attr_id;
+----
+Q1.1	S2.1	a1	at_most	0.0	0.3333	true
+Q1.1	S2.1	a2	at_most	0.0	0.125	true
+Q1.2	S2.2	NULL	NULL	NULL	NULL	false
+Q1.3	S2.3	a1	at_least	0.0	0.1667	true
+Q1.4	S2.4	a1	at_least	1.0	0.0	false
+
+# counts in the trace: S3 has 2 of the 4 massage zones; S3 has no memory module at all
+query TRRRT
+SELECT req_node_id, count_needed, count_available, req_score, is_gap
+FROM tree_coverage_trace('Q1', candidates := ['S3'], mu := 0.0)
+WHERE req_node_id IN ('Q1.2', 'Q1.4')
+ORDER BY req_node_id;
+----
+Q1.2	4.0	2.0	0.5	true
+Q1.4	1.0	0.0	0.0	true
+
+query TT
+SELECT req_node_id, coalesce(matched_node_id, '-') FROM tree_coverage_trace('Q1', candidates := ['S3'], mu := 0.0)
+WHERE req_node_id = 'Q1.4';
+----
+Q1.4	-
+
+# the trace shows the chosen variant of an OR module and its path
+query TTT
+SELECT DISTINCT matched_node_id, matched_path, req_value
+FROM tree_coverage_trace('Q2', candidates := ['M1'], mu := 0.0) WHERE attr_id = 'a2';
+----
+M1.C2.A1	M1/M1.C2/M1.C2.A1	at_most 38 dB(A)
+
+# ---------------------------------------------------------------- coarse requests
+
+# Q3 states classes only (2 heated + 2 ventilated zones): coverage counts classes and counts
+#   S4 heat 4 / vent 2 -> 1; S6 heat 2 / vent 2 -> 1; S1 heat 2, no ventilation -> 0.5
+query TR
+SELECT candidate_id, coverage FROM tree_coverage('Q3', candidates := ['S1', 'S4', 'S6']) ORDER BY candidate_id;
+----
+S1	0.5
+S4	1.0
+S6	1.0
+
+# ---------------------------------------------------------------- partition vs best match
+
+# A request for heating and ventilation; the offer's only item is a climate module whose
+# label is uncertain (classifier: heating 0.6, ventilation 0.4). Soft labels (HANDOVER §7.5):
+#   L(heating, c) = sqrt(0.6) = 0.7746, L(ventilation, c) = sqrt(0.4) = 0.6325
+#   best match: both requirements may use c -> (0.7746 + 0.6325) / 2 = 0.7035
+#   partition: c goes to its arg-max block (heating) -> ventilation is a gap -> 0.7746 / 2 = 0.3873
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM (VALUES
+    ('R', 'R', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('R', 'R.h', 'R', 'item', 'AND', 'seat heating', 'seat_heating', 1.0),
+    ('R', 'R.v', 'R', 'item', 'AND', 'seat ventilation', 'seat_ventilation', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE offer_nodes AS SELECT * FROM (VALUES
+    ('C', 'C', NULL, 'container', 'AND', 'offer', NULL, 1.0),
+    ('C', 'C.1', 'C', 'item', 'AND', 'Klimapaket Heizung', NULL, 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE offer_labels AS SELECT * FROM (VALUES
+    ('C', 'C.1', 'seat_heating', 0.6), ('C', 'C.1', 'seat_ventilation', 0.4)) t(tree_id, node_id, class_id, p);
+
+query TRT
+SELECT a, round(coverage, 4), assignment_used FROM (
+    SELECT 'best_match' AS a, * FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+           candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels',
+           assignment := 'best_match')
+    UNION ALL
+    SELECT 'partition', * FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+           candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels',
+           assignment := 'partition')
+    UNION ALL
+    SELECT 'auto', * FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+           candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels'))
+ORDER BY a;
+----
+auto	0.7035	best_match
+best_match	0.7035	best_match
+partition	0.3873	partition
+
+# hard labels use the arg-max class: heating 1 for heating, 0 for ventilation -> 0.5 in both modes
+query R
+SELECT coverage FROM tree_coverage('R', candidates := ['C'], nodes_table := 'req_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'offer_nodes', candidate_attrs_table := NULL, label_table := 'offer_labels',
+       labels := 'hard', assignment := 'best_match');
+----
+0.5
+
+# one offer item serves one request block (HANDOVER §7.3): a driver and a passenger seat track
+# requirement against an offer with a single seat track -> partition 0.5, best match 1.0
+statement ok
+CREATE TABLE two_seats AS SELECT * FROM (VALUES
+    ('F', 'F', NULL, 'container', 'AND', 'front row', NULL, 1.0),
+    ('F', 'F.d', 'F', 'item', 'AND', 'driver seat track', 'seat_track', 1.0),
+    ('F', 'F.p', 'F', 'item', 'AND', 'passenger seat track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query RR
+SELECT (SELECT coverage FROM tree_coverage('F', candidates := ['S5'], nodes_table := 'two_seats', attrs_table := NULL,
+                                           candidate_nodes_table := 'tree_nodes', candidate_attrs_table := NULL,
+                                           assignment := 'partition')),
+       (SELECT coverage FROM tree_coverage('F', candidates := ['S5'], nodes_table := 'two_seats', attrs_table := NULL,
+                                           candidate_nodes_table := 'tree_nodes', candidate_attrs_table := NULL,
+                                           assignment := 'best_match'));
+----
+0.5	1.0
+
+# ---------------------------------------------------------------- unqualified values and default bounds
+
+# an unqualified noise of 38 dB(A) against 36 dB(A): as a point it misses (outside ±1 %); with the
+# catalogue template's direction (at_most) it is met (HLD §11.1)
+statement ok
+CREATE TABLE unq_nodes AS SELECT * FROM (VALUES
+    ('U', 'U', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('U', 'U.1', 'U', 'item', 'AND', 'seat track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE unq_attrs AS SELECT * FROM (VALUES
+    ('U', 'U.1', 'a1', 'Geräusch', 'sound_level', 'dB(A)', 38.0, 38.0, NULL))
+    t(tree_id, node_id, attr_id, name, dimension, unit, lo, hi, bound);
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+query RR
+SELECT (SELECT coverage FROM tree_coverage('U', candidates := ['S1'], nodes_table := 'unq_nodes', attrs_table := 'unq_attrs',
+                                           candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes',
+                                           mu := 0.0)),
+       (SELECT coverage FROM tree_coverage('U', candidates := ['S1'], nodes_table := 'unq_nodes', attrs_table := 'unq_attrs',
+                                           candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes',
+                                           mu := 0.0, default_bounds := 'catalogue', templates_table := 'templates'));
+----
+0.0	1.0
+
+# ---------------------------------------------------------------- several queries at once
+
+query TTR
+SELECT query_id, candidate_id, coverage FROM tree_coverage(['Q1', 'Q3'], candidates := ['S4', 'S6'], mu := 0.0)
+ORDER BY query_id, candidate_id;
+----
+Q1	S4	0.125
+Q1	S6	1.0
+Q3	S4	1.0
+Q3	S6	1.0
+
+# ---------------------------------------------------------------- coverage_recall
+
+# stage 1 on its own; reviewed candidates -> containment (mode auto)
+query TRT
+SELECT candidate_id, round(score, 5), mode_used
+FROM coverage_recall('Q1', k := 3, candidate_nodes_table := 'tree_nodes')
+WHERE candidate_id LIKE 'S%' ORDER BY rank;
+----
+S2	1.01	containment
+S1	1.00889	containment
+S6	1.00667	containment
+
+# unreviewed candidates (classes from a classifier) -> weighted Jaccard
+query T
+SELECT DISTINCT mode_used FROM coverage_recall('R', k := 5, nodes_table := 'req_nodes',
+                                               candidate_nodes_table := 'offer_nodes', label_table := 'offer_labels');
+----
+jaccard
+
+# ---------------------------------------------------------------- errors
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], assignment := 'greedy');
+----
+assignment must be one of 'auto', 'best_match', 'partition'
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], labels := 'fuzzy');
+----
+labels must be 'soft' or 'hard'
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], lambda := 1.5);
+----
+lambda must be between 0 and 1
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], candidate_nodes_table := 'x; DROP TABLE y');
+----
+Invalid identifier for candidate_nodes_table
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], default_bounds := 'catalogue');
+----
+templates_table
+
+query I
+SELECT count(*) FROM tree_coverage('NOPE', candidates := ['S1']);
+----
+0
