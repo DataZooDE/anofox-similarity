@@ -6,7 +6,8 @@
 
 require anofox_similarity
 
-# The open requests (reviewed classes as in R3 uc_06), values parsed from the text
+# The open requests with reviewed classes (the benchmark labels stand in for a finished review, as in
+# R3 uc_06; R4 uc_07 runs the classifier path), values parsed from the text
 statement ok
 CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
 

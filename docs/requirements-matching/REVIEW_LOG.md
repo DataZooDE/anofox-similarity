@@ -455,3 +455,29 @@ ICWS signature is seed-independent (test changed), `precision` must be quoted in
 | F10 | low | Several rank-1 picks per query | One pick per query |
 | F11 | low | Helper layering | Shared helpers in coverage_sql.hpp; TableExists stays in property_tree |
 | F12 | low | Optional columns on views | TableHasColumn handles views (R3-2 F11) |
+
+## R5-3 — 2026-10-25 — before the PR (end-of-release review R5 and the umbrella branch)
+
+- **Crew:** correctness, usability, testing, design (codex/claude). Verdict:
+  REQUEST_CHANGES (gaps, no semantic blocker).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | No R5 read-only test | r5/readonly.test (all R5 table functions, three-part paths) |
+| F2 | high | Heading bug before `---` | Fixed |
+| F3 | med | Score ranks assigned before deduplication | Fixed (red test first) |
+| F4 | med | Tied rank 1 handled inconsistently | Strict positions (ties by candidate id) for every metric |
+| F5 | med | Ranks ≤ 0 accepted | Error |
+| F6 | med | Misspelled explicit columns ignored | Error |
+| F7 | med | Evaluation example not runnable | Rewritten from uc_01 |
+| F8 | med | minhash_bands missing from lists; counts | Fixed |
+| F9 | med | R5 scenarios use benchmark request classes | Kept and stated in the tests: they evaluate the reviewed pipeline (BRD §6 conditions); R4 uc_07 covers the classifier path end to end |
+| F10 | low | One-way band equivalence | Symmetric |
+| F11 | low | n_unresolved undocumented | Documented |
+| F12 | low | Evaluation paragraph in the LSH section | Moved |
+| F13 | low | DuckPGQ recipe unverified | Marked as not exercised by the suite |
+| F14 | low | Small cleanups | good range check; others deferred |
+| F15 | med | Release gates | 2.0 suite green after the R5 fixes (3 817 assertions); CI on the PR |
+
+**Release status (R0–R5):** full suite green on DuckDB 1.5.6 and 2.0. Coverage suite: 72 s on
+32 cores and 87 s on 2 cores (HANDOVER §8 budget +5 min). Dataset: 3.4 MB (budget 8 MB).

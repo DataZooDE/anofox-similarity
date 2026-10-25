@@ -11,6 +11,7 @@ require anofox_similarity
 statement ok
 CREATE TABLE programme_ms AS SELECT * FROM read_csv_auto('test/data/coverage/programme_class_multiset.csv.gz');
 
+# the requests' reviewed classes (benchmark labels as the stand-in, see R3 uc_06)
 statement ok
 CREATE TABLE req_nodes AS
 SELECT n.* EXCLUDE (class_id), g.class_id

@@ -32,7 +32,7 @@
 
 ## Overview
 
-The anofox-similarity extension provides about 86 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 87 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
@@ -1164,8 +1164,8 @@ The extension creates several database objects on load for embedding storage and
 > `find_covering_entities_for`, `quantity_units`, `tree_anchors`, `tree_class_multiset`, `validate_trees`,
 > `tree_coverage`, `tree_coverage_trace`, `coverage_recall`, `cosine_floor`, `classify_to_catalogue`,
 > `vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`, `eval_ranking`, `eval_calibration`,
-> `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`, `minhash_index`, `find_covering_entities_lsh`,
-> `cluster_matches`) and all scalar functions
+> `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`, `minhash_index`, `minhash_bands`,
+> `find_covering_entities_lsh`, `cluster_matches`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1767,8 +1767,12 @@ column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, 
 | `eval_calibration(results, gold [, score_col := 'coverage'])` | `n_pairs, mae, bias, pearson, spearman` |
 | `threshold_at_precision(results, gold [, target_precision := 0.95, good := 0.9])` | `threshold, precision, accepted_share, n_queries, curve` |
 | `bootstrap_ci(metric_table, cluster_col [, metrics, n := 1000, seed := 7, level := 0.95])` | per metric: `estimate, lo, hi, n_boot, n_clusters` |
-| `fit_coverage_weights(reviewed_matches [, label_weights, mus, <tree_coverage parameters>])` | per grid point: `label_weight, mu, mae, n_pairs, rank` |
+| `fit_coverage_weights(reviewed_matches [, label_weights, mus, <tree_coverage parameters>])` | per grid point: `label_weight, mu, mae, n_pairs, n_unresolved, rank` (at most 20 values per axis) |
 
+- `eval_ranking` scores the queries that have gold: a query without results counts as a miss
+  with full regret, and results for queries without gold are ignored. Duplicate rows of a pair
+  keep the best rank. Positions follow the given rank (ties by candidate id) or the score
+  (highest first). Ranks start at 1.
 - The best candidates of a query are all gold candidates within 1e-9 of its gold best. A ranked
   candidate without gold counts as 0. `top_k_accuracy` is the share of queries with a best
   candidate in the top k (the BRD's "recall@k of the best candidate"). `recall_at_k` is the
@@ -1783,18 +1787,23 @@ column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, 
   (BR-52). Tune the classifier's β and τ with `classify_to_catalogue` and `eval_ranking`.
 
 ```sql
+-- the benchmark files (test/data/coverage): requests, request_nodes with their classes,
+-- request_attributes parsed with parse_quantity, programme_nodes/_attributes, vocabulary_overrides,
+-- gold_coverage, gold_requests; see r5/uc_01 for the full setup
 CREATE TABLE results AS SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
-       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
-       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
-       overrides_table := 'vocabulary_overrides');
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
 SELECT * FROM eval_ranking('results', 'gold', k := [1, 20]);
 SELECT mae, spearman FROM eval_calibration('results', 'gold');
 SELECT threshold, precision, accepted_share FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 
 CREATE TABLE per_request AS
 SELECT r.query_id, q.source AS maker, (g.true_coverage >= b.best_coverage - 1e-9)::DOUBLE AS hit
-FROM results r JOIN gold g USING (query_id, candidate_id) JOIN gold_requests b ON b.request_id = r.query_id
-JOIN requests q ON q.request_id = r.query_id WHERE r.rank = 1;
+FROM results r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests b ON b.request_id = r.query_id JOIN requests q ON q.request_id = r.query_id
+WHERE r.rank = 1;
 SELECT * FROM bootstrap_ci('per_request', 'maker', metrics := ['hit']);
 ```
 
@@ -1824,9 +1833,6 @@ stored `minhash_bands` table turns the band lookup into a hash join, while witho
 index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
 `(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
 
-The scores are defined as follows. `eval_ranking` scores the gold queries: a query without
-results counts as a miss with full regret, and results for queries without gold are ignored.
-
 ```sql
 CREATE TABLE programme_index AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
 CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');   -- store once
@@ -1838,7 +1844,7 @@ SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_index', k := 2
 **Entity clustering** (HLD §4.9). `cluster_matches(pairs_table [, threshold := 0.8, left_col
 := 'a', right_col := 'b', score_col := 'score'])` returns `entity_id, cluster_id,
 cluster_size` from a C++ union-find over the pairs at or above the threshold. Every entity of
-the pairs table appears, and `cluster_id` is the smallest member id. `connected_components(LIST
+the pairs table appears (ids as text), and `cluster_id` is the smallest member id in text order. `connected_components(LIST
 of STRUCT(a, b))` is the scalar behind it. r5/uc_03 shows a customer-master recipe: blocking,
 normalised names, and tax-id and address agreement. It clusters at 0.85, merges all 152 planted
 duplicates and none of the 12 near misses.
@@ -1858,6 +1864,7 @@ SELECT * FROM weakly_connected_component(matches, entities, strong);
 Extension macros are registered with the default grammar, so no built-in macro embeds PGQ
 syntax (HLD §4.9). The test suite does not load DuckPGQ; check its documentation for the syntax of
 your version.
+
 ---
 
 ## Function Coverage Matrix
@@ -1878,8 +1885,8 @@ your version.
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
 | **Infrastructure** | Macro | 1 | create_bom_property_graph |
-| **Coverage matching** | Scalar + Table + Macro | 41 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall, maxsim, bhattacharyya, calibrated_cosine, cosine_floor, classify_to_catalogue, vocabulary_review_queue, apply_vocabulary_review, uncertain_decisions, eval_ranking, eval_calibration, threshold_at_precision, bootstrap_ci, fit_coverage_weights, weighted_minhash, minhash_similarity, lsh_bands, minhash_index, find_covering_entities_lsh, connected_components, cluster_matches |
-| **TOTAL** | | **~83** | Complete API |
+| **Coverage matching** | Scalar + Table + Macro | 42 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall, maxsim, bhattacharyya, calibrated_cosine, cosine_floor, classify_to_catalogue, vocabulary_review_queue, apply_vocabulary_review, uncertain_decisions, eval_ranking, eval_calibration, threshold_at_precision, bootstrap_ci, fit_coverage_weights, weighted_minhash, minhash_similarity, lsh_bands, minhash_index, minhash_bands, find_covering_entities_lsh, connected_components, cluster_matches |
+| **TOTAL** | | **~84** | Complete API |
 
 ---
 
