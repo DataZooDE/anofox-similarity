@@ -41,7 +41,10 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'extract_ts_features','filter_recent_movements','find_similar_materials_jaccard',
   'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors','items_to_bom',
   'jaccard_similarity','recompute_embedding_statistics','sap_to_bom_items','sap_to_materials',
-  'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity');
+  'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity',
+  -- coverage matching (R1)
+  'containment','find_covering_entities','find_covering_entities_for','tversky_similarity',
+  'weighted_containment','weighted_jaccard','weighted_tversky');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -52,7 +55,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-37
+44
 
 # ============================================================================
 # ...and every one of them is documented
@@ -137,7 +140,22 @@ SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_jaccard';
 ----
-[material_id, k, bom_table, min_similarity]
+[material_id, k, bom_table, min_similarity, mode]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_covering_entities';
+----
+[query_entity_id, k, mode, alpha, beta, weighted, tie_break, min_score, feature_table, entity_col, feature_col, weight_col]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'find_covering_entities_for';
+----
+[query, k, mode, alpha, beta, weighted, tie_break, min_score, feature_table, entity_col, feature_col, weight_col]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'weighted_tversky';
+----
+[[query, candidate], [query, candidate, alpha, beta]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
