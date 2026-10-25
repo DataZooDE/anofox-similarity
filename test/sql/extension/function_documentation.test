@@ -46,7 +46,9 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'containment','find_covering_entities','find_covering_entities_for','tversky_similarity',
   'weighted_containment','weighted_jaccard','weighted_tversky',
   -- coverage matching (R2)
-  'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies');
+  'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies',
+  -- coverage matching (R3)
+  'tree_anchors','tree_class_multiset','tree_from_json','tree_multiset','validate_trees');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -57,7 +59,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-49
+54
 
 # ============================================================================
 # ...and every one of them is documented
@@ -193,3 +195,13 @@ query I
 SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'value_satisfies';
 ----
 [[requirement, provided], [requirement, provided, scale], [requirement, provided, scale, tol, soft_band], [requirement, provided, scale, tol, soft_band, default_bound]]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'tree_anchors';
+----
+[nodes_table, attrs_table, overrides_table, label_table, tree_ids]
+
+query I
+SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'tree_from_json';
+----
+[[json], [json, tree_id], [json, tree_id, lang], [json, tree_id, lang, unit_table]]
