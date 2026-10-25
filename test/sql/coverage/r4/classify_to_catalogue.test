@@ -1,0 +1,178 @@
+# name: test/sql/coverage/r4/classify_to_catalogue.test
+# description: The pivot classifier on hand-made 2-d vectors (HLD §4.4): cosine, z-score across
+#              the catalogue, softmax with temperature, margin, per-source centring, late
+#              interaction, the attribute-template bonus, overrides and per-item decisions.
+# group: [coverage]
+
+require anofox_similarity
+
+# Catalogue A = [1,0], B = [0,1], C = [-1,0]
+statement ok
+CREATE TABLE cat AS SELECT * FROM (VALUES
+    ('A', [1.0, 0.0], [[1.0, 0.0]]), ('B', [0.0, 1.0], [[0.0, 1.0]]), ('C', [-1.0, 0.0], [[0.6, 0.8]]))
+    t(class_id, vec, exemplar_tokens);
+
+# item i1 = [1,0]: cosines 1, 0, -1 -> z = 1.2247, 0, -1.2247 -> softmax(z / 0.3):
+#   A 0.983139, B 0.016581, C 0.00028; margin 0.966558
+statement ok
+CREATE TABLE one AS SELECT * FROM (VALUES ('T', 'i1', [1.0, 0.0])) t(tree_id, node_id, vec);
+
+query TTRIRT
+SELECT tree_id, class_id, round(p, 6), rank, round(margin, 6), overridden
+FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', center_by_source := false)
+ORDER BY rank;
+----
+T	A	0.983139	1	0.966558	false
+T	B	0.016581	2	0.966558	false
+T	C	0.00028	3	0.966558	false
+
+# temperature 1 flattens: A 0.724548, B 0.212896, C 0.062556
+query TR
+SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat',
+                                                         center_by_source := false, temperature := 1.0)
+ORDER BY rank;
+----
+A	0.724548
+B	0.212896
+C	0.062556
+
+# top := 1 keeps the best class only
+query TI
+SELECT class_id, rank FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', center_by_source := false, top := 1);
+----
+A	1
+
+# ---------------------------------------------------------------- per-source centring
+
+# two items of one source share the boilerplate [1,0]: a = [1,1], b = [1,-1]. Raw, a ties A and
+# B; centred (minus the source mean [1,0]) a = [0,1] is clearly B (0.998304)
+statement ok
+CREATE TABLE src_items AS SELECT * FROM (VALUES ('a', 's', [1.0, 1.0]), ('b', 's', [1.0, -1.0])) t(node_id, source, vec);
+
+query TTR
+SELECT node_id, class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat')
+WHERE rank = 1 AND node_id = 'a';
+----
+a	B	0.998304
+
+query TR
+SELECT class_id, round(p, 4) FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat',
+                                                        center_by_source := false)
+WHERE node_id = 'a' ORDER BY rank LIMIT 2;
+----
+A	0.4998
+B	0.4998
+
+# the output carries the item's source and a NULL tree_id when the items have none
+query TT
+SELECT DISTINCT source, tree_id FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat');
+----
+s	NULL
+
+# ---------------------------------------------------------------- late interaction
+
+# tokens [1,0], [0,1]: maxsim A 0.5, B 0.5, C (exemplar [0.6,0.8]) 0.7 -> C 0.998304
+statement ok
+CREATE TABLE tok AS SELECT * FROM (VALUES ('t1', [1.0, 0.0], [[1.0, 0.0], [0.0, 1.0]])) t(node_id, vec, tokens);
+
+query TR
+SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'tok', catalogue_table := 'cat',
+                                                        mode := 'late_interaction', center_by_source := false)
+WHERE rank = 1;
+----
+C	0.998304
+
+# ---------------------------------------------------------------- attribute-template bonus
+
+# item [0.6,0.8]: without the bonus B 0.745884; its length attribute matches only A's template
+# (no name vectors: the dimension gate alone, s_name = 1) -> z_A + 1 -> A 0.905036
+statement ok
+CREATE TABLE bon AS SELECT * FROM (VALUES ('T', 'x', [0.6, 0.8])) t(tree_id, node_id, vec);
+
+statement ok
+CREATE TABLE bon_attrs AS SELECT * FROM (VALUES ('T', 'x', 'travel', 'length')) t(tree_id, node_id, name, dimension);
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM (VALUES ('A', 'length', 'adjustment travel'), ('B', 'temperature', 'surface temperature'))
+    t(class_id, dimension, name_en);
+
+query TRR
+SELECT 'no bonus', class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'bon', catalogue_table := 'cat',
+       center_by_source := false) WHERE rank = 1
+UNION ALL
+SELECT 'bonus', class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'bon', catalogue_table := 'cat',
+       center_by_source := false, attrs_table := 'bon_attrs', templates_table := 'templates') WHERE rank = 1
+ORDER BY 1 DESC;
+----
+no bonus	B	0.745884
+bonus	A	0.905036
+
+# attr_bonus := 0 switches it off
+query T
+SELECT class_id FROM classify_to_catalogue(items_table := 'bon', catalogue_table := 'cat', center_by_source := false,
+       attrs_table := 'bon_attrs', templates_table := 'templates', attr_bonus := 0.0) WHERE rank = 1;
+----
+B
+
+# ---------------------------------------------------------------- overrides and decisions
+
+# a reviewed wording gives a one-hot distribution (BR-32); a NULL source matches any source
+statement ok
+CREATE TABLE labelled AS SELECT * FROM (VALUES ('T', 'i1', 'Heizmatte', 's', [1.0, 0.0]), ('T', 'i2', 'Lüfter', 's', [1.0, 0.0]))
+    t(tree_id, node_id, label, source, vec);
+
+statement ok
+CREATE TABLE overrides AS SELECT * FROM (VALUES ('Heizmatte', NULL, 'C')) t(wording, source, class_id);
+
+query TTRIRT
+SELECT node_id, class_id, p, rank, margin, overridden FROM classify_to_catalogue(items_table := 'labelled',
+       catalogue_table := 'cat', center_by_source := false, overrides_table := 'overrides')
+WHERE node_id = 'i1' ORDER BY rank;
+----
+i1	C	1.0	1	1.0	true
+i1	A	0.0	2	1.0	true
+i1	B	0.0	3	1.0	true
+
+query TT
+SELECT class_id, overridden FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat',
+       center_by_source := false, overrides_table := 'overrides') WHERE node_id = 'i2' AND rank = 1;
+----
+A	false
+
+# per-item decisions (an external reviewer's answers) act like overrides for that item only
+statement ok
+CREATE TABLE decisions AS SELECT * FROM (VALUES ('T', 'i2', 'B')) t(tree_id, node_id, class_id);
+
+query TTT
+SELECT node_id, class_id, overridden FROM classify_to_catalogue(items_table := 'labelled', catalogue_table := 'cat',
+       center_by_source := false, decisions_table := 'decisions') WHERE rank = 1 ORDER BY node_id;
+----
+i1	A	false
+i2	B	true
+
+# ---------------------------------------------------------------- errors
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', mode := 'bogus');
+----
+mode must be 'centroid' or 'late_interaction'
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', temperature := 0.0);
+----
+temperature must be positive
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', mode := 'late_interaction');
+----
+tokens
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one; DROP TABLE cat', catalogue_table := 'cat');
+----
+Invalid identifier for items_table
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', overrides_table := 'overrides');
+----
+label

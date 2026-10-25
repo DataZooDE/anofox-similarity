@@ -1,0 +1,159 @@
+# name: test/sql/coverage/r4/uc_07_classifier_feeds_the_kernel.test
+# description: The whole pipeline without benchmark labels on the request side: the pivot
+#              classifier labels the request items (soft labels), the archive is reviewed, and
+#              the kernel ranks. The BRD §6 KPIs hold. With an unreviewed archive, forcing
+#              partition is worse than best match (HANDOVER §5.3, risk R2), which is why
+#              'auto' only partitions reviewed candidates.
+# group: [coverage]
+
+require anofox_similarity
+
+# The open requests as extracted: no classes; values parsed from the text
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+# The programme archive and the finished review of its internal vocabulary
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE vocabulary_overrides AS
+SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+# Catalogue templates (default bounds), compatibility rules, attribute-name vectors
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
+                           FROM name_vectors a, name_vectors b WHERE a.name < b.name);
+
+statement ok
+SET VARIABLE request_ids = (SELECT list(request_id ORDER BY request_id) FROM requests);
+
+# Ground truth, for checking only
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+# the classifier labels the request items: centred, with the attribute-template bonus
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE request_items AS
+SELECT tree_id, node_id, source, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
+
+statement ok
+CREATE TABLE req_labels AS
+SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'req_attrs', templates_table := 'templates', name_vectors := 'name_vectors',
+       name_floor := getvariable('name_floor'));
+
+statement ok
+CREATE TABLE results AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       overrides_table := 'vocabulary_overrides', label_table := 'req_labels',
+       default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+statement ok
+CREATE TABLE scored AS
+SELECT r.*, g.true_coverage, q.best_coverage, q.is_unmeetable
+FROM results r
+JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id;
+
+query II
+SELECT count(DISTINCT query_id), count(*) = (SELECT count(*) FROM results) FROM scored;
+----
+80	true
+
+# recall@20 >= 0.90; top-1 >= 0.85; mean regret <= 0.01
+query III
+SELECT avg((SELECT bool_or(true_coverage >= best_coverage - 1e-9) FROM scored s2 WHERE s2.query_id = s.query_id)::INT) >= 0.90,
+       (SELECT avg((true_coverage >= best_coverage - 1e-9)::INT) FROM scored WHERE rank = 1) >= 0.85,
+       (SELECT avg(best_coverage - true_coverage) FROM scored WHERE rank = 1) <= 0.01
+FROM (SELECT DISTINCT query_id FROM scored) s;
+----
+true	true	true
+
+# MAE over all evaluated pairs <= 0.05; unmeetable requests flagged; precision at 0.9 >= 0.95
+query III
+SELECT (SELECT avg(abs(coverage - true_coverage)) FROM scored) <= 0.05,
+       (SELECT bool_and(coverage < 0.95) FROM scored WHERE rank = 1 AND is_unmeetable),
+       (SELECT avg((true_coverage >= 0.9)::INT) FROM scored WHERE rank = 1 AND coverage >= 0.9) >= 0.95;
+----
+true	true	true
+
+# ---------------------------------------------------------------- the failure mode on an unreviewed archive
+
+statement ok
+CREATE TABLE wordings AS
+SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec
+FROM read_csv_auto('test/data/coverage/vocabulary_vectors.csv.gz');
+
+statement ok
+CREATE TABLE all_labels AS
+SELECT * FROM req_labels
+UNION ALL
+SELECT n.tree_id, n.node_id, d.class_id, d.p
+FROM prog_nodes n JOIN classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue') d
+     ON d.node_id = n.label AND d.source = n.source
+WHERE n.node_kind = 'item';
+
+statement ok
+CREATE TABLE unreviewed_partition AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20, nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs', label_table := 'all_labels',
+       default_bounds := 'catalogue', templates_table := 'templates', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'), assignment := 'partition');
+
+statement ok
+CREATE TABLE unreviewed_auto AS
+SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20, nodes_table := 'req_nodes', attrs_table := 'req_attrs',
+       candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs', label_table := 'all_labels',
+       default_bounds := 'catalogue', templates_table := 'templates', rules_table := 'compatibility_rules',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+
+# auto falls back to best match because the archive is not reviewed
+query T
+SELECT DISTINCT assignment_used FROM unreviewed_auto;
+----
+best_match
+
+statement ok
+CREATE MACRO top1_regret(t) AS TABLE
+SELECT avg(q.best_coverage - g.true_coverage) AS regret
+FROM query_table(t) r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id WHERE r.rank = 1;
+
+query I
+SELECT (SELECT regret FROM top1_regret('unreviewed_partition')) > (SELECT regret FROM top1_regret('unreviewed_auto'));
+----
+true

@@ -136,7 +136,7 @@ def write_all(out, seed: int, write_csv, requests, unseen, pids) -> None:
     rows = []
     for w in VOCABULARY:
         shown = w.apparent_class_id or w.class_id
-        v = _unit(sp.mu[shown] + (0.35 * sp.mu[w.class_id] if w.misleading else 0)
+        v = _unit(sp.mu[shown] + (0.5 * sp.mu[w.class_id] if w.misleading else 0)
                   + 0.25 * _rand_unit(seed, f"wording:{w.text}") + BOILERPLATE * sp.boiler[INTERNAL_SOURCE]
                   + 0.15 * _rand_unit(seed, f"wnoise:{w.text}"))
         dev = PHRASINGS[shown]["dev"]

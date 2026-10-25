@@ -129,6 +129,20 @@ def maxsim_scores(T: list[np.ndarray], E: list[np.ndarray]) -> np.ndarray:
     return np.array([[maxsim(t, e) for e in E] for t in T])
 
 
+def softmax(Z: np.ndarray, temperature: float = 0.3) -> np.ndarray:
+    E = np.exp((Z - Z.max(axis=1, keepdims=True)) / temperature)
+    return E / E.sum(axis=1, keepdims=True)
+
+
+def review_queue(X: np.ndarray, sources: list[str], C: np.ndarray, n_trees: list[int],
+                 temperature: float = 0.3) -> list[int]:
+    """Indices of wordings by impact = n_trees x (1 - margin), highest first (HLD §4.5)."""
+    P = softmax(zscore(centroid_scores(centre_by_source(X, sources), C)), temperature)
+    top = np.sort(P, axis=1)[:, ::-1]
+    impact = np.asarray(n_trees) * (1 - (top[:, 0] - top[:, 1]))
+    return sorted(range(len(impact)), key=lambda i: -impact[i])
+
+
 def top1_accuracy(S: np.ndarray, class_ids: list[str], gold: list[str]) -> float:
     pred = [class_ids[i] for i in np.argmax(S, axis=1)]
     return float(np.mean([p == g for p, g in zip(pred, gold)]))

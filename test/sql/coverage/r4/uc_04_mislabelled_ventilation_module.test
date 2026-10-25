@@ -1,0 +1,90 @@
+# name: test/sql/coverage/r4/uc_04_mislabelled_ventilation_module.test
+# description: The archive is not reviewed yet; its item classes come from the classifier. A
+#              ventilation module called "Klimapaket Heizung" reads as heating, so requests that
+#              need ventilation rank the wrong programmes first. After the reviewer confirms the
+#              top 3 entries of the review queue, the right programmes win (HANDOVER §5).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+# the closed internal vocabulary, one vector per wording and source
+statement ok
+CREATE TABLE wordings AS
+SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec, tokens::FLOAT[][] AS tokens
+FROM read_csv_auto('test/data/coverage/vocabulary_vectors.csv.gz');
+
+statement ok
+CREATE TABLE wording_decisions AS
+SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+
+statement ok
+CREATE TABLE req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+# the archive's soft labels: each item takes the distribution of its wording
+statement ok
+CREATE TABLE prog_labels AS
+SELECT n.tree_id, n.node_id, d.class_id, d.p
+FROM prog_nodes n JOIN wording_decisions d ON d.node_id = n.label AND d.source = n.source
+WHERE n.node_kind = 'item';
+
+statement ok
+CREATE TABLE queue AS SELECT row_number() OVER (ORDER BY impact DESC, wording, source) AS pos, * FROM vocabulary_review_queue(trees_table := 'prog_nodes',
+       decisions := 'wording_decisions');
+
+statement ok
+CREATE TABLE gold_vocabulary AS SELECT * FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+statement ok
+CREATE TABLE review AS
+SELECT q.wording, q.source, g.class_id FROM queue q JOIN gold_vocabulary g ON g.wording = q.wording AND g.source = q.source
+WHERE q.pos <= 3;
+
+statement ok
+CREATE TABLE reviewed AS SELECT * FROM apply_vocabulary_review('review', overrides_table := NULL);
+
+# requests with a ventilation requirement
+statement ok
+SET VARIABLE vent_requests = (SELECT list(DISTINCT tree_id ORDER BY tree_id) FROM req_nodes WHERE class_id = 'seat_ventilation');
+
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_coverage.csv.gz');
+
+statement ok
+CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
+
+statement ok
+CREATE TABLE before AS SELECT * FROM tree_coverage(getvariable('vent_requests'), k := 20, nodes_table := 'req_nodes',
+       attrs_table := NULL, candidate_nodes_table := 'prog_nodes', candidate_attrs_table := NULL, label_table := 'prog_labels');
+
+statement ok
+CREATE TABLE after AS SELECT * FROM tree_coverage(getvariable('vent_requests'), k := 20, nodes_table := 'req_nodes',
+       attrs_table := NULL, candidate_nodes_table := 'prog_nodes', candidate_attrs_table := NULL, label_table := 'prog_labels',
+       overrides_table := 'reviewed');
+
+# the review fixes the ranking: more ventilation requests get a best programme first
+statement ok
+CREATE MACRO top1_hits(t) AS TABLE
+SELECT sum((g.true_coverage >= q.best_coverage - 1e-9)::INT) AS hits, count(*) AS n
+FROM query_table(t) r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
+JOIN gold_requests q ON q.request_id = r.query_id WHERE r.rank = 1;
+
+query I
+SELECT (SELECT n FROM top1_hits('before')) = len(getvariable('vent_requests'));
+----
+true
+
+query I
+SELECT (SELECT hits FROM top1_hits('after')) > (SELECT hits FROM top1_hits('before'));
+----
+true

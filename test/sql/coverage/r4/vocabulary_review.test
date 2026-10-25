@@ -1,0 +1,162 @@
+# name: test/sql/coverage/r4/vocabulary_review.test
+# description: Vocabulary review (HLD §4.5) and the external re-rank hook (§4.4): the queue of
+#              distinct wordings by impact, applying a review, and exporting uncertain decisions.
+# group: [coverage]
+
+require anofox_similarity
+
+# three archive trees; 'Klima' occurs in all three, 'Lüfter' twice in P2, 'Heiz' once
+statement ok
+CREATE TABLE archive AS SELECT * FROM (VALUES
+    ('P1', 'P1', NULL, 'container', 'AND', 'P1', NULL, 1.0, 'internal'),
+    ('P1', 'P1.k', 'P1', 'item', 'AND', 'Klima', NULL, 1.0, 'internal'),
+    ('P1', 'P1.h', 'P1', 'item', 'AND', 'Heiz', NULL, 1.0, 'internal'),
+    ('P2', 'P2', NULL, 'container', 'AND', 'P2', NULL, 1.0, 'internal'),
+    ('P2', 'P2.k', 'P2', 'item', 'AND', 'Klima', NULL, 1.0, 'internal'),
+    ('P2', 'P2.l1', 'P2', 'item', 'AND', 'Lüfter', NULL, 1.0, 'internal'),
+    ('P2', 'P2.l2', 'P2', 'item', 'AND', 'Lüfter', NULL, 1.0, 'internal'),
+    ('P3', 'P3', NULL, 'container', 'AND', 'P3', NULL, 1.0, 'internal'),
+    ('P3', 'P3.k', 'P3', 'item', 'AND', 'Klima', NULL, 1.0, 'internal'))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count, source);
+
+# classifier decisions per wording (tree_id NULL, node_id = the wording), e.g. from classifying
+# the vocabulary:
+#   Klima  heating 0.55 / ventilation 0.45 -> margin 0.1, 3 trees -> impact 3 x 0.9 = 2.7
+#   Lüfter ventilation 0.7 / heating 0.3   -> margin 0.4, 1 tree  -> impact 0.6
+#   Heiz   heating 0.9 / ventilation 0.1   -> margin 0.8, 1 tree  -> impact 0.2
+statement ok
+CREATE TABLE word_decisions AS SELECT * FROM (VALUES
+    (NULL, 'Klima', 'internal', 'seat_heating', 0.55, 1, 0.1),
+    (NULL, 'Klima', 'internal', 'seat_ventilation', 0.45, 2, 0.1),
+    (NULL, 'Lüfter', 'internal', 'seat_ventilation', 0.7, 1, 0.4),
+    (NULL, 'Lüfter', 'internal', 'seat_heating', 0.3, 2, 0.4),
+    (NULL, 'Heiz', 'internal', 'seat_heating', 0.9, 1, 0.8),
+    (NULL, 'Heiz', 'internal', 'seat_ventilation', 0.1, 2, 0.8))
+    t(tree_id, node_id, source, class_id, p, rank, margin);
+
+query TTIITRTRRR
+SELECT wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, round(margin, 6), round(impact, 6)
+FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'word_decisions');
+----
+Klima	internal	3	3	seat_heating	0.55	seat_ventilation	0.45	0.1	2.7
+Lüfter	internal	2	1	seat_ventilation	0.7	seat_heating	0.3	0.4	0.6
+Heiz	internal	1	1	seat_heating	0.9	seat_ventilation	0.1	0.8	0.2
+
+# reviewed wordings leave the queue
+statement ok
+CREATE TABLE vocabulary_overrides AS SELECT * FROM (VALUES
+    ('Heiz', 'internal', 'seat_heating', 'alice', TIMESTAMP '2026-10-01 09:00:00'))
+    t(wording, source, class_id, reviewed_by, reviewed_at);
+
+query T
+SELECT wording FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'word_decisions',
+                                            overrides_table := 'vocabulary_overrides');
+----
+Klima
+Lüfter
+
+# decisions per node are averaged per wording: Klima (0.6/0.4, 0.4/0.6, 0.5/0.5) -> 0.5/0.5,
+# margin 0, impact 3; ties go to the lower class id
+statement ok
+CREATE TABLE node_decisions AS SELECT * FROM (VALUES
+    ('P1', 'P1.k', 'internal', 'seat_heating', 0.6), ('P1', 'P1.k', 'internal', 'seat_ventilation', 0.4),
+    ('P2', 'P2.k', 'internal', 'seat_heating', 0.4), ('P2', 'P2.k', 'internal', 'seat_ventilation', 0.6),
+    ('P3', 'P3.k', 'internal', 'seat_heating', 0.5), ('P3', 'P3.k', 'internal', 'seat_ventilation', 0.5))
+    t(tree_id, node_id, source, class_id, p);
+
+query TTRRR
+SELECT wording, top1, round(p1, 6), round(margin, 6), round(impact, 6)
+FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'node_decisions');
+----
+Klima	seat_heating	0.5	0.0	3.0
+
+# sources := restricts the queue to some document families
+query I
+SELECT count(*) FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'word_decisions', sources := ['offer']);
+----
+0
+
+# ---------------------------------------------------------------- apply_vocabulary_review
+
+# a review replaces the entries for its wordings and adds new ones; the result is the new
+# overrides table (table functions cannot write; the caller stores it)
+statement ok
+CREATE TABLE review AS SELECT * FROM (VALUES
+    ('Klima', 'internal', 'seat_ventilation', 'bob'), ('Heiz', 'internal', 'seat_heating', 'bob'))
+    t(wording, source, class_id, reviewed_by);
+
+query TTTT
+SELECT wording, source, class_id, reviewed_by FROM apply_vocabulary_review('review', overrides_table := 'vocabulary_overrides')
+ORDER BY wording;
+----
+Heiz	internal	seat_heating	bob
+Klima	internal	seat_ventilation	bob
+
+statement ok
+CREATE OR REPLACE TABLE vocabulary_overrides AS
+SELECT * FROM apply_vocabulary_review('review', overrides_table := 'vocabulary_overrides');
+
+query I
+SELECT count(*) FROM vocabulary_review_queue(trees_table := 'archive', decisions := 'word_decisions',
+                                             overrides_table := 'vocabulary_overrides');
+----
+1
+
+# the first review: no overrides table yet
+query I
+SELECT count(*) FROM apply_vocabulary_review('review', overrides_table := NULL);
+----
+2
+
+statement error
+SELECT * FROM apply_vocabulary_review('archive');
+----
+wording
+
+# ---------------------------------------------------------------- uncertain_decisions
+
+statement ok
+CREATE TABLE decided AS SELECT * FROM (VALUES
+    ('T', 'u1', 'A', 0.55, 1, 0.1, false), ('T', 'u1', 'B', 0.45, 2, 0.1, false),
+    ('T', 'u2', 'A', 0.75, 1, 0.5, false), ('T', 'u2', 'B', 0.25, 2, 0.5, false),
+    ('T', 'u3', 'A', 0.5, 1, 0.05, false), ('T', 'u3', 'B', 0.45, 2, 0.05, false), ('T', 'u3', 'C', 0.05, 3, 0.05, false),
+    ('T', 'u4', 'B', 1.0, 1, 1.0, true), ('T', 'u4', 'A', 0.0, 2, 1.0, true))
+    t(tree_id, node_id, class_id, p, rank, margin, overridden);
+
+statement ok
+CREATE TABLE texts AS SELECT * FROM (VALUES ('T', 'u3', 'Sitz "Komfort"'), ('T', 'u1', 'Lüfter')) t(tree_id, node_id, text);
+
+statement ok
+CREATE TABLE classes AS SELECT * FROM (VALUES ('A', 'seat heating', 'Heats'), ('B', 'ventilation', 'Cools'), ('C', 'massage', 'Kneads'))
+    t(class_id, label_en, definition);
+
+# below the margin threshold, overridden items excluded, lowest margin first
+query TR
+SELECT node_id, margin FROM uncertain_decisions(decisions := 'decided', threshold := 0.2);
+----
+u3	0.05
+u1	0.1
+
+# or the lowest-margin share of the items: ceil(0.5 x 3) = 2
+query T
+SELECT node_id FROM uncertain_decisions(decisions := 'decided', share := 0.5);
+----
+u3
+u1
+
+# the request is JSON for an LLM or a human: the text and the top candidates with definitions
+query T
+SELECT request FROM uncertain_decisions(decisions := 'decided', threshold := 0.07, top := 2, texts_table := 'texts',
+                                        catalogue_table := 'classes');
+----
+{"tree_id":"T","node_id":"u3","text":"Sitz \"Komfort\"","margin":0.05,"candidates":[{"class_id":"A","p":0.5,"label":"seat heating","definition":"Heats"},{"class_id":"B","p":0.45,"label":"ventilation","definition":"Cools"}]}
+
+query T
+SELECT request FROM uncertain_decisions(decisions := 'decided', threshold := 0.07, top := 1);
+----
+{"tree_id":"T","node_id":"u3","text":null,"margin":0.05,"candidates":[{"class_id":"A","p":0.5,"label":null,"definition":null}]}
+
+statement error
+SELECT * FROM uncertain_decisions(decisions := 'decided', threshold := 0.2, share := 0.5);
+----
+either threshold or share

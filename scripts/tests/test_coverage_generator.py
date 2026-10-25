@@ -779,3 +779,20 @@ def test_no_real_company_names(data_dir):
         text = gzip.decompress(raw).decode("utf-8") if p.suffix == ".gz" else raw.decode("utf-8")
         m = NAME_RE.search(text)
         assert m is None, (p.name, m and text[max(0, m.start() - 40):m.end() + 40])
+
+
+def test_review_queue_ranks_misleading_wordings_first(data_dir):
+    """HANDOVER §3.5: the vocabulary review queue must rank the misleading wordings first."""
+    cat = read(data_dir, "catalogue_vectors")
+    C = np.stack([vec(r["vec"]) for r in cat])
+    voc = read(data_dir, "vocabulary_vectors")
+    X = np.stack([vec(r["vec"]) for r in voc])
+    gold = {(v["wording"], v["source"]): v["is_misleading"] == "true" for v in read(data_dir, "gold_vocabulary")}
+    trees = {}
+    for n in read(data_dir, "programme_nodes"):
+        if n["node_kind"] == "item":
+            trees.setdefault((n["label"], n["source"]), set()).add(n["tree_id"])
+    order = ref.review_queue(X, [r["source"] for r in voc], C,
+                             [len(trees.get((r["wording"], r["source"]), ())) for r in voc])
+    misleading = sum(gold.values())
+    assert all(gold[(voc[i]["wording"], voc[i]["source"])] for i in order[:misleading])

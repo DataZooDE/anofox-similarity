@@ -1,0 +1,86 @@
+# name: test/sql/coverage/r4/uc_01_centring_lifts_accuracy.test
+# description: A shared sentence frame ("Der Lieferant liefert ...") pulls every requirement of a
+#              maker towards a few catalogue entries. The team classifies the 1 520 request items
+#              raw, centred per source, and with the attribute-template bonus, and measures
+#              top-1 accuracy against the benchmark labels (HLD §4.4 steps 1-3).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE catalogue AS
+SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE request_items AS
+SELECT tree_id, node_id, source, vec::FLOAT[] AS vec, tokens::FLOAT[][] AS tokens
+FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN requests r ON r.request_id = a.tree_id);
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE name_vectors AS
+SELECT name, vec::FLOAT[] AS vec FROM read_csv_auto('test/data/coverage/attribute_name_vectors.csv.gz');
+
+statement ok
+SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));
+
+# ground truth, for checking only
+statement ok
+CREATE TABLE gold_item AS SELECT * FROM read_csv_auto('test/data/coverage/gold_item_class.csv.gz');
+
+statement ok
+CREATE TABLE raw AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       center_by_source := false, top := 1);
+
+statement ok
+CREATE TABLE centred AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       top := 1);
+
+statement ok
+CREATE TABLE with_bonus AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'req_attrs', templates_table := 'templates', name_vectors := 'name_vectors',
+       name_floor := getvariable('name_floor'), top := 1);
+
+statement ok
+CREATE MACRO accuracy(t) AS TABLE
+SELECT avg((d.class_id = g.class_id)::INT) AS acc, count(*) AS n
+FROM query_table(t) d JOIN gold_item g USING (tree_id, node_id);
+
+query II
+SELECT (SELECT n FROM accuracy('raw')), (SELECT n FROM accuracy('centred'));
+----
+1520	1520
+
+# raw cosine is fooled by the sentence frame (about 0.6); centring removes it (>= 0.80)
+query III
+SELECT (SELECT acc FROM accuracy('raw')) <= 0.70, (SELECT acc FROM accuracy('centred')) >= 0.80,
+       (SELECT acc FROM accuracy('centred')) - (SELECT acc FROM accuracy('raw')) >= 0.10;
+----
+true	true	true
+
+# the attribute templates add the evidence of the stated values (>= 0.90)
+query I
+SELECT (SELECT acc FROM accuracy('with_bonus')) >= 0.90;
+----
+true
+
+# confident decisions are more often right: accuracy above the median margin beats below
+query I
+SELECT avg((d.class_id = g.class_id)::INT) FILTER (WHERE margin >= m) >
+       avg((d.class_id = g.class_id)::INT) FILTER (WHERE margin < m)
+FROM with_bonus d JOIN gold_item g USING (tree_id, node_id), (SELECT median(margin) AS m FROM with_bonus);
+----
+true
