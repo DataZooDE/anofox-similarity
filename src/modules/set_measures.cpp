@@ -80,12 +80,10 @@ WeightMap ToWeights(const Value &map) {
 		}
 		double w = 1.0;
 		if (!weight.IsNull()) {
-			Value as_double;
-			string error;
-			if (!weight.DefaultTryCastAs(LogicalType::DOUBLE, as_double, &error)) {
+			if (!weight.type().IsNumeric()) {
 				throw InvalidInputException("weights must be numeric, got '%s'", weight.ToString());
 			}
-			w = as_double.GetValue<double>();
+			w = weight.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 		}
 		if (w < 0) {
 			throw InvalidInputException("weights must be non-negative, got %g", w);
@@ -218,9 +216,9 @@ struct Overload {
 
 void Register(ExtensionLoader &loader, const string &name, scalar_function_t fn, bind_scalar_function_t bind,
               const vector<Overload> &overloads) {
-	ScalarFunctionSet set(name);
+	ScalarFunctionSet set(duckdb_compat::FunctionName(name));
 	for (auto &o : overloads) {
-		ScalarFunction f(name, o.arguments, LogicalType::DOUBLE, fn, bind);
+		ScalarFunction f(duckdb_compat::FunctionName(name), o.arguments, LogicalType::DOUBLE, fn, bind);
 		duckdb_compat::SetFallible(f);
 		set.AddFunction(f);
 	}

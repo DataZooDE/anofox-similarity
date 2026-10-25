@@ -215,12 +215,10 @@ unique_ptr<TableRef> FindCoveringEntitiesForBindReplace(ClientContext &context, 
 			}
 			double w = 1.0;
 			if (!kv[1].IsNull()) {
-				Value as_double;
-				string error;
-				if (!kv[1].DefaultTryCastAs(LogicalType::DOUBLE, as_double, &error)) {
+				if (!kv[1].type().IsNumeric()) {
 					throw BinderException("%s: weights must be numeric, got '%s'", fn.c_str(), kv[1].ToString());
 				}
-				w = as_double.GetValue<double>();
+				w = kv[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			}
 			if (w < 0) {
 				throw BinderException("%s: weights must be non-negative", fn.c_str());
