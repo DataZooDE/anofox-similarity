@@ -684,3 +684,19 @@ precedence over the text above.
       into `sample`, otherwise a seeded sample.
     - The dataset's misleading wordings got a stronger pull towards their true class (0.35 →
       0.5), so that the review queue ranks all four first (HANDOVER §3.5).
+13. **R5 conventions.**
+    - Evaluation: the best candidates of a query are the gold candidates within 1e-9 of its
+      gold best; a ranked candidate without gold counts 0; `top_k_accuracy` is the BRD's
+      recall@k of the best candidate, `recall_at_k` the share of the best set; MRR is cut at k.
+      `threshold_at_precision` uses `target_precision` (`target` is reserved) and the top-1
+      picks; tied scores enter together. Spearman uses average ranks; correlations are NULL
+      for constant input. `bootstrap_ci` pools rows (not cluster means).
+    - `fit_coverage_weights` covers λ and μ (the kernel); β and τ (the classifier) are tuned
+      with `classify_to_catalogue` + `eval_ranking`.
+    - Sub-linear recall follows the LSH-Ensemble idea in a simple form: `ntile` size
+      partitions, band hashes for 1, 2, 4 and 8 rows per band, and per (query, partition) the
+      largest rows-per-band whose S-curve threshold (1/b)^(1/r) lies below the Jaccard
+      threshold that the containment threshold implies for the partition's largest set.
+      Hashing (FNV-1a, SplitMix64) is version-stable.
+    - `cluster_matches` includes every entity of the pairs table and merges pairs at or above
+      the threshold; cluster ids are the smallest member id.
