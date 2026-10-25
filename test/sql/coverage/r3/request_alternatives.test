@@ -92,3 +92,26 @@ ORDER BY candidate_id;
 ----
 A	0.5
 C	0.75
+
+# deeply nested alternatives (40 OR levels) are evaluated in linear time (code-quality review
+# CQ-1 F1): every level offers the item or the next level; the item is met -> 1.0, one requirement
+statement ok
+CREATE TABLE deep_or AS
+SELECT 'N' AS tree_id, 'r' AS node_id, NULL::VARCHAR AS parent_id, 'container' AS node_kind, 'AND' AS edge_type,
+       'spec' AS label, NULL::VARCHAR AS class_id, 1.0 AS count
+UNION ALL
+SELECT 'N', 'g' || i, CASE WHEN i = 0 THEN 'r' ELSE 'g' || (i - 1) END, 'variant_group', CASE WHEN i = 0 THEN 'AND' ELSE 'OR' END,
+       'option ' || i, NULL, 1.0 FROM range(40) t(i)
+UNION ALL
+SELECT 'N', 'i' || i, 'g' || i, 'item', 'OR', 'track ' || i, 'seat_track', 1.0 FROM range(40) t(i);
+
+statement ok
+CREATE TABLE one_track AS SELECT * FROM (VALUES
+    ('C', 'C', NULL, 'container', 'AND', 'offer', NULL, 1.0), ('C', 'C.1', 'C', 'item', 'AND', 'track', 'seat_track', 1.0))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query RI
+SELECT coverage, n_requirements FROM tree_coverage('N', candidates := ['C'], nodes_table := 'deep_or', attrs_table := NULL,
+                                                   candidate_nodes_table := 'one_track', candidate_attrs_table := NULL);
+----
+1.0	1
