@@ -57,6 +57,25 @@ SELECT tversky_similarity(['a'], ['b'], -1.0, 0.0);
 ----
 alpha and beta must be non-negative
 
+statement error
+SELECT tversky_similarity(['a'], ['b'], 1.0, -0.5);
+----
+alpha and beta must be non-negative
+
+# zero denominators: NULL, except when both inputs are empty (0.0, the jaccard convention)
+#   tversky([],[],1,0): both empty -> 0.0;  tversky({a},{b},0,0): 0/(0+0+0) -> NULL
+query RR
+SELECT tversky_similarity([]::VARCHAR[], []::VARCHAR[], 1.0, 0.0),
+       tversky_similarity(['a'], ['b'], 0.0, 0.0);
+----
+0.0	NULL
+
+# NULL list elements are ignored, as in jaccard_similarity: {a} in {a} = 1.0
+query RR
+SELECT containment(['a', NULL], ['a']), tversky_similarity(['a', NULL], ['a', NULL]);
+----
+1.0	1.0
+
 # ---------------------------------------------------------------- containment
 
 # containment(q, c) = |q∩c| / |q|
@@ -81,10 +100,11 @@ SELECT containment(['a','b'], ['a','b','c','d']), containment(['a','b','c','d'],
 1.0	0.5
 
 # empty request -> NULL (not 1); empty candidate -> 0.0; NULL -> NULL
-query RRR
-SELECT containment([]::VARCHAR[], ['a']), containment(['a'], []::VARCHAR[]), containment(['a'], NULL::VARCHAR[]);
+query RRRR
+SELECT containment([]::VARCHAR[], ['a']), containment(['a'], []::VARCHAR[]), containment(['a'], NULL::VARCHAR[]),
+       containment([]::VARCHAR[], []::VARCHAR[]);
 ----
-NULL	0.0	NULL
+NULL	0.0	NULL	NULL
 
 query I
 SELECT containment(query := ['a','b'], candidate := ['a']) = containment(['a','b'], ['a']);
@@ -103,7 +123,7 @@ SELECT weighted_jaccard(MAP {'heating': 2.0, 'massage': 4.0}, MAP {'heating': 4.
 ----
 0.2	0.3333
 
-# HANDOVER §4 example: containment = (min(3,2) + min(1,1)) / (3 + 1) = 0.75
+# HANDOVER §4 example: containment = (min(3,2) + min(1,5)) / (3 + 1) = 0.75
 query R
 SELECT weighted_containment(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'b': 5});
 ----
@@ -125,6 +145,14 @@ SELECT weighted_tversky(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2}, 0.5, 0.5),
        weighted_containment(MAP {'a': 3, 'b': 1}, MAP {'a': 2, 'c': 2});
 ----
 0.5	0.5	0.5
+
+# alpha weighs what is missing, beta what is extra: q={a:3}, c={a:2,b:3}
+#   Σmin 2, Σ(q-c)+ 1, Σ(c-q)+ 3 -> (1,0): 2/3 = 0.6667; (0,1): 2/5 = 0.4
+query RR
+SELECT round(weighted_tversky(MAP {'a': 3}, MAP {'a': 2, 'b': 3}, 1.0, 0.0), 4),
+       weighted_tversky(MAP {'a': 3}, MAP {'a': 2, 'b': 3}, 0.0, 1.0);
+----
+0.6667	0.4
 
 # default alpha=beta=1 equals weighted_jaccard: Σmin/(Σmin+Σ(q-c)+ +Σ(c-q)+) = Σmin/Σmax
 query I
@@ -152,6 +180,26 @@ SELECT weighted_containment(MAP {}::MAP(VARCHAR, DOUBLE), MAP {'a': 1.0}),
        weighted_jaccard(NULL::MAP(VARCHAR, DOUBLE), MAP {'a': 1.0});
 ----
 NULL	0.0	NULL
+
+# all-zero weights behave like empty maps
+query RRRR
+SELECT weighted_containment(MAP {'a': 0.0}, MAP {'a': 1.0}),
+       weighted_containment(MAP {}::MAP(VARCHAR, DOUBLE), MAP {}::MAP(VARCHAR, DOUBLE)),
+       weighted_jaccard(MAP {'a': 0.0}, MAP {'b': 0.0}),
+       weighted_tversky(NULL::MAP(VARCHAR, DOUBLE), MAP {'a': 1.0}, 1.0, 0.0);
+----
+NULL	NULL	0.0	NULL
+
+# integer keys work; non-numeric weights are rejected
+query R
+SELECT weighted_containment(MAP {1: 2, 2: 2}, MAP {1: 1});
+----
+0.25
+
+statement error
+SELECT weighted_containment(MAP {'a': 'x'}, MAP {'a': 1.0});
+----
+weights must be numeric
 
 statement error
 SELECT weighted_containment(MAP {'a': -1.0}, MAP {'a': 1.0});

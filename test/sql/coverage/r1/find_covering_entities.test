@@ -80,12 +80,66 @@ S1
 S6
 S3
 
+# min_score compares the measure, not the score: S3 has containment 0.625 < 0.63
+# although its score (0.63125) is above it
+query T
+SELECT entity_id FROM find_covering_entities('S2', 10, min_score := 0.63, feature_table := 'ms');
+----
+S1
+S6
+
 # tie_break := 0 leaves full covers tied; ties are broken by entity_id
 query TR
 SELECT entity_id, score FROM find_covering_entities('S2', 2, tie_break := 0.0, feature_table := 'ms');
 ----
 S1	1.0
 S6	1.0
+
+# only candidates that share a feature are returned (S7 has only an armrest)
+statement ok
+CREATE TABLE ms2 AS SELECT * FROM ms UNION ALL SELECT 'S7', 'armrest', 1.0;
+
+query I
+SELECT count(*) FROM find_covering_entities('S2', 10, feature_table := 'ms2') WHERE entity_id = 'S7';
+----
+0
+
+# mode is case-insensitive, and NULL means the default
+query T
+SELECT entity_id FROM find_covering_entities('S2', 1, mode := 'Containment', feature_table := 'ms');
+----
+S1
+
+query T
+SELECT entity_id FROM find_covering_entities('S2', 1, mode := NULL, feature_table := 'ms');
+----
+S1
+
+# tversky with its defaults (alpha 1, beta 0) is containment
+query I
+SELECT count(*) FROM (
+    SELECT entity_id, score FROM find_covering_entities('S2', 5, mode := 'tversky', feature_table := 'ms')
+    EXCEPT SELECT entity_id, score FROM find_covering_entities('S2', 5, feature_table := 'ms'));
+----
+0
+
+# weighted := false: the *_weight columns count distinct features
+#   S2 = 4 features; S1 shares 4 of its 5; S6 shares 4 of its 6
+query TRRRR
+SELECT entity_id, shared_weight, query_weight, candidate_weight, surplus_weight
+FROM find_covering_entities('S2', 2, weighted := false, feature_table := 'ms');
+----
+S1	4.0	4.0	5.0	1.0
+S6	4.0	4.0	6.0	2.0
+
+# rows with a NULL entity or feature are ignored
+statement ok
+CREATE TABLE ms3 AS SELECT * FROM ms UNION ALL SELECT NULL, 'massage', 9.0 UNION ALL SELECT 'S1', NULL, 9.0;
+
+query TR
+SELECT entity_id, candidate_weight FROM find_covering_entities('S2', 1, feature_table := 'ms3');
+----
+S1	9.0
 
 # an unknown query entity has no candidates
 query I
@@ -106,11 +160,64 @@ S2	1.01	1.0
 S1	1.009	0.889
 S6	1.007	0.667
 
-# an empty request matches nothing
-query I
-SELECT count(*) FROM find_covering_entities_for(MAP {}::MAP(VARCHAR, DOUBLE), 5, feature_table := 'ms');
+# an empty, NULL, all-zero or unknown request matches nothing
+query IIII
+SELECT (SELECT count(*) FROM find_covering_entities_for(MAP {}::MAP(VARCHAR, DOUBLE), 5, feature_table := 'ms')),
+       (SELECT count(*) FROM find_covering_entities_for(NULL::MAP(VARCHAR, DOUBLE), 5, feature_table := 'ms')),
+       (SELECT count(*) FROM find_covering_entities_for(MAP {'massage': 0}, 5, feature_table := 'ms')),
+       (SELECT count(*) FROM find_covering_entities_for(MAP {'cupholder': 1}, 5, feature_table := 'ms'));
 ----
-0
+0	0	0	0
+
+# request keys are data, not SQL: a hostile key is just an unknown feature
+#   request {hostile: 1, massage: 4}, Σq 5: S1, S2, S6 have 4 massage zones -> containment 0.8;
+#   jaccard S2 4/(5+8-4) = 0.444 > S1 4/(5+9-4) = 0.4 > S6 4/(5+12-4) = 0.308
+query TR
+SELECT entity_id, containment FROM find_covering_entities_for(MAP {'it''s; DROP TABLE ms --': 1, 'massage': 4}, 1,
+                                                              feature_table := 'ms');
+----
+S2	0.8
+
+query I
+SELECT count(*) FROM ms;
+----
+22
+
+# weighted := false ignores the request counts: {massage} is in S3 although S3 has 2 zones
+query TR
+SELECT entity_id, containment FROM find_covering_entities_for(MAP {'massage': 4}, 10, weighted := false,
+                                                              feature_table := 'ms')
+WHERE entity_id = 'S3';
+----
+S3	1.0
+
+statement error
+SELECT * FROM find_covering_entities_for(MAP {'massage': -1}, 5, feature_table := 'ms');
+----
+weights must be non-negative
+
+statement error
+SELECT * FROM find_covering_entities_for(['massage'], 5, feature_table := 'ms');
+----
+query must be a MAP
+
+# A known limitation of the additive tie-break (HLD §4.1, kept by decision of 2026-10-25):
+# a near-complete partial cover can outrank a full but much larger cover.
+#   request {f1: 199, f2: 1} (Σ 200)
+#   A = {f1: 199}:          containment 199/200 = 0.995, jaccard 199/200 = 0.995 -> 1.00495
+#   B = {f1: 199, f2: 801}: containment 1,               jaccard 200/1000 = 0.2  -> 1.002
+statement ok
+CREATE TABLE edge(entity_id VARCHAR, feature_id VARCHAR, weight DOUBLE);
+
+statement ok
+INSERT INTO edge VALUES ('A', 'f1', 199), ('B', 'f1', 199), ('B', 'f2', 801);
+
+query TRR
+SELECT entity_id, round(score, 5), containment
+FROM find_covering_entities_for(MAP {'f1': 199, 'f2': 1}, 2, feature_table := 'edge');
+----
+A	1.00495	0.995
+B	1.002	1.0
 
 # ---------------------------------------------------------------- column mapping
 
@@ -147,6 +254,22 @@ WHERE entity_id = 'A4';
 ----
 A4	0.8333
 
+# a table without a weight column: weight_col := NULL means unit weights
+statement ok
+CREATE TABLE bom_items(parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES ('D1','a'), ('D1','b'), ('D2','a'), ('D2','b'), ('D2','c'), ('D3','a');
+
+# D1 = {a,b}: D2 contains both (jaccard 2/3), D3 one (containment 0.5, jaccard 0.5)
+query TRR
+SELECT entity_id, containment, round(jaccard, 4)
+FROM find_covering_entities('D1', 5, feature_table := 'bom_items', entity_col := 'parent_id',
+                            feature_col := 'child_id', weight_col := NULL);
+----
+D2	1.0	0.6667
+D3	0.5	0.5
+
 # ---------------------------------------------------------------- errors
 
 statement error
@@ -180,6 +303,21 @@ SELECT * FROM find_covering_entities('S2', 0, feature_table := 'ms');
 k must be positive
 
 statement error
+SELECT * FROM find_covering_entities('S2', -3, feature_table := 'ms');
+----
+k must be positive
+
+statement error
+SELECT * FROM find_covering_entities(NULL, 3, feature_table := 'ms');
+----
+query_entity_id must not be NULL
+
+statement error
+SELECT * FROM find_covering_entities('S2', 3, mode := 'tversky', beta := -0.1, feature_table := 'ms');
+----
+alpha and beta must be non-negative
+
+statement error
 SELECT * FROM find_covering_entities('S2', 3, mode := 'tversky', alpha := -1.0, feature_table := 'ms');
 ----
 alpha and beta must be non-negative
@@ -189,6 +327,15 @@ CREATE TABLE neg AS SELECT * FROM (VALUES ('E1', 'f', -2.0), ('E2', 'f', 1.0)) t
 
 statement error
 SELECT * FROM find_covering_entities('E1', 3, feature_table := 'neg');
+----
+weights must be non-negative
+
+# the check covers the whole table, not only the query and its candidates
+statement ok
+INSERT INTO neg VALUES ('E3', 'g', 1.0), ('E4', 'g', 1.0);
+
+statement error
+SELECT * FROM find_covering_entities('E3', 3, feature_table := 'neg');
 ----
 weights must be non-negative
 

@@ -49,20 +49,28 @@ WHERE surplus_weight < prev;
 ----
 0
 
-# Cross-check against a plain SQL formulation of weighted containment over the archive:
-# the 10 returned programmes are exactly the 10 best by (containment, jaccard).
-query I
-SELECT count(*) FROM (
-    SELECT entity_id FROM top
-    EXCEPT
-    SELECT entity_id FROM (
-        WITH q(feature_id, weight) AS (VALUES ('seat_heating', 2.0), ('massage', 4.0),
-                                              ('headrest_powered', 1.0), ('memory_module', 1.0)),
-             per AS (SELECT a.entity_id,
-                            sum(least(a.weight, coalesce(q.weight, 0))) AS smin,
-                            sum(a.weight) AS sc
-                     FROM archive a LEFT JOIN q USING (feature_id) GROUP BY a.entity_id)
-        SELECT entity_id, smin / 8.0 AS cont, smin / (8.0 + sc - smin) AS jac FROM per
-        ORDER BY cont DESC, jac DESC, entity_id LIMIT 10));
+# For a full cover the surplus is what the programme has on top of the request (Σc - Σq)
+query II
+SELECT count(DISTINCT entity_id), bool_and(surplus_weight = candidate_weight - query_weight) FROM top;
 ----
-0
+10	true
+
+# Cross-check against a plain SQL formulation of weighted containment over the archive:
+# the 10 returned programmes are exactly the 10 best by (containment, jaccard), in both directions.
+statement ok
+CREATE TABLE expected AS
+WITH q(feature_id, weight) AS (VALUES ('seat_heating', 2.0), ('massage', 4.0),
+                                      ('headrest_powered', 1.0), ('memory_module', 1.0)),
+     per AS (SELECT a.entity_id,
+                    sum(least(a.weight, coalesce(q.weight, 0))) AS smin,
+                    sum(a.weight) AS sc
+             FROM archive a LEFT JOIN q USING (feature_id) GROUP BY a.entity_id)
+SELECT entity_id FROM (
+    SELECT entity_id, smin / 8.0 AS cont, smin / (8.0 + sc - smin) AS jac FROM per
+    ORDER BY cont DESC, jac DESC, entity_id LIMIT 10);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT entity_id FROM top EXCEPT SELECT entity_id FROM expected)),
+       (SELECT count(*) FROM (SELECT entity_id FROM expected EXCEPT SELECT entity_id FROM top));
+----
+0	0
