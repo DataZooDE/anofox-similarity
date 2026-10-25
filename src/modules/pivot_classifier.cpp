@@ -220,66 +220,7 @@ void RegisterScalar(ExtensionLoader &loader, const string &name, vector<LogicalT
 // Named parameters of the table functions
 //------------------------------------------------------------------------------
 
-struct Named {
-	const duckdb_compat::BindNamedParameters &map;
-	string fn;
-	const Value *Get(const char *name) const {
-		return duckdb_compat::FindNamedParameter(map, name);
-	}
-	//! The parameter's string, the fallback when not given, "" when given as NULL.
-	string Str(const char *name, const string &fallback = "") const {
-		auto v = Get(name);
-		if (!v) {
-			return fallback;
-		}
-		return v->IsNull() ? string() : v->GetValue<string>();
-	}
-	double Dbl(const char *name, double fallback) const {
-		auto v = Get(name);
-		if (!v || v->IsNull()) {
-			return fallback;
-		}
-		double d = v->GetValue<double>();
-		if (!std::isfinite(d)) {
-			throw BinderException("%s: %s must be finite", fn, name);
-		}
-		return d;
-	}
-	//! A table parameter: validated identifier, existing table, required columns ("" when not given).
-	string Table(ClientContext &context, const char *name, const string &fallback, const vector<string> &columns) const {
-		auto table = Str(name, fallback);
-		if (table.empty()) {
-			return table;
-		}
-		table = ValidateSQLIdentifierPath(table, name);
-		if (!TableExists(context, table)) {
-			throw BinderException("%s: %s '%s' does not exist", fn, name, table);
-		}
-		ValidateTableColumns(context, table, columns, name);
-		return table;
-	}
-};
 
-void RegisterTable(ExtensionLoader &loader, const string &name, vector<LogicalType> positional,
-                   vector<string> positional_names, table_function_bind_replace_t fn,
-                   vector<std::pair<string, LogicalType>> named, const string &description, vector<string> examples) {
-	TableFunction f(duckdb_compat::FunctionName(name), positional, nullptr, nullptr);
-	f.bind_replace = fn;
-	FunctionDescription desc;
-	desc.description = description;
-	desc.examples = std::move(examples);
-	desc.categories = {"coverage", "classification"};
-	desc.parameter_names = std::move(positional_names);
-	for (auto &spec : named) {
-		duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
-		desc.parameter_names.emplace_back(spec.first);
-	}
-	desc.parameter_types = positional;
-	CreateTableFunctionInfo info(f);
-	info.descriptions.push_back(std::move(desc));
-	duckdb_compat::NameFunctionsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
-}
 
 //------------------------------------------------------------------------------
 // cosine_floor
@@ -301,7 +242,7 @@ unique_ptr<TableRef> CosineFloorBindReplace(ClientContext &context, TableFunctio
 		throw BinderException("%s: table '%s' does not exist", fn, table);
 	}
 	ValidateTableColumns(context, table, {column}, "table");
-	Named named {input.named_parameters, fn};
+	CoverageParamReader named {context, input.named_parameters, fn};
 	double sample = named.Dbl("sample", 10000);
 	double seed = named.Dbl("seed", 7);
 	if (sample < 1 || sample > 1e8) {
@@ -343,18 +284,18 @@ unique_ptr<TableRef> CosineFloorBindReplace(ClientContext &context, TableFunctio
 unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("classify_to_catalogue");
 	const string fn = "classify_to_catalogue";
-	Named named {input.named_parameters, fn};
+	CoverageParamReader named {context, input.named_parameters, fn};
 	auto mode = StringUtil::Lower(named.Str("mode", "centroid"));
 	if (mode != "centroid" && mode != "late_interaction") {
 		throw BinderException("%s: mode must be 'centroid' or 'late_interaction'", fn);
 	}
 	bool late = mode == "late_interaction";
-	auto items = named.Table(context, "items_table", "item_vectors",
+	auto items = named.Table("items_table", "item_vectors",
 	                         late ? vector<string> {"node_id", "tokens"} : vector<string> {"node_id", "vec"});
 	if (items.empty()) {
 		throw BinderException("%s: items_table must not be NULL", fn);
 	}
-	auto catalogue = named.Table(context, "catalogue_table", "catalogue_vectors",
+	auto catalogue = named.Table("catalogue_table", "catalogue_vectors",
 	                             late ? vector<string> {"class_id", "exemplar_tokens"} : vector<string> {"class_id", "vec"});
 	if (catalogue.empty()) {
 		throw BinderException("%s: catalogue_table must not be NULL", fn);
@@ -382,11 +323,11 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 			throw BinderException("%s: top must be positive", fn);
 		}
 	}
-	auto overrides = named.Table(context, "overrides_table", "", {"wording", "class_id"});
-	auto decisions = named.Table(context, "answers_table", "", {"node_id", "class_id"});
-	auto attrs = named.Table(context, "attrs_table", "", {"node_id", "dimension"});
-	auto templates = named.Table(context, "templates_table", "", {"class_id", "dimension"});
-	auto name_vectors = named.Table(context, "name_vectors", "", {"name", "vec"});
+	auto overrides = named.Table("overrides_table", "", {"wording", "class_id"});
+	auto decisions = named.Table("answers_table", "", {"node_id", "class_id"});
+	auto attrs = named.Table("attrs_table", "", {"node_id", "dimension"});
+	auto templates = named.Table("templates_table", "", {"class_id", "dimension"});
+	auto name_vectors = named.Table("name_vectors", "", {"name", "vec"});
 
 	auto has = [&](const string &table, const char *col) { return TableHasColumn(context, table, col); };
 	bool items_tree = has(items, "tree_id");
@@ -627,15 +568,15 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	               "must be in [0, 1); NULL gives NULL.",
 	               {"SELECT calibrated_cosine([1.0, 0.0], [0.8, 0.6], 0.5); -- 0.6"});
 
-	RegisterTable(loader, "cosine_floor", {LogicalType::VARCHAR, LogicalType::VARCHAR}, {"table", "column"},
+	RegisterCoverageTableFunction(loader, "cosine_floor", {LogicalType::VARCHAR, LogicalType::VARCHAR}, {"table", "column"},
 	              CosineFloorBindReplace, {{"sample", LogicalType::BIGINT}, {"seed", LogicalType::BIGINT}},
 	              "Estimates the cosine floor b of a vector corpus: the median cosine of pairs of distinct vectors "
 	              "(HLD §4.4). With at most `sample` pairs (default 10 000) all pairs count; otherwise `sample` pairs "
 	              "are drawn deterministically from `seed` (default 7). Returns floor and n_pairs. Use the floor with "
 	              "calibrated_cosine or as name_floor.",
-	              {"SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));"});
+	              {"SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));"}, {"coverage", "classification"});
 
-	RegisterTable(
+	RegisterCoverageTableFunction(
 	    loader, "classify_to_catalogue", {}, {}, ClassifyBindReplace,
 	    {{"items_table", LogicalType::VARCHAR},
 	     {"catalogue_table", LogicalType::VARCHAR},
@@ -664,7 +605,8 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	    {"SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue', "
 	     "top := 3);",
 	     "SELECT * FROM classify_to_catalogue(items_table := 'unseen', catalogue_table := 'catalogue', "
-	     "mode := 'late_interaction', top := 1);"});
+	     "mode := 'late_interaction', top := 1);"},
+	    {"coverage", "classification"});
 }
 
 } // namespace anofox

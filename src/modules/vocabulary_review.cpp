@@ -16,41 +16,12 @@ namespace anofox {
 
 namespace {
 
-struct Params {
-	ClientContext &context;
-	const duckdb_compat::BindNamedParameters &named;
-	string fn;
+//! CAST(column AS type) when the table has it, else a typed NULL.
+string Col(const CoverageParamReader &p, const string &table, const char *column, const char *type) {
+	return p.Has(table, column) ? StringUtil::Format("CAST(%s AS %s)", column, type)
+	                            : StringUtil::Format("NULL::%s", type);
+}
 
-	const Value *Get(const char *name) const {
-		return duckdb_compat::FindNamedParameter(named, name);
-	}
-	//! A table parameter: validated, existing, with the required columns ("" when NULL or not given
-	//! without a fallback).
-	string Table(const char *name, const string &fallback, const vector<string> &columns) const {
-		auto v = Get(name);
-		string table = v ? (v->IsNull() ? string() : v->GetValue<string>()) : fallback;
-		return Check(table, name, columns);
-	}
-	string Check(string table, const char *name, const vector<string> &columns) const {
-		if (table.empty()) {
-			return table;
-		}
-		table = ValidateSQLIdentifierPath(table, name);
-		if (!TableExists(context, table)) {
-			throw BinderException("%s: %s '%s' does not exist", fn, name, table);
-		}
-		ValidateTableColumns(context, table, columns, name);
-		return table;
-	}
-	bool Has(const string &table, const char *column) const {
-		return TableHasColumn(context, table, column);
-	}
-	//! CAST(column AS type) when the table has it, else a typed NULL.
-	string Col(const string &table, const char *column, const char *type) const {
-		return Has(table, column) ? StringUtil::Format("CAST(%s AS %s)", column, type)
-		                          : StringUtil::Format("NULL::%s", type);
-	}
-};
 
 //------------------------------------------------------------------------------
 // vocabulary_review_queue
@@ -58,7 +29,7 @@ struct Params {
 
 unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("vocabulary_review_queue");
-	Params p {context, input.named_parameters, "vocabulary_review_queue"};
+	CoverageParamReader p {context, input.named_parameters, "vocabulary_review_queue"};
 	auto trees = p.Table("trees_table", "tree_nodes", {"tree_id", "node_id", "node_kind", "label"});
 	if (trees.empty()) {
 		throw BinderException("%s: trees_table must not be NULL", p.fn);
@@ -75,7 +46,7 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 	string reviewed = "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source WHERE false";
 	if (!overrides.empty()) {
 		reviewed = StringUtil::Format("SELECT CAST(wording AS VARCHAR) AS wording, %s AS source FROM %s",
-		                              p.Col(overrides, "source", "VARCHAR"), QuotedIdentifier(overrides));
+		                              Col(p, overrides, "source", "VARCHAR"), QuotedIdentifier(overrides));
 	}
 	auto sql = StringUtil::Format(R"(
 		WITH items AS (
@@ -140,8 +111,8 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		                  AND (v.source IS NULL OR v.source IS NOT DISTINCT FROM t.source))
 		ORDER BY impact DESC, t.wording, t.source
 	)",
-	                              p.Col(trees, "source", "VARCHAR"), QuotedIdentifier(trees), source_filter,
-	                              p.Col(decisions, "tree_id", "VARCHAR"), p.Col(decisions, "source", "VARCHAR"),
+	                              Col(p, trees, "source", "VARCHAR"), QuotedIdentifier(trees), source_filter,
+	                              Col(p, decisions, "tree_id", "VARCHAR"), Col(p, decisions, "source", "VARCHAR"),
 	                              QuotedIdentifier(decisions), reviewed);
 	return CoverageSubquery(sql, context, p.fn);
 }
@@ -152,7 +123,7 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 
 unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("apply_vocabulary_review");
-	Params p {context, input.named_parameters, "apply_vocabulary_review"};
+	CoverageParamReader p {context, input.named_parameters, "apply_vocabulary_review"};
 	if (input.inputs.empty() || input.inputs[0].IsNull()) {
 		throw BinderException("%s: review_table must not be NULL", p.fn);
 	}
@@ -165,8 +136,8 @@ unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctio
 		return StringUtil::Format(
 		    "SELECT CAST(wording AS VARCHAR) AS wording, %s AS source, CAST(class_id AS VARCHAR) AS class_id, "
 		    "%s AS reviewed_by, %s AS reviewed_at FROM %s WHERE wording IS NOT NULL",
-		    p.Col(table, "source", "VARCHAR"), p.Col(table, "reviewed_by", "VARCHAR"),
-		    p.Col(table, "reviewed_at", "TIMESTAMP"), QuotedIdentifier(table));
+		    Col(p, table, "source", "VARCHAR"), Col(p, table, "reviewed_by", "VARCHAR"),
+		    Col(p, table, "reviewed_at", "TIMESTAMP"), QuotedIdentifier(table));
 	};
 	string old = overrides.empty() ? "SELECT NULL::VARCHAR AS wording, NULL::VARCHAR AS source, NULL::VARCHAR AS "
 	                                 "class_id, NULL::VARCHAR AS reviewed_by, NULL::TIMESTAMP AS reviewed_at WHERE false"
@@ -204,7 +175,7 @@ unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctio
 
 unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("uncertain_decisions");
-	Params p {context, input.named_parameters, "uncertain_decisions"};
+	CoverageParamReader p {context, input.named_parameters, "uncertain_decisions"};
 	auto decisions = p.Table("decisions", "", {"node_id", "class_id", "p", "rank", "margin"});
 	if (decisions.empty()) {
 		throw BinderException("%s: decisions (a classify_to_catalogue result) is required", p.fn);
@@ -252,10 +223,10 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 	}
 	string cat_sql = "SELECT NULL::VARCHAR AS class_id, NULL::VARCHAR AS label, NULL::VARCHAR AS definition WHERE false";
 	if (!catalogue.empty()) {
-		string label = p.Has(catalogue, "label_en") ? "CAST(label_en AS VARCHAR)" : p.Col(catalogue, "label", "VARCHAR");
+		string label = p.Has(catalogue, "label_en") ? "CAST(label_en AS VARCHAR)" : Col(p, catalogue, "label", "VARCHAR");
 		cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, min(%s) AS label, "
 		                             "min(%s) AS definition FROM %s GROUP BY ALL",
-		                             label, p.Col(catalogue, "definition", "VARCHAR"), QuotedIdentifier(catalogue));
+		                             label, Col(p, catalogue, "definition", "VARCHAR"), QuotedIdentifier(catalogue));
 	}
 	string select = has_share ? StringUtil::Format("SELECT * FROM items QUALIFY row_number() OVER (ORDER BY margin, "
 	                                               "tree_id, node_id) <= ceil(%s * count(*) OVER ())",
@@ -294,37 +265,17 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 		ORDER BY s.margin, s.tree_id, s.node_id
 	)",
 	                              dec_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR",
-	                              p.Col(decisions, "overridden", "BOOLEAN"), QuotedIdentifier(decisions), select,
+	                              Col(p, decisions, "overridden", "BOOLEAN"), QuotedIdentifier(decisions), select,
 	                              texts_sql, cat_sql, text_guard, request, (long long)top, text_join);
 	return CoverageSubquery(sql, context, p.fn);
 }
 
-void RegisterTable(ExtensionLoader &loader, const string &name, vector<LogicalType> positional,
-                   vector<string> positional_names, table_function_bind_replace_t fn,
-                   vector<std::pair<string, LogicalType>> named, const string &description, vector<string> examples) {
-	TableFunction f(duckdb_compat::FunctionName(name), positional, nullptr, nullptr);
-	f.bind_replace = fn;
-	FunctionDescription desc;
-	desc.description = description;
-	desc.examples = std::move(examples);
-	desc.categories = {"coverage", "curation"};
-	desc.parameter_names = std::move(positional_names);
-	for (auto &spec : named) {
-		duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
-		desc.parameter_names.emplace_back(spec.first);
-	}
-	desc.parameter_types = positional;
-	CreateTableFunctionInfo info(f);
-	info.descriptions.push_back(std::move(desc));
-	duckdb_compat::NameFunctionsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
-}
 
 } // namespace
 
 void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	auto vc = LogicalType(LogicalTypeId::VARCHAR);
-	RegisterTable(
+	RegisterCoverageTableFunction(
 	    loader, "vocabulary_review_queue", {}, {}, QueueBindReplace,
 	    {{"trees_table", vc},
 	     {"decisions", vc},
@@ -337,16 +288,18 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	    "wording's occurrences). Wordings in overrides_table are reviewed and leave the queue; sources restricts "
 	    "the document families.",
 	    {"SELECT * FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wording_decisions', "
-	     "overrides_table := 'vocabulary_overrides') LIMIT 10;"});
-	RegisterTable(
+	     "overrides_table := 'vocabulary_overrides') LIMIT 10;"},
+	    {"coverage", "curation"});
+	RegisterCoverageTableFunction(
 	    loader, "apply_vocabulary_review", {vc}, {"review_table"}, ApplyReviewBindReplace,
 	    {{"overrides_table", vc}},
 	    "Applies a review (wording, class_id[, source, reviewed_by, reviewed_at]) to the overrides (default "
 	    "'vocabulary_overrides' when that table exists; NULL for none): one entry per wording and source, the review wins. Returns the "
 	    "new overrides table; table functions cannot write, so store it: CREATE OR REPLACE TABLE "
 	    "vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review').",
-	    {"CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');"});
-	RegisterTable(
+	    {"CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');"},
+	    {"coverage", "curation"});
+	RegisterCoverageTableFunction(
 	    loader, "uncertain_decisions", {}, {}, UncertainBindReplace,
 	    {{"decisions", vc},
 	     {"threshold", LogicalType::DOUBLE},
@@ -361,7 +314,8 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	    "class_id[, label_en|label, definition]). Write the answers back as an answers_table for "
 	    "classify_to_catalogue, or as vocabulary_overrides per wording.",
 	    {"SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15, texts_table := 'texts', "
-	     "catalogue_table := 'catalogue_classes');"});
+	     "catalogue_table := 'catalogue_classes');"},
+	    {"coverage", "curation"});
 }
 
 } // namespace anofox
