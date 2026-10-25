@@ -210,4 +210,4 @@ SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name =
 query I
 SELECT parameters FROM ours WHERE function_name = 'coverage_recall';
 ----
-[query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break]
+[query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break, candidate_multiset_table]

@@ -62,6 +62,9 @@ struct KTree {
 };
 
 const Value *Field(const Value &v, const char *name) {
+	if (v.IsNull() || v.type().id() != LogicalTypeId::STRUCT) {
+		return nullptr;
+	}
 	auto &types = StructType::GetChildTypes(v.type());
 	auto &vals = StructValue::GetChildren(v);
 	for (idx_t i = 0; i < types.size(); i++) {
@@ -82,8 +85,118 @@ bool Num(const Value &v, const char *name, double &out) {
 	if (!f || f->IsNull()) {
 		return false;
 	}
-	out = f->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
-	return std::isfinite(out);
+	double v_out = f->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+	if (!std::isfinite(v_out)) {
+		return false;
+	}
+	out = v_out;
+	return true;
+}
+
+//------------------------------------------------------------------------------
+// Input types: checked per chunk, so malformed input is a clean error
+//------------------------------------------------------------------------------
+
+bool IsNullType(const LogicalType &t) {
+	return t.id() == LogicalTypeId::SQLNULL;
+}
+
+[[noreturn]] void TypeError(const string &fn, const string &what, const LogicalType &t) {
+	throw InvalidInputException("%s: %s, not %s", fn, what, t.ToString());
+}
+
+//! LIST(STRUCT) or NULL; returns the struct type, or nullptr when there is none to check.
+const LogicalType *ListOfStruct(const string &fn, const string &name, const LogicalType &t) {
+	if (IsNullType(t)) {
+		return nullptr;
+	}
+	if (t.id() != LogicalTypeId::LIST) {
+		TypeError(fn, name + " must be a LIST of STRUCT", t);
+	}
+	auto &child = ListType::GetChildType(t);
+	if (IsNullType(child)) {
+		return nullptr;
+	}
+	if (child.id() != LogicalTypeId::STRUCT) {
+		TypeError(fn, name + " must be a LIST of STRUCT", t);
+	}
+	return &child;
+}
+
+void CheckScalarField(const string &fn, const string &name, const LogicalType &t) {
+	if (IsNullType(t)) {
+		return;
+	}
+	if (name == "count" || name == "lo" || name == "hi" || name == "score" || name == "label_weight" ||
+	    name == "mu" || name == "partition_gate" || name == "count_gate" || name == "name_floor") {
+		if (!t.IsNumeric()) {
+			TypeError(fn, name + " must be numeric", t);
+		}
+	} else if (name == "reviewed" || name == "trace") {
+		if (t.id() != LogicalTypeId::BOOLEAN) {
+			TypeError(fn, name + " must be BOOLEAN", t);
+		}
+	} else if (t.id() == LogicalTypeId::LIST || t.id() == LogicalTypeId::STRUCT || t.id() == LogicalTypeId::MAP) {
+		TypeError(fn, name + " must be a scalar", t);
+	}
+}
+
+void CheckNodesType(const string &fn, const string &name, const LogicalType &t) {
+	auto node = ListOfStruct(fn, name, t);
+	if (!node) {
+		return;
+	}
+	for (auto &field : StructType::GetChildTypes(*node)) {
+		auto fname = StringUtil::Lower(static_cast<const string &>(field.first));
+		auto &ft = field.second;
+		if (fname == "probs") {
+			if (!IsNullType(ft) && (ft.id() != LogicalTypeId::MAP || !MapType::ValueType(ft).IsNumeric())) {
+				TypeError(fn, "probs must be a MAP(VARCHAR, DOUBLE)", ft);
+			}
+		} else if (fname == "attrs") {
+			auto attr = ListOfStruct(fn, "attrs", ft);
+			if (!attr) {
+				continue;
+			}
+			for (auto &af : StructType::GetChildTypes(*attr)) {
+				auto aname = StringUtil::Lower(static_cast<const string &>(af.first));
+				if (aname == "name_vec") {
+					auto &vt = af.second;
+					if (!IsNullType(vt) && (vt.id() != LogicalTypeId::LIST ||
+					                        !(ListType::GetChildType(vt).IsNumeric() ||
+					                          IsNullType(ListType::GetChildType(vt))))) {
+						TypeError(fn, "name_vec must be a LIST of numbers", vt);
+					}
+				} else {
+					CheckScalarField(fn, aname, af.second);
+				}
+			}
+		} else {
+			CheckScalarField(fn, fname, ft);
+		}
+	}
+}
+
+void CheckOptionsType(const string &fn, const LogicalType &t) {
+	if (IsNullType(t)) {
+		return;
+	}
+	if (t.id() != LogicalTypeId::STRUCT) {
+		TypeError(fn, "options must be a STRUCT", t);
+	}
+	for (auto &field : StructType::GetChildTypes(t)) {
+		auto fname = StringUtil::Lower(static_cast<const string &>(field.first));
+		if (fname == "rules") {
+			auto rule = ListOfStruct(fn, "rules", field.second);
+			if (rule) {
+				for (auto &rf : StructType::GetChildTypes(*rule)) {
+					CheckScalarField(fn, StringUtil::Lower(static_cast<const string &>(rf.first)), rf.second);
+				}
+			}
+		} else {
+			CheckScalarField(fn, fname, field.second);
+		}
+	}
 }
 
 KTree LoadTree(const Value &list) {
@@ -110,16 +223,32 @@ KTree LoadTree(const Value &list) {
 		r.kind = Str(entry, "node_kind");
 		r.edge = StringUtil::Upper(Str(entry, "edge_type"));
 		r.cls = Str(entry, "class_id");
-		Num(entry, "count", r.count);
+		if (auto cnt = Field(entry, "count"); cnt && !cnt->IsNull()) {
+			r.count = cnt->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+			if (!std::isfinite(r.count) || r.count <= 0) {
+				throw InvalidInputException("coverage_kernel: node '%s': count must be positive and finite", r.id);
+			}
+		}
 		auto rev = Field(entry, "reviewed");
 		r.reviewed = rev && !rev->IsNull() && rev->GetValue<bool>();
 		auto probs = Field(entry, "probs");
 		if (probs && !probs->IsNull()) {
 			for (auto &kv : ListValue::GetChildren(*probs)) {
 				auto &pair = StructValue::GetChildren(kv);
-				if (!pair[0].IsNull() && !pair[1].IsNull()) {
-					r.probs[pair[0].ToString()] += pair[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+				if (pair.size() == 2 && !pair[0].IsNull() && !pair[1].IsNull()) {
+					double p = pair[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+					if (std::isfinite(p) && p > 0) {
+						r.probs[pair[0].ToString()] += p;
+					}
 				}
+			}
+			// a distribution: normalised to sum 1
+			double total = 0;
+			for (auto &kv : r.probs) {
+				total += kv.second;
+			}
+			for (auto &kv : r.probs) {
+				kv.second /= total;
 			}
 		}
 		auto attrs = Field(entry, "attrs");
@@ -186,6 +315,9 @@ KTree LoadTree(const Value &list) {
 			item.count = f.count;
 			item.reviewed = n.reviewed;
 			item.probs = n.probs;
+			if (item.probs.empty() && !item.cls.empty()) {
+				item.probs[item.cls] = 1.0; // a known class is a one-hot distribution
+			}
 			item.attrs = n.attrs;
 			item.choices = f.choices;
 			item.path = f.path;
@@ -238,6 +370,21 @@ Options LoadOptions(const Value &v) {
 	Num(v, "name_floor", o.name_floor);
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
+	if (!labels.empty() && StringUtil::Lower(labels) != "soft" && StringUtil::Lower(labels) != "hard") {
+		throw InvalidInputException("coverage_kernel: labels must be 'soft' or 'hard'");
+	}
+	if (o.assignment != "auto" && o.assignment != "best_match" && o.assignment != "partition") {
+		throw InvalidInputException("coverage_kernel: assignment must be one of 'auto', 'best_match', 'partition'");
+	}
+	for (auto &pr : {std::make_pair("label_weight", o.label_weight), std::make_pair("mu", o.mu),
+	                 std::make_pair("partition_gate", o.partition_gate), std::make_pair("count_gate", o.count_gate)}) {
+		if (pr.second < 0 || pr.second > 1) {
+			throw InvalidInputException("coverage_kernel: %s must be between 0 and 1", pr.first);
+		}
+	}
+	if (o.name_floor < 0 || o.name_floor >= 1) {
+		throw InvalidInputException("coverage_kernel: name_floor must be in [0, 1)");
+	}
 	auto rules = Field(v, "rules");
 	if (rules && !rules->IsNull()) {
 		for (auto &r : ListValue::GetChildren(*rules)) {
@@ -254,17 +401,8 @@ double LabelSim(const KItem &q, const KItem &c, const Options &o) {
 	if (!o.soft) {
 		return !q.cls.empty() && q.cls == c.cls ? 1.0 : 0.0;
 	}
-	auto dist = [](const KItem &x) {
-		if (!x.probs.empty()) {
-			return x.probs;
-		}
-		std::map<string, double> one;
-		if (!x.cls.empty()) {
-			one[x.cls] = 1.0;
-		}
-		return one;
-	};
-	auto pq = dist(q), pc = dist(c);
+	auto &pq = q.probs;
+	auto &pc = c.probs;
 	double s = 0;
 	for (auto &kv : pq) {
 		auto it = pc.find(kv.first);
@@ -424,6 +562,10 @@ struct Pair {
 Pair Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
 	Pair p;
 	p.label = LabelSim(q, c, o);
+	if (p.label <= 0) {
+		p.a = 0;
+		return p; // no agreement: the score is 0 whatever the attributes
+	}
 	if (!q.attrs.empty()) {
 		double sum = 0;
 		for (auto &x : q.attrs) {
@@ -653,6 +795,9 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 
 void CoverageKernelFun(DataChunk &args, ExpressionState &, Vector &result) {
 	auto count = args.size();
+	CheckNodesType("coverage_kernel", "query", args.data[0].GetType());
+	CheckNodesType("coverage_kernel", "candidate", args.data[1].GetType());
+	CheckOptionsType("coverage_kernel", args.data[2].GetType());
 	Options cached;
 	bool options_constant = args.data[2].GetVectorType() == VectorType::CONSTANT_VECTOR;
 	if (options_constant) {
@@ -720,6 +865,8 @@ struct CoverageParams {
 	string rules_table;
 	string name_vectors;
 	double name_floor = 0.85;
+	string multiset_table; // precomputed candidate class multisets (tree_class_multiset output)
+	bool multiset_has_reviewed = false;
 };
 
 bool TableExists(ClientContext &context, const string &path) {
@@ -796,8 +943,10 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 	p.q.overrides_table = p.c.overrides_table = overrides;
 	p.q.label_table = p.c.label_table = labels_table;
 	p.q.tree_ids = p.query_ids;
+	p.q.has_tree_ids = true; // an empty list selects nothing
 	if (p.has_candidates) {
 		p.c.tree_ids = p.candidates;
+		p.c.has_tree_ids = true;
 	}
 	if (!stage2) {
 		p.q.attrs_table.clear();
@@ -873,12 +1022,23 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 	if (p.name_floor < 0 || p.name_floor >= 1) {
 		throw BinderException("%s: name_floor must be in [0, 1)", fn.c_str());
 	}
+	str("candidate_multiset_table", p.multiset_table);
+	if (!p.multiset_table.empty()) {
+		p.multiset_table = ValidateSQLIdentifierPath(p.multiset_table, "candidate_multiset_table");
+		ValidateTableColumns(context, p.multiset_table, {"entity_id", "feature_id", "weight"},
+		                     "candidate_multiset_table");
+		p.multiset_has_reviewed = TableHasColumn(context, p.multiset_table, "reviewed");
+	}
 	return p;
 }
 
 //! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
 string Stage1SQL(const CoverageParams &p) {
-	string pool_filter = p.has_candidates ? "" : " WHERE c.tree_id <> q.tree_id";
+	// a query is not its own candidate when both come from the same table
+	string self = !p.has_candidates && p.q.nodes_table == p.c.nodes_table ? " AND c.tree_id <> q.tree_id" : "";
+	// explicit candidates are all scored; otherwise only candidates sharing a class can score > 0
+	string pairs = p.has_candidates ? "SELECT q.tree_id AS query_id, c.tree_id AS candidate_id FROM q_ms q, c_ms c"
+	                                : "SELECT query_id, candidate_id FROM ov";
 	string top = p.has_candidates
 	                 ? "SELECT * FROM s1s"
 	                 : StringUtil::Format("SELECT * FROM s1s WHERE score > 0 QUALIFY row_number() OVER "
@@ -887,33 +1047,69 @@ string Stage1SQL(const CoverageParams &p) {
 	string mode = p.recall_mode == "auto"
 	                  ? "(SELECT CASE WHEN bool_and(reviewed) THEN 'containment' ELSE 'jaccard' END FROM c_ms)"
 	                  : QuoteSQLStringLiteral(p.recall_mode);
-	return StringUtil::Format(R"(
-		qn AS MATERIALIZED (%s),
+	// the candidate side: class multisets built from the resolved trees, or read from a
+	// precomputed index (then candidate nodes are resolved for the top k only, in KernelSQL)
+	string candidates;
+	if (p.multiset_table.empty()) {
+		candidates = StringUtil::Format(R"(
 		cn AS MATERIALIZED (%s),
-		q_ms AS (
-			SELECT tree_id, tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
-			FROM qn GROUP BY tree_id
-		),
-		c_ms AS MATERIALIZED (
+		c_tree AS MATERIALIZED (
 			SELECT tree_id, COALESCE(bool_and(reviewed) FILTER (WHERE node_kind = 'item'), true) AS reviewed,
 			       tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
 			FROM cn GROUP BY tree_id
 		),
+		c_ms AS (SELECT tree_id, reviewed FROM c_tree),
+		c_f AS MATERIALIZED (SELECT tree_id, unnest(map_keys(m)) AS f, unnest(map_values(m)) AS w FROM c_tree),)",
+		                                ResolvedNodesSQL(p.c));
+	} else {
+		string filter;
+		if (p.c.has_tree_ids) {
+			filter = p.c.tree_ids.empty() ? " AND false"
+			                              : " AND CAST(entity_id AS VARCHAR) IN (SELECT unnest(" +
+			                                    QuotedList(p.c.tree_ids) + "))";
+		}
+		candidates = StringUtil::Format(R"(
+		c_f AS MATERIALIZED (
+			SELECT CAST(entity_id AS VARCHAR) AS tree_id, CAST(feature_id AS VARCHAR) AS f, CAST(weight AS DOUBLE) AS w,
+			       %s AS reviewed
+			FROM %s WHERE feature_id IS NOT NULL AND weight > 0%s
+		),
+		c_ms AS MATERIALIZED (SELECT tree_id, bool_and(reviewed) AS reviewed FROM c_f GROUP BY tree_id),)",
+		                                p.multiset_has_reviewed ? "COALESCE(CAST(reviewed AS BOOLEAN), false)" : "false",
+		                                Quoted(p.multiset_table), filter);
+	}
+	return StringUtil::Format(R"(
+		qn AS MATERIALIZED (%s),%s
+		q_ms AS (
+			SELECT tree_id, tree_multiset(list(struct_pack(tree_id, node_id, parent_id, node_kind, edge_type, class_id, count))) AS m
+			FROM qn GROUP BY tree_id
+		),
 		mode AS (SELECT %s AS mode_used),
+		q_f AS (SELECT tree_id, unnest(map_keys(m)) AS f, unnest(map_values(m)) AS w FROM q_ms),
+		q_tot AS (SELECT tree_id, sum(w) AS tot FROM q_f GROUP BY tree_id),
+		c_tot AS (SELECT tree_id, sum(w) AS tot FROM c_f GROUP BY tree_id),
+		ov AS (
+			SELECT q.tree_id AS query_id, c.tree_id AS candidate_id, sum(least(q.w, c.w)) AS inter
+			FROM q_f q JOIN c_f c ON c.f = q.f%s
+			GROUP BY ALL
+		),
+		pairs AS (%s),
 		s1 AS (
-			SELECT q.tree_id AS query_id, c.tree_id AS candidate_id, c.reviewed,
-			       COALESCE(weighted_containment(q.m, c.m), 0) AS containment,
-			       COALESCE(weighted_jaccard(q.m, c.m), 0) AS jaccard
-			FROM q_ms q, c_ms c%s
+			SELECT pr.query_id, pr.candidate_id, c.reviewed,
+			       COALESCE(ov.inter / NULLIF(qt.tot, 0), 0) AS containment,
+			       COALESCE(ov.inter / NULLIF(qt.tot + ct.tot - ov.inter, 0), 0) AS jaccard
+			FROM pairs pr JOIN c_ms c ON c.tree_id = pr.candidate_id
+			LEFT JOIN ov ON ov.query_id = pr.query_id AND ov.candidate_id = pr.candidate_id
+			LEFT JOIN q_tot qt ON qt.tree_id = pr.query_id LEFT JOIN c_tot ct ON ct.tree_id = pr.candidate_id
 		),
 		s1s AS (
 			SELECT s1.*, mode.mode_used,
 			       CASE WHEN mode.mode_used = 'containment' THEN containment + %s * jaccard ELSE jaccard END AS score
 			FROM s1, mode
 		),
-		top AS (%s)
+		top AS MATERIALIZED (%s)
 	)",
-	                          ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c), mode, pool_filter, D(p.tie_break), top);
+	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, D(p.tie_break), top);
 }
 
 //! Attributes of one side, packed per node, with default bounds and name vectors.
@@ -963,10 +1159,13 @@ string LabelsSQL(const TreeSource &src, const string &ids_cte) {
 	if (src.label_table.empty()) {
 		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::MAP(VARCHAR, DOUBLE) AS probs WHERE false";
 	}
+	// duplicate rows add up; NULL classes and non-positive or non-finite probabilities drop out
 	return StringUtil::Format(
+	    "SELECT tree_id, node_id, map_from_entries(list((class_id, p))) AS probs FROM ("
 	    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
-	    "map_from_entries(list((CAST(class_id AS VARCHAR), CAST(p AS DOUBLE)))) AS probs FROM %s "
-	    "WHERE CAST(tree_id AS VARCHAR) IN (SELECT tree_id FROM %s) GROUP BY ALL",
+	    "CAST(class_id AS VARCHAR) AS class_id, sum(CAST(p AS DOUBLE)) AS p FROM %s "
+	    "WHERE CAST(tree_id AS VARCHAR) IN (SELECT tree_id FROM %s) AND class_id IS NOT NULL "
+	    "AND isfinite(CAST(p AS DOUBLE)) AND CAST(p AS DOUBLE) > 0 GROUP BY ALL) GROUP BY tree_id, node_id",
 	    Quoted(src.label_table), ids_cte);
 }
 
@@ -989,6 +1188,12 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
 	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
 	                                        Quoted(p.rules_table));
+	// with an index, stage 1 did not resolve the candidate trees: resolve the top k only
+	string candidate_nodes =
+	    p.multiset_table.empty()
+	        ? ""
+	        : StringUtil::Format("\n\t\tcn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM c_ids)),",
+	                             ResolvedNodesSQL(p.c));
 	string options = StringUtil::Format(
 	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
 	    "name_floor := %s, trace := %s, rules := %s)",
@@ -997,7 +1202,7 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 	return StringUtil::Format(R"(
 		WITH %s,
 		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
-		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),
+		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),%s
 		qa AS (%s),
 		ca AS (%s),
 		ql AS (%s),
@@ -1017,7 +1222,7 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 			FROM k
 		)
 	)",
-	                          Stage1SQL(p), AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
+	                          Stage1SQL(p), candidate_nodes, AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
 	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
 	                          PackedSQL("cn", "ca", "cl", "c_ids"), options, D(p.stage1_weight));
 }
@@ -1075,7 +1280,8 @@ void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_fu
 	                                  {"overrides_table", LogicalType::VARCHAR},
 	                                  {"label_table", LogicalType::VARCHAR},
 	                                  {stage2 ? "recall_mode" : "mode", LogicalType::VARCHAR},
-	                                  {"tie_break", LogicalType::DOUBLE}};
+	                                  {"tie_break", LogicalType::DOUBLE},
+	                                  {"candidate_multiset_table", LogicalType::VARCHAR}};
 	if (stage2) {
 		for (auto &spec : vector<NamedParameterSpec> {{"attrs_table", LogicalType::VARCHAR},
 		                                              {"candidate_attrs_table", LogicalType::VARCHAR},
@@ -1116,6 +1322,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		                 KernelResultType(), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, CoverageKernelFun),
 		                 compat_anofox::ScalarBind<&CoverageKernelBind>());
 		duckdb_compat::SetFallible(f);
+		f.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING); // NULL options mean the defaults
 		CreateScalarFunctionInfo info(f);
 		FunctionDescription d;
 		d.description =
@@ -1138,7 +1345,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the "
 	    "same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
 	    "Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else "
-	    "by weighted jaccard (mode 'auto').";
+	    "by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class "
+	    "multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip "
+	    "resolving every candidate tree.";
 	RegisterCoverageTable(
 	    loader, "tree_coverage", TreeCoverageBindReplace,
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover (HLD §4.6, §11). Per request "

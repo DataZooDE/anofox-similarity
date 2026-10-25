@@ -20,7 +20,8 @@ struct TreeSource {
 	string attrs_table;     // may be empty
 	string overrides_table; // reviewed vocabulary (wording, source, class_id); may be empty
 	string label_table;     // classifier output (tree_id, node_id, class_id, p); may be empty
-	vector<string> tree_ids; // empty: all trees
+	vector<string> tree_ids; // with has_tree_ids: these trees only (none when empty); else all trees
+	bool has_tree_ids = false;
 	bool has_source = false;
 	bool has_context = false;
 };

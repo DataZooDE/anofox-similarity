@@ -636,6 +636,24 @@ using Multiset = std::map<string, double>;
 
 void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 	auto count = args.size();
+	{
+		// malformed input is a clean error, not an internal one
+		auto &t = args.data[0].GetType();
+		bool ok = t.id() == LogicalTypeId::SQLNULL ||
+		          (t.id() == LogicalTypeId::LIST && (ListType::GetChildType(t).id() == LogicalTypeId::STRUCT ||
+		                                             ListType::GetChildType(t).id() == LogicalTypeId::SQLNULL));
+		if (ok && t.id() == LogicalTypeId::LIST && ListType::GetChildType(t).id() == LogicalTypeId::STRUCT) {
+			for (auto &f : StructType::GetChildTypes(ListType::GetChildType(t))) {
+				if (StringUtil::CIEquals(static_cast<const string &>(f.first), "count") &&
+				    f.second.id() != LogicalTypeId::SQLNULL && !f.second.IsNumeric()) {
+					throw InvalidInputException("tree_multiset: count must be numeric, not %s", f.second.ToString());
+				}
+			}
+		}
+		if (!ok) {
+			throw InvalidInputException("tree_multiset: nodes must be a LIST of STRUCT, not %s", t.ToString());
+		}
+	}
 	for (idx_t row = 0; row < count; row++) {
 		auto list = args.data[0].GetValue(row);
 		if (list.IsNull()) {
@@ -649,6 +667,9 @@ void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 		vector<N> nodes;
 		string tree_id;
 		for (auto &entry : ListValue::GetChildren(list)) {
+			if (entry.IsNull()) {
+				continue;
+			}
 			auto &types = StructType::GetChildTypes(entry.type());
 			auto &vals = StructValue::GetChildren(entry);
 			N n {"", "", "item", "AND", "", 1.0};
@@ -813,8 +834,9 @@ TreeSource ReadTreeSource(ClientContext &context, TableFunctionBindInput &input,
 	}
 	src.overrides_table = OptionalString(named, "overrides_table", "");
 	src.label_table = OptionalString(named, "label_table", "");
-	if (auto v = duckdb_compat::FindNamedParameter(named, "tree_ids"); v) {
+	if (auto v = duckdb_compat::FindNamedParameter(named, "tree_ids"); v && !v->IsNull()) {
 		src.tree_ids = StringListParameter(*v, "tree_ids");
+		src.has_tree_ids = true;
 	}
 	ValidateTreeSource(context, src, fn);
 	return src;
@@ -836,6 +858,9 @@ string QuotedList(const vector<string> &values) {
 
 //! ' WHERE tree_id IN (...)' for a TreeSource with tree_ids, else ''.
 string TreeFilter(const TreeSource &src) {
+	if (src.has_tree_ids && src.tree_ids.empty()) {
+		return " WHERE false";
+	}
 	return src.tree_ids.empty()
 	           ? string()
 	           : " WHERE CAST(tree_id AS VARCHAR) IN (SELECT unnest(" + QuotedList(src.tree_ids) + "))";
@@ -897,10 +922,13 @@ string ResolvedNodesSQL(const TreeSource &src) {
 	                             Quoted(src.overrides_table);
 	string labels = src.label_table.empty()
 	                    ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS class_id WHERE false"
-	                    : "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
-	                      "first(CAST(class_id AS VARCHAR) ORDER BY CAST(p AS DOUBLE) DESC, CAST(class_id AS VARCHAR)) "
-	                      "AS class_id FROM " +
-	                          Quoted(src.label_table) + where + " GROUP BY ALL";
+	                    // duplicate rows add up; NULL classes and non-positive probabilities drop out
+	                    : "SELECT tree_id, node_id, first(class_id ORDER BY p DESC, class_id) AS class_id FROM ("
+	                      "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
+	                      "CAST(class_id AS VARCHAR) AS class_id, sum(CAST(p AS DOUBLE)) AS p FROM (SELECT * FROM " +
+	                          Quoted(src.label_table) + where +
+	                          ") WHERE class_id IS NOT NULL AND isfinite(CAST(p AS DOUBLE)) AND CAST(p AS DOUBLE) > 0 "
+	                          "GROUP BY ALL) GROUP BY ALL";
 	return StringUtil::Format(
 	    "SELECT n.tree_id, n.node_id, n.parent_id, n.node_kind, n.edge_type, n.label, n.context, n.source, n.count, "
 	    "COALESCE(n.given_class, o.class_id, l.class_id) AS class_id, "
