@@ -198,9 +198,9 @@ SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name =
 [[requirement, provided], [requirement, provided, scale], [requirement, provided, scale, tol, soft_band], [requirement, provided, scale, tol, soft_band, default_bound]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'tree_anchors';
+SELECT list(parameters ORDER BY len(parameters), parameters[2]) FROM ours WHERE function_name = 'tree_anchors';
 ----
-[nodes_table, attrs_table, overrides_table, label_table, tree_ids]
+[[nodes_table, attrs_table, overrides_table, label_table, tree_ids], [nodes_table, attrs_table, overrides_table, label_table, tree_ids]]
 
 query I
 SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name = 'tree_from_json';

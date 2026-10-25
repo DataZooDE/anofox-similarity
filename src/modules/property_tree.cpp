@@ -793,7 +793,7 @@ string Quoted(const string &path) {
 	return out + "\"";
 }
 
-string OptionalString(const named_parameter_map_t &named, const string &name, const string &fallback) {
+string OptionalString(const duckdb_compat::BindNamedParameters &named, const string &name, const string &fallback) {
 	auto v = duckdb_compat::FindNamedParameter(named, name);
 	return v && !v->IsNull() ? v->GetValue<string>() : fallback;
 }
@@ -1113,23 +1113,41 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 
 void RegisterTreeTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
                        const string &description, vector<string> examples, bool with_attr_table) {
-	TableFunction f(name, {LogicalType::VARCHAR}, nullptr, nullptr);
-	if (with_attr_table) {
-		f.varargs = LogicalType::VARCHAR;
+	// overloads instead of varargs (2.0 has none): (nodes_table) and, where attributes
+	// matter, (nodes_table, attrs_table); attrs_table is also a named parameter of the first
+	TableFunctionSet set(duckdb_compat::FunctionName(name));
+	vector<FunctionDescription> descriptions;
+	for (idx_t positional = 1; positional <= (with_attr_table ? 2u : 1u); positional++) {
+		vector<LogicalType> args(positional, LogicalType(LogicalTypeId::VARCHAR));
+		TableFunction f(duckdb_compat::FunctionName(name), args, nullptr, nullptr);
+		f.bind_replace = fn;
+		FunctionDescription desc;
+		desc.description = description;
+		desc.examples = examples;
+		desc.categories = {"coverage", "tree"};
+		vector<NamedParameterSpec> named;
+		if (positional == 1) {
+			named.emplace_back("attrs_table", LogicalType(LogicalTypeId::VARCHAR));
+		}
+		named.emplace_back("overrides_table", LogicalType(LogicalTypeId::VARCHAR));
+		named.emplace_back("label_table", LogicalType(LogicalTypeId::VARCHAR));
+		named.emplace_back("tree_ids", LogicalType::LIST(LogicalType::VARCHAR));
+		desc.parameter_names = {"nodes_table"};
+		if (positional == 2) {
+			desc.parameter_names.emplace_back("attrs_table");
+		}
+		for (auto &spec : named) {
+			duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
+			desc.parameter_names.emplace_back(spec.first);
+		}
+		desc.parameter_types = args;
+		set.AddFunction(f);
+		descriptions.push_back(std::move(desc));
 	}
-	f.bind_replace = fn;
-	FunctionDescription desc;
-	desc.description = description;
-	desc.examples = std::move(examples);
-	desc.categories = {"coverage", "tree"};
-	AddDocumentedNamedParameters(f, desc, {"nodes_table"},
-	                             {{"attrs_table", LogicalType::VARCHAR},
-	                              {"overrides_table", LogicalType::VARCHAR},
-	                              {"label_table", LogicalType::VARCHAR},
-	                              {"tree_ids", LogicalType::LIST(LogicalType::VARCHAR)}});
-	desc.parameter_types = {LogicalType::VARCHAR};
-	CreateTableFunctionInfo info(f);
-	info.descriptions.push_back(std::move(desc));
+	CreateTableFunctionInfo info(set);
+	for (auto &d : descriptions) {
+		info.descriptions.push_back(std::move(d));
+	}
 	duckdb_compat::NameFunctionsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));
 }

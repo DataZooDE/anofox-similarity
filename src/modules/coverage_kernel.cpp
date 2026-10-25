@@ -741,7 +741,7 @@ bool TableExists(ClientContext &context, const string &path) {
 	return false;
 }
 
-const Value *Named(const named_parameter_map_t &named, const char *name) {
+const Value *Named(const duckdb_compat::BindNamedParameters &named, const char *name) {
 	return duckdb_compat::FindNamedParameter(named, name);
 }
 
@@ -1062,7 +1062,7 @@ unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunc
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
                            const string &description, vector<string> examples, bool stage2) {
-	TableFunction f(name, {LogicalType::ANY}, nullptr, nullptr);
+	TableFunction f(duckdb_compat::FunctionName(name), {LogicalType::ANY}, nullptr, nullptr);
 	f.bind_replace = fn;
 	FunctionDescription desc;
 	desc.description = description;
