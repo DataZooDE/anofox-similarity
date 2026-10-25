@@ -355,6 +355,28 @@ struct Options {
 	std::map<std::tuple<string, string, string>, double> rules;
 };
 
+//! The first invalid kernel setting as a message, or "" (shared by the coverage_kernel scalar and
+//! the table functions, which wrap it in their own exception type).
+string KernelSettingsError(const string &labels, const string &assignment, double label_weight, double mu,
+                           double partition_gate, double count_gate, double name_floor) {
+	if (!labels.empty() && labels != "soft" && labels != "hard") {
+		return "labels must be 'soft' or 'hard'";
+	}
+	if (assignment != "auto" && assignment != "best_match" && assignment != "partition") {
+		return "assignment must be one of 'auto', 'best_match', 'partition'";
+	}
+	for (auto &pr : {std::make_pair("label_weight", label_weight), std::make_pair("mu", mu),
+	                 std::make_pair("partition_gate", partition_gate), std::make_pair("count_gate", count_gate)}) {
+		if (pr.second < 0 || pr.second > 1) {
+			return string(pr.first) + " must be between 0 and 1";
+		}
+	}
+	if (name_floor < 0 || name_floor >= 1) {
+		return "name_floor must be in [0, 1)";
+	}
+	return string();
+}
+
 Options LoadOptions(const Value &v) {
 	Options o;
 	if (v.IsNull()) {
@@ -373,20 +395,10 @@ Options LoadOptions(const Value &v) {
 	Num(v, "name_floor", o.name_floor);
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
-	if (!labels.empty() && StringUtil::Lower(labels) != "soft" && StringUtil::Lower(labels) != "hard") {
-		throw InvalidInputException("coverage_kernel: labels must be 'soft' or 'hard'");
-	}
-	if (o.assignment != "auto" && o.assignment != "best_match" && o.assignment != "partition") {
-		throw InvalidInputException("coverage_kernel: assignment must be one of 'auto', 'best_match', 'partition'");
-	}
-	for (auto &pr : {std::make_pair("label_weight", o.label_weight), std::make_pair("mu", o.mu),
-	                 std::make_pair("partition_gate", o.partition_gate), std::make_pair("count_gate", o.count_gate)}) {
-		if (pr.second < 0 || pr.second > 1) {
-			throw InvalidInputException("coverage_kernel: %s must be between 0 and 1", pr.first);
-		}
-	}
-	if (o.name_floor < 0 || o.name_floor >= 1) {
-		throw InvalidInputException("coverage_kernel: name_floor must be in [0, 1)");
+	auto error = KernelSettingsError(StringUtil::Lower(labels), o.assignment, o.label_weight, o.mu, o.partition_gate,
+	                                 o.count_gate, o.name_floor);
+	if (!error.empty()) {
+		throw InvalidInputException("coverage_kernel: %s", error);
 	}
 	auto rules = Field(v, "rules");
 	if (rules && !rules->IsNull()) {
@@ -919,62 +931,37 @@ struct CoverageParams {
 };
 
 
-const Value *Named(const duckdb_compat::BindNamedParameters &named, const char *name) {
-	return duckdb_compat::FindNamedParameter(named, name);
-}
 
-CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
-                                  bool stage2, bool fit = false) {
-	CoverageParams p;
+//! The query and candidate trees: ids, tables, class sources (validated).
+void ReadTreeSides(const CoverageParamReader &r, TableFunctionBindInput &input, CoverageParams &p, bool stage2,
+                   bool fit) {
 	if (!fit) {
 		if (input.inputs.empty() || input.inputs[0].IsNull()) {
-			throw BinderException("%s: query_tree_id must not be NULL", fn.c_str());
+			throw BinderException("%s: query_tree_id must not be NULL", r.fn);
 		}
 		p.query_ids = StringListParameter(input.inputs[0], "query_tree_id");
 	}
-	auto &named = input.named_parameters;
-	auto str = [&](const char *name, string &target) {
-		if (auto v = Named(named, name); v && !v->IsNull()) {
-			target = v->GetValue<string>();
-		}
-	};
-	auto dbl = [&](const char *name, double &target) {
-		if (auto v = Named(named, name); v && !v->IsNull()) {
-			target = v->GetValue<double>();
-			if (!std::isfinite(target)) {
-				throw BinderException("%s: %s must be finite", fn.c_str(), name);
-			}
-		}
-	};
-	if (auto v = Named(named, "candidates"); v && !v->IsNull()) {
+	if (auto v = r.Get("candidates"); v && !v->IsNull()) {
 		p.has_candidates = true;
 		p.candidates = StringListParameter(*v, "candidates");
 	}
-	if (auto v = Named(named, "k"); v && !v->IsNull()) {
-		p.k = v->GetValue<int64_t>();
-		if (p.k <= 0) {
-			throw BinderException("%s: k must be positive", fn.c_str());
-		}
+	p.k = r.Int("k", p.k);
+	if (p.k <= 0) {
+		throw BinderException("%s: k must be positive", r.fn);
 	}
-	// query side
-	p.q.nodes_table = "tree_nodes";
-	p.q.attrs_table = "tree_attributes";
-	str("nodes_table", p.q.nodes_table);
-	if (auto v = Named(named, "attrs_table")) {
-		p.q.attrs_table = v->IsNull() ? string() : v->GetValue<string>();
+	p.q.nodes_table = r.Str("nodes_table", "tree_nodes");
+	if (p.q.nodes_table.empty()) {
+		p.q.nodes_table = "tree_nodes";
 	}
-	// candidate side: defaults to the query side's tables
-	p.c.nodes_table = p.q.nodes_table;
-	p.c.attrs_table = p.q.attrs_table;
-	str("candidate_nodes_table", p.c.nodes_table);
-	if (auto v = Named(named, "candidate_attrs_table")) {
-		p.c.attrs_table = v->IsNull() ? string() : v->GetValue<string>();
+	p.q.attrs_table = r.Str("attrs_table", "tree_attributes");
+	// the candidate side defaults to the query side's tables
+	p.c.nodes_table = r.Str("candidate_nodes_table", p.q.nodes_table);
+	if (p.c.nodes_table.empty()) {
+		p.c.nodes_table = p.q.nodes_table;
 	}
-	string overrides, labels_table;
-	str("overrides_table", overrides);
-	str("label_table", labels_table);
-	p.q.overrides_table = p.c.overrides_table = overrides;
-	p.q.label_table = p.c.label_table = labels_table;
+	p.c.attrs_table = r.Str("candidate_attrs_table", p.q.attrs_table);
+	p.q.overrides_table = p.c.overrides_table = r.Str("overrides_table");
+	p.q.label_table = p.c.label_table = r.Str("label_table");
 	p.q.tree_ids = p.query_ids;
 	p.q.has_tree_ids = !fit; // an empty list selects nothing; the fit takes its pairs from a table
 	if (p.has_candidates) {
@@ -985,77 +972,73 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 		p.q.attrs_table.clear();
 		p.c.attrs_table.clear();
 	}
-	// identifiers (candidate parameters named as such in errors)
-	ValidateTreeSource(context, p.q, fn);
-	ValidateTreeSource(context, p.c, fn, "candidate_");
-	p.same_nodes_table = ResolvedRelationName(context, p.q.nodes_table) == ResolvedRelationName(context, p.c.nodes_table);
-	str("labels", p.labels);
-	p.labels = StringUtil::Lower(p.labels);
-	if (p.labels != "soft" && p.labels != "hard") {
-		throw BinderException("%s: labels must be 'soft' or 'hard'", fn.c_str());
+	ValidateTreeSource(r.context, p.q, r.fn);
+	ValidateTreeSource(r.context, p.c, r.fn, "candidate_");
+	p.same_nodes_table =
+	    ResolvedRelationName(r.context, p.q.nodes_table) == ResolvedRelationName(r.context, p.c.nodes_table);
+}
+
+//! Kernel and stage-1 settings (validated as for the coverage_kernel scalar).
+void ReadKernelSettings(const CoverageParamReader &r, CoverageParams &p) {
+	p.labels = StringUtil::Lower(r.Str("labels", p.labels));
+	p.assignment = StringUtil::Lower(r.Str("assignment", p.assignment));
+	if (p.labels.empty()) {
+		p.labels = "soft";
 	}
-	str("assignment", p.assignment);
-	p.assignment = StringUtil::Lower(p.assignment);
-	if (p.assignment != "auto" && p.assignment != "best_match" && p.assignment != "partition") {
-		throw BinderException("%s: assignment must be one of 'auto', 'best_match', 'partition'", fn.c_str());
+	if (p.assignment.empty()) {
+		p.assignment = "auto";
 	}
-	dbl("label_weight", p.label_weight);
-	dbl("mu", p.mu);
-	dbl("partition_gate", p.partition_gate);
-	dbl("count_gate", p.count_gate);
-	dbl("stage1_weight", p.stage1_weight);
-	dbl("tie_break", p.tie_break);
-	dbl("name_floor", p.name_floor);
-	for (auto &pr : {std::make_pair("label_weight", p.label_weight), std::make_pair("mu", p.mu),
-	                 std::make_pair("partition_gate", p.partition_gate), std::make_pair("count_gate", p.count_gate)}) {
-		if (pr.second < 0 || pr.second > 1) {
-			throw BinderException("%s: %s must be between 0 and 1", fn.c_str(), pr.first);
-		}
+	p.label_weight = r.Dbl("label_weight", p.label_weight);
+	p.mu = r.Dbl("mu", p.mu);
+	p.partition_gate = r.Dbl("partition_gate", p.partition_gate);
+	p.count_gate = r.Dbl("count_gate", p.count_gate);
+	p.stage1_weight = r.Dbl("stage1_weight", p.stage1_weight);
+	p.tie_break = r.Dbl("tie_break", p.tie_break);
+	p.name_floor = r.Dbl("name_floor", p.name_floor);
+	auto error = KernelSettingsError(p.labels, p.assignment, p.label_weight, p.mu, p.partition_gate, p.count_gate,
+	                                 p.name_floor);
+	if (!error.empty()) {
+		throw BinderException("%s: %s", r.fn, error);
 	}
 	if (p.stage1_weight < 0 || p.tie_break < 0) {
-		throw BinderException("%s: stage1_weight and tie_break must be non-negative", fn.c_str());
+		throw BinderException("%s: stage1_weight and tie_break must be non-negative", r.fn);
 	}
-	str("recall_mode", p.recall_mode);
-	str("mode", p.recall_mode);
-	p.recall_mode = StringUtil::Lower(p.recall_mode);
+	auto mode = r.Str("mode", r.Str("recall_mode", p.recall_mode));
+	p.recall_mode = StringUtil::Lower(mode.empty() ? string("auto") : mode);
 	if (p.recall_mode != "auto" && p.recall_mode != "containment" && p.recall_mode != "jaccard") {
-		throw BinderException("%s: mode must be one of 'auto', 'containment', 'jaccard'", fn.c_str());
+		throw BinderException("%s: mode must be one of 'auto', 'containment', 'jaccard'", r.fn);
 	}
-	str("default_bounds", p.default_bounds);
-	p.default_bounds = StringUtil::Lower(p.default_bounds);
+}
+
+//! The optional side tables: catalogue templates, compatibility rules, name vectors, the index.
+void ReadSideTables(const CoverageParamReader &r, CoverageParams &p) {
+	p.default_bounds = StringUtil::Lower(r.Str("default_bounds"));
 	if (!p.default_bounds.empty() && p.default_bounds != "catalogue") {
-		throw BinderException("%s: default_bounds must be NULL or 'catalogue'", fn.c_str());
+		throw BinderException("%s: default_bounds must be NULL or 'catalogue'", r.fn);
 	}
-	str("templates_table", p.templates_table);
+	p.templates_table = r.Str("templates_table", p.templates_table);
 	if (!p.default_bounds.empty()) {
 		p.templates_table = ValidateSQLIdentifierPath(p.templates_table, "templates_table");
-		if (!TableExists(context, p.templates_table)) {
+		if (!TableExists(r.context, p.templates_table)) {
 			throw BinderException("%s: templates_table '%s' does not exist (default_bounds := 'catalogue' needs the "
 			                      "catalogue attribute templates: class_id, dimension, bound)",
-			                      fn.c_str(), p.templates_table.c_str());
+			                      r.fn, p.templates_table);
 		}
-		ValidateTableColumns(context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
+		ValidateTableColumns(r.context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
 	}
-	str("rules_table", p.rules_table);
-	if (!p.rules_table.empty()) {
-		p.rules_table = ValidateSQLIdentifierPath(p.rules_table, "rules_table");
-		ValidateTableColumns(context, p.rules_table, {"dimension", "required", "provided", "score"}, "rules_table");
-	}
-	str("name_vectors", p.name_vectors);
-	if (!p.name_vectors.empty()) {
-		p.name_vectors = ValidateSQLIdentifierPath(p.name_vectors, "name_vectors");
-		ValidateTableColumns(context, p.name_vectors, {"name", "vec"}, "name_vectors");
-	}
-	if (p.name_floor < 0 || p.name_floor >= 1) {
-		throw BinderException("%s: name_floor must be in [0, 1)", fn.c_str());
-	}
-	str("candidate_multiset_table", p.multiset_table);
-	if (!p.multiset_table.empty()) {
-		p.multiset_table = ValidateSQLIdentifierPath(p.multiset_table, "candidate_multiset_table");
-		ValidateTableColumns(context, p.multiset_table, {"entity_id", "feature_id", "weight"},
-		                     "candidate_multiset_table");
-		p.multiset_has_reviewed = TableHasColumn(context, p.multiset_table, "reviewed");
-	}
+	p.rules_table = r.Table("rules_table", "", {"dimension", "required", "provided", "score"});
+	p.name_vectors = r.Table("name_vectors", "", {"name", "vec"});
+	p.multiset_table = r.Table("candidate_multiset_table", "", {"entity_id", "feature_id", "weight"});
+	p.multiset_has_reviewed = !p.multiset_table.empty() && r.Has(p.multiset_table, "reviewed");
+}
+
+CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput &input, const string &fn,
+                                  bool stage2, bool fit = false) {
+	CoverageParamReader reader {context, input.named_parameters, fn};
+	CoverageParams p;
+	ReadTreeSides(reader, input, p, stage2, fit);
+	ReadKernelSettings(reader, p);
+	ReadSideTables(reader, p);
 	return p;
 }
 
