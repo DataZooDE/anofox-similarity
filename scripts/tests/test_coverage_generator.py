@@ -247,7 +247,8 @@ def test_provided_ranges_tell_at_most_from_at_least(data_dir):
     tmpl = {(a["class_id"], a["attr_key"]): a["bound"] for a in read(data_dir, "catalogue_attributes")}
     gold = gold_class(data_dir)
     directional = [a for a in read(data_dir, "programme_attributes")
-                   if tmpl[(gold[(a["tree_id"], a["node_id"])], a["attr_id"])] in ("at_least", "at_most")]
+                   if tmpl[(gold[(a["tree_id"], a["node_id"])], a["attr_id"])] in ("at_least", "at_most")
+                   and a["category"] == ""]
     ranged = [a for a in directional if float(a["lo"]) < float(a["hi"])]
     assert 0.08 <= len(ranged) / len(directional) <= 0.20
     # pairs (requirement, source item) where the swapped rule gives another answer
@@ -568,6 +569,14 @@ def test_attribute_name_cosine_floor(data_dir):
 
 # ---------------------------------------------------------------- oracle
 
+def test_temperature_uses_an_absolute_tolerance():
+    """HLD §11 amendment: max. 37 °C against 45 °C is far off, not 2.6 % off."""
+    k = 273.15
+    assert ref.value_satisfies("at_most", 37 + k, 37 + k, 45 + k, 45 + k, "linear", affine=True) == (0.0, 8.0)
+    score, dist = ref.value_satisfies("at_most", 37 + k, 37 + k, 37.5 + k, 37.5 + k, "linear", affine=True)
+    assert score == 1.0 and abs(dist - 0.5) < 1e-9
+
+
 def test_oracle_direction_aware_rules():
     # at_most is satisfied by the low end of the provided range (p_lo <= v)
     assert ref.oracle_satisfies("at_most", 38, 38, 35, 41)
@@ -688,25 +697,35 @@ def test_gold_best_applications(data_dir):
 # ---------------------------------------------------------------- BRD feasibility
 
 def test_reference_kernel_reaches_brd_kpis(data_dir):
-    """Feasibility guard for R3: the HLD scoring (unqualified values as points,
-    reviewed labels, stage 1 containment top-20, stage 2 coverage) must reach
-    the BRD §6 targets on this dataset. If it cannot, escalate (HANDOVER §8)."""
+    """Feasibility guard for R3: the kernel semantics (HLD §4.6 with the §11
+    amendments: catalogue default bounds for unqualified values, label agreement
+    gating the value score, absolute tolerance for temperature), reviewed labels,
+    stage 1 containment top-20 and stage 2 coverage must reach the BRD §6 targets.
+    It is an oracle-parsed ceiling: values come from the gold attributes."""
     kpi = ref.kernel_kpis(data_dir)
     assert kpi["recall_at_20"] >= 0.90, kpi
     assert kpi["top1"] >= 0.85, kpi
     assert kpi["mean_regret"] <= 0.01, kpi
-    assert kpi["mae"] <= 0.05, kpi  # coverage reported for the top-1 pick; see REVIEW_LOG R0-2
+    assert kpi["mae_top_k"] <= 0.05, kpi
+    assert kpi["mae"] <= 0.05, kpi
     assert kpi["unmeetable_flagged"] >= 0.95, kpi
     assert kpi["precision_at_0_9"] >= 0.95, kpi
 
 
+def test_point_rule_for_unqualified_values_misses_the_kpis(data_dir):
+    """Why default_bounds exists: treating ~30 % unqualified values as widened
+    points (HLD §4.2) loses regret and MAE on this dataset."""
+    kpi = ref.kernel_kpis(data_dir, default_bounds=None)
+    assert kpi["mean_regret"] > 0.01 or kpi["mae_top_k"] > 0.05, kpi
+
+
 def test_unreviewed_labels_show_documented_failure_mode(data_dir):
-    """DoD §5.3: on unreviewed labels, stage-1 containment ranks worse than
-    weighted Jaccard; on reviewed labels it ranks better."""
-    unrev = ref.stage1_top1(data_dir, "programme_class_multiset_unreviewed")
-    rev = ref.stage1_top1(data_dir, "programme_class_multiset")
+    """DoD §5.3: on unreviewed labels, stage-1 containment recalls the best candidate
+    less often than weighted Jaccard; on reviewed labels it recalls it more often."""
+    unrev = ref.stage1_recall(data_dir, "programme_class_multiset_unreviewed")
+    rev = ref.stage1_recall(data_dir, "programme_class_multiset")
     assert unrev["containment"] < unrev["jaccard"], unrev
-    assert rev["containment"] >= rev["jaccard"], rev
+    assert rev["containment"] > rev["jaccard"], rev
 
 
 # ---------------------------------------------------------------- customers
