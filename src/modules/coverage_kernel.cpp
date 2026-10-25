@@ -692,6 +692,140 @@ Value OptD(bool has, double v) {
 	return has ? Value::DOUBLE(v) : Value(LogicalType::DOUBLE);
 }
 
+//! A requirement's best counterpart in the pool, then its count over the compatible items
+//! that agree on the label; a gap when there is no counterpart, too few instances or a value
+//! below 1.
+void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Options &o) {
+	const KItem *best = nullptr;
+	Pair best_pair;
+	for (auto c : pool) {
+		auto p = Score(*r.q, *c, o, false);
+		if (p.label <= 0) {
+			continue;
+		}
+		if (!best || p.score > best_pair.score) {
+			best = c;
+			best_pair = p;
+		}
+	}
+	if (!best) {
+		r.score = 0;
+		r.gap = true;
+		return;
+	}
+	r.matched = best;
+	r.pair = Score(*r.q, *best, o, true);
+	double available = 0;
+	for (auto c : pool) {
+		if (LabelSim(*r.q, *c, o) >= o.count_gate && Compatible(*c, *best)) {
+			available += c->count;
+		}
+	}
+	r.count_available = available;
+	r.count_factor = r.q->count > 0 ? MinValue(1.0, available / r.q->count) : 1.0;
+	r.score = r.pair.score * r.count_factor;
+	bool values_ok = true;
+	for (auto &m : r.pair.attrs) {
+		if (m.gate || m.value_score < 1.0) {
+			values_ok = false;
+		}
+	}
+	r.gap = !values_ok || r.count_factor < 1.0;
+}
+
+//! Partition (HLD §4.6, §11.4): each candidate item joins the block of the requirement it agrees
+//! with most (ties: the largest remaining count deficit, then the lowest node id). OR
+//! alternatives are options and join every tied requirement (§11.9); an item tied between
+//! exclusive request alternatives may serve each of them (§11.11).
+vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, const Options &o) {
+	vector<vector<const KItem *>> blocks(Q.items.size());
+	vector<double> need(Q.items.size());
+	for (idx_t i = 0; i < Q.items.size(); i++) {
+		need[i] = Q.items[i].count;
+	}
+	for (auto &c : C.items) {
+		double best = 0;
+		vector<idx_t> tied;
+		for (idx_t i = 0; i < Q.items.size(); i++) {
+			double l = LabelSim(Q.items[i], c, o);
+			if (l > best + SCORE_EPSILON) {
+				best = l;
+				tied.assign(1, i);
+			} else if (std::fabs(l - best) <= SCORE_EPSILON && l > 0) {
+				tied.push_back(i);
+			}
+		}
+		if (tied.empty() || best < o.partition_gate) {
+			continue;
+		}
+		if (!c.choices.empty()) {
+			for (auto i : tied) {
+				blocks[i].push_back(&c);
+			}
+			continue;
+		}
+		idx_t pick = tied[0];
+		for (auto i : tied) {
+			if (need[i] > need[pick] + SCORE_EPSILON ||
+			    (std::fabs(need[i] - need[pick]) <= SCORE_EPSILON && Q.items[i].id < Q.items[pick].id)) {
+				pick = i;
+			}
+		}
+		need[pick] -= c.count;
+		blocks[pick].push_back(&c);
+		for (auto i : tied) {
+			if (i != pick && !Compatible(Q.items[i], Q.items[pick])) {
+				blocks[i].push_back(&c);
+			}
+		}
+	}
+	return blocks;
+}
+
+//! One trace row: a requirement and one of its attributes (or none).
+Value TraceRow(const ReqResult &r, const AttrMatch *m) {
+	child_list_t<Value> v;
+	v.emplace_back("req_node_id", Value(r.q->id));
+	v.emplace_back("matched_node_id", r.matched ? Value(r.matched->id) : Value(LogicalType::VARCHAR));
+	v.emplace_back("matched_path", r.matched ? Value(r.matched->path) : Value(LogicalType::VARCHAR));
+	v.emplace_back("label_sim", r.matched ? Value::DOUBLE(r.pair.label) : Value::DOUBLE(0.0));
+	v.emplace_back("attr_id", m ? Opt(m->req->id) : Value(LogicalType::VARCHAR));
+	v.emplace_back("attr_name", m ? Opt(m->req->name) : Value(LogicalType::VARCHAR));
+	v.emplace_back("req_value", m ? Value(ValueText(*m->req, true, m->bound)) : Value(LogicalType::VARCHAR));
+	v.emplace_back("prov_value", m && m->prov ? Value(ValueText(*m->prov, false, "")) : Value(LogicalType::VARCHAR));
+	v.emplace_back("gate", m ? Value::BOOLEAN(m->gate) : Value(LogicalType::BOOLEAN));
+	v.emplace_back("name_sim", m && !m->gate ? Value::DOUBLE(m->name_sim) : Value(LogicalType::DOUBLE));
+	v.emplace_back("value_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->value_score) : Value(LogicalType::DOUBLE));
+	v.emplace_back("distance", m ? OptD(!m->gate && m->has_distance, m->distance) : Value(LogicalType::DOUBLE));
+	v.emplace_back("rule", m ? Opt(m->rule) : Value(LogicalType::VARCHAR));
+	v.emplace_back("attr_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->score) : Value(LogicalType::DOUBLE));
+	v.emplace_back("count_needed", Value::DOUBLE(r.q->count));
+	v.emplace_back("count_available", Value::DOUBLE(r.count_available));
+	v.emplace_back("req_score", Value::DOUBLE(r.score));
+	v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
+	return Value::STRUCT(std::move(v));
+}
+
+//! The trace rows of one requirement: one per required attribute (missing counterparts give
+//! gated rows), or one row without attributes (HLD §11.9).
+void AppendTrace(const ReqResult &r, vector<Value> &trace) {
+	if (r.matched && !r.pair.attrs.empty()) {
+		for (auto &m : r.pair.attrs) {
+			trace.push_back(TraceRow(r, &m));
+		}
+	} else if (!r.matched && !r.q->attrs.empty()) {
+		for (auto &x : r.q->attrs) {
+			AttrMatch m;
+			m.req = &x;
+			m.bound = !x.bound.empty() ? x.bound : x.default_bound;
+			m.rule = "gate";
+			trace.push_back(TraceRow(r, &m));
+		}
+	} else {
+		trace.push_back(TraceRow(r, nullptr));
+	}
+}
+
 Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	auto Q = LoadTree(query);
 	auto C = LoadTree(candidate);
@@ -703,94 +837,10 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	for (idx_t i = 0; i < Q.items.size(); i++) {
 		results[i].q = &Q.items[i];
 	}
-	auto finish = [&](ReqResult &r, const vector<const KItem *> &pool) {
-		// best candidate item in the pool, then counts over the compatible same-label items
-		const KItem *best = nullptr;
-		Pair best_pair;
-		for (auto c : pool) {
-			auto p = Score(*r.q, *c, o, false);
-			if (p.label <= 0) {
-				continue;
-			}
-			if (!best || p.score > best_pair.score) {
-				best = c;
-				best_pair = p;
-			}
-		}
-		if (!best) {
-			r.score = 0;
-			r.gap = true;
-			return;
-		}
-		r.matched = best;
-		r.pair = Score(*r.q, *best, o, true);
-		double available = 0;
-		for (auto c : pool) {
-			if (LabelSim(*r.q, *c, o) >= o.count_gate && Compatible(*c, *best)) {
-				available += c->count;
-			}
-		}
-		r.count_available = available;
-		r.count_factor = r.q->count > 0 ? MinValue(1.0, available / r.q->count) : 1.0;
-		r.score = r.pair.score * r.count_factor;
-		bool values_ok = true;
-		for (auto &m : r.pair.attrs) {
-			if (m.gate || m.value_score < 1.0) {
-				values_ok = false;
-			}
-		}
-		r.gap = !values_ok || r.count_factor < 1.0;
-	};
 	if (assignment == "partition") {
-		// each candidate item joins the block of its arg-max requirement (ties: the largest
-		// remaining count deficit, then the lowest node id; HLD §11.4)
-		vector<vector<const KItem *>> blocks(Q.items.size());
-		vector<double> need(Q.items.size());
+		auto blocks = PartitionBlocks(Q, C, o);
 		for (idx_t i = 0; i < Q.items.size(); i++) {
-			need[i] = Q.items[i].count;
-		}
-		for (auto &c : C.items) {
-			double best = 0;
-			vector<idx_t> tied;
-			for (idx_t i = 0; i < Q.items.size(); i++) {
-				double l = LabelSim(Q.items[i], c, o);
-				if (l > best + 1e-12) {
-					best = l;
-					tied.assign(1, i);
-				} else if (std::fabs(l - best) <= 1e-12 && l > 0) {
-					tied.push_back(i);
-				}
-			}
-			if (tied.empty() || best < o.partition_gate) {
-				continue;
-			}
-			if (!c.choices.empty()) {
-				// an OR alternative is an option, not an instance: every tied requirement may
-				// choose it (best variant per requirement, HLD §4.6, §11.9)
-				for (auto i : tied) {
-					blocks[i].push_back(&c);
-				}
-				continue;
-			}
-			idx_t pick = tied[0];
-			for (auto i : tied) {
-				if (need[i] > need[pick] + 1e-12 ||
-				    (std::fabs(need[i] - need[pick]) <= 1e-12 && Q.items[i].id < Q.items[pick].id)) {
-					pick = i;
-				}
-			}
-			need[pick] -= c.count;
-			blocks[pick].push_back(&c);
-			// tied requirements in other alternatives of a request OR group exclude the pick:
-			// only one alternative counts, so the item may serve them too
-			for (auto i : tied) {
-				if (i != pick && !Compatible(Q.items[i], Q.items[pick])) {
-					blocks[i].push_back(&c);
-				}
-			}
-		}
-		for (idx_t i = 0; i < Q.items.size(); i++) {
-			finish(results[i], blocks[i]);
+			ScoreRequirement(results[i], blocks[i], o);
 		}
 	} else {
 		vector<const KItem *> all;
@@ -798,74 +848,34 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 			all.push_back(&c);
 		}
 		for (auto &r : results) {
-			finish(r, all);
+			ScoreRequirement(r, all, o);
 		}
 	}
-	// request-side OR groups (HLD §3.2, §4.6, §11.11)
+	// request-side OR groups: only the chosen alternatives are requirements (HLD §11.11)
 	vector<idx_t> all_items(results.size());
 	for (idx_t i = 0; i < results.size(); i++) {
 		all_items[i] = i;
 	}
 	auto totals = AggregateAlternatives(results, all_items, 0);
-	vector<bool> selected(results.size(), false);
-	for (auto i : totals.chosen) {
-		selected[i] = true;
-	}
-	double total = totals.sum;
-	idx_t n_requirements = totals.n;
 	int64_t gaps = 0;
 	vector<Value> trace;
-	for (idx_t ri = 0; ri < results.size(); ri++) {
-		auto &r = results[ri];
-		if (!selected[ri]) {
-			continue; // an alternative that was not chosen is not a requirement for this candidate
+	for (auto i : totals.chosen) {
+		gaps += results[i].gap ? 1 : 0;
+	}
+	if (o.trace) {
+		vector<bool> selected(results.size(), false);
+		for (auto i : totals.chosen) {
+			selected[i] = true;
 		}
-		gaps += r.gap ? 1 : 0;
-		if (!o.trace) {
-			continue;
-		}
-		auto row = [&](const AttrMatch *m) {
-			child_list_t<Value> v;
-			v.emplace_back("req_node_id", Value(r.q->id));
-			v.emplace_back("matched_node_id", r.matched ? Value(r.matched->id) : Value(LogicalType::VARCHAR));
-			v.emplace_back("matched_path", r.matched ? Value(r.matched->path) : Value(LogicalType::VARCHAR));
-			v.emplace_back("label_sim", r.matched ? Value::DOUBLE(r.pair.label) : Value::DOUBLE(0.0));
-			v.emplace_back("attr_id", m ? Opt(m->req->id) : Value(LogicalType::VARCHAR));
-			v.emplace_back("attr_name", m ? Opt(m->req->name) : Value(LogicalType::VARCHAR));
-			v.emplace_back("req_value", m ? Value(ValueText(*m->req, true, m->bound)) : Value(LogicalType::VARCHAR));
-			v.emplace_back("prov_value",
-			               m && m->prov ? Value(ValueText(*m->prov, false, "")) : Value(LogicalType::VARCHAR));
-			v.emplace_back("gate", m ? Value::BOOLEAN(m->gate) : Value(LogicalType::BOOLEAN));
-			v.emplace_back("name_sim", m && !m->gate ? Value::DOUBLE(m->name_sim) : Value(LogicalType::DOUBLE));
-			v.emplace_back("value_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->value_score) : Value(LogicalType::DOUBLE));
-			v.emplace_back("distance", m ? OptD(!m->gate && m->has_distance, m->distance) : Value(LogicalType::DOUBLE));
-			v.emplace_back("rule", m ? Opt(m->rule) : Value(LogicalType::VARCHAR));
-			v.emplace_back("attr_score", m ? Value::DOUBLE(m->gate ? 0.0 : m->score) : Value(LogicalType::DOUBLE));
-			v.emplace_back("count_needed", Value::DOUBLE(r.q->count));
-			v.emplace_back("count_available", Value::DOUBLE(r.count_available));
-			v.emplace_back("req_score", Value::DOUBLE(r.score));
-			v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
-			trace.push_back(Value::STRUCT(std::move(v)));
-		};
-		if (r.matched && !r.pair.attrs.empty()) {
-			for (auto &m : r.pair.attrs) {
-				row(&m);
+		for (idx_t i = 0; i < results.size(); i++) {
+			if (selected[i]) {
+				AppendTrace(results[i], trace);
 			}
-		} else if (!r.matched && !r.q->attrs.empty()) {
-			for (auto &x : r.q->attrs) {
-				AttrMatch m;
-				m.req = &x;
-				m.bound = !x.bound.empty() ? x.bound : x.default_bound;
-				m.rule = "gate";
-				row(&m);
-			}
-		} else {
-			row(nullptr);
 		}
 	}
 	child_list_t<Value> out;
-	out.emplace_back("coverage", n_requirements == 0 ? Value(LogicalType::DOUBLE) : Value::DOUBLE(total / n_requirements));
-	out.emplace_back("n_requirements", Value::BIGINT(int64_t(n_requirements)));
+	out.emplace_back("coverage", totals.n == 0 ? Value(LogicalType::DOUBLE) : Value::DOUBLE(totals.sum / totals.n));
+	out.emplace_back("n_requirements", Value::BIGINT(int64_t(totals.n)));
 	out.emplace_back("n_gaps", Value::BIGINT(gaps));
 	out.emplace_back("reviewed", Value::BOOLEAN(C.reviewed));
 	out.emplace_back("assignment_used", Value(assignment));
