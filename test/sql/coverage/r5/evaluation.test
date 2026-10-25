@@ -127,23 +127,23 @@ CREATE TABLE picks_gold AS SELECT * FROM (VALUES
 
 # the lowest threshold that keeps the target precision (the largest auto-accept share)
 query RRRI
-SELECT threshold, precision, accepted_share, n_queries FROM threshold_at_precision('picks', 'picks_gold', target := 0.75);
+SELECT threshold, precision, accepted_share, n_queries FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.75);
 ----
 0.8	0.75	0.8	5
 
 query RRR
-SELECT threshold, precision, accepted_share FROM threshold_at_precision('picks', 'picks_gold', target := 0.95);
+SELECT threshold, precision, accepted_share FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.95);
 ----
 0.95	1.0	0.2
 
 query I
-SELECT len(curve) FROM threshold_at_precision('picks', 'picks_gold', target := 0.95);
+SELECT len(curve) FROM threshold_at_precision('picks', 'picks_gold', target_precision := 0.95);
 ----
 5
 
 # unreachable target: no threshold
 query TTT
-SELECT threshold IS NULL, precision IS NULL, len(curve) FROM threshold_at_precision('picks', 'picks_gold', target := 1.0, good := 0.99);
+SELECT threshold IS NULL, precision IS NULL, len(curve) FROM threshold_at_precision('picks', 'picks_gold', target_precision := 1.0, good := 0.99);
 ----
 true	true	5
 
@@ -155,7 +155,7 @@ statement ok
 CREATE TABLE tied_gold AS SELECT * FROM (VALUES ('a', 'p', 0.95::DOUBLE), ('b', 'p', 0.5), ('c', 'p', 0.92)) t(query_id, candidate_id, true_coverage);
 
 query RRR
-SELECT threshold, round(precision, 6), round(accepted_share, 6) FROM threshold_at_precision('tied', 'tied_gold', target := 0.6);
+SELECT threshold, round(precision, 6), round(accepted_share, 6) FROM threshold_at_precision('tied', 'tied_gold', target_precision := 0.6);
 ----
 0.8	0.666667	1.0
 

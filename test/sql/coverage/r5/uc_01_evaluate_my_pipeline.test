@@ -102,6 +102,6 @@ SELECT n_pairs, mae <= 0.05, spearman > 0.8 FROM eval_calibration('results', 'go
 
 # the auto-accept threshold for 95 % precision (a pick is good at true coverage >= 0.9)
 query TTT
-SELECT threshold IS NOT NULL, precision >= 0.95, accepted_share >= 0.5 FROM threshold_at_precision('results', 'gold', target := 0.95);
+SELECT threshold IS NOT NULL, precision >= 0.95, accepted_share >= 0.5 FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 ----
 true	true	true
