@@ -1308,6 +1308,9 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 	};
 	auto label_weights = grid("label_weights", {0.0, 0.1, 0.2, 0.3, 0.5});
 	auto mus = grid("mus", {0.0, 0.1, 0.2, 0.3});
+	if (std::count(label_weights.begin(), label_weights.end(), ',') >= 20 || std::count(mus.begin(), mus.end(), ',') >= 20) {
+		throw BinderException("%s: at most 20 values per grid axis", fn);
+	}
 	auto sql = StringUtil::Format(R"(
 		WITH top AS (
 			SELECT DISTINCT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id,
@@ -1331,6 +1334,7 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 			FROM top t JOIN qp ON qp.tree_id = t.query_id JOIN cp ON cp.tree_id = t.candidate_id CROSS JOIN grid g
 		)
 		SELECT lw AS label_weight, mu, avg(abs(COALESCE(coverage, 0) - true_coverage)) AS mae, count(*) AS n_pairs,
+		       (SELECT count(*) FROM top) - count(*) AS n_unresolved,
 		       row_number() OVER (ORDER BY avg(abs(COALESCE(coverage, 0) - true_coverage)), lw, mu) AS rank
 		FROM k GROUP BY lw, mu
 		ORDER BY rank
@@ -1492,8 +1496,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"name_floor", dbl}},
 		    "Fits the kernel weights on reviewed matches (HLD §4.8, BR-52): for every grid point of label_weights "
 		    "(lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of "
-		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs "
-		    "and rank (best first). The trees and options are given as for tree_coverage. The classifier's beta "
+		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs, "
+		    "n_unresolved (reviewed pairs whose trees are missing) and rank (best first). At most 20 values per axis. The trees and options are given as for tree_coverage. The classifier's beta "
 		    "and tau are tuned with classify_to_catalogue and eval_ranking instead.",
 		    {"SELECT * FROM fit_coverage_weights('reviewed_matches', candidate_nodes_table := 'programme_nodes', "
 		     "candidate_attrs_table := 'programme_attributes') LIMIT 3;"},

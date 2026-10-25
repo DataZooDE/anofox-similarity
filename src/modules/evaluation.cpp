@@ -42,8 +42,11 @@ EvalInput ReadEvalInput(const CoverageParamReader &p, TableFunctionBindInput &in
 
 string EvalCTEs(const EvalInput &e) {
 	return StringUtil::Format(
-	    "r AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, %s AS rank, "
+	    "r_all AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, %s AS rank, "
 	    "%s AS score FROM %s), "
+	    // duplicate rows of a pair keep the best rank
+	    "r AS (SELECT * FROM r_all QUALIFY row_number() OVER (PARTITION BY query_id, candidate_id ORDER BY rank NULLS LAST, "
+	    "score DESC NULLS LAST) = 1), "
 	    "g AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(candidate_id AS VARCHAR) AS candidate_id, "
 	    "max(CAST(true_coverage AS DOUBLE)) AS t FROM %s GROUP BY ALL)",
 	    e.rank_expr.empty() ? "NULL::BIGINT" : e.rank_expr, e.score_expr.empty() ? "NULL::DOUBLE" : e.score_expr,
@@ -82,7 +85,8 @@ unique_ptr<TableRef> EvalRankingBindReplace(ClientContext &context, TableFunctio
 		best AS (SELECT query_id, max(t) AS b FROM g GROUP BY ALL),
 		best_set AS (SELECT g.query_id, g.candidate_id FROM g JOIN best USING (query_id) WHERE g.t >= best.b - 1e-9),
 		n_best AS (SELECT query_id, count(*) AS n FROM best_set GROUP BY ALL),
-		queries AS (SELECT DISTINCT query_id FROM r),
+		-- the queries with gold; a gold query without results is a miss with full regret
+		queries AS (SELECT query_id FROM best),
 		rr AS (
 			SELECT r.query_id, r.candidate_id, r.rank, bs.candidate_id IS NOT NULL AS is_best, COALESCE(g.t, 0) AS t
 			FROM r LEFT JOIN best_set bs USING (query_id, candidate_id) LEFT JOIN g USING (query_id, candidate_id)
@@ -161,6 +165,7 @@ unique_ptr<TableRef> ThresholdBindReplace(ClientContext &context, TableFunctionB
 		picks AS (
 			SELECT r.query_id, r.score AS s, COALESCE(g.t, 0) AS t FROM r LEFT JOIN g USING (query_id, candidate_id)
 			WHERE r.rank = 1 AND r.score IS NOT NULL
+			QUALIFY row_number() OVER (PARTITION BY r.query_id ORDER BY r.score DESC, r.candidate_id) = 1
 		),
 		n AS (SELECT count(*) AS n FROM picks),
 		cum AS (
@@ -224,10 +229,16 @@ unique_ptr<TableRef> BootstrapBindReplace(ClientContext &context, TableFunctionB
 	// from a seeded hash)
 	double alpha = (1 - level) / 2;
 	auto sql = StringUtil::Format(R"(
-		WITH wide AS (SELECT CAST(%s AS VARCHAR) AS __cluster%s FROM %s),
-		long AS (UNPIVOT wide ON COLUMNS(* EXCLUDE (__cluster)) INTO NAME metric VALUE v),
-		cl AS (SELECT metric, __cluster, sum(v) AS s, count(*) AS c FROM long GROUP BY ALL),
-		ids AS (SELECT __cluster, row_number() OVER (ORDER BY __cluster) - 1 AS i FROM (SELECT DISTINCT __cluster FROM long)),
+		WITH wide AS (SELECT CAST(%s AS VARCHAR) AS __anofox_cluster%s FROM %s),
+		long AS (UNPIVOT wide ON COLUMNS(* EXCLUDE (__anofox_cluster)) INTO NAME metric VALUE v),
+		guard AS (
+			SELECT CASE WHEN EXISTS (SELECT 1 FROM wide WHERE __anofox_cluster IS NULL)
+			            THEN error('bootstrap_ci: cluster_col must not be NULL')
+			            WHEN (SELECT count(DISTINCT __anofox_cluster) FROM wide) * %lld > 100000000
+			            THEN error('bootstrap_ci: n x clusters must not exceed 10^8') END AS g
+		),
+		cl AS (SELECT metric, __anofox_cluster, sum(v) AS s, count(*) AS c FROM long, guard WHERE guard.g IS NULL GROUP BY ALL),
+		ids AS (SELECT __anofox_cluster, row_number() OVER (ORDER BY __anofox_cluster) - 1 AS i FROM (SELECT DISTINCT __anofox_cluster FROM long)),
 		m AS (SELECT count(*) AS m FROM ids),
 		draws AS (
 			SELECT b, CAST(hash(%lld, b, j) %% m.m AS BIGINT) AS i
@@ -235,7 +246,7 @@ unique_ptr<TableRef> BootstrapBindReplace(ClientContext &context, TableFunctionB
 		),
 		boot AS (
 			SELECT d.b, cl.metric, sum(cl.s) / sum(cl.c) AS est
-			FROM draws d JOIN ids USING (i) JOIN cl USING (__cluster) GROUP BY ALL
+			FROM draws d JOIN ids USING (i) JOIN cl USING (__anofox_cluster) GROUP BY ALL
 		),
 		point AS (SELECT metric, sum(s) / sum(c) AS estimate FROM cl GROUP BY ALL)
 		SELECT b.metric, any_value(pt.estimate) AS estimate, quantile_cont(b.est, %s) AS lo,
@@ -243,7 +254,7 @@ unique_ptr<TableRef> BootstrapBindReplace(ClientContext &context, TableFunctionB
 		FROM boot b JOIN point pt USING (metric)
 		GROUP BY b.metric ORDER BY b.metric
 	)",
-	                              qc, columns, QuotedIdentifier(table), (long long)seed, (long long)n,
+	                              qc, columns, QuotedIdentifier(table), (long long)n, (long long)seed, (long long)n,
 	                              DoubleLiteral(alpha), DoubleLiteral(1 - alpha));
 	return CoverageSubquery(sql, context, p.fn);
 }

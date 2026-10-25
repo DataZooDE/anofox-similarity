@@ -47,6 +47,26 @@ LogicalType ComponentType() {
 }
 
 void ConnectedComponentsFun(DataChunk &args, ExpressionState &, Vector &result) {
+	{
+		// malformed input is a clean error, not an internal one
+		auto &t = args.data[0].GetType();
+		bool ok = t.id() == LogicalTypeId::SQLNULL;
+		if (t.id() == LogicalTypeId::LIST) {
+			auto &child = ListType::GetChildType(t);
+			if (child.id() == LogicalTypeId::SQLNULL) {
+				ok = true;
+			} else if (child.id() == LogicalTypeId::STRUCT) {
+				if (StructType::GetChildTypes(child).size() < 2) {
+					throw InvalidInputException("connected_components: each pair needs at least two fields");
+				}
+				ok = true;
+			}
+		}
+		if (!ok) {
+			throw InvalidInputException("connected_components: pairs must be a LIST of STRUCT(a, b), not %s",
+			                            t.ToString());
+		}
+	}
 	for (idx_t row = 0; row < args.size(); row++) {
 		auto list = args.data[0].GetValue(row);
 		if (list.IsNull()) {
@@ -143,7 +163,6 @@ unique_ptr<TableRef> ClusterMatchesBindReplace(ClientContext &context, TableFunc
 
 void RegisterEntityClusteringFunctions(ExtensionLoader &loader) {
 	{
-		auto pairs = LogicalType::LIST(LogicalType::ANY);
 		ScalarFunction f(duckdb_compat::FunctionName("connected_components"), {LogicalType::ANY},
 		                 LogicalType::LIST(ComponentType()),
 		                 DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, ConnectedComponentsFun),
@@ -161,7 +180,6 @@ void RegisterEntityClusteringFunctions(ExtensionLoader &loader) {
 		info.descriptions.push_back(std::move(d));
 		duckdb_compat::NameArgumentsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
-		(void)pairs;
 	}
 	auto vc = LogicalType(LogicalTypeId::VARCHAR);
 	RegisterCoverageTableFunction(

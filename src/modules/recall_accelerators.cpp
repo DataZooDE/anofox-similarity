@@ -66,11 +66,12 @@ vector<uint64_t> WeightedMinhash(const std::map<string, double> &weights, idx_t 
 			double r = -std::log(Uniform(state) * Uniform(state));
 			double c = -std::log(Uniform(state) * Uniform(state));
 			double beta = Uniform(state);
+			// log a = log c - r (t - beta) - r; t clamped to the int64 range
 			double t = std::floor(e.second / r + beta);
-			double y = std::exp(r * (t - beta));
-			double a = c / (y * std::exp(r));
-			if (a < best_a) {
-				best_a = a;
+			t = MaxValue(-9.0e18, MinValue(9.0e18, t));
+			double log_a = std::log(c) - r * (t - beta) - r;
+			if (log_a < best_a) {
+				best_a = log_a;
 				best = Mix(e.first, uint64_t(int64_t(t)));
 			}
 		}
@@ -258,10 +259,15 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 	}
 	// band hashes for 1, 2, 4 and 8 rows per band, concatenated in that order
 	auto sql = StringUtil::Format(R"(
-		WITH f AS (
-			SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, sum(%s) AS w
-			FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL GROUP BY ALL
+		WITH raw AS (
+			SELECT CAST(%s AS VARCHAR) AS entity_id, CAST(%s AS VARCHAR) AS feature_id, %s AS w
+			FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL
 		),
+		guard AS (
+			SELECT CASE WHEN EXISTS (SELECT 1 FROM raw WHERE w < 0 OR NOT isfinite(w))
+			            THEN error('minhash_index: weights must not be negative or non-finite') END AS g
+		),
+		f AS (SELECT entity_id, feature_id, sum(w) AS w FROM raw, guard WHERE guard.g IS NULL GROUP BY ALL),
 		s AS (
 			SELECT entity_id, sum(w) AS total_weight,
 			       weighted_minhash(map_from_entries(list(struct_pack(k := feature_id, v := w))), %lld, %lld) AS signature
@@ -277,6 +283,31 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 	                              entity, feature, weight, QuotedIdentifier(table), entity, feature, (long long)nh,
 	                              (long long)seed, (long long)parts, (long long)nh, (long long)(nh / 2),
 	                              (long long)(nh / 4), (long long)(nh / 8), (long long)nh, (long long)seed);
+	return CoverageSubquery(sql, context, p.fn);
+}
+
+//! The band layout of minhash_index: band_hashes holds lsh_bands for 1, 2, 4 and 8 rows per
+//! band, concatenated in that order. Long form: (entity_id, part, r, j, h).
+string BandsSQL(const string &idx) {
+	return StringUtil::Format(R"(SELECT * FROM (
+		SELECT entity_id, part, r,
+		       unnest(list_slice(band_hashes, o + 1, o + nh // r)) AS h,
+		       generate_subscripts(list_slice(band_hashes, o + 1, o + nh // r), 1) AS j
+		FROM (SELECT x.entity_id, x.part, x.band_hashes, x.nh, rr.r,
+		             CASE rr.r WHEN 1 THEN 0 WHEN 2 THEN x.nh WHEN 4 THEN x.nh + x.nh // 2
+		                       ELSE x.nh + x.nh // 2 + x.nh // 4 END AS o
+		      FROM %s x CROSS JOIN (VALUES (1), (2), (4), (8)) rr(r))) b)",
+	                          idx);
+}
+
+unique_ptr<TableRef> MinhashBandsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("minhash_bands");
+	CoverageParamReader p {context, input.named_parameters, "minhash_bands"};
+	auto index = p.Positional(input, 0, "index_table", {"entity_id", "partition", "band_hashes", "num_hashes"});
+	auto sql = StringUtil::Format(
+	    "WITH idx AS (SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(partition AS BIGINT) AS part, band_hashes, "
+	    "CAST(num_hashes AS BIGINT) AS nh FROM %s) SELECT entity_id, part, r, j, h FROM (%s) ORDER BY entity_id, r, j",
+	    QuotedIdentifier(index), BandsSQL("idx"));
 	return CoverageSubquery(sql, context, p.fn);
 }
 
@@ -305,6 +336,15 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 	                                 : StringUtil::Format("%s * q.total / (q.total + p.u - %s * q.total)",
 	                                                      DoubleLiteral(t), DoubleLiteral(t));
 	string estimate = mode == "jaccard" ? "j" : "least(1.0, j * (qt + ct) / ((1 + j) * qt))";
+	// the index's band hashes in long form: from a stored minhash_bands table (a hash join,
+	// sub-linear) or unnested from the index on the fly (linear in the index size)
+	auto bands_table = p.Table("bands_table", "", {"entity_id", "part", "r", "j", "h"});
+	string bands_sql = bands_table.empty()
+	                       ? BandsSQL("idx") + " WHERE EXISTS (SELECT 1 FROM qr WHERE qr.part = b.part AND qr.r = b.r)"
+	                       : StringUtil::Format("SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(part AS BIGINT) AS "
+	                                            "part, CAST(r AS BIGINT) AS r, CAST(j AS BIGINT) AS j, h FROM %s b WHERE "
+	                                            "EXISTS (SELECT 1 FROM qr WHERE qr.part = b.part AND qr.r = b.r)",
+	                                            QuotedIdentifier(bands_table));
 	auto sql = StringUtil::Format(R"(
 		WITH idx AS (
 			SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(total_weight AS DOUBLE) AS total_weight,
@@ -312,12 +352,19 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 			       CAST(seed AS BIGINT) AS sd
 			FROM %s
 		),
-		prm AS (SELECT any_value(nh) AS nh, any_value(sd) AS sd FROM idx),
-		parts AS (SELECT part, max(total_weight) AS u FROM idx GROUP BY ALL),
-		qf AS (
-			SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(feature_id AS VARCHAR) AS f, sum(%s) AS w
-			FROM %s WHERE feature_id IS NOT NULL GROUP BY ALL
+		prm AS (
+			SELECT CASE WHEN count(DISTINCT nh) > 1 OR count(DISTINCT sd) > 1
+			            THEN error('find_covering_entities_lsh: the index must have one num_hashes and seed') END AS g,
+			       any_value(nh) AS nh, any_value(sd) AS sd
+			FROM idx
 		),
+		parts AS (SELECT part, max(total_weight) AS u FROM idx GROUP BY ALL),
+		qraw AS (SELECT CAST(query_id AS VARCHAR) AS query_id, CAST(feature_id AS VARCHAR) AS f, %s AS w FROM %s WHERE feature_id IS NOT NULL),
+		qguard AS (
+			SELECT CASE WHEN EXISTS (SELECT 1 FROM qraw WHERE w < 0 OR NOT isfinite(w))
+			            THEN error('find_covering_entities_lsh: weights must not be negative or non-finite') END AS g
+		),
+		qf AS (SELECT query_id, f, sum(w) AS w FROM qraw, qguard WHERE qguard.g IS NULL GROUP BY ALL),
 		qs AS (
 			SELECT query_id, sum(w) AS total,
 			       weighted_minhash(map_from_entries(list(struct_pack(k := f, v := w))), (SELECT nh FROM prm),
@@ -329,22 +376,13 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 			SELECT qj.query_id, qj.sig, qj.part,
 			       CASE WHEN pow(1.0 / (prm.nh // 8), 1.0 / 8) <= qj.j THEN 8 WHEN pow(1.0 / (prm.nh // 4), 1.0 / 4) <= qj.j THEN 4
 			            WHEN pow(1.0 / (prm.nh // 2), 1.0 / 2) <= qj.j THEN 2 ELSE 1 END AS r
-			FROM qj, prm
+			FROM qj, prm WHERE prm.g IS NULL
 		),
 		qb AS (
 			SELECT query_id, part, r, unnest(lsh_bands(sig, prm.nh // r)) AS h, generate_subscripts(lsh_bands(sig, prm.nh // r), 1) AS j
 			FROM qr, prm
 		),
-		ib AS (
-			SELECT entity_id, part, r,
-			       unnest(list_slice(band_hashes, o + 1, o + nh // r)) AS h,
-			       generate_subscripts(list_slice(band_hashes, o + 1, o + nh // r), 1) AS j
-			FROM (SELECT idx.*, rr.r,
-			             CASE rr.r WHEN 1 THEN 0 WHEN 2 THEN idx.nh WHEN 4 THEN idx.nh + idx.nh // 2
-			                       ELSE idx.nh + idx.nh // 2 + idx.nh // 4 END AS o
-			      FROM idx CROSS JOIN (VALUES (1), (2), (4), (8)) rr(r)
-			      WHERE EXISTS (SELECT 1 FROM qr WHERE qr.part = idx.part AND qr.r = rr.r))
-		),
+		ib AS (%s),
 		cand AS (
 			SELECT DISTINCT qb.query_id, ib.entity_id
 			FROM qb JOIN ib ON ib.part = qb.part AND ib.r = qb.r AND ib.j = qb.j AND ib.h = qb.h
@@ -361,8 +399,8 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 		QUALIFY rank <= %lld
 		ORDER BY s.query_id, rank
 	)",
-	                              QuotedIdentifier(index), weight, QuotedIdentifier(queries), jstar, estimate, estimate,
-	                              (long long)k);
+	                              QuotedIdentifier(index), weight, QuotedIdentifier(queries), jstar, bands_sql, estimate,
+	                              estimate, (long long)k);
 	return CoverageSubquery(sql, context, p.fn);
 }
 
@@ -376,8 +414,8 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	                  compat_anofox::ScalarBind<&WeightedMinhashBind>(),
 	                  "Weighted MinHash signature of a MAP(key, weight) multiset by improved consistent weighted "
 	                  "sampling (ICWS, Ioffe 2010): the share of equal positions of two signatures estimates their "
-	                  "weighted Jaccard. num_hashes positions (1..4096), seeded (default 7); hashing is stable across "
-	                  "DuckDB versions. A NULL weight counts as 1, zero weights are absent, negative weights are an "
+	                  "weighted Jaccard. num_hashes positions (1..4096), seeded (default 7); hashing is our own (FNV-1a, "
+	                  "SplitMix64), independent of DuckDB's hash. A NULL weight counts as 1, zero weights are absent, negative weights are an "
 	                  "error; NULL or an empty multiset gives NULL.",
 	                  {{{dist, bi}, {"weights", "num_hashes"}, {"SELECT weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 128);"}},
 	                   {{dist, bi, bi},
@@ -417,16 +455,24 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	    {"coverage", "recall"});
 	RegisterCoverageTableFunction(
 	    loader, "find_covering_entities_lsh", {vc, vc}, {"queries_table", "index_table"}, LshSearchBindReplace,
-	    {{"k", bi}, {"mode", vc}, {"threshold", LogicalType::DOUBLE}},
+	    {{"k", bi}, {"mode", vc}, {"threshold", LogicalType::DOUBLE}, {"bands_table", vc}},
 	    "Sub-linear candidate search over a minhash_index (HLD §4.7, LSH-Ensemble style). queries_table holds "
 	    "(query_id, feature_id[, weight]) multisets. Per query and size partition, the containment threshold "
 	    "(default 0.5) is turned into the Jaccard threshold for the partition's largest set, and the rows per band "
 	    "are chosen so that the LSH S-curve passes below it; candidates share a band. Ranked by the estimate: "
 	    "containment = J (|q| + |c|) / ((1 + J) |q|) (capped at 1) or J (mode 'jaccard'). Returns query_id, "
 	    "entity_id, estimate, jaccard_estimate, rank (top k, default 20) and n_candidates (scored per query). An "
-	    "approximate accelerator: exact find_covering_entities stays the reference.",
+	    "approximate accelerator: exact find_covering_entities stays the reference. Without bands_table the "
+	    "index's band hashes are unnested on every call (linear in the index size); store minhash_bands(index) "
+	    "once and pass it as bands_table for a hash-join (sub-linear) search.",
 	    {"SELECT * FROM find_covering_entities_lsh('request_multisets', 'programme_index', k := 20);"},
 	    {"coverage", "recall"});
+	RegisterCoverageTableFunction(
+	    loader, "minhash_bands", {vc}, {"index_table"}, MinhashBandsBindReplace, {},
+	    "The band hashes of a minhash_index in long form (entity_id, part, r, j, h): one row per entity, rows per "
+	    "band (1, 2, 4, 8) and band. Store it and pass it to find_covering_entities_lsh as bands_table, so the "
+	    "search joins on the band hash instead of unnesting the index.",
+	    {"CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');"}, {"coverage", "recall"});
 }
 
 } // namespace anofox
