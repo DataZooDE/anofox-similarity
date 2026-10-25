@@ -215,3 +215,12 @@ query I
 SELECT len(weighted_minhash(MAP {'a': 1e300, 'b': 1e-300}, 16));
 ----
 16
+
+# a band table from another index is an error, not a silent mismatch (code-quality review CQ-1 F14)
+statement ok
+CREATE TABLE other_idx AS SELECT * FROM minhash_index(feature_table := 'raw_vocab', num_hashes := 64, seed := 11);
+
+statement error
+SELECT * FROM find_covering_entities_lsh('raw_q', 'other_idx', bands_table := 'raw_bands');
+----
+bands_table was built from another index
