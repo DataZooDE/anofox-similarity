@@ -29,6 +29,8 @@ set(EXTENSION_SOURCES
     src/modules/quantity.cpp
     src/modules/property_tree.cpp
     src/modules/coverage_kernel.cpp
+    src/modules/pivot_classifier.cpp
+    src/modules/vocabulary_review.cpp
     src/modules/wl_kernel.cpp
     src/modules/wl_kernel_cpp.cpp
     src/modules/jaccard_cpp.cpp

@@ -641,7 +641,7 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	auto C = LoadTree(candidate);
 	string assignment = o.assignment;
 	if (assignment == "auto") {
-		assignment = C.reviewed ? "partition" : "best_match";
+		assignment = Q.reviewed && C.reviewed ? "partition" : "best_match"; // HLD §11.12: both trees reviewed
 	}
 	vector<ReqResult> results(Q.items.size());
 	for (idx_t i = 0; i < Q.items.size(); i++) {
