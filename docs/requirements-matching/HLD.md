@@ -653,3 +653,31 @@ precedence over the text above.
     without items counts as fully met); coverage = sum / number. This reconciles §4.6's "OR
     node: max over children" with "mean over request items", and is unchanged for trees
     without OR. Alternatives that were not chosen are not requirements for that candidate.
+12. **R4 conventions and the `auto` rule (user decision 2026-10-25).**
+    - **`assignment := 'auto'` partitions only when both the query tree and the candidate
+      tree are reviewed.** §4.6 looked at the candidate only. With classifier labels on the
+      request side, partition gave coverage MAE 0.19 against 0.038 for best match (risk R2,
+      here from the query side). Results with reviewed classes on both sides are unchanged.
+    - `classify_to_catalogue`: all parameters named (order as in the API reference);
+      `overrides_table` defaults to NULL (§4.4 named `'vocabulary_overrides'`; an implicit
+      table lookup would be surprising); output adds `tree_id` and `source`, so it serves as a
+      `label_table`. Centring covers the items of one call per source (a NULL source is one
+      group) and applies to `vec` in centroid mode; late interaction uses the raw tokens. A
+      single-item source centres to zero and gets a uniform `p`; items without a vector are
+      skipped. The z-score uses the population standard deviation (sd 0 → 1). The bonus is the
+      mean over all the item's attributes (an attribute without a dimension counts 0) of the
+      best same-dimension template; template names come from `name`, `name_en` or `name_de`;
+      without name vectors a dimension match counts 1. Decisions (per item) beat overrides
+      (per wording). Keys are `(tree_id, node_id)`, NULL-safe.
+    - `apply_vocabulary_review` returns the merged overrides table (DuckDB table functions
+      cannot write); the caller stores it with `CREATE OR REPLACE TABLE`. One entry per
+      (wording, source); a NULL source is its own key.
+    - `vocabulary_review_queue` takes decisions per wording (tree_id NULL, node_id = wording,
+      a NULL source matches any) or per node (averaged over the wording's decided
+      occurrences). Output order: impact descending, then wording and source.
+    - `uncertain_decisions` builds the JSON as text (the JSON extension is not linked). The
+      default threshold is 0.2; `share` selects the lowest-margin share instead.
+    - `cosine_floor` is a table function `(floor, n_pairs)`: exact over all pairs when they fit
+      into `sample`, otherwise a seeded sample.
+    - The dataset's misleading wordings got a stronger pull towards their true class (0.35 →
+      0.5), so that the review queue ranks all four first (HANDOVER §3.5).

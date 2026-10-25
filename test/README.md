@@ -224,6 +224,7 @@ oracle and KPI feasibility are described in
 | R1 | `test/sql/coverage/r1/` | `tversky_similarity`, `containment`, `weighted_*`, `find_covering_entities[_for]`, `mode :=` on `find_similar_materials_jaccard`, read-only use; scenarios `uc_01`–`uc_08` (uc_08: all 80 benchmark requests at once, stage-1 recall@20 ≥ 0.90) |
 | R2 | `test/sql/coverage/r2/` | `quantity_units`, `parse_quantity`, `normalize_quantity`, `value_satisfies`, `compat_score`; scenarios `uc_01`–`uc_09` (uc_06 parses all 2 736 benchmark values exactly); `parser_regressions.test` |
 | R3 | `test/sql/coverage/r3/` | Tree store (`tree_from_json`, `tree_anchors`, `tree_class_multiset`, `validate_trees`, robustness), kernel (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`), request alternatives, robustness and read-only; scenarios `uc_01`–`uc_10` (uc_10: a class-multiset index of the archive), including **uc_06: the six BRD §6 KPIs on all 80 requests** and the stage-1 failure mode on unreviewed labels |
+| R4 | `test/sql/coverage/r4/` | `maxsim`, `bhattacharyya`, `calibrated_cosine`, `cosine_floor`, `classify_to_catalogue`, `vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`; read-only; scenarios `uc_01`–`uc_07` (uc_07: the classifier feeding the kernel, the BRD KPIs after reviewing uncertain items) |
 
 The dataset is regenerated with
 `cd scripts && uv run generate-coverage-data --seed 7 --output ../test/data/coverage/`, and

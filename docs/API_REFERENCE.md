@@ -32,7 +32,7 @@
 
 ## Overview
 
-The anofox-similarity extension provides about 65 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 73 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
@@ -1162,7 +1162,8 @@ The extension creates several database objects on load for embedding storage and
 > core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
 > `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`, `find_covering_entities`,
 > `find_covering_entities_for`, `quantity_units`, `tree_anchors`, `tree_class_multiset`, `validate_trees`,
-> `tree_coverage`, `tree_coverage_trace`, `coverage_recall`) and all scalar functions
+> `tree_coverage`, `tree_coverage_trace`, `coverage_recall`, `cosine_floor`, `classify_to_catalogue`,
+> `vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1633,6 +1634,85 @@ Soft distributions are normalised to 1.
 recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable
 flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s on a laptop.
 
+
+### Pivot classifier and vocabulary review (R4)
+
+The pivot classifier maps items onto the catalogue as a distribution over classes. The review
+functions turn its uncertainty into a short work list (HLD §4.4, §4.5). The extension ships no
+models: bring your own vectors.
+
+| Function | Purpose |
+|---|---|
+| `maxsim(query_tokens, document_tokens)` | Late-interaction score: mean over query tokens of the best cosine over the document tokens |
+| `bhattacharyya(p MAP, q MAP)` | Σ √(p_k q_k): the soft label agreement used by the kernel |
+| `calibrated_cosine(a, b, floor)` | clip((cos − floor) / (1 − floor), 0, 1) |
+| `cosine_floor(table, column [, sample := 10000, seed := 7])` | `(floor, n_pairs)`: median cosine of distinct pairs. Exact when all pairs fit into `sample`, otherwise a seeded sample |
+| `classify_to_catalogue(...)` | `(tree_id, node_id, source, class_id, p, rank, margin, overridden)`, one row per item and class |
+| `vocabulary_review_queue(trees_table, decisions [, sources, overrides_table])` | `(wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, impact)`, highest impact first |
+| `apply_vocabulary_review(review_table [, overrides_table])` | The merged overrides; the review wins per wording and source |
+| `uncertain_decisions(decisions [, threshold \| share, top, texts_table, catalogue_table])` | `(tree_id, node_id, margin, request)` with `request` as JSON text |
+
+**`classify_to_catalogue` parameters** (all named)
+
+| Parameter | Default | Description |
+|---|---|---|
+| `items_table` | `'item_vectors'` | `node_id, vec[, tree_id, source, label, tokens]`; items without a vector are skipped |
+| `catalogue_table` | `'catalogue_vectors'` | `class_id, vec[, exemplar_tokens]` |
+| `mode` | `'centroid'` | `'centroid'`: cosine to the class vector; `'late_interaction'`: `maxsim(tokens, exemplar_tokens)` |
+| `center_by_source` | true | subtract the mean vector of the item's source (centroid mode) |
+| `attr_bonus` | 1.0 | β × the attribute-template match: mean over the item's attributes of the best same-dimension template |
+| `temperature` | 0.3 | softmax temperature τ |
+| `overrides_table` | NULL | reviewed wordings `(wording, source, class_id)`, matched on the item's `label` |
+| `decisions_table` | NULL | per-item answers `([tree_id,] node_id, class_id)`; they beat overrides |
+| `attrs_table`, `templates_table` | NULL | `([tree_id,] node_id, name, dimension)` and `(class_id, dimension[, name, name_en, name_de])` for the bonus |
+| `name_vectors`, `name_floor` | NULL, 0.85 | name similarity for the bonus (calibrated cosine); without vectors a dimension match counts 1 |
+| `top` | NULL | keep the best `top` classes per item |
+
+Pipeline per item: centring → similarity → z-score across the catalogue (+ β × bonus) →
+softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p` and
+`overridden = true`. The output is a `label_table` for `tree_coverage`.
+
+**Workflow: review the archive's vocabulary**
+
+```sql
+CREATE TABLE wordings AS
+SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec FROM vocabulary_vectors;
+CREATE TABLE wording_decisions AS
+SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+
+-- the few wordings that touch most trees, least certain first
+SELECT * FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wording_decisions',
+                                      overrides_table := 'vocabulary_overrides') LIMIT 10;
+
+-- store the reviewer's answers (table functions cannot write)
+CREATE OR REPLACE TABLE vocabulary_overrides AS
+SELECT * FROM apply_vocabulary_review('review', overrides_table := 'vocabulary_overrides');
+```
+
+**Workflow: send uncertain items to an external reviewer**
+
+```sql
+CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
+       attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+COPY (SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
+      texts_table := 'item_texts', catalogue_table := 'catalogue_classes')) TO 'to_review.jsonl' (HEADER false, QUOTE '');
+-- answers: (tree_id, node_id, class_id)
+CREATE TABLE request_labels AS SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(
+       items_table := 'request_items', catalogue_table := 'catalogue', decisions_table := 'answers', ...);
+SELECT * FROM tree_coverage(..., label_table := 'request_labels');
+```
+
+**Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after
+per-source centring and 0.95 with the attribute bonus. On 200 unseen phrasings, late
+interaction beats the centroid by more than 10 points. The review queue puts the four
+misleading archive wordings first. With classifier labels on the request side, the pipeline
+reaches recall@20 0.86 and regret 0.022. After a reviewer answers the 15 % lowest-margin items,
+it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets all BRD
+targets.
+
+**`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
+are reviewed (HLD §11.12). Classifier labels are not reviewed, so `auto` uses best match.
 ---
 
 ## Function Coverage Matrix
@@ -1653,8 +1733,8 @@ flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
 | **Infrastructure** | Macro | 1 | create_bom_property_graph |
-| **Coverage matching** | Scalar + Table + Macro | 21 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall |
-| **TOTAL** | | **~63** | Complete API |
+| **Coverage matching** | Scalar + Table + Macro | 29 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score, tree_from_json, tree_anchors, tree_class_multiset, tree_multiset, validate_trees, coverage_kernel, tree_coverage, tree_coverage_trace, coverage_recall, maxsim, bhattacharyya, calibrated_cosine, cosine_floor, classify_to_catalogue, vocabulary_review_queue, apply_vocabulary_review, uncertain_decisions |
+| **TOTAL** | | **~71** | Complete API |
 
 ---
 

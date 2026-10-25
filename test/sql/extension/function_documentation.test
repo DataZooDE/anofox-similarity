@@ -49,7 +49,9 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'compat_score','normalize_quantity','parse_quantity','quantity_units','value_satisfies',
   -- coverage matching (R3)
   'tree_anchors','tree_class_multiset','tree_from_json','tree_multiset','validate_trees',
-  'coverage_kernel','coverage_recall','tree_coverage','tree_coverage_trace');
+  'coverage_kernel','coverage_recall','tree_coverage','tree_coverage_trace',
+  'maxsim','bhattacharyya','calibrated_cosine','cosine_floor','classify_to_catalogue',
+  'vocabulary_review_queue','apply_vocabulary_review','uncertain_decisions');
 
 # Every name above resolves. A dropped registration is the SILENT failure mode
 # of the DefaultMacro conversion: the macro struct stays defined, the file still
@@ -60,7 +62,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-58
+66
 
 # ============================================================================
 # ...and every one of them is documented
@@ -211,3 +213,8 @@ query I
 SELECT parameters FROM ours WHERE function_name = 'coverage_recall';
 ----
 [query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break, candidate_multiset_table]
+
+query I
+SELECT parameters FROM ours WHERE function_name = 'classify_to_catalogue';
+----
+[items_table, catalogue_table, mode, center_by_source, attr_bonus, temperature, overrides_table, decisions_table, attrs_table, templates_table, name_vectors, name_floor, top]
