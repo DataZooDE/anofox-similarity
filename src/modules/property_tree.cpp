@@ -836,13 +836,6 @@ TreeSource ReadTreeSource(ClientContext &context, TableFunctionBindInput &input,
 // Shared SQL builders
 //------------------------------------------------------------------------------
 
-string QuotedList(const vector<string> &values) {
-	string out = "[";
-	for (idx_t i = 0; i < values.size(); i++) {
-		out += (i ? ", " : "") + QuoteSQLStringLiteral(values[i]);
-	}
-	return out + "]";
-}
 
 //! ' WHERE tree_id IN (...)' for a TreeSource with tree_ids, else ''.
 string TreeFilter(const TreeSource &src) {
@@ -854,41 +847,7 @@ string TreeFilter(const TreeSource &src) {
 	           : " WHERE CAST(tree_id AS VARCHAR) IN (SELECT unnest(" + QuotedList(src.tree_ids) + "))";
 }
 
-vector<string> StringListParameter(const Value &value, const string &name) {
-	vector<string> out;
-	if (value.IsNull()) {
-		return out;
-	}
-	if (value.type().id() == LogicalTypeId::LIST) {
-		for (auto &c : ListValue::GetChildren(value)) {
-			if (!c.IsNull()) {
-				out.push_back(c.ToString());
-			}
-		}
-	} else {
-		out.push_back(value.ToString());
-	}
-	return out;
-}
 
-bool TableExists(ClientContext &context, const string &path) {
-	// a relation exists when a probe for a column name that cannot exist resolves it
-	vector<string> parts = StringUtil::Split(path, '.');
-	try {
-		auto catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
-		auto schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
-		for (auto type : {CatalogType::TABLE_ENTRY, CatalogType::VIEW_ENTRY}) {
-			EntryLookupInfo lookup(type, duckdb_compat::EntryName(parts.back()));
-			if (Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup,
-			                      OnEntryNotFound::RETURN_NULL)) {
-				return true;
-			}
-		}
-	} catch (...) {
-		return true;
-	}
-	return false;
-}
 
 void ValidateTreeSource(ClientContext &context, TreeSource &src, const string &fn, const string &prefix) {
 	// a missing table is an error that names the parameter

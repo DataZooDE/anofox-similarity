@@ -5,7 +5,7 @@
 #include "duckdb/parser/tableref/subqueryref.hpp"
 #include "duckdb/parser/statement/select_statement.hpp"
 #include "core/sql_safety.hpp"
-#include "modules/property_tree.hpp"
+#include "core/named_parameters.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 #include "duckdb/function/scalar_function.hpp"
@@ -39,6 +39,15 @@ inline string QuotedIdentifier(const string &path) {
 		out += ch == '.' ? string("\".\"") : string(1, ch);
 	}
 	return out + "\"";
+}
+
+//! A SQL list literal of quoted strings, e.g. ['a', 'b'].
+inline string QuotedList(const vector<string> &values) {
+	string out = "[";
+	for (idx_t i = 0; i < values.size(); i++) {
+		out += (i ? ", " : "") + QuoteSQLStringLiteral(values[i]);
+	}
+	return out + "]";
 }
 
 //! A DOUBLE literal with full precision.

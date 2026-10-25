@@ -5,6 +5,7 @@
 #include "duckdb/catalog/catalog.hpp"
 #include "duckdb/catalog/catalog_entry/table_catalog_entry.hpp"
 #include "duckdb/catalog/catalog_entry/view_catalog_entry.hpp"
+#include "duckdb/catalog/standard_entry.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/catalog/entry_lookup_info.hpp"
 #include "duckdb/common/exception.hpp"
@@ -74,13 +75,12 @@ inline string ValidateSQLIdentifierPath(const string &identifier, const string &
 //! table-name parameter requires, so users get "bom_table 'x' is missing
 //! column parent_id" instead of a cryptic binder error from the internal
 //! SQL. Non-table entries (views, CTE-provided relations) are left to the
-//! inner query to validate.
-inline void ValidateTableColumns(ClientContext &context, const string &table_path, const vector<string> &required,
-                                 const string &param_name) {
-	// split the pre-validated identifier path (1-3 dot-separated segments)
+
+//! The 1-3 segments of a pre-validated, dot-separated identifier path.
+inline vector<string> SplitIdentifierPath(const string &path) {
 	vector<string> parts;
 	string current;
-	for (auto ch : table_path) {
+	for (auto ch : path) {
 		if (ch == '.') {
 			parts.push_back(current);
 			current.clear();
@@ -89,26 +89,66 @@ inline void ValidateTableColumns(ClientContext &context, const string &table_pat
 		}
 	}
 	parts.push_back(current);
+	return parts;
+}
+
+//! Look up a table or view by a (possibly qualified) path as the binder does: a two-part
+//! path is schema.name, else catalog.name. Returns nullptr when there is no such entry or
+//! the catalog or schema does not exist.
+inline optional_ptr<CatalogEntry> LookupRelation(ClientContext &context, const string &path, CatalogType type) {
+	auto parts = SplitIdentifierPath(path);
 	if (parts.size() > 3) {
-		throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), table_path.c_str());
+		return nullptr;
 	}
 	string catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
 	string schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
-	auto &table_name = parts.back();
-
-	optional_ptr<CatalogEntry> entry;
 	try {
-		EntryLookupInfo lookup_info(CatalogType::TABLE_ENTRY, duckdb_compat::EntryName(table_name));
-		entry = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup_info, OnEntryNotFound::RETURN_NULL);
+		EntryLookupInfo lookup(type, duckdb_compat::EntryName(parts.back()));
+		auto entry = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name),
+		                               lookup, OnEntryNotFound::RETURN_NULL);
 		if (!entry && parts.size() == 2) {
-			// two-part paths can also mean catalog.table (binder semantics)
-			entry = Catalog::GetEntry(context, duckdb_compat::Ident(parts[0]), duckdb_compat::Ident(INVALID_SCHEMA), lookup_info, OnEntryNotFound::RETURN_NULL);
+			entry = Catalog::GetEntry(context, duckdb_compat::Ident(parts[0]), duckdb_compat::Ident(INVALID_SCHEMA),
+			                          lookup, OnEntryNotFound::RETURN_NULL);
 		}
-	} catch (...) {
-		return; // ambiguous/odd paths: defer to the inner query's own error
+		return entry && entry->type == type ? entry : nullptr;
+	} catch (CatalogException &) {
+		return nullptr;
+	} catch (BinderException &) {
+		return nullptr;
 	}
-	if (!entry || entry->type != CatalogType::TABLE_ENTRY) {
-		return;
+}
+
+//! Whether a table or view exists.
+inline bool TableExists(ClientContext &context, const string &path) {
+	return LookupRelation(context, path, CatalogType::TABLE_ENTRY) ||
+	       LookupRelation(context, path, CatalogType::VIEW_ENTRY);
+}
+
+//! The fully qualified, lower-case name (catalog.schema.name) of a table or view, or the path
+//! as given when it cannot be resolved. Two paths name the same relation when these agree.
+inline string ResolvedRelationName(ClientContext &context, const string &path) {
+	auto entry = LookupRelation(context, path, CatalogType::TABLE_ENTRY);
+	if (!entry) {
+		entry = LookupRelation(context, path, CatalogType::VIEW_ENTRY);
+	}
+	if (!entry) {
+		return StringUtil::Lower(path);
+	}
+	auto &standard = entry->Cast<StandardEntry>();
+	return StringUtil::Lower(static_cast<const string &>(standard.ParentCatalog().GetName()) + "." +
+	                         static_cast<const string &>(standard.ParentSchema().name) + "." +
+	                         static_cast<const string &>(entry->name));
+}
+
+//! inner query to validate.
+inline void ValidateTableColumns(ClientContext &context, const string &table_path, const vector<string> &required,
+                                 const string &param_name) {
+	if (SplitIdentifierPath(table_path).size() > 3) {
+		throw BinderException("Invalid identifier for %s: %s", param_name.c_str(), table_path.c_str());
+	}
+	auto entry = LookupRelation(context, table_path, CatalogType::TABLE_ENTRY);
+	if (!entry) {
+		return; // views and unresolvable paths: the inner query reports its own error
 	}
 	auto &table_entry = entry->Cast<TableCatalogEntry>();
 	string missing;
@@ -136,43 +176,14 @@ inline void ValidateTableColumns(ClientContext &context, const string &table_pat
 //! Whether a (possibly qualified) table has a column. Relations that are not tables
 //! (views, unresolvable paths) report true and leave the check to the inner query.
 inline bool TableHasColumn(ClientContext &context, const string &table_path, const string &column) {
-	vector<string> parts;
-	string current;
-	for (auto ch : table_path) {
-		if (ch == '.') {
-			parts.push_back(current);
-			current.clear();
-		} else {
-			current += ch;
-		}
-	}
-	parts.push_back(current);
-	if (parts.size() > 3) {
-		return true;
-	}
-	string catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
-	string schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
-	optional_ptr<CatalogEntry> entry;
-	try {
-		EntryLookupInfo lookup_info(CatalogType::TABLE_ENTRY, duckdb_compat::EntryName(parts.back()));
-		entry = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name),
-		                          lookup_info, OnEntryNotFound::RETURN_NULL);
-		if (!entry && parts.size() == 2) {
-			entry = Catalog::GetEntry(context, duckdb_compat::Ident(parts[0]), duckdb_compat::Ident(INVALID_SCHEMA),
-			                          lookup_info, OnEntryNotFound::RETURN_NULL);
-		}
-	} catch (...) {
-		return true;
-	}
-	if (entry && entry->type == CatalogType::TABLE_ENTRY) {
+	auto entry = LookupRelation(context, table_path, CatalogType::TABLE_ENTRY);
+	if (entry) {
 		return entry->Cast<TableCatalogEntry>().ColumnExists(duckdb_compat::Ident(column));
 	}
 	// a view: compare against its column names (or aliases)
 	try {
-		EntryLookupInfo view_lookup(CatalogType::VIEW_ENTRY, duckdb_compat::EntryName(parts.back()));
-		auto view = Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name),
-		                              view_lookup, OnEntryNotFound::RETURN_NULL);
-		if (view && view->type == CatalogType::VIEW_ENTRY) {
+		auto view = LookupRelation(context, table_path, CatalogType::VIEW_ENTRY);
+		if (view) {
 			auto &v = view->Cast<ViewCatalogEntry>();
 			v.BindView(context);
 			auto info = v.GetColumnInfo();

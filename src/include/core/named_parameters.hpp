@@ -22,5 +22,24 @@ inline void AddDocumentedNamedParameters(TableFunction &function, FunctionDescri
 	}
 }
 
+//! A VARCHAR or LIST(VARCHAR) parameter as a list of strings (NULL elements dropped).
+inline vector<string> StringListParameter(const Value &value, const string &name) {
+	vector<string> out;
+	if (value.IsNull()) {
+		return out;
+	}
+	if (value.type().id() == LogicalTypeId::LIST) {
+		for (auto &c : ListValue::GetChildren(value)) {
+			if (!c.IsNull()) {
+				out.push_back(c.ToString());
+			}
+		}
+	} else {
+		out.push_back(value.ToString());
+	}
+	(void)name;
+	return out;
+}
+
 } // namespace anofox
 } // namespace duckdb

@@ -27,9 +27,6 @@ struct TreeSource {
 	bool overrides_has_source = false;
 };
 
-//! Whether a table or view exists (true when the path cannot be looked up: the query decides).
-bool TableExists(ClientContext &context, const string &path);
-
 //! Validate the table and column parameters of a TreeSource (identifiers, required columns).
 //! prefix names the parameters in errors, e.g. 'candidate_' for candidate_nodes_table.
 void ValidateTreeSource(ClientContext &context, TreeSource &source, const string &fn, const string &prefix = "");
@@ -39,12 +36,6 @@ void ValidateTreeSource(ClientContext &context, TreeSource &source, const string
 //!   class_id (resolved: class_id -> reviewed vocabulary -> classifier arg-max),
 //!   reviewed (true when class_id or the reviewed vocabulary gave the class)
 string ResolvedNodesSQL(const TreeSource &source);
-
-//! A SQL list literal of quoted strings, e.g. ['a', 'b'].
-string QuotedList(const vector<string> &values);
-
-//! Read a LIST(VARCHAR) named parameter.
-vector<string> StringListParameter(const Value &value, const string &name);
 
 void RegisterPropertyTreeFunctions(ExtensionLoader &loader);
 

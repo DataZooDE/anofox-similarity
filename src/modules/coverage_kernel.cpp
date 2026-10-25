@@ -913,6 +913,7 @@ struct CoverageParams {
 	string rules_table;
 	string name_vectors;
 	double name_floor = 0.85;
+	bool same_nodes_table = false; // query and candidate trees come from one table
 	string multiset_table; // precomputed candidate class multisets (tree_class_multiset output)
 	bool multiset_has_reviewed = false;
 };
@@ -987,6 +988,7 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 	// identifiers (candidate parameters named as such in errors)
 	ValidateTreeSource(context, p.q, fn);
 	ValidateTreeSource(context, p.c, fn, "candidate_");
+	p.same_nodes_table = ResolvedRelationName(context, p.q.nodes_table) == ResolvedRelationName(context, p.c.nodes_table);
 	str("labels", p.labels);
 	p.labels = StringUtil::Lower(p.labels);
 	if (p.labels != "soft" && p.labels != "hard") {
@@ -1060,7 +1062,7 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 //! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
 string Stage1SQL(const CoverageParams &p) {
 	// a query is not its own candidate when both come from the same table
-	string self = !p.has_candidates && p.q.nodes_table == p.c.nodes_table ? " AND c.tree_id <> q.tree_id" : "";
+	string self = !p.has_candidates && p.same_nodes_table ? " AND c.tree_id <> q.tree_id" : "";
 	// explicit candidates are all scored; otherwise only candidates sharing a class can score > 0
 	string pairs = p.has_candidates ? "SELECT q.tree_id AS query_id, c.tree_id AS candidate_id FROM q_ms q, c_ms c"
 	                                : "SELECT query_id, candidate_id FROM ov";
