@@ -1347,53 +1347,42 @@ unique_ptr<TableRef> CoverageRecallBindReplace(ClientContext &context, TableFunc
 	return CoverageSubquery(sql, context, "coverage_recall");
 }
 
+using NamedParameterList = vector<std::pair<string, LogicalType>>;
+
+//! The parameters of stage 1 (all three coverage functions); order as documented.
+NamedParameterList Stage1Parameters(bool stage2) {
+	auto vc = LogicalType(LogicalTypeId::VARCHAR);
+	return {{"candidates", LogicalType::LIST(LogicalType::VARCHAR)},
+	        {"k", LogicalType::BIGINT},
+	        {"nodes_table", vc},
+	        {"candidate_nodes_table", vc},
+	        {"overrides_table", vc},
+	        {"label_table", vc},
+	        {stage2 ? "recall_mode" : "mode", vc},
+	        {"tie_break", LogicalType::DOUBLE},
+	        {"candidate_multiset_table", vc}};
+}
+
+//! The parameters of stage 2 (tree_coverage, tree_coverage_trace).
+NamedParameterList KernelParameters() {
+	auto vc = LogicalType(LogicalTypeId::VARCHAR);
+	auto dbl = LogicalType(LogicalTypeId::DOUBLE);
+	return {{"attrs_table", vc},     {"candidate_attrs_table", vc}, {"labels", vc},         {"assignment", vc},
+	        {"label_weight", dbl},   {"mu", dbl},                   {"partition_gate", dbl}, {"count_gate", dbl},
+	        {"stage1_weight", dbl},  {"default_bounds", vc},        {"templates_table", vc}, {"rules_table", vc},
+	        {"name_vectors", vc},    {"name_floor", dbl}};
+}
+
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
                            const string &description, vector<string> examples, bool stage2) {
-	TableFunction f(duckdb_compat::FunctionName(name), {LogicalType::ANY}, nullptr, nullptr);
-	f.bind_replace = fn;
-	FunctionDescription desc;
-	desc.description = description;
-	desc.examples = std::move(examples);
-	desc.categories = {"coverage", "search"};
-	vector<NamedParameterSpec> named {{"candidates", LogicalType::LIST(LogicalType::VARCHAR)},
-	                                  {"k", LogicalType::BIGINT},
-	                                  {"nodes_table", LogicalType::VARCHAR},
-	                                  {"candidate_nodes_table", LogicalType::VARCHAR},
-	                                  {"overrides_table", LogicalType::VARCHAR},
-	                                  {"label_table", LogicalType::VARCHAR},
-	                                  {stage2 ? "recall_mode" : "mode", LogicalType::VARCHAR},
-	                                  {"tie_break", LogicalType::DOUBLE},
-	                                  {"candidate_multiset_table", LogicalType::VARCHAR}};
+	auto named = Stage1Parameters(stage2);
 	if (stage2) {
-		for (auto &spec : vector<NamedParameterSpec> {{"attrs_table", LogicalType::VARCHAR},
-		                                              {"candidate_attrs_table", LogicalType::VARCHAR},
-		                                              {"labels", LogicalType::VARCHAR},
-		                                              {"assignment", LogicalType::VARCHAR},
-		                                              {"label_weight", LogicalType::DOUBLE},
-		                                              {"mu", LogicalType::DOUBLE},
-		                                              {"partition_gate", LogicalType::DOUBLE},
-		                                              {"count_gate", LogicalType::DOUBLE},
-		                                              {"stage1_weight", LogicalType::DOUBLE},
-		                                              {"default_bounds", LogicalType::VARCHAR},
-		                                              {"templates_table", LogicalType::VARCHAR},
-		                                              {"rules_table", LogicalType::VARCHAR},
-		                                              {"name_vectors", LogicalType::VARCHAR},
-		                                              {"name_floor", LogicalType::DOUBLE}}) {
+		for (auto &spec : KernelParameters()) {
 			named.push_back(spec);
 		}
 	}
-	for (auto &spec : named) {
-		duckdb_compat::AddNamedParameter(f, spec.first, spec.second);
-	}
-	desc.parameter_names = {"query_tree_id"};
-	for (auto &spec : named) {
-		desc.parameter_names.emplace_back(spec.first);
-	}
-	desc.parameter_types = {LogicalType::ANY};
-	CreateTableFunctionInfo info(f);
-	info.descriptions.push_back(std::move(desc));
-	duckdb_compat::NameFunctionsFromDescriptions(info);
-	loader.RegisterFunction(std::move(info));
+	RegisterCoverageTableFunction(loader, name, {LogicalType::ANY}, {"query_tree_id"}, fn, std::move(named), description,
+	                              std::move(examples), {"coverage", "search"});
 }
 
 } // namespace
