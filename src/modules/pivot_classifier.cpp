@@ -271,130 +271,150 @@ unique_ptr<TableRef> CosineFloorBindReplace(ClientContext &context, TableFunctio
 // classify_to_catalogue
 //------------------------------------------------------------------------------
 
-unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBindInput &input) {
-	PostHogTelemetry::Instance().RecordFunctionCall("classify_to_catalogue");
-	const string fn = "classify_to_catalogue";
-	CoverageParamReader named {context, input.named_parameters, fn};
-	auto mode = StringUtil::Lower(named.Str("mode", "centroid"));
-	if (mode != "centroid" && mode != "late_interaction") {
-		throw BinderException("%s: mode must be 'centroid' or 'late_interaction'", fn);
-	}
-	bool late = mode == "late_interaction";
-	auto items = named.Table("items_table", "item_vectors",
-	                         late ? vector<string> {"node_id", "tokens"} : vector<string> {"node_id", "vec"});
-	if (items.empty()) {
-		throw BinderException("%s: items_table must not be NULL", fn);
-	}
-	auto catalogue = named.Table("catalogue_table", "catalogue_vectors",
-	                             late ? vector<string> {"class_id", "exemplar_tokens"} : vector<string> {"class_id", "vec"});
-	if (catalogue.empty()) {
-		throw BinderException("%s: catalogue_table must not be NULL", fn);
-	}
+//! The validated parameters of classify_to_catalogue and the optional columns found.
+struct ClassifyParams {
+	bool late = false; // mode 'late_interaction'
 	bool centre = true;
-	if (auto v = named.Get("center_by_source"); v && !v->IsNull()) {
-		centre = v->GetValue<bool>();
+	double beta = 1.0, tau = 0.3, name_floor = 0.85;
+	int64_t top = 0; // 0: all classes
+	string items, catalogue, overrides, answers, attrs, templates, name_vectors;
+	bool items_tree = false, items_source = false, items_label = false, items_vec = false;
+	bool attrs_tree = false, attrs_name = false, overrides_source = false, answers_tree = false;
+	vector<string> template_names; // name, name_en, name_de as present
+};
+
+ClassifyParams ReadClassifyParams(const CoverageParamReader &r) {
+	ClassifyParams p;
+	auto mode = StringUtil::Lower(r.Str("mode", "centroid"));
+	if (mode != "centroid" && mode != "late_interaction") {
+		throw BinderException("%s: mode must be 'centroid' or 'late_interaction'", r.fn);
 	}
-	double beta = named.Dbl("attr_bonus", 1.0);
-	double tau = named.Dbl("temperature", 0.3);
-	if (tau <= 0) {
-		throw BinderException("%s: temperature must be positive", fn);
+	p.late = mode == "late_interaction";
+	p.items = r.Table("items_table", "item_vectors",
+	                  p.late ? vector<string> {"node_id", "tokens"} : vector<string> {"node_id", "vec"});
+	if (p.items.empty()) {
+		throw BinderException("%s: items_table must not be NULL", r.fn);
 	}
-	if (beta < 0) {
-		throw BinderException("%s: attr_bonus must not be negative", fn);
+	p.catalogue = r.Table("catalogue_table", "catalogue_vectors",
+	                      p.late ? vector<string> {"class_id", "exemplar_tokens"} : vector<string> {"class_id", "vec"});
+	if (p.catalogue.empty()) {
+		throw BinderException("%s: catalogue_table must not be NULL", r.fn);
 	}
-	double name_floor = named.Dbl("name_floor", 0.85);
-	if (name_floor < 0 || name_floor >= 1) {
-		throw BinderException("%s: name_floor must be in [0, 1)", fn);
+	if (auto v = r.Get("center_by_source"); v && !v->IsNull()) {
+		p.centre = v->GetValue<bool>();
 	}
-	int64_t top = 0;
-	if (auto v = named.Get("top"); v && !v->IsNull()) {
-		top = v->GetValue<int64_t>();
-		if (top <= 0) {
-			throw BinderException("%s: top must be positive", fn);
+	p.beta = r.Dbl("attr_bonus", p.beta);
+	p.tau = r.Dbl("temperature", p.tau);
+	if (p.tau <= 0) {
+		throw BinderException("%s: temperature must be positive", r.fn);
+	}
+	if (p.beta < 0) {
+		throw BinderException("%s: attr_bonus must not be negative", r.fn);
+	}
+	p.name_floor = r.Dbl("name_floor", p.name_floor);
+	if (p.name_floor < 0 || p.name_floor >= 1) {
+		throw BinderException("%s: name_floor must be in [0, 1)", r.fn);
+	}
+	p.top = r.Int("top", 0);
+	if (r.Get("top") && !r.Get("top")->IsNull() && p.top <= 0) {
+		throw BinderException("%s: top must be positive", r.fn);
+	}
+	p.overrides = r.Table("overrides_table", "", {"wording", "class_id"});
+	p.answers = r.Table("answers_table", "", {"node_id", "class_id"});
+	p.attrs = r.Table("attrs_table", "", {"node_id", "dimension"});
+	p.templates = r.Table("templates_table", "", {"class_id", "dimension"});
+	p.name_vectors = r.Table("name_vectors", "", {"name", "vec"});
+	p.items_tree = r.Has(p.items, "tree_id");
+	p.items_source = r.Has(p.items, "source");
+	p.items_label = r.Has(p.items, "label");
+	p.items_vec = r.Has(p.items, "vec");
+	p.attrs_tree = !p.attrs.empty() && r.Has(p.attrs, "tree_id");
+	p.attrs_name = !p.attrs.empty() && r.Has(p.attrs, "name");
+	p.overrides_source = !p.overrides.empty() && r.Has(p.overrides, "source");
+	p.answers_tree = !p.answers.empty() && r.Has(p.answers, "tree_id");
+	if (!p.templates.empty()) {
+		for (auto c : {"name", "name_en", "name_de"}) {
+			if (r.Has(p.templates, c)) {
+				p.template_names.push_back(StringUtil::Format("CAST(%s AS VARCHAR)", c));
+			}
 		}
 	}
-	auto overrides = named.Table("overrides_table", "", {"wording", "class_id"});
-	auto decisions = named.Table("answers_table", "", {"node_id", "class_id"});
-	auto attrs = named.Table("attrs_table", "", {"node_id", "dimension"});
-	auto templates = named.Table("templates_table", "", {"class_id", "dimension"});
-	auto name_vectors = named.Table("name_vectors", "", {"name", "vec"});
-
-	auto has = [&](const string &table, const char *col) { return TableHasColumn(context, table, col); };
-	bool items_tree = has(items, "tree_id");
-	bool items_source = has(items, "source");
-	bool items_label = has(items, "label");
 	// node ids repeat across trees: side tables must carry tree_id when the items do
-	if (items_tree && !attrs.empty() && !has(attrs, "tree_id")) {
-		throw BinderException("%s: attrs_table needs a tree_id column when items_table has one", fn);
+	if (p.items_tree && !p.attrs.empty() && !p.attrs_tree) {
+		throw BinderException("%s: attrs_table needs a tree_id column when items_table has one", r.fn);
 	}
-	if (items_tree && !decisions.empty() && !has(decisions, "tree_id")) {
-		throw BinderException("%s: answers_table needs a tree_id column when items_table has one", fn);
+	if (p.items_tree && !p.answers.empty() && !p.answers_tree) {
+		throw BinderException("%s: answers_table needs a tree_id column when items_table has one", r.fn);
 	}
-	if (!overrides.empty() && !items_label) {
-		throw BinderException("%s: items_table needs a label column to apply overrides_table", fn);
+	if (!p.overrides.empty() && !p.items_label) {
+		throw BinderException("%s: items_table needs a label column to apply overrides_table", r.fn);
 	}
-	auto qi = QuotedIdentifier(items);
-	auto qc = QuotedIdentifier(catalogue);
+	return p;
+}
 
-	string items_sql = StringUtil::Format(
+//! items (tree_id, node_id, source, label, vec, tokens): items without a vector are skipped.
+string ClassifyItemsSQL(const ClassifyParams &p) {
+	return StringUtil::Format(
 	    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, %s AS source, %s AS label, %s AS vec, %s AS tokens "
-	    "FROM %s",
-	    CastOrNullSQL(items_tree, "tree_id", "VARCHAR"), CastOrNullSQL(items_source, "source", "VARCHAR"),
-	    CastOrNullSQL(items_label, "label", "VARCHAR"),
-	    CastOrNullSQL(has(items, "vec"), "vec", "DOUBLE[]"),
-	    CastOrNullSQL(late, "tokens", "DOUBLE[][]"), qi);
-	items_sql += late ? " WHERE tokens IS NOT NULL" : " WHERE vec IS NOT NULL"; // items without a vector are skipped
-	string cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s",
-	                                    late ? "NULL::DOUBLE[]" : "CAST(vec AS DOUBLE[])",
-	                                    CastOrNullSQL(late, "exemplar_tokens", "DOUBLE[][]"), qc);
+	    "FROM %s WHERE %s IS NOT NULL",
+	    CastOrNullSQL(p.items_tree, "tree_id", "VARCHAR"), CastOrNullSQL(p.items_source, "source", "VARCHAR"),
+	    CastOrNullSQL(p.items_label, "label", "VARCHAR"), CastOrNullSQL(p.items_vec, "vec", "DOUBLE[]"),
+	    CastOrNullSQL(p.late, "tokens", "DOUBLE[][]"), QuotedIdentifier(p.items), p.late ? "tokens" : "vec");
+}
 
-	// step 1: per-source mean-centring of the item vectors (centroid mode)
-	string vectors;
-	if (late) {
-		vectors = "SELECT tree_id, node_id, NULL::DOUBLE[] AS vec FROM items";
-	} else if (centre) {
-		vectors = R"(
+//! catalogue (class_id, vec, tokens).
+string ClassifyCatalogueSQL(const ClassifyParams &p) {
+	return StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s",
+	                          CastOrNullSQL(!p.late, "vec", "DOUBLE[]"),
+	                          CastOrNullSQL(p.late, "exemplar_tokens", "DOUBLE[][]"), QuotedIdentifier(p.catalogue));
+}
+
+//! Step 1: the item vectors, mean-centred per source in centroid mode.
+string CentredVectorsSQL(const ClassifyParams &p) {
+	if (p.late) {
+		return "SELECT tree_id, node_id, NULL::DOUBLE[] AS vec FROM items";
+	}
+	if (!p.centre) {
+		return "SELECT tree_id, node_id, vec FROM items";
+	}
+	return R"(
 			SELECT e.tree_id, e.node_id, list(e.v - m.m ORDER BY e.i) AS vec
 			FROM (SELECT tree_id, node_id, source, unnest(vec) AS v, generate_subscripts(vec, 1) AS i FROM items) e
 			JOIN (SELECT source, i, avg(v) AS m
 			      FROM (SELECT source, unnest(vec) AS v, generate_subscripts(vec, 1) AS i FROM items) GROUP BY ALL) m
 			  ON m.source IS NOT DISTINCT FROM e.source AND m.i = e.i
 			GROUP BY e.tree_id, e.node_id)";
-	} else {
-		vectors = "SELECT tree_id, node_id, vec FROM items";
-	}
-	// step 2: similarity to every class
-	string similarity =
-	    late ? "maxsim(i.tokens, k.tokens)"
-	         : "CASE WHEN list_dot_product(v.vec, v.vec) > 0 AND list_dot_product(k.vec, k.vec) > 0 "
-	           "THEN list_cosine_similarity(v.vec, k.vec) ELSE 0 END";
-	string sims_from = late ? "items i CROSS JOIN catalogue k" : "vectors v CROSS JOIN catalogue k";
-	string sims_cols = late ? "i.tree_id, i.node_id" : "v.tree_id, v.node_id";
+}
 
-	// step 3: attribute-template bonus, dimension-gated name match (HLD §4.4)
-	string bonus = "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS class_id, "
-	               "NULL::DOUBLE AS b WHERE false";
-	if (!attrs.empty() && !templates.empty() && beta > 0) {
-		bool attrs_tree = has(attrs, "tree_id");
-		string tree_join = attrs_tree ? "i.tree_id IS NOT DISTINCT FROM CAST(a.tree_id AS VARCHAR)" : "true";
-		string attr_name = CastOrNullSQL(has(attrs, "name"), "name", "VARCHAR", "a");
-		vector<string> name_cols;
-		for (auto c : {"name", "name_en", "name_de"}) {
-			if (has(templates, c)) {
-				name_cols.push_back(StringUtil::Format("CAST(%s AS VARCHAR)", c));
-			}
-		}
-		string tnames = name_cols.empty() ? "[NULL::VARCHAR]" : "[" + StringUtil::Join(name_cols, ", ") + "]";
-		string s_name = "1.0::DOUBLE"; // no name vectors: the dimension gate alone
-		string vec_joins;
-		if (!name_vectors.empty()) {
-			vec_joins = " LEFT JOIN (" + NameVectorsSQL(name_vectors) + ") va ON va.name = ia.name LEFT JOIN (" +
-			            NameVectorsSQL(name_vectors) + ") vt ON vt.name = t.tname";
-			s_name = StringUtil::Format(
-			    "CASE WHEN va.vec IS NULL OR vt.vec IS NULL THEN 0.0 ELSE calibrated_cosine(va.vec, vt.vec, %s) END",
-			    DoubleLiteral(name_floor));
-		}
-		bonus = StringUtil::Format(R"(
+//! Step 2: the similarity of every item to every class.
+string SimilaritySQL(const ClassifyParams &p) {
+	if (p.late) {
+		return "SELECT i.tree_id, i.node_id, k.class_id, maxsim(i.tokens, k.tokens) AS s FROM items i CROSS JOIN catalogue k";
+	}
+	return "SELECT v.tree_id, v.node_id, k.class_id, CASE WHEN list_dot_product(v.vec, v.vec) > 0 AND "
+	       "list_dot_product(k.vec, k.vec) > 0 THEN list_cosine_similarity(v.vec, k.vec) ELSE 0 END AS s "
+	       "FROM vectors v CROSS JOIN catalogue k";
+}
+
+//! Step 3: the attribute-template bonus: the mean over the item's attributes of the best
+//! same-dimension template (name similarity by calibrated cosine, or 1 without vectors).
+string TemplateBonusSQL(const ClassifyParams &p) {
+	if (p.attrs.empty() || p.templates.empty() || p.beta <= 0) {
+		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS class_id, "
+		       "NULL::DOUBLE AS b WHERE false";
+	}
+	string tree_join = p.attrs_tree ? "i.tree_id IS NOT DISTINCT FROM CAST(a.tree_id AS VARCHAR)" : "true";
+	string tnames = p.template_names.empty() ? "[NULL::VARCHAR]" : "[" + StringUtil::Join(p.template_names, ", ") + "]";
+	string s_name = "1.0::DOUBLE";
+	string vec_joins;
+	if (!p.name_vectors.empty()) {
+		vec_joins = " LEFT JOIN (" + NameVectorsSQL(p.name_vectors) + ") va ON va.name = ia.name LEFT JOIN (" +
+		            NameVectorsSQL(p.name_vectors) + ") vt ON vt.name = t.tname";
+		s_name = StringUtil::Format(
+		    "CASE WHEN va.vec IS NULL OR vt.vec IS NULL THEN 0.0 ELSE calibrated_cosine(va.vec, vt.vec, %s) END",
+		    DoubleLiteral(p.name_floor));
+	}
+	return StringUtil::Format(R"(
 			WITH ia AS (
 				SELECT i.tree_id, i.node_id, row_number() OVER () AS a_id, %s AS name, CAST(a.dimension AS VARCHAR) AS dimension
 				FROM items i JOIN %s a ON CAST(a.node_id AS VARCHAR) = i.node_id AND %s
@@ -410,76 +430,45 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 			SELECT b.tree_id, b.node_id, b.class_id, sum(b.s) / any_value(n.n) AS b
 			FROM best b JOIN n_attrs n ON n.tree_id IS NOT DISTINCT FROM b.tree_id AND n.node_id = b.node_id
 			GROUP BY ALL)",
-		                           attr_name, QuotedIdentifier(attrs), tree_join, tnames, QuotedIdentifier(templates),
-		                           s_name, vec_joins);
-	}
+	                          CastOrNullSQL(p.attrs_name, "name", "VARCHAR", "a"), QuotedIdentifier(p.attrs), tree_join,
+	                          tnames, QuotedIdentifier(p.templates), s_name, vec_joins);
+}
 
-	// overrides (per wording, BR-32) and decisions (per item, BR-33)
-	string forced_parts;
-	if (!overrides.empty()) {
-		bool ov_source = has(overrides, "source");
-		forced_parts += StringUtil::Format(
+//! Classes fixed by review: overrides per wording (BR-32), answers per item (BR-33, preferred).
+string ForcedClassesSQL(const ClassifyParams &p) {
+	vector<string> parts;
+	if (!p.overrides.empty()) {
+		parts.push_back(StringUtil::Format(
 		    "SELECT i.tree_id, i.node_id, first(CAST(o.class_id AS VARCHAR) ORDER BY %s, CAST(o.class_id AS VARCHAR)) "
 		    "AS cls, 2 AS prio FROM items i JOIN %s o ON CAST(o.wording AS VARCHAR) = i.label%s GROUP BY ALL",
-		    ov_source ? "o.source IS NULL" : "1", QuotedIdentifier(overrides),
-		    ov_source ? " AND (o.source IS NULL OR CAST(o.source AS VARCHAR) = i.source)" : "");
+		    p.overrides_source ? "o.source IS NULL" : "1", QuotedIdentifier(p.overrides),
+		    p.overrides_source ? " AND (o.source IS NULL OR CAST(o.source AS VARCHAR) = i.source)" : ""));
 	}
-	if (!decisions.empty()) {
-		bool dec_tree = has(decisions, "tree_id");
-		if (!forced_parts.empty()) {
-			forced_parts += " UNION ALL ";
-		}
-		forced_parts += StringUtil::Format(
+	if (!p.answers.empty()) {
+		parts.push_back(StringUtil::Format(
 		    "SELECT i.tree_id, i.node_id, first(CAST(d.class_id AS VARCHAR) ORDER BY CAST(d.class_id AS VARCHAR)) AS cls, "
 		    "1 AS prio FROM items i JOIN %s d ON CAST(d.node_id AS VARCHAR) = i.node_id%s GROUP BY ALL",
-		    QuotedIdentifier(decisions), dec_tree ? " AND i.tree_id IS NOT DISTINCT FROM CAST(d.tree_id AS VARCHAR)" : "");
+		    QuotedIdentifier(p.answers),
+		    p.answers_tree ? " AND i.tree_id IS NOT DISTINCT FROM CAST(d.tree_id AS VARCHAR)" : ""));
 	}
-	string forced = forced_parts.empty()
-	                    ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS cls WHERE false"
-	                    : "SELECT tree_id, node_id, first(cls ORDER BY prio) AS cls FROM (" + forced_parts +
-	                          ") GROUP BY ALL";
+	if (parts.empty()) {
+		return "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS cls WHERE false";
+	}
+	return "SELECT tree_id, node_id, first(cls ORDER BY prio) AS cls FROM (" + StringUtil::Join(parts, " UNION ALL ") +
+	       ") GROUP BY ALL";
+}
 
-	auto bad_vec = [](const string &col) {
-		return StringUtil::Format("%s IS NULL OR len([x FOR x IN %s IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
-	};
-	auto empty_tokens = [](const string &col) {
-		return StringUtil::Format("%s IS NOT NULL AND len([t FOR t IN %s IF t IS NOT NULL AND len(t) > 0]) = 0", col, col);
-	};
-	auto bad_tokens = [](const string &col) {
-		return StringUtil::Format(
-		    "%s IS NULL OR len([x FOR x IN flatten(%s) IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
-	};
-	auto sql = StringUtil::Format(R"(
-		WITH items AS (%s),
-		catalogue AS (%s),
-		vectors AS (%s),
-		sims AS (SELECT %s, k.class_id, %s AS s FROM %s),
-		zs AS (
-			SELECT tree_id, node_id, class_id,
-			       (s - avg(s) OVER w) / CASE WHEN stddev_pop(s) OVER w > 1e-12 THEN stddev_pop(s) OVER w ELSE 1 END AS z
-			FROM sims WINDOW w AS (PARTITION BY tree_id, node_id)
-		),
-		bonus AS (%s),
-		scored AS (
-			SELECT z.tree_id, z.node_id, z.class_id, z.z + %s * COALESCE(b.b, 0) AS score
-			FROM zs z LEFT JOIN bonus b ON b.tree_id IS NOT DISTINCT FROM z.tree_id AND b.node_id = z.node_id
-			                             AND b.class_id = z.class_id
-		),
-		e AS (
-			SELECT *, exp((score - max(score) OVER (PARTITION BY tree_id, node_id)) / %s) AS e FROM scored
-		),
-		forced AS (%s),
-		probs AS (
-			SELECT e.tree_id, e.node_id, e.class_id,
-			       CASE WHEN f.cls IS NULL THEN e.e / sum(e.e) OVER (PARTITION BY e.tree_id, e.node_id)
-			            WHEN f.cls = e.class_id THEN 1.0 ELSE 0.0 END AS p,
-			       f.cls IS NOT NULL AS overridden
-			FROM e LEFT JOIN forced f ON f.tree_id IS NOT DISTINCT FROM e.tree_id AND f.node_id = e.node_id
-		),
-		ranked AS (
-			SELECT *, row_number() OVER (PARTITION BY tree_id, node_id ORDER BY p DESC, class_id) AS rank FROM probs
-		),
-		guard AS (
+//! Integrity checks of the inputs, as one value the final SELECT depends on.
+string ClassifyGuardSQL(const ClassifyParams &p) {
+	string col = p.late ? "tokens" : "vec";
+	string bad = p.late ? StringUtil::Format("%s IS NULL OR len([x FOR x IN flatten(%s) IF x IS NULL OR NOT isfinite(x)]) > 0",
+	                                         col, col)
+	                    : StringUtil::Format("%s IS NULL OR len([x FOR x IN %s IF x IS NULL OR NOT isfinite(x)]) > 0",
+	                                         col, col);
+	string empty = p.late ? StringUtil::Format(
+	                            "%s IS NOT NULL AND len([t FOR t IN %s IF t IS NOT NULL AND len(t) > 0]) = 0", col, col)
+	                      : string("false");
+	return StringUtil::Format(R"(
 			SELECT CASE
 				WHEN NOT EXISTS (SELECT 1 FROM catalogue) THEN error('classify_to_catalogue: catalogue_table is empty')
 				WHEN EXISTS (SELECT 1 FROM catalogue WHERE class_id IS NULL)
@@ -503,27 +492,59 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 				WHEN EXISTS (SELECT 1 FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue))
 					THEN error('classify_to_catalogue: class ''' || (SELECT min(cls) FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue)) ||
 					           ''' from overrides_table or answers_table is not in catalogue_table')
-			END AS g
+			END AS g)",
+	                          empty, bad, empty, bad);
+}
+
+unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("classify_to_catalogue");
+	CoverageParamReader reader {context, input.named_parameters, "classify_to_catalogue"};
+	auto p = ReadClassifyParams(reader);
+	// steps 3-5: z-score across the catalogue (+ beta x bonus), softmax with temperature, margin;
+	// reviewed classes give a one-hot distribution
+	string scoring = StringUtil::Format(R"(
+		zs AS (
+			SELECT tree_id, node_id, class_id,
+			       (s - avg(s) OVER w) / CASE WHEN stddev_pop(s) OVER w > 1e-12 THEN stddev_pop(s) OVER w ELSE 1 END AS z
+			FROM sims WINDOW w AS (PARTITION BY tree_id, node_id)
+		),
+		scored AS (
+			SELECT z.tree_id, z.node_id, z.class_id, z.z + %s * COALESCE(b.b, 0) AS score
+			FROM zs z LEFT JOIN bonus b ON b.tree_id IS NOT DISTINCT FROM z.tree_id AND b.node_id = z.node_id
+			                             AND b.class_id = z.class_id
+		),
+		e AS (
+			SELECT *, exp((score - max(score) OVER (PARTITION BY tree_id, node_id)) / %s) AS e FROM scored
+		),
+		probs AS (
+			SELECT e.tree_id, e.node_id, e.class_id,
+			       CASE WHEN f.cls IS NULL THEN e.e / sum(e.e) OVER (PARTITION BY e.tree_id, e.node_id)
+			            WHEN f.cls = e.class_id THEN 1.0 ELSE 0.0 END AS p,
+			       f.cls IS NOT NULL AS overridden
+			FROM e LEFT JOIN forced f ON f.tree_id IS NOT DISTINCT FROM e.tree_id AND f.node_id = e.node_id
+		),
+		ranked AS (
+			SELECT *, row_number() OVER (PARTITION BY tree_id, node_id ORDER BY p DESC, class_id) AS rank FROM probs
 		),
 		margins AS (
 			SELECT tree_id, node_id,
 			       max(p) FILTER (WHERE rank = 1) - COALESCE(max(p) FILTER (WHERE rank = 2), 0) AS margin
 			FROM ranked GROUP BY ALL
-		)
+		))",
+	                                    DoubleLiteral(p.beta), DoubleLiteral(p.tau));
+	auto sql = "WITH items AS (" + ClassifyItemsSQL(p) + "),\n\t\tcatalogue AS (" + ClassifyCatalogueSQL(p) +
+	           "),\n\t\tvectors AS (" + CentredVectorsSQL(p) + "),\n\t\tsims AS (" + SimilaritySQL(p) +
+	           "),\n\t\tbonus AS (" + TemplateBonusSQL(p) + "),\n\t\tforced AS (" + ForcedClassesSQL(p) + ")," + scoring +
+	           ",\n\t\tguard AS (" + ClassifyGuardSQL(p) + R"()
 		SELECT r.tree_id, r.node_id, i.source, r.class_id, r.p, r.rank, m.margin, r.overridden
 		FROM ranked r
 		JOIN margins m ON m.tree_id IS NOT DISTINCT FROM r.tree_id AND m.node_id = r.node_id
 		JOIN items i ON i.tree_id IS NOT DISTINCT FROM r.tree_id AND i.node_id = r.node_id
 		CROSS JOIN guard
-		WHERE guard.g IS NULL%s
-		ORDER BY r.tree_id, r.node_id, r.rank
-	)",
-	                              items_sql, cat_sql, vectors, sims_cols, similarity, sims_from, bonus, DoubleLiteral(beta),
-	                              DoubleLiteral(tau), forced, late ? empty_tokens("tokens") : string("false"),
-	                              late ? bad_tokens("tokens") : bad_vec("vec"), late ? empty_tokens("tokens") : string("false"),
-	                              late ? bad_tokens("tokens") : bad_vec("vec"),
-	                              top > 0 ? StringUtil::Format(" AND r.rank <= %lld", (long long)top) : string());
-	return CoverageSubquery(sql, context, fn);
+		WHERE guard.g IS NULL)" +
+	           (p.top > 0 ? StringUtil::Format(" AND r.rank <= %lld", (long long)p.top) : string()) +
+	           "\n\t\tORDER BY r.tree_id, r.node_id, r.rank";
+	return CoverageSubquery(sql, context, reader.fn);
 }
 
 } // namespace
