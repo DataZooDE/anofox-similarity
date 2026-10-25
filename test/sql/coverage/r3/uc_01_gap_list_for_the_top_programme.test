@@ -81,10 +81,12 @@ SELECT * FROM tree_coverage_trace(getvariable('rid'), candidates := [getvariable
        rules_table := 'compatibility_rules', name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
 WHERE is_gap;
 
-# there are gaps, and each says why: no counterpart, a count shortfall or a failing value
+# there are gaps, and each failing requirement says why on at least one of its rows: no
+# counterpart, a count shortfall or a failing value
 query I
-SELECT count(*) > 0 AND bool_and(matched_node_id IS NULL OR count_available < count_needed OR value_score < 1)
-FROM gaps;
+SELECT count(*) > 0 AND bool_and(has_reason) FROM (
+    SELECT req_node_id, bool_or(matched_node_id IS NULL OR count_available < count_needed OR value_score < 1) AS has_reason
+    FROM gaps GROUP BY req_node_id);
 ----
 true
 
