@@ -1783,7 +1783,10 @@ column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, 
   (BR-52). Tune the classifier's β and τ with `classify_to_catalogue` and `eval_ranking`.
 
 ```sql
-CREATE TABLE results AS SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20, ...);
+CREATE TABLE results AS SELECT * FROM tree_coverage(getvariable('request_ids'), k := 20,
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
+       overrides_table := 'vocabulary_overrides');
 SELECT * FROM eval_ranking('results', 'gold', k := [1, 20]);
 SELECT mae, spearman FROM eval_calibration('results', 'gold');
 SELECT threshold, precision, accepted_share FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
@@ -1844,7 +1847,8 @@ SELECT * FROM weakly_connected_component(matches, entities, strong);
 ```
 
 Extension macros are registered with the default grammar, so no built-in macro embeds PGQ
-syntax (HLD §4.9).
+syntax (HLD §4.9). The test suite does not load DuckPGQ; check its documentation for the syntax of
+your version.
 ---
 
 ## Function Coverage Matrix
