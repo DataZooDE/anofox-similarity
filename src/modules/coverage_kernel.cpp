@@ -200,25 +200,82 @@ void CheckOptionsType(const string &fn, const LogicalType &t) {
 	}
 }
 
-KTree LoadTree(const Value &list) {
-	KTree tree;
-	struct Raw {
-		string id, parent, kind, edge, cls;
-		double count = 1;
-		bool reviewed = false;
-		std::map<string, double> probs;
-		vector<KAttr> attrs;
-	};
-	vector<Raw> raws;
-	std::unordered_map<string, idx_t> index;
+//! A packed node as read, before the walk from the roots.
+struct RawNode {
+	string id, parent, kind, edge, cls;
+	double count = 1;
+	bool reviewed = false;
+	std::map<string, double> probs;
+	vector<KAttr> attrs;
+};
+
+//! A soft-label MAP(class, p): positive finite probabilities, normalised to sum 1.
+std::map<string, double> ReadDistribution(const Value *probs) {
+	std::map<string, double> out;
+	if (!probs || probs->IsNull()) {
+		return out;
+	}
+	for (auto &kv : ListValue::GetChildren(*probs)) {
+		auto &pair = StructValue::GetChildren(kv);
+		if (pair.size() == 2 && !pair[0].IsNull() && !pair[1].IsNull()) {
+			double p = pair[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+			if (std::isfinite(p) && p > 0) {
+				out[pair[0].ToString()] += p;
+			}
+		}
+	}
+	double total = 0;
+	for (auto &kv : out) {
+		total += kv.second;
+	}
+	for (auto &kv : out) {
+		kv.second /= total;
+	}
+	return out;
+}
+
+vector<KAttr> ReadAttributes(const Value *attrs) {
+	vector<KAttr> out;
+	if (!attrs || attrs->IsNull()) {
+		return out;
+	}
+	for (auto &a : ListValue::GetChildren(*attrs)) {
+		if (a.IsNull()) {
+			continue;
+		}
+		KAttr k;
+		k.id = Str(a, "attr_id");
+		k.name = Str(a, "name");
+		k.dimension = Str(a, "dimension");
+		k.unit = Str(a, "unit");
+		k.has_lo = Num(a, "lo", k.lo);
+		k.has_hi = Num(a, "hi", k.hi);
+		k.bound = Str(a, "bound");
+		k.default_bound = Str(a, "default_bound");
+		k.category = Str(a, "category");
+		auto vec = Field(a, "name_vec");
+		if (vec && !vec->IsNull()) {
+			for (auto &x : ListValue::GetChildren(*vec)) {
+				k.name_vec.push_back(x.IsNull() ? 0.0 : x.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>());
+			}
+		}
+		out.push_back(std::move(k));
+	}
+	return out;
+}
+
+//! The packed nodes in input order; the first occurrence of a node id wins, as in the resolver.
+vector<RawNode> ReadRawNodes(const Value &list) {
+	vector<RawNode> raws;
+	std::unordered_set<string> seen;
 	for (auto &entry : ListValue::GetChildren(list)) {
 		if (entry.IsNull()) {
 			continue;
 		}
-		Raw r;
+		RawNode r;
 		r.id = Str(entry, "node_id");
-		if (r.id.empty() || index.count(r.id)) {
-			continue; // first occurrence wins, as in the resolver
+		if (r.id.empty() || !seen.insert(r.id).second) {
+			continue;
 		}
 		r.parent = Str(entry, "parent_id");
 		r.kind = Str(entry, "node_kind");
@@ -234,54 +291,17 @@ KTree LoadTree(const Value &list) {
 		}
 		auto rev = Field(entry, "reviewed");
 		r.reviewed = rev && !rev->IsNull() && rev->GetValue<bool>();
-		auto probs = Field(entry, "probs");
-		if (probs && !probs->IsNull()) {
-			for (auto &kv : ListValue::GetChildren(*probs)) {
-				auto &pair = StructValue::GetChildren(kv);
-				if (pair.size() == 2 && !pair[0].IsNull() && !pair[1].IsNull()) {
-					double p = pair[1].DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
-					if (std::isfinite(p) && p > 0) {
-						r.probs[pair[0].ToString()] += p;
-					}
-				}
-			}
-			// a distribution: normalised to sum 1
-			double total = 0;
-			for (auto &kv : r.probs) {
-				total += kv.second;
-			}
-			for (auto &kv : r.probs) {
-				kv.second /= total;
-			}
-		}
-		auto attrs = Field(entry, "attrs");
-		if (attrs && !attrs->IsNull()) {
-			for (auto &a : ListValue::GetChildren(*attrs)) {
-				if (a.IsNull()) {
-					continue;
-				}
-				KAttr k;
-				k.id = Str(a, "attr_id");
-				k.name = Str(a, "name");
-				k.dimension = Str(a, "dimension");
-				k.unit = Str(a, "unit");
-				k.has_lo = Num(a, "lo", k.lo);
-				k.has_hi = Num(a, "hi", k.hi);
-				k.bound = Str(a, "bound");
-				k.default_bound = Str(a, "default_bound");
-				k.category = Str(a, "category");
-				auto vec = Field(a, "name_vec");
-				if (vec && !vec->IsNull()) {
-					for (auto &x : ListValue::GetChildren(*vec)) {
-						k.name_vec.push_back(x.IsNull() ? 0.0 : x.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>());
-					}
-				}
-				r.attrs.push_back(std::move(k));
-			}
-		}
-		index[r.id] = raws.size();
+		r.probs = ReadDistribution(Field(entry, "probs"));
+		r.attrs = ReadAttributes(Field(entry, "attrs"));
 		raws.push_back(std::move(r));
 	}
+	return raws;
+}
+
+//! Walks from the roots (reachable nodes only) and collects the items with their effective
+//! counts (products along the path), OR choices and paths, sorted by node id.
+KTree WalkTree(const vector<RawNode> &raws) {
+	KTree tree;
 	std::unordered_map<string, vector<idx_t>> children;
 	vector<idx_t> roots;
 	for (idx_t i = 0; i < raws.size(); i++) {
@@ -291,7 +311,6 @@ KTree LoadTree(const Value &list) {
 			children[raws[i].parent].push_back(i);
 		}
 	}
-	// walk from the roots: effective counts, OR choices, paths (reachable nodes only)
 	struct Frame {
 		idx_t node;
 		idx_t depth;
@@ -337,6 +356,10 @@ KTree LoadTree(const Value &list) {
 	}
 	std::sort(tree.items.begin(), tree.items.end(), [](const KItem &a, const KItem &b) { return a.id < b.id; });
 	return tree;
+}
+
+KTree LoadTree(const Value &list) {
+	return WalkTree(ReadRawNodes(list));
 }
 
 //------------------------------------------------------------------------------
