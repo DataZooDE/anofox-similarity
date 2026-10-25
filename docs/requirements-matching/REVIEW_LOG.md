@@ -237,3 +237,56 @@ All regressions are pinned in `test/sql/coverage/r2/parser_regressions.test`.
 | F13 | low | tree_from_json edge and error cases | Added, errors name the node |
 | F14 | low | Path conventions, n_attributes | Documented; n_attributes 0 without an attribute table |
 | F15 | low | Misleading comment, weak identifier tests | Fixed; identifier tests for every table parameter |
+
+## R3-2 — 2026-10-25 — after R3 green step, batch A (property-tree store)
+
+- **Crew:** correctness (claude), security (codex), performance (claude), maintainability
+  (codex). Verdict: REQUEST_CHANGES (two crashes).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | JSON nesting has no limit: segfault | Fixed: nesting limit, clean error; test with 500 000 levels |
+| F2 | high | tree_multiset recursion has no limit: segfault on long chains | Fixed: iterative traversal; trees deeper than 1000 levels are a clean error; test with a 100 000-node chain |
+| F3 | med | Depth caps are inconsistent; tree_anchors truncates silently | Fixed: one MAX_TREE_DEPTH (1000) everywhere; validate_trees reports too_deep |
+| F4 | med | Stage 1 vs stage 2 disagree on orphans and duplicates | Fixed: tree_multiset counts reachable nodes and the first row of a duplicated node only |
+| F5 | med | validate_trees ignores tree_ids for attributes | Fixed; test |
+| F6 | med | Resolver not ready for stage 2 | Fixed: labels filtered by tree, deterministic dedupe, class_origin, materialised CTEs |
+| F7 | med | An explicit null bound suppresses the text's bound | Fixed: the text's bound fills a missing or null bound |
+| F8 | med | Surrogates | Fixed: lone surrogates and control characters rejected |
+| F9 | med | node_kind not validated | Fixed: validated and lower-cased |
+| F10 | low | Loose numbers | Fixed: strict JSON number grammar, finite checks, numbers kept as written |
+| F11 | med | TableHasColumn always true for views | Fixed: view column info; test with a view lacking optional columns |
+| F12 | low | Cycle detection O(N·depth²), misses nodes below cycles | Fixed: top-down reachability; cycles detected only among unreachable nodes; `unreachable` issue |
+| F13 | low | attr_id collisions | Fixed: unique given ids, generated ids skip used ones |
+| F14 | low | tree.schema.json missing | Added |
+| F15 | low | Per-row unit table rebuild in tree_from_json | Deferred: user unit tables in JSON loading are rare; the seed path does not rebuild |
+
+## R3-3 — 2026-10-25 — after R3 red batch B (coverage kernel)
+
+- **Crew:** correctness (claude), testing (codex), design (claude), usability (codex).
+  Verdict: REQUEST_CHANGES. All mini values recomputed by three members: all correct.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | `lambda` is a reserved word in DuckDB | Renamed to `label_weight` (HLD §11.9) |
+| F2 | high | parse_quantity gives categorical requirements a NULL dimension, so they gate | Decided: a categorical requirement without a dimension matches categorical offers of any dimension through the rules (HLD §11.9). The KPI test passes with the parsed path |
+| F3 | high | k-only tests assume the query is excluded | Documented and implemented: never its own candidate |
+| F4 | high | Partition/counts and OR: the reference is OR-unaware | Decided: OR alternatives are options under partition (best variant per requirement, §4.6); counts only over compatible items. Tests added (two seats vs M1 = 1.0; T2 = 0.5). The benchmark has no OR edges, so its KPIs are unaffected |
+| F5 | med | Kernel surface not in the HLD | HLD §11.9 |
+| F6 | med | Partition order underspecified | Node-id order, documented |
+| F7 | med | Benchmark tests feed gold request classes into the matcher | Documented as a stand-in for upstream labelling until R4 (classifier); R4 scenarios use the classifier |
+| F8 | med | Trace rows for missing attributes or counterparts undefined | Defined (HLD §11.9) |
+| F9 | med | 'Ambiguous template' undefined | Defined (HLD §11.9) |
+| F10 | med | Amendments without focused tests | label_weight, count_gate, partition_gate, OR-option tests |
+| F11 | low | One-way EXCEPT | Symmetric in uc_05 and uc_08 |
+| F12 | low | Error message vs the templates default | Consistent: a missing default table is an error naming templates_table |
+| F13 | low | Negative assertions that depend on the generator | Kept: they are pinned dataset properties (also in pytest) |
+| F14 | low | uc_04 description | Narrowed |
+
+**Measured with the C++ kernel** (test uc_06): recall@20 0.925, top-1 0.925, regret 0.0087,
+MAE over the top 20 0.036 (top-1 0.014), unmeetable flagged 1.0, precision at 0.9 0.985,
+auto-accept share 82.5 %. These are identical to the reference kernel. Runtime: 0.65 s for
+80 × 20 pairs.
+
+The partition-versus-best-match failure mode on unreviewed labels needs soft labels from a
+classifier. It moves to R4.
