@@ -383,7 +383,7 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		}
 	}
 	auto overrides = named.Table(context, "overrides_table", "", {"wording", "class_id"});
-	auto decisions = named.Table(context, "decisions_table", "", {"node_id", "class_id"});
+	auto decisions = named.Table(context, "answers_table", "", {"node_id", "class_id"});
 	auto attrs = named.Table(context, "attrs_table", "", {"node_id", "dimension"});
 	auto templates = named.Table(context, "templates_table", "", {"class_id", "dimension"});
 	auto name_vectors = named.Table(context, "name_vectors", "", {"name", "vec"});
@@ -397,7 +397,7 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		throw BinderException("%s: attrs_table needs a tree_id column when items_table has one", fn);
 	}
 	if (items_tree && !decisions.empty() && !has(decisions, "tree_id")) {
-		throw BinderException("%s: decisions_table needs a tree_id column when items_table has one", fn);
+		throw BinderException("%s: answers_table needs a tree_id column when items_table has one", fn);
 	}
 	if (!overrides.empty() && !items_label) {
 		throw BinderException("%s: items_table needs a label column to apply overrides_table", fn);
@@ -515,6 +515,9 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	auto bad_vec = [](const string &col) {
 		return StringUtil::Format("%s IS NULL OR len([x FOR x IN %s IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
 	};
+	auto empty_tokens = [](const string &col) {
+		return StringUtil::Format("%s IS NOT NULL AND len([t FOR t IN %s IF t IS NOT NULL AND len(t) > 0]) = 0", col, col);
+	};
 	auto bad_tokens = [](const string &col) {
 		return StringUtil::Format(
 		    "%s IS NULL OR len([x FOR x IN flatten(%s) IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
@@ -558,6 +561,8 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 					THEN error('classify_to_catalogue: catalogue_table has duplicate class_id ''' ||
 					           (SELECT min(class_id) FROM (SELECT class_id FROM catalogue GROUP BY class_id HAVING count(*) > 1)) || '''')
 				WHEN EXISTS (SELECT 1 FROM catalogue WHERE %s)
+					THEN error('classify_to_catalogue: catalogue_table has an empty token list')
+				WHEN EXISTS (SELECT 1 FROM catalogue WHERE %s)
 					THEN error('classify_to_catalogue: catalogue_table has non-finite, NULL or missing vector elements')
 				WHEN EXISTS (SELECT 1 FROM items WHERE node_id IS NULL)
 					THEN error('classify_to_catalogue: node_id must not be NULL in items_table')
@@ -565,10 +570,12 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 					THEN error('classify_to_catalogue: items_table has a duplicate item (tree_id, node_id) ''' ||
 					           (SELECT min(node_id) FROM (SELECT node_id FROM items GROUP BY tree_id, node_id HAVING count(*) > 1)) || '''')
 				WHEN EXISTS (SELECT 1 FROM items WHERE %s)
+					THEN error('classify_to_catalogue: items_table has an empty token list')
+				WHEN EXISTS (SELECT 1 FROM items WHERE %s)
 					THEN error('classify_to_catalogue: items_table has non-finite or NULL vector elements')
 				WHEN EXISTS (SELECT 1 FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue))
 					THEN error('classify_to_catalogue: class ''' || (SELECT min(cls) FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue)) ||
-					           ''' from overrides_table or decisions_table is not in catalogue_table')
+					           ''' from overrides_table or answers_table is not in catalogue_table')
 			END AS g
 		),
 		margins AS (
@@ -585,7 +592,8 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		ORDER BY r.tree_id, r.node_id, r.rank
 	)",
 	                              items_sql, cat_sql, vectors, sims_cols, similarity, sims_from, bonus, DoubleLiteral(beta),
-	                              DoubleLiteral(tau), forced, late ? bad_tokens("tokens") : bad_vec("vec"),
+	                              DoubleLiteral(tau), forced, late ? empty_tokens("tokens") : string("false"),
+	                              late ? bad_tokens("tokens") : bad_vec("vec"), late ? empty_tokens("tokens") : string("false"),
 	                              late ? bad_tokens("tokens") : bad_vec("vec"),
 	                              top > 0 ? StringUtil::Format(" AND r.rank <= %lld", (long long)top) : string());
 	return CoverageSubquery(sql, context, fn);
@@ -636,7 +644,7 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	     {"attr_bonus", LogicalType::DOUBLE},
 	     {"temperature", LogicalType::DOUBLE},
 	     {"overrides_table", LogicalType::VARCHAR},
-	     {"decisions_table", LogicalType::VARCHAR},
+	     {"answers_table", LogicalType::VARCHAR},
 	     {"attrs_table", LogicalType::VARCHAR},
 	     {"templates_table", LogicalType::VARCHAR},
 	     {"name_vectors", LogicalType::VARCHAR},
@@ -648,7 +656,7 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	    "the attribute-template match (mean over the item's attributes of the best same-dimension template, name "
 	    "similarity by calibrated cosine of name_vectors, or 1 without vectors); softmax with temperature; margin = p1 "
 	    "- p2. Reviewed wordings (overrides_table: wording, source, class_id; matched on the item's label) and "
-	    "per-item decisions (decisions_table: tree_id, node_id, class_id) give a one-hot p and overridden = true. "
+	    "per-item decisions (answers_table: tree_id, node_id, class_id) give a one-hot p and overridden = true. "
 	    "items_table: node_id, vec[, tree_id, source, label, tokens]; catalogue_table: class_id, vec[, "
 	    "exemplar_tokens]; attrs_table: [tree_id,] node_id, name, dimension; templates_table: class_id, dimension[, "
 	    "name, name_en, name_de]. Returns tree_id, node_id, source, class_id, p, rank, margin, overridden; tree_id, "

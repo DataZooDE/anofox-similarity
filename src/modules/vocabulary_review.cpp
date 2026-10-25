@@ -157,7 +157,10 @@ unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctio
 		throw BinderException("%s: review_table must not be NULL", p.fn);
 	}
 	auto review = p.Check(input.inputs[0].GetValue<string>(), "review_table", {"wording", "class_id"});
-	auto overrides = p.Table("overrides_table", "vocabulary_overrides", {"wording", "class_id"});
+	// not given: merge into vocabulary_overrides when it exists (a fresh start otherwise);
+	// NULL: no previous overrides
+	string fallback = TableExists(context, "vocabulary_overrides") ? "vocabulary_overrides" : "";
+	auto overrides = p.Table("overrides_table", fallback, {"wording", "class_id"});
 	auto rows = [&](const string &table) {
 		return StringUtil::Format(
 		    "SELECT CAST(wording AS VARCHAR) AS wording, %s AS source, CAST(class_id AS VARCHAR) AS class_id, "
@@ -229,9 +232,16 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 	auto catalogue = p.Table("catalogue_table", "", {"class_id"});
 	bool dec_tree = p.Has(decisions, "tree_id");
 	string texts_sql = "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL::VARCHAR AS text WHERE false";
+	string text_guard = "SELECT NULL AS g";
 	string text_join = "t.node_id = s.node_id AND t.tree_id IS NOT DISTINCT FROM s.tree_id";
 	if (!texts.empty()) {
 		bool text_tree = p.Has(texts, "tree_id");
+		if (dec_tree && !text_tree) {
+			// texts keyed by node_id alone are fine only when no decision has a tree_id
+			text_guard = "SELECT CASE WHEN EXISTS (SELECT 1 FROM d WHERE tree_id IS NOT NULL) THEN error("
+			             "'uncertain_decisions: texts_table needs a tree_id column when the decisions have tree ids') "
+			             "END AS g";
+		}
 		texts_sql = StringUtil::Format(
 		    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, min(CAST(text AS VARCHAR)) AS text "
 		    "FROM %s GROUP BY ALL",
@@ -272,18 +282,20 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 		),
 		sel AS (%s),
 		texts AS (%s),
-		cat AS (%s)
+		cat AS (%s),
+		guard AS (%s)
 		SELECT s.tree_id, s.node_id, s.margin, %s AS request
-		FROM sel s
+		FROM sel s CROSS JOIN guard
 		JOIN d c ON c.node_id = s.node_id AND c.tree_id IS NOT DISTINCT FROM s.tree_id AND c.rank <= %lld
 		LEFT JOIN cat k ON k.class_id = c.class_id
 		LEFT JOIN texts t ON %s
+		WHERE guard.g IS NULL
 		GROUP BY s.tree_id, s.node_id, s.margin
 		ORDER BY s.margin, s.tree_id, s.node_id
 	)",
 	                              dec_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR",
 	                              p.Col(decisions, "overridden", "BOOLEAN"), QuotedIdentifier(decisions), select,
-	                              texts_sql, cat_sql, request, (long long)top, text_join);
+	                              texts_sql, cat_sql, text_guard, request, (long long)top, text_join);
 	return CoverageSubquery(sql, context, p.fn);
 }
 
@@ -330,7 +342,7 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	    loader, "apply_vocabulary_review", {vc}, {"review_table"}, ApplyReviewBindReplace,
 	    {{"overrides_table", vc}},
 	    "Applies a review (wording, class_id[, source, reviewed_by, reviewed_at]) to the overrides (default "
-	    "'vocabulary_overrides'; NULL for none yet): one entry per wording and source, the review wins. Returns the "
+	    "'vocabulary_overrides' when that table exists; NULL for none): one entry per wording and source, the review wins. Returns the "
 	    "new overrides table; table functions cannot write, so store it: CREATE OR REPLACE TABLE "
 	    "vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review').",
 	    {"CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');"});
@@ -346,7 +358,7 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	    "(margin < threshold, default 0.2, or the lowest-margin share of the items), overridden items excluded, "
 	    "lowest margin first. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: "
 	    "[tree_id,] node_id, text), margin and the top candidates with p, label and definition (catalogue_table: "
-	    "class_id[, label_en|label, definition]). Write the answers back as a decisions_table for "
+	    "class_id[, label_en|label, definition]). Write the answers back as an answers_table for "
 	    "classify_to_catalogue, or as vocabulary_overrides per wording.",
 	    {"SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15, texts_table := 'texts', "
 	     "catalogue_table := 'catalogue_classes');"});
