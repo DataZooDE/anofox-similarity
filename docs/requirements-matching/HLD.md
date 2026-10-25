@@ -558,3 +558,26 @@ precedence over the text above.
    weights must be finite and non-negative, and a zero weight means "absent".
    `weight_col := NULL` means unit weights. Ties are broken by `entity_id`. A negative or
    non-finite weight anywhere in the feature table raises an error.
+7. **Quantity layer conventions (R2).** Signatures in positional order:
+   `parse_quantity(text, lang, unit_table)` (lang comes first because it is the common
+   option, and on 1.5.6 scalar arguments bind by position),
+   `normalize_quantity(value, unit, unit_table)`,
+   `value_satisfies(requirement, provided, scale, tol, soft_band, default_bound)`,
+   `compat_score(dimension, required, provided, rules_table)`.
+   - `unit_table` is a LIST of `STRUCT(symbol, alias, dimension, factor, offset)`, because a
+     scalar cannot read an optional user table. User units extend the seed, and a symbol
+     already in the seed is overridden. `compat_score` keeps the table name of §4.2 (it is a
+     macro over `query_table`).
+   - `parse_quantity` returns `lo`/`hi` in base units plus `source_unit` and `category`. A
+     bare number is a count, and an unknown unit keeps its number with `dimension` NULL. A
+     category is a single upper-case code with digits and no number in front.
+   - `scale` NULL means the per-dimension default: linear for time, currency, percent and
+     sound level (dB is already logarithmic); temperature has its own absolute rule (§11.3).
+   - `equals` is relative (2 %) on every scale, as the §4.2 table says ("(relative)") and as
+     the oracle does. A stated "± x %" is not carried over (deferred).
+   - A limit of 0 uses an absolute distance and a strict score. On a log scale a
+     non-positive value falls back to linear.
+   - A struct value in a non-base unit of its dimension is normalised. Categorical structs
+     raise an error that points to `compat_score`.
+   - `distance` is relative for at_least/at_most/equals, the uncovered share for
+     within/point, and kelvin for temperature.

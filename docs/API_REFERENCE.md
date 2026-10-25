@@ -32,7 +32,7 @@
 
 ## Overview
 
-The anofox-similarity extension provides about 50 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 55 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
@@ -1161,7 +1161,7 @@ The extension creates several database objects on load for embedding storage and
 > via `CREATE MACRO`) is **not** available, since macro registration needs a writable catalog. The
 > core C++ table functions (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`,
 > `cold_start_analogs`, `infer_predecessors`, `compute_jaccard_embeddings`, `find_covering_entities`,
-> `find_covering_entities_for`) and all scalar functions
+> `find_covering_entities_for`, `quantity_units`) and all scalar functions
 > still work. Open the database read-write at least once (even briefly) if you need the macro API.
 
 ### Tables
@@ -1380,6 +1380,101 @@ item can make a candidate look complete, and weighted Jaccard recalls the best c
 often (on the benchmark, recall@20 is 0.55 for containment vs 0.64 for Jaccard; with reviewed
 labels it is 0.925 vs 0.85).
 
+
+### Quantities: units, parsing and direction-aware comparison
+
+Numbers need rules, not embeddings (BRD §1): the unit is a hard gate, the value is checked
+with a direction, and the distance to compliance is reported.
+
+**`quantity_units()`**: the built-in, read-only units seed. It returns `symbol, alias
+VARCHAR[], dimension, factor, offset, base_unit` (base = value × factor + offset). It covers SI
+units with prefixes, time (s … year, weeks/Wochen, days/Tage), temperature (K, °C, °F), sound
+level (dB(A)), percent/ppm, counts (cycles/Zyklen, pcs), data and data rates, and ISO-4217
+currencies. Currencies have `factor` NULL and are never converted.
+
+**`parse_quantity(text [, lang [, unit_table]])`** → `STRUCT(lo, hi, unit, dimension, bound, raw,
+source_unit, category)`
+
+| Text | lo, hi (base unit) | bound |
+|---|---|---|
+| `max. 38 dB(A)` | 38, 38 dB(A) | at_most |
+| `mindestens 24 cm` | 0.24, 0.24 m | at_least |
+| `6–18 V`, `40 bis 60 W`, `zwischen 15 und 25 mm/s` | range | within |
+| `220 N ± 2 %`, `Nennwert 220 N` | 220, 220 N | equals |
+| `38 dB(A)` | 38, 38 | NULL (unqualified) |
+| `37 °C` | 310.15 K | NULL |
+| `65.000 Zyklen` with lang `'de'` | 65000 (count) | NULL |
+| `IP54 or better` | NULL; `category` = IP54 | at_least |
+| `12 furlongs` | 12; `dimension` NULL, `unit` = furlongs | NULL |
+
+- `lang` is `'en'`, `'de'` or a list; default `['en', 'de']`. It only decides ambiguous
+  separators (`2.500` is 2500 in German and 2.5 in English); bound words of both languages are
+  always recognised. A comma or dot with one or two digits after it is always a decimal
+  separator.
+- A bare number is a count (`unit` '1'). An unknown unit is never guessed: the number stays as
+  written and `dimension` is NULL, so every comparison with it is a gate.
+- A category is a single upper-case code with digits and no number in front (`IP54`, `F1`,
+  `M8`); `1 F` is one farad.
+- `unit_table` is a LIST of `STRUCT(symbol, alias, dimension, factor, offset)`, e.g.
+  `(SELECT list(u) FROM my_units u)`. It extends the seed, and a symbol that is already in the
+  seed is overridden. The seed itself can be passed back in. Pass `lang` before `unit_table`
+  (on 1.5.6 scalar arguments bind by position).
+
+**`normalize_quantity(value, unit [, unit_table])`** → `STRUCT(value, unit, dimension)`: converts
+to the base unit; an unknown unit returns the input unchanged with `dimension` NULL.
+
+**`value_satisfies(requirement, provided [, scale [, tol, soft_band [, default_bound]]])`** →
+`STRUCT(score, distance, rule)`
+
+Both arguments are structs with `lo`, `hi` and `dimension` (and optionally `unit`); the
+requirement also has `bound`. `parse_quantity` output plugs straight in. A value in a
+non-base unit of its dimension (`{'lo': 250, 'unit': 'mm', 'dimension': 'length'}`) is
+normalised first.
+
+| Rule | Satisfied when | `distance` |
+|---|---|---|
+| `at_least v` | the provided high end `p_hi ≥ v` | `(v − p_hi)/\|v\|` |
+| `at_most v` | the provided low end `p_lo ≤ v` | `(p_lo − v)/\|v\|` |
+| `within [lo, hi]` | the provided range covers the required range (log: share of the decades) | uncovered share |
+| `equals v` | `\|v − p\| ≤ tol` relative, on every scale; `p` is the farther end of a provided range | `\|v − p\|/\|v\|` |
+| `point` (no bound) | the provided value lies within `[v·10⁻⁰·⁰¹, v·10⁰·⁰¹]` (log) or ±1 % (linear) | uncovered share |
+| `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
+| `missing` | no provided value; score 0 | NULL |
+
+- `score` is 1 within `tol` (default 0.02: decades on a log scale, i.e. 4.5 % relative;
+  relative on a linear scale) and falls linearly to 0 across `soft_band` (default 0.05).
+  With `soft_band` 0 the limit is strict.
+- `scale` defaults per dimension: linear for time, currency, percent and sound level, log
+  otherwise; a non-positive value falls back to linear.
+- A limit of 0 uses an absolute distance and a strict score.
+- **Temperature** (stored in K) uses an absolute tolerance of 1 K and a soft band of 2.5 K;
+  its `distance` is in K. `tol` and `soft_band` do not apply.
+- `default_bound` gives an unqualified requirement a direction, typically the bound of its
+  catalogue attribute template (HLD §11.1). A stated bound always wins.
+- Categorical values (`category` set) are rejected; use `compat_score`.
+- `distance` is relative for the limit rules, a share for within and point, and kelvin for
+  temperature. Write "misses by x %" only for the limit rules.
+
+**`compat_score(dimension, required, provided [, rules_table := 'compatibility_rules'])`** →
+DOUBLE: looks up a curated rules table `(dimension, required, provided, score)`. Without a
+rule the result is 1 if the categories are equal, else 0; a NULL category gives NULL. Text
+similarity is never used (BR-15).
+
+```sql
+-- Which seat-track applications meet a German spec in cm and dB(A)?
+SELECT a.node_id
+FROM (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
+JOIN module_attributes a ON a.attr_id = r.attr,
+LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
+GROUP BY a.node_id HAVING min(v.score) = 1;
+
+-- Unqualified values take the direction of their catalogue template
+SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimension': 'sound_level'},
+                       NULL, 0.02, 0.05, 'at_most');               -- score 1
+```
+
+**Performance:** about 0.3 s per 10⁵ values for `parse_quantity` and 0.4 s per 10⁵ pairs for
+`value_satisfies`.
 ---
 
 ## Function Coverage Matrix
@@ -1400,8 +1495,8 @@ labels it is 0.925 vs 0.85).
 | **Dependency** | Macro | 2 | check_anofox_forecast_available, check_duckpgq_available |
 | **Transformations** | Macro | 7 | SAP and Dynamics 365 transformations |
 | **Infrastructure** | Macro | 1 | create_bom_property_graph |
-| **Coverage matching** | Scalar + Table | 7 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for |
-| **TOTAL** | | **~49** | Complete API |
+| **Coverage matching** | Scalar + Table + Macro | 12 | tversky_similarity, containment, weighted_jaccard, weighted_containment, weighted_tversky, find_covering_entities, find_covering_entities_for, quantity_units, parse_quantity, normalize_quantity, value_satisfies, compat_score |
+| **TOTAL** | | **~54** | Complete API |
 
 ---
 

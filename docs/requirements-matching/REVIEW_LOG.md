@@ -156,3 +156,35 @@ written test-first. Logged here as a deviation from HANDOVER §4.
 
 R1 status: all DoD items met. 8 uc_ scenarios, 5 of them on the dataset; edge cases;
 1.5.6 and 2.0 suites green; docs updated.
+
+---
+
+## R2-1 — 2026-10-25 — after R2 red batch
+
+- **Crew:** correctness (claude), testing (codex), design (claude), usability (codex).
+  Verdict: REQUEST_CHANGES.
+
+All hand-derived values were recomputed and found correct, except uc_05 W3. In my own check
+before the review, I also corrected the log tolerance (1 − 10^−0.02 = 4.5007 %, not 4.5501 %)
+in three expectations before the red commit.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | uc_05 W3 expected 0, but IP40 is one step below IP54 (0.5) | Fixed in a separate `test:` commit (8eedb12); a 0 case added (IP65 vs IP40) |
+| F2 | high | uc_06 cannot catch a dropped bound | Fixed: stated vs unstated texts checked NULL-safely; row completeness |
+| F3 | high | Lookup tables passed two ways | Decided (HLD §11.7): unit_table stays a LIST (an optional user table cannot be read by a scalar), compat_score keeps the §4.2 table name. Both safety cases are tested |
+| F4 | med | Equals tolerance on log scale (4.5 %) vs oracle 2 % | Decided without escalation: the §4.2 table itself says "(relative)", so equals is 2 % relative on every scale; the reference kernel follows. The KPI guard still passes |
+| F5 | med | `distance` has three meanings | Documented per rule (HLD §11.7, API reference); uc_04 phrases "misses by" only for limit rules |
+| F6 | med | Unlogged deviations from §4.2 | HLD §11.7 |
+| F7 | med | v = 0 undefined | Absolute distance, strict score; log falls back to linear for non-positive values; tests |
+| F8 | med | Unit mismatch within a dimension passes silently | Struct values in a non-base unit are normalised; test |
+| F9 | med | Categorical structs passed to value_satisfies | Error pointing to compat_score; test |
+| F10 | med | Category rule undefined | Defined (single upper-case code with digits, no number in front); tests '1 F' vs 'F1', 'M8' |
+| F11 | med | User unit table override and round trip | Tests: override of 't', seed passed back in |
+| F12 | med | Named arguments incomplete | Full named calls for parse_quantity and value_satisfies |
+| F13 | med | Temperature only partly pinned | at_least, point and fixed tolerances tested |
+| F14 | low | Small edge cases | Added (NULL dimensions, soft_band 0, range at_most failure, unknown unit fields, cross-language words, confusable symbols) |
+| F15 | low | Base-unit check could not detect a missing base | Rewritten; currency checked separately |
+| F16 | low | uc_02 does not select | HAVING min(score) = 1 → M1.C2.A1 |
+
+Deferred: carrying a stated "± x %" tolerance from parse_quantity into value_satisfies.
