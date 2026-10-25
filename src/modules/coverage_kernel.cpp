@@ -17,7 +17,6 @@
 #include "anofox_similarity_banner.hpp"
 
 #include <algorithm>
-#include <functional>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -606,6 +605,50 @@ struct ReqResult {
 	bool gap = true;
 };
 
+//! The requirements of a request subtree that count for one candidate.
+struct AlternativeTotals {
+	double sum = 0;        // sum of requirement scores
+	idx_t n = 0;           // number of requirements
+	vector<idx_t> chosen;  // indices into the results of the counted requirements
+};
+
+constexpr double SCORE_EPSILON = 1e-12;
+
+//! Every node gives (sum of requirement scores, number of requirements); an OR group takes the
+//! alternative with the best mean (ties: the lowest alternative id; an alternative without
+//! items counts as fully met). Without OR this is the mean over all items. Each alternative is
+//! evaluated once, so the cost is linear in the tree size.
+AlternativeTotals AggregateAlternatives(const vector<ReqResult> &results, const vector<idx_t> &members, idx_t level) {
+	AlternativeTotals out;
+	std::map<string, std::map<string, vector<idx_t>>> groups; // OR parent -> alternative -> items
+	for (auto i : members) {
+		auto &choices = results[i].q->choices;
+		if (choices.size() <= level) {
+			out.sum += results[i].score;
+			out.n++;
+			out.chosen.push_back(i);
+		} else {
+			groups[choices[level].first][choices[level].second].push_back(i);
+		}
+	}
+	for (auto &group : groups) {
+		AlternativeTotals best;
+		double best_mean = -1;
+		for (auto &alternative : group.second) {
+			auto t = AggregateAlternatives(results, alternative.second, level + 1);
+			double mean = t.n ? t.sum / double(t.n) : 1.0;
+			if (mean > best_mean + SCORE_EPSILON) {
+				best_mean = mean;
+				best = std::move(t);
+			}
+		}
+		out.sum += best.sum;
+		out.n += best.n;
+		out.chosen.insert(out.chosen.end(), best.chosen.begin(), best.chosen.end());
+	}
+	return out;
+}
+
 LogicalType TraceType() {
 	child_list_t<LogicalType> c {
 	    {"req_node_id", LogicalType::VARCHAR},  {"matched_node_id", LogicalType::VARCHAR},
@@ -746,53 +789,18 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 			finish(r, all);
 		}
 	}
-	// request-side OR groups: every node gives (sum of requirement scores, number of
-	// requirements); an OR group takes the alternative with the best mean (ties: the lowest
-	// alternative id). Without OR this is the mean over all items (HLD §3.2, §4.6, §11.11).
-	vector<bool> selected(results.size(), false);
-	std::function<std::pair<double, idx_t>(const vector<idx_t> &, idx_t)> aggregate =
-	    [&](const vector<idx_t> &members, idx_t level) -> std::pair<double, idx_t> {
-		double sum = 0;
-		idx_t n = 0;
-		std::map<string, std::map<string, vector<idx_t>>> groups; // OR parent -> alternative -> items
-		for (auto i : members) {
-			auto &choices = results[i].q->choices;
-			if (choices.size() <= level) {
-				selected[i] = true;
-				sum += results[i].score;
-				n++;
-			} else {
-				groups[choices[level].first][choices[level].second].push_back(i);
-			}
-		}
-		for (auto &group : groups) {
-			const vector<idx_t> *best = nullptr;
-			double best_mean = -1;
-			std::pair<double, idx_t> best_total {0, 0};
-			for (auto &alternative : group.second) {
-				vector<bool> saved = selected;
-				auto t = aggregate(alternative.second, level + 1);
-				selected = saved;
-				double mean = t.second ? t.first / double(t.second) : 1.0; // nothing required
-				if (mean > best_mean + 1e-12) {
-					best_mean = mean;
-					best = &alternative.second;
-					best_total = t;
-				}
-			}
-			aggregate(*best, level + 1); // mark the chosen alternative
-			sum += best_total.first;
-			n += best_total.second;
-		}
-		return {sum, n};
-	};
+	// request-side OR groups (HLD §3.2, §4.6, §11.11)
 	vector<idx_t> all_items(results.size());
 	for (idx_t i = 0; i < results.size(); i++) {
 		all_items[i] = i;
 	}
-	auto totals = aggregate(all_items, 0);
-	double total = totals.first;
-	idx_t n_requirements = totals.second;
+	auto totals = AggregateAlternatives(results, all_items, 0);
+	vector<bool> selected(results.size(), false);
+	for (auto i : totals.chosen) {
+		selected[i] = true;
+	}
+	double total = totals.sum;
+	idx_t n_requirements = totals.n;
 	int64_t gaps = 0;
 	vector<Value> trace;
 	for (idx_t ri = 0; ri < results.size(); ri++) {
