@@ -1191,6 +1191,15 @@ string PackedSQL(const string &nodes_cte, const string &attrs_cte, const string 
 	    nodes_cte, attrs_cte, labels_cte, ids_cte);
 }
 
+//! The packed trees of both sides, as CTEs over qn/cn and q_ids/c_ids: attributes (qa, ca),
+//! soft labels (ql, cl) and the node lists the kernel reads (qp, cp).
+string PackedSidesSQL(ClientContext &context, const CoverageParams &p) {
+	return StringUtil::Format("qa AS (%s),\n\t\tca AS (%s),\n\t\tql AS (%s),\n\t\tcl AS (%s),\n\t\tqp AS (%s),\n\t\tcp AS (%s),",
+	                          AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
+	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
+	                          PackedSQL("cn", "ca", "cl", "c_ids"));
+}
+
 //! The kernel's options STRUCT; label_weight and mu as SQL expressions (literals or grid columns).
 string OptionsSQL(const CoverageParams &p, bool trace, const string &label_weight, const string &mu) {
 	string rules = p.rules_table.empty()
@@ -1218,12 +1227,7 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 		WITH %s,
 		q_ids AS (SELECT DISTINCT query_id AS tree_id FROM top),
 		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),%s
-		qa AS (%s),
-		ca AS (%s),
-		ql AS (%s),
-		cl AS (%s),
-		qp AS (%s),
-		cp AS (%s),
+		%s
 		k AS (
 			SELECT t.query_id, t.candidate_id, t.score AS stage1_score,
 			       coverage_kernel(qp.nodes, cp.nodes, %s) AS r
@@ -1237,9 +1241,8 @@ string KernelSQL(ClientContext &context, const CoverageParams &p, bool trace) {
 			FROM k
 		)
 	)",
-	                          Stage1SQL(p), candidate_nodes, AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
-	                          LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
-	                          PackedSQL("cn", "ca", "cl", "c_ids"), options, DoubleLiteral(p.stage1_weight));
+	                          Stage1SQL(p), candidate_nodes, PackedSidesSQL(context, p), options,
+	                          DoubleLiteral(p.stage1_weight));
 }
 
 unique_ptr<TableRef> TreeCoverageBindReplace(ClientContext &context, TableFunctionBindInput &input) {
@@ -1311,12 +1314,7 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 		c_ids AS (SELECT DISTINCT candidate_id AS tree_id FROM top),
 		qn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM q_ids)),
 		cn AS MATERIALIZED (SELECT * FROM (%s) WHERE tree_id IN (SELECT tree_id FROM c_ids)),
-		qa AS (%s),
-		ca AS (%s),
-		ql AS (%s),
-		cl AS (%s),
-		qp AS (%s),
-		cp AS (%s),
+		%s
 		grid AS (SELECT lw, mu FROM (SELECT unnest(%s) AS lw) CROSS JOIN (SELECT unnest(%s) AS mu)),
 		k AS (
 			SELECT g.lw, g.mu, t.true_coverage,
@@ -1330,9 +1328,7 @@ unique_ptr<TableRef> FitWeightsBindReplace(ClientContext &context, TableFunction
 		ORDER BY rank
 	)",
 	                              QuotedIdentifier(reviewed), ResolvedNodesSQL(p.q), ResolvedNodesSQL(p.c),
-	                              AttrsSQL(context, p, p.q, "qn", true), AttrsSQL(context, p, p.c, "cn", false),
-	                              LabelsSQL(p.q, "q_ids"), LabelsSQL(p.c, "c_ids"), PackedSQL("qn", "qa", "ql", "q_ids"),
-	                              PackedSQL("cn", "ca", "cl", "c_ids"), label_weights, mus,
+	                              PackedSidesSQL(context, p), label_weights, mus,
 	                              OptionsSQL(p, false, "g.lw", "g.mu"));
 	return CoverageSubquery(sql, context, fn);
 }
