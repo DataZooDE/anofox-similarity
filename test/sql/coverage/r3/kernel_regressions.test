@@ -64,14 +64,18 @@ SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', '
 ----
 node 'a': count must be positive and finite
 
-# the scalar itself works on hand-built trees
-query RT
-SELECT r.coverage, r.assignment_used FROM (
-    SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x'}],
+# the scalar itself works on hand-built trees; 'auto' partitions only when both trees are
+# reviewed (HLD §11.12): label noise on either side makes partition amplify errors (risk R2)
+query RTT
+SELECT r.coverage, r.assignment_used, u.assignment_used FROM (
+    SELECT coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
                            [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
-                           {'labels': 'hard'}) AS r);
+                           {'labels': 'hard'}) AS r,
+           coverage_kernel([{'node_id': 'a', 'node_kind': 'item', 'class_id': 'x', 'reviewed': false}],
+                           [{'node_id': 'b', 'node_kind': 'item', 'class_id': 'x', 'reviewed': true}],
+                           {'labels': 'hard'}) AS u);
 ----
-1.0	partition
+1.0	partition	best_match
 
 # ---------------------------------------------------------------- empty id lists select nothing
 

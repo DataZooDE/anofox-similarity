@@ -63,28 +63,58 @@ CREATE TABLE gold AS SELECT * FROM read_csv_auto('test/data/coverage/gold_covera
 statement ok
 CREATE TABLE gold_requests AS SELECT * FROM read_csv_auto('test/data/coverage/gold_requests.csv.gz');
 
+# the requests' values, the archive's values and the catalogue templates
+statement ok
+CREATE TABLE requests AS SELECT * FROM read_csv_auto('test/data/coverage/requests.csv.gz');
+
+statement ok
+CREATE TABLE req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a JOIN requests r ON r.request_id = a.tree_id);
+
+statement ok
+CREATE TABLE prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+statement ok
+CREATE TABLE compatibility_rules AS SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+# the queue's top 3 include the ventilation module
+query I
+SELECT list_contains((SELECT list(wording) FROM review), 'Klimapaket Heizung');
+----
+true
+
 statement ok
 CREATE TABLE before AS SELECT * FROM tree_coverage(getvariable('vent_requests'), k := 20, nodes_table := 'req_nodes',
-       attrs_table := NULL, candidate_nodes_table := 'prog_nodes', candidate_attrs_table := NULL, label_table := 'prog_labels');
+       attrs_table := 'req_attrs', candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       label_table := 'prog_labels', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules');
 
 statement ok
 CREATE TABLE after AS SELECT * FROM tree_coverage(getvariable('vent_requests'), k := 20, nodes_table := 'req_nodes',
-       attrs_table := NULL, candidate_nodes_table := 'prog_nodes', candidate_attrs_table := NULL, label_table := 'prog_labels',
-       overrides_table := 'reviewed');
+       attrs_table := 'req_attrs', candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
+       label_table := 'prog_labels', overrides_table := 'reviewed', default_bounds := 'catalogue', templates_table := 'templates',
+       rules_table := 'compatibility_rules');
 
-# the review fixes the ranking: more ventilation requests get a best programme first
 statement ok
-CREATE MACRO top1_hits(t) AS TABLE
-SELECT sum((g.true_coverage >= q.best_coverage - 1e-9)::INT) AS hits, count(*) AS n
+CREATE MACRO top1(t) AS TABLE
+SELECT r.query_id, r.candidate_id, g.true_coverage >= q.best_coverage - 1e-9 AS hit
 FROM query_table(t) r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
 JOIN gold_requests q ON q.request_id = r.query_id WHERE r.rank = 1;
 
-query I
-SELECT (SELECT n FROM top1_hits('before')) = len(getvariable('vent_requests'));
+# 34 requests need ventilation; a best programme comes first for 14 before and 23 after the review
+query III
+SELECT (SELECT count(*) FROM top1('before')), (SELECT sum(hit::INT) FROM top1('before')), (SELECT sum(hit::INT) FROM top1('after'));
 ----
-true
+34	14	23
 
-query I
-SELECT (SELECT hits FROM top1_hits('after')) > (SELECT hits FROM top1_hits('before'));
+# R12: before the review P061 comes first; after it, P047, a best programme
+query TTTT
+SELECT b.candidate_id, b.hit, a.candidate_id, a.hit FROM top1('before') b JOIN top1('after') a USING (query_id)
+WHERE query_id = 'R12';
 ----
-true
+P061	false	P047	true

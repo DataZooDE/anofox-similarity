@@ -67,8 +67,11 @@ FROM redecided r JOIN gold_unseen g USING (node_id) WHERE r.rank = 1;
 1.0	30	true
 
 # nothing is left to ask about below the old cut
+statement ok
+SET VARIABLE cut = (SELECT max(margin) FROM export) + 1e-9;
+
 query I
-SELECT count(*) FROM uncertain_decisions(decisions := 'redecided', threshold := (SELECT max(margin) FROM export) + 1e-9)
+SELECT count(*) FROM uncertain_decisions(decisions := 'redecided', threshold := getvariable('cut'))
 WHERE node_id IN (SELECT node_id FROM export);
 ----
 0
