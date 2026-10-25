@@ -340,3 +340,28 @@ classifier. It moves to R4.
 
 **R3 status:** done on DuckDB 1.5.6 and 2.0. Remaining DoD item for R4: the
 partition-on-unreviewed-labels failure mode.
+
+## R4-1 — 2026-10-25 — after R4 red batch (pivot classifier, vocabulary review)
+
+- **Crew:** correctness, testing, design, usability (codex/claude). Verdict:
+  REQUEST_CHANGES. All hand values recomputed: correct.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | uc_07 KPIs unmeasured with classifier labels | Measured. With soft classifier labels and `auto` = partition (candidate reviewed): MAE 0.19, so **escalated** (HANDOVER §8). User decisions: (1) `auto` partitions only when both trees are reviewed (HLD §11.12); (2) treat the remaining recall/regret miss (0.8625 / 0.022 with best match) as a KPI miss and investigate. Finding: 63 of the 71 misread items sit in the 15 % lowest margins; after a reviewer answers those (BR-33), all six BRD KPIs are met (recall 0.9125, top-1 0.9125, regret 0.0099, MAE 0.035, precision 0.985). uc_07 pins both |
+| F2 | high | uc_04 class-only, value-blind | Reworked with parsed attributes: 34 ventilation requests, 14 → 23 best-first; R12 flips P061 → P047; the queue's top 3 include 'Klimapaket Heizung' |
+| F3 | high | overrides_table default contradicts §4.4 | HLD §11.12: default NULL (no implicit table lookup); test |
+| F4 | med | Untyped fixtures | Typed where it matters; DECIMAL input covered by the literal fixtures |
+| F5 | med | cosine_floor default samples 14 365 pairs | `sample := 20000` for the exact floor; n_pairs asserted (14 365, 2 000) |
+| F6 | med | Degenerate classifier inputs | Tests: single-item source (uniform), one-class catalogue, NULL vec (skipped), dimension mismatch |
+| F7 | med | Bonus and centring under-constrained | Tests: two sources; name-vector bonus by hand (mean over all attributes, best template, NULL dimension counts 0) |
+| F8 | med | apply merge semantics | Tests: untouched entries survive, NULL source key, reviewed_at kept |
+| F9 | med | Node-averaging denominator | Test: missing class rows count 0 |
+| F10 | med | Key/precedence rules implicit | Tests: decision beats override, NULL tree_id keys |
+| F11 | low | R4 surface not in the HLD | HLD §11.12 |
+| F12 | low | Weak assertions; read-only | Ordered queue positions, defaults test, r4/readonly.test |
+
+The documented failure mode "partition on unreviewed labels is worse than best match"
+(HANDOVER §5.3, open since R3) now shows on the request side (MAE 0.19 vs 0.038). On the
+unreviewed archive it does not reproduce: there the label noise is systematic (four
+misleading wordings) and hurts both modes alike (regret 0.102 vs 0.100 with hard labels).
