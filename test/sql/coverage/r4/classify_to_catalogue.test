@@ -410,3 +410,12 @@ statement error
 SELECT * FROM classify_to_catalogue(items_table := 'one', catalogue_table := 'cat', top := 0);
 ----
 top must be positive
+
+statement ok
+CREATE TABLE z_names_dup AS SELECT * FROM z_names UNION ALL SELECT 'travel', [0.0, 1.0];
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'zero_item', catalogue_table := 'cat', center_by_source := false,
+       attrs_table := 'z_attrs', templates_table := 'z_templates', name_vectors := 'z_names_dup', name_floor := 0.5);
+----
+name_vectors has different vectors for the name 'travel'

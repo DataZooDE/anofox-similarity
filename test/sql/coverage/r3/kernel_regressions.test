@@ -188,3 +188,21 @@ SELECT count(*) FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attr
                                    candidate_nodes_table := 'main.REQ_NODES', candidate_attrs_table := NULL);
 ----
 0
+
+# two different vectors for one attribute name would make name_sim depend on the run
+# (code-quality review CQ-1 F3); identical duplicates are fine
+statement ok
+CREATE TABLE dup_names AS SELECT * FROM (VALUES ('Verstellweg', [1.0, 0.0]), ('Verstellweg', [0.0, 1.0])) t(name, vec);
+
+statement error
+SELECT * FROM tree_coverage('Q1', candidates := ['S1'], name_vectors := 'dup_names');
+----
+name_vectors has different vectors for the name 'Verstellweg'
+
+statement ok
+CREATE TABLE same_dup_names AS SELECT * FROM (VALUES ('Verstellweg', [1.0, 0.0]), ('Verstellweg', [1.0, 0.0])) t(name, vec);
+
+query I
+SELECT count(*) FROM tree_coverage('Q1', candidates := ['S1'], name_vectors := 'same_dup_names');
+----
+1
