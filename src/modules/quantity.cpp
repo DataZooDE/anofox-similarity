@@ -70,7 +70,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"d", {"day", "days", "Tag", "Tage", "Tagen"}, "time", 86400.0, 0});
 	u.push_back({"week", {"weeks", "Woche", "Wochen", "wk"}, "time", 604800.0, 0});
 	u.push_back({"month", {"months", "Monat", "Monate", "Monaten"}, "time", 2629746.0, 0});
-	u.push_back({"year", {"years", "Jahr", "Jahre", "Jahren", "a"}, "time", 31556952.0, 0});
+	u.push_back({"year", {"years", "Jahr", "Jahre", "Jahren"}, "time", 31556952.0, 0});
 	// electrical
 	AddPrefixed(u, "A", "current", {{"m", 1e-3}, {"µ", 1e-6}, {"k", 1e3}});
 	AddPrefixed(u, "V", "voltage", {{"m", 1e-3}, {"µ", 1e-6}, {"k", 1e3}});
@@ -117,7 +117,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"%", {"percent", "Prozent"}, "percent", 1.0, 0});
 	u.push_back({"ppm", {}, "percent", 1e-4, 0});
 	// counts
-	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück", "x"}, "count", 1.0, 0});
+	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück"}, "count", 1.0, 0});
 	// data
 	u.push_back({"B", {"byte", "bytes"}, "data", 1.0, 0});
 	u.push_back({"bit", {"bits"}, "data", 0.125, 0});
@@ -268,6 +268,15 @@ UnitTable UnitTable::WithUserUnits(const Value &list) {
 		if (u.symbol.empty() || u.dimension.empty()) {
 			throw InvalidInputException("unit_table entries need a symbol and a dimension");
 		}
+		bool currency = u.dimension == "currency";
+		if (!(currency && std::isnan(u.factor)) && (!std::isfinite(u.factor) || u.factor <= 0)) {
+			throw InvalidInputException("unit_table: factor must be positive and finite for unit '%s' (NULL only for "
+			                            "currencies)",
+			                            u.symbol);
+		}
+		if (!std::isfinite(u.offset)) {
+			throw InvalidInputException("unit_table: offset must be finite for unit '%s'", u.symbol);
+		}
 		t.Add(std::move(u));
 	}
 	t.Index();
@@ -323,17 +332,49 @@ struct NumberToken {
 	idx_t begin;
 	idx_t end;
 	double value;
+	bool explicit_minus;
 };
 
 //! Interpret a digit run with '.' and ',' separators for the primary language.
+//! Returns NaN for malformed digit groups such as 1.2.3.
 double ParseNumberText(const string &raw, const string &primary_lang) {
 	bool negative = !raw.empty() && raw[0] == '-';
-	string s = negative ? raw.substr(1) : raw;
+	string s = (!raw.empty() && (raw[0] == '-' || raw[0] == '+')) ? raw.substr(1) : raw;
+	string exponent;
+	auto epos = s.find_first_of("eE");
+	if (epos != string::npos) {
+		exponent = s.substr(epos);
+		s = s.substr(0, epos);
+	}
 	auto commas = std::count(s.begin(), s.end(), ',');
 	auto dots = std::count(s.begin(), s.end(), '.');
 	string digits;
+	auto groups_ok = [&](char sep) {
+		// every group after the first has exactly three digits; the first has one to three
+		auto parts = StringUtil::Split(s, sep);
+		if (parts.empty() || parts[0].empty() || parts[0].size() > 3) {
+			return false;
+		}
+		for (idx_t i = 1; i < parts.size(); i++) {
+			if (parts[i].size() != 3) {
+				return false;
+			}
+		}
+		return true;
+	};
 	if (commas && dots) {
 		char decimal = s.find_last_of(".,") == s.rfind(',') ? ',' : '.';
+		char thousands = decimal == ',' ? '.' : ',';
+		auto int_part = s.substr(0, s.rfind(decimal));
+		string probe = int_part;
+		for (auto c : probe) {
+			if (c != thousands && !IsDigit(c)) {
+				return std::numeric_limits<double>::quiet_NaN();
+			}
+		}
+		if (std::count(s.begin(), s.end(), decimal) > 1) {
+			return std::numeric_limits<double>::quiet_NaN();
+		}
 		for (auto c : s) {
 			if (IsDigit(c)) {
 				digits += c;
@@ -348,11 +389,15 @@ double ParseNumberText(const string &raw, const string &primary_lang) {
 		auto count = commas ? commas : dots;
 		auto pos = s.find(sep);
 		auto after = s.size() - pos - 1;
+		auto int_part = s.substr(0, pos);
 		bool thousands;
 		if (count > 1) {
+			if (!groups_ok(sep)) {
+				return std::numeric_limits<double>::quiet_NaN();
+			}
 			thousands = true;
-		} else if (after != 3 || pos > 3) {
-			thousands = false;
+		} else if (after != 3 || pos > 3 || int_part == "0") {
+			thousands = false; // a group of three after a leading 0 is never a thousands group
 		} else {
 			// exactly three digits after one separator: the language decides
 			thousands = primary_lang == "de" ? sep == '.' : sep == ',';
@@ -365,8 +410,20 @@ double ParseNumberText(const string &raw, const string &primary_lang) {
 			}
 		}
 	}
-	double v = std::strtod(digits.c_str(), nullptr);
+	double v = std::strtod((digits + exponent).c_str(), nullptr);
 	return negative ? -v : v;
+}
+
+bool IsSignContext(const string &s, idx_t sign_pos) {
+	if (sign_pos == 0) {
+		return true;
+	}
+	char p = s[sign_pos - 1];
+	if (p == ' ' || p == '(' || p == '~' || p == '<' || p == '>' || p == '=' || p == ':') {
+		return true;
+	}
+	// after ≥ or ≤ (UTF-8 E2 89 A5 / E2 89 A4)
+	return sign_pos >= 3 && (unsigned char)s[sign_pos - 3] == 0xE2 && (unsigned char)s[sign_pos - 2] == 0x89;
 }
 
 //! Numbers in text; a digit right after a letter (IP54, F1) does not start a number.
@@ -386,7 +443,11 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 			continue;
 		}
 		idx_t begin = i;
-		bool negative = begin > 0 && s[begin - 1] == '-' && (begin == 1 || s[begin - 2] == ' ' || s[begin - 2] == '(');
+		bool minus = false;
+		if (begin > 0 && (s[begin - 1] == '-' || s[begin - 1] == '+') && IsSignContext(s, begin - 1)) {
+			minus = s[begin - 1] == '-';
+			begin--;
+		}
 		idx_t j = i;
 		while (j < s.size()) {
 			if (IsDigit(s[j])) {
@@ -397,24 +458,24 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 				break;
 			}
 		}
-		auto raw = s.substr(begin, j - begin);
-		if (negative) {
-			raw = "-" + raw;
-			begin--;
+		// scientific notation: 1e-3, 2.5E6
+		if (j < s.size() && (s[j] == 'e' || s[j] == 'E')) {
+			idx_t k = j + 1;
+			if (k < s.size() && (s[k] == '-' || s[k] == '+')) {
+				k++;
+			}
+			if (k < s.size() && IsDigit(s[k])) {
+				while (k < s.size() && IsDigit(s[k])) {
+					k++;
+				}
+				j = k;
+			}
 		}
-		out.push_back({begin, j, ParseNumberText(raw, primary_lang)});
+		auto raw = s.substr(begin, j - begin);
+		out.push_back({begin, j, ParseNumberText(raw, primary_lang), minus});
 		i = j;
 	}
 	return out;
-}
-
-bool ContainsAny(const string &haystack, std::initializer_list<const char *> needles) {
-	for (auto n : needles) {
-		if (haystack.find(n) != string::npos) {
-			return true;
-		}
-	}
-	return false;
 }
 
 string Trim(const string &s) {
@@ -426,6 +487,44 @@ string Trim(const string &s) {
 		e--;
 	}
 	return s.substr(b, e - b);
+}
+
+//! Lower-case words of a text fragment (ASCII lower-casing plus German umlauts),
+//! with punctuation other than '.' turned into spaces, padded with spaces for
+//! whole-word phrase search.
+string Words(const string &fragment) {
+	string s = fragment;
+	ReplaceAll(s, "Ä", "ä");
+	ReplaceAll(s, "Ö", "ö");
+	ReplaceAll(s, "Ü", "ü");
+	s = AsciiLower(s);
+	string out = " ";
+	for (auto c : s) {
+		if (c == ',' || c == ';' || c == ':' || c == '(' || c == ')' || c == '[' || c == ']') {
+			c = ' ';
+		}
+		if (c == ' ' && !out.empty() && out.back() == ' ') {
+			continue;
+		}
+		out += c;
+	}
+	if (out.back() != ' ') {
+		out += ' ';
+	}
+	return out;
+}
+
+bool HasWord(const string &words, std::initializer_list<const char *> phrases) {
+	for (auto p : phrases) {
+		if (words.find(" " + string(p) + " ") != string::npos) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool IsConnectorWord(const string &lower) {
+	return lower == "to" || lower == "and" || lower == "bis" || lower == "und" || lower == "or" || lower == "oder";
 }
 
 //! The unit right after position pos (skipping spaces); token is what was written.
@@ -445,7 +544,8 @@ const UnitDef *UnitAfter(const string &s, idx_t pos, const UnitTable &units, str
 		end = pos + matched;
 		return unit;
 	}
-	// an unknown word right after the number: keep it, never guess
+	// an unknown word right after the number: keep it, never guess; operators, tolerance
+	// signs and connectors are not units
 	idx_t j = pos;
 	while (j < s.size() && s[j] != ' ' && s[j] != ',' && s[j] != ';') {
 		j++;
@@ -454,14 +554,28 @@ const UnitDef *UnitAfter(const string &s, idx_t pos, const UnitTable &units, str
 	while (!word.empty() && (word.back() == '.' || word.back() == ')' || word.back() == ':')) {
 		word.pop_back();
 	}
-	auto lower_word = AsciiLower(word);
-	bool connector = lower_word == "to" || lower_word == "and" || lower_word == "bis" || lower_word == "und" ||
-	                 lower_word == "or" || lower_word == "oder";
-	if (!word.empty() && !connector && (IsAsciiAlpha(word[0]) || (unsigned char)word[0] >= 0x80) && word != "~") {
+	bool starts_with_letter = !word.empty() && (IsAsciiAlpha(word[0]) || (unsigned char)word[0] >= 0x80);
+	bool is_symbol = word.rfind("±", 0) == 0 || word.rfind("≤", 0) == 0 || word.rfind("≥", 0) == 0;
+	if (starts_with_letter && !is_symbol && !IsConnectorWord(AsciiLower(word)) && word != "~") {
 		token = word;
 		end = pos + word.size();
 	}
 	return nullptr;
+}
+
+//! Value of a number in its unit: base units for a known unit; currencies keep their value.
+bool Convert(const UnitDef *unit, double v, const UnitTable &units, double &out, string &base_unit) {
+	if (!unit) {
+		return false;
+	}
+	if (std::isnan(unit->factor)) {
+		out = v;
+		base_unit = unit->symbol;
+	} else {
+		out = v * unit->factor + unit->offset;
+		base_unit = units.BaseUnit(unit->dimension);
+	}
+	return true;
 }
 
 } // namespace
@@ -472,16 +586,22 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	string s = text;
 	ReplaceAll(s, " ", " ");
 	ReplaceAll(s, " ", " ");
+	ReplaceAll(s, " ", " ");
 	ReplaceAll(s, "−", "-");
 	ReplaceAll(s, "–", "~");
 	ReplaceAll(s, "—", "~");
 	ReplaceAll(s, "…", "~");
 	ReplaceAll(s, "...", "~");
+	ReplaceAll(s, "μ", "µ"); // Greek mu -> micro sign
+	ReplaceAll(s, "Ω", "Ω"); // ohm sign -> Greek omega
+	ReplaceAll(s, "+/-", "±");
 	auto numbers = FindNumbers(s, primary);
-	auto lower = AsciiLower(s);
+	if (!numbers.empty() && std::isnan(numbers[0].value)) {
+		return q; // malformed digit groups: not a number
+	}
 
 	if (numbers.empty()) {
-		// an ordinal class: upper-case letters followed by digits (IP54, F1)
+		// an ordinal class: a single upper-case code with digits (IP54, F1, M8)
 		idx_t i = 0;
 		while (i < s.size()) {
 			if ((i == 0 || s[i - 1] == ' ') && s[i] >= 'A' && s[i] <= 'Z') {
@@ -503,9 +623,12 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 			}
 		}
 		if (!q.category.empty()) {
-			if (ContainsAny(lower, {"or better", "oder besser", "at least", "min.", "mindestens", "minimum", "≥", ">="})) {
+			auto w = Words(s);
+			if (HasWord(w, {"or better", "oder besser", "at least", "min.", "min", "mindestens", "minimum"}) ||
+			    s.find("≥") != string::npos || s.find(">=") != string::npos) {
 				q.bound = "at_least";
-			} else if (ContainsAny(lower, {"or worse", "at most", "max.", "höchstens", "≤", "<="})) {
+			} else if (HasWord(w, {"or worse", "oder schlechter", "at most", "max.", "max", "höchstens", "maximum"}) ||
+			           s.find("≤") != string::npos || s.find("<=") != string::npos) {
 				q.bound = "at_most";
 			}
 		}
@@ -513,102 +636,145 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	}
 
 	auto &first = numbers[0];
-	string prefix = AsciiLower(s.substr(0, first.begin));
 	string token1, token2;
 	idx_t end1 = 0, end2 = 0;
 	auto unit1 = UnitAfter(s, first.end, units, token1, end1);
 
-	// a second number that forms a range with the first
+	// a second number that forms a range or a tolerance with the first
 	bool range = false;
 	bool tolerance = false;
 	const UnitDef *unit2 = nullptr;
 	double v2 = 0;
-	if (numbers.size() >= 2) {
+	idx_t consumed = end1;
+	if (numbers.size() >= 2 && !std::isnan(numbers[1].value)) {
 		auto &second = numbers[1];
-		auto between = AsciiLower(Trim(s.substr(end1, second.begin - end1)));
-		if (between == "~" || between == "-" || between == "to" || between == "bis" ||
-		    ((between == "and" || between == "und") && ContainsAny(prefix, {"between", "zwischen"}))) {
-			range = true;
-			v2 = second.value;
-			unit2 = UnitAfter(s, second.end, units, token2, end2);
-		} else if (between.find("±") != string::npos || between.find("+/-") != string::npos) {
+		auto between_raw = s.substr(first.end, second.begin - first.end);
+		auto between = Words(Trim(s.substr(end1, second.begin - end1)));
+		bool between_mentioned = HasWord(Words(s.substr(0, first.begin)), {"between", "zwischen"});
+		if (between_raw.find("±") != string::npos) {
 			tolerance = true;
+			unit2 = UnitAfter(s, second.end, units, token2, end2);
+			consumed = MaxValue(end1, end2);
+		} else if (between == " ~ " || between == " - " || between == " to " || between == " bis " ||
+		           ((between == " and " || between == " und ") && between_mentioned) ||
+		           (between == " " && second.explicit_minus)) {
+			range = true;
+			v2 = (between == " " && second.explicit_minus) ? -second.value : second.value; // '6 -18 V'
+			unit2 = UnitAfter(s, second.end, units, token2, end2);
+			consumed = end2;
 		}
 	}
 
-	const UnitDef *unit = unit1;
-	string token = token1;
-	if (range && unit2) {
-		unit = unit2;
-		token = token2;
+	string prefix = s.substr(0, first.begin);
+	string suffix = s.substr(MinValue<idx_t>(consumed, s.size()));
+	q.has_value = true;
+	double lo = first.value, hi = range ? v2 : first.value;
+
+	// the unit: after the number; for a tolerance written before the unit (220 ± 5 N) the
+	// unit after the tolerance, unless that is a percentage; for a range per end
+	const UnitDef *lo_unit = unit1;
+	const UnitDef *hi_unit = range ? (unit2 ? unit2 : unit1) : unit1;
+	if (range && !unit1) {
+		lo_unit = unit2;
 	}
-	// a currency symbol written before the number
-	if (!unit && token.empty()) {
-		auto trimmed = Trim(s.substr(0, first.begin));
+	string token = !token1.empty() ? token1 : token2;
+	if (tolerance && !unit1 && token1.empty() && unit2 && unit2->dimension != "percent") {
+		lo_unit = hi_unit = unit2;
+		token = token2;
+	} else if (tolerance) {
+		token = token1;
+	}
+	// a currency written before the number (€ 40, EUR 180)
+	if (!lo_unit && token.empty()) {
+		auto trimmed = Trim(prefix);
+		auto space = trimmed.rfind(' ');
+		auto last_word = space == string::npos ? trimmed : trimmed.substr(space + 1);
+		const UnitDef *currency = nullptr;
 		for (auto sym : {"€", "$", "£", "¥"}) {
 			string ss(sym);
 			if (trimmed.size() >= ss.size() && trimmed.compare(trimmed.size() - ss.size(), ss.size(), ss) == 0) {
-				unit = units.Find(ss);
+				currency = units.Find(ss);
 				token = ss;
-				break;
 			}
 		}
+		if (!currency && !last_word.empty()) {
+			auto def = units.Find(last_word);
+			if (def && def->dimension == "currency") {
+				currency = def;
+				token = last_word;
+			}
+		}
+		if (currency) {
+			lo_unit = hi_unit = currency;
+		}
 	}
-
-	double lo = first.value, hi = range ? v2 : first.value;
-	if (lo > hi) {
-		std::swap(lo, hi);
-	}
-	q.has_value = true;
 	q.source_unit = token;
-	if (unit) {
-		q.dimension = unit->dimension;
-		if (std::isnan(unit->factor)) {
-			q.lo = lo;
-			q.hi = hi;
-			q.unit = unit->symbol;
+
+	if (lo_unit || hi_unit) {
+		if (lo_unit && hi_unit && lo_unit->dimension != hi_unit->dimension) {
+			q.lo = MinValue(lo, hi);
+			q.hi = MaxValue(lo, hi);
+			q.unit = token;
+			// ends of different dimensions: never guessed
 		} else {
-			q.lo = lo * unit->factor + unit->offset;
-			q.hi = hi * unit->factor + unit->offset;
-			q.unit = units.BaseUnit(unit->dimension);
+			string base;
+			Convert(lo_unit ? lo_unit : hi_unit, lo, units, lo, base);
+			Convert(hi_unit ? hi_unit : lo_unit, hi, units, hi, base);
+			q.lo = MinValue(lo, hi);
+			q.hi = MaxValue(lo, hi);
+			q.unit = base;
+			q.dimension = (lo_unit ? lo_unit : hi_unit)->dimension;
 		}
 	} else if (token.empty()) {
-		q.lo = lo;
-		q.hi = hi;
+		q.lo = MinValue(lo, hi);
+		q.hi = MaxValue(lo, hi);
 		q.dimension = "count";
 		q.unit = "1";
 	} else {
-		q.lo = lo;
-		q.hi = hi;
+		q.lo = MinValue(lo, hi);
+		q.hi = MaxValue(lo, hi);
 		q.unit = token; // unknown: never guessed
 	}
 
-	string suffix = AsciiLower(s.substr(range ? MaxValue(end2, numbers[1].end) : end1));
+	// the bound: a range is within; then operators; then words on word boundaries
+	auto pw = Words(prefix);
+	auto sw = Words(suffix);
+	auto trimmed_prefix = Trim(prefix);
+	auto ends_with = [&](const string &t, const string &tail) {
+		return t.size() >= tail.size() && t.compare(t.size() - tail.size(), tail.size(), tail) == 0;
+	};
 	if (range) {
 		q.bound = "within";
-	} else if (tolerance || ContainsAny(prefix, {"nominal", "nennwert", "="})) {
-		q.bound = "equals";
-	} else if (ContainsAny(prefix, {"at most", "max", "höchstens", "bis zu", "up to", "not more than",
-	                                "nicht mehr als", "≤", "<="})) {
-		q.bound = "at_most";
-	} else if (ContainsAny(prefix, {"at least", "min", "mindestens", "not less than", "nicht weniger als", "≥",
-	                                ">="}) ||
-	           ContainsAny(suffix, {"or better", "oder besser", "or more", "oder mehr"})) {
+	} else if (ends_with(trimmed_prefix, ">=") || ends_with(trimmed_prefix, "≥") ||
+	           ends_with(trimmed_prefix, ">")) {
 		q.bound = "at_least";
-	} else if (ContainsAny(suffix, {"or less", "oder weniger"})) {
+	} else if (ends_with(trimmed_prefix, "<=") || ends_with(trimmed_prefix, "≤") ||
+	           ends_with(trimmed_prefix, "<")) {
 		q.bound = "at_most";
+	} else if (tolerance || ends_with(trimmed_prefix, "=") || HasWord(pw, {"nominal", "nennwert"})) {
+		q.bound = "equals";
+	} else if (HasWord(pw, {"at most", "max.", "max", "maximum", "maximal", "höchstens", "bis zu", "up to",
+	                        "not more than", "nicht mehr als"}) ||
+	           HasWord(sw, {"max.", "max", "maximum", "or less", "oder weniger"})) {
+		q.bound = "at_most";
+	} else if (HasWord(pw, {"at least", "min.", "min", "minimum", "minimal", "mindestens", "not less than",
+	                        "nicht weniger als"}) ||
+	           HasWord(sw, {"min.", "min", "minimum", "or better", "oder besser", "or more", "oder mehr"})) {
+		q.bound = "at_least";
 	}
 	return q;
 }
 
 //------------------------------------------------------------------------------
+
 // Value comparison
 //------------------------------------------------------------------------------
 
 ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const ValueOptions &options) {
 	ValueScore r;
-	if (req.dimension.empty() || prov.dimension.empty() || req.dimension != prov.dimension ||
-	    (req.dimension == "currency" && !req.unit.empty() && !prov.unit.empty() && req.unit != prov.unit)) {
+	if (req.unit_gate || prov.unit_gate || req.dimension.empty() || prov.dimension.empty() ||
+	    req.dimension != prov.dimension ||
+	    (req.dimension == "currency" && (req.unit.empty() != prov.unit.empty() || req.unit != prov.unit))) {
 		r.rule = "gate";
 		return r;
 	}
@@ -764,23 +930,25 @@ vector<string> LangsOf(const Value &v) {
 	return out;
 }
 
-//! Unit table for row i: the seed, or seed + user units (cached when constant).
+//! Unit table for a row: the seed, or the seed plus user units. A table is built once
+//! and reused while the user units stay the same (constant or repeated values).
 struct UnitCache {
-	bool constant_ready = false;
+	bool ready = false;
+	Value last;
 	UnitTable table;
 	const UnitTable &Get(DataChunk &args, idx_t col, idx_t row) {
 		if (args.ColumnCount() <= col) {
 			return UnitTable::Seed();
 		}
-		auto &vec = args.data[col];
-		if (vec.GetVectorType() == VectorType::CONSTANT_VECTOR) {
-			if (!constant_ready) {
-				table = UnitTable::WithUserUnits(vec.GetValue(0));
-				constant_ready = true;
-			}
-			return table;
+		auto value = args.data[col].GetValue(row);
+		if (value.IsNull()) {
+			return UnitTable::Seed();
 		}
-		table = UnitTable::WithUserUnits(vec.GetValue(row));
+		if (!ready || !(value == last)) {
+			table = UnitTable::WithUserUnits(value);
+			last = value;
+			ready = true;
+		}
 		return table;
 	}
 };
@@ -832,7 +1000,8 @@ void NormalizeQuantityFun(DataChunk &args, ExpressionState &, Vector &result) {
 		}
 		double v = value.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 		child_list_t<Value> out;
-		const UnitDef *def = unit.IsNull() ? nullptr : units.Get(args, 2, i).Find(Trim(unit.ToString()));
+		const UnitTable &table = units.Get(args, 2, i); // one reference per row: def points into it
+		const UnitDef *def = unit.IsNull() ? nullptr : table.Find(Trim(unit.ToString()));
 		if (!def) {
 			out.emplace_back("value", Value::DOUBLE(v));
 			out.emplace_back("unit", unit.IsNull() ? Value(LogicalType::VARCHAR) : Value(unit.ToString()));
@@ -843,7 +1012,7 @@ void NormalizeQuantityFun(DataChunk &args, ExpressionState &, Vector &result) {
 			out.emplace_back("dimension", Value(def->dimension));
 		} else {
 			out.emplace_back("value", Value::DOUBLE(v * def->factor + def->offset));
-			out.emplace_back("unit", Value(units.Get(args, 2, i).BaseUnit(def->dimension)));
+			out.emplace_back("unit", Value(table.BaseUnit(def->dimension)));
 			out.emplace_back("dimension", Value(def->dimension));
 		}
 		result.SetValue(i, Value::STRUCT(std::move(out)));
@@ -889,15 +1058,31 @@ ValueSide SideOf(const Value &v, bool requirement) {
 	if (!has_lo_field) {
 		throw InvalidInputException("value_satisfies: a %s needs a field 'lo'", requirement ? "requirement" : "provided value");
 	}
-	// a value given in a non-base unit of its dimension is normalised first (250 mm -> 0.25 m)
-	if (!side.unit.empty() && side.dimension != "currency") {
+	// a unit resolves against the seed: a non-base unit of the same dimension is
+	// normalised (250 mm -> 0.25 m), a currency symbol becomes its code, and an unknown
+	// unit or one of another dimension is a gate
+	if (!side.unit.empty()) {
 		auto &seed = UnitTable::Seed();
 		auto def = seed.Find(side.unit);
-		if (def && def->dimension == side.dimension && !std::isnan(def->factor)) {
+		if (!def || (!side.dimension.empty() && def->dimension != side.dimension)) {
+			side.unit_gate = true;
+		} else if (std::isnan(def->factor)) {
+			side.unit = def->symbol;
+		} else {
 			side.lo = side.lo * def->factor + def->offset;
 			side.hi = side.hi * def->factor + def->offset;
-			side.unit = seed.BaseUnit(side.dimension);
+			side.unit = seed.BaseUnit(def->dimension);
 		}
+	}
+	// non-finite values count as missing; a reversed interval is put in order
+	if (side.has_lo && !std::isfinite(side.lo)) {
+		side.has_lo = false;
+	}
+	if (side.has_hi && !std::isfinite(side.hi)) {
+		side.has_hi = false;
+	}
+	if (side.has_lo && side.has_hi && side.lo > side.hi) {
+		std::swap(side.lo, side.hi);
 	}
 	return side;
 }

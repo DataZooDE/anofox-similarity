@@ -75,6 +75,7 @@ struct ValueSide {
 	string dimension;
 	string unit;
 	string bound;
+	bool unit_gate = false; // the unit is unknown or belongs to another dimension
 };
 
 struct ValueOptions {
