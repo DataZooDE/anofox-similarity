@@ -667,11 +667,14 @@ precedence over the text above.
       skipped. The z-score uses the population standard deviation (sd 0 → 1). The bonus is the
       mean over all the item's attributes (an attribute without a dimension counts 0) of the
       best same-dimension template; template names come from `name`, `name_en` or `name_de`;
-      without name vectors a dimension match counts 1. Decisions (per item) beat overrides
-      (per wording). Keys are `(tree_id, node_id)`, NULL-safe.
+      without name vectors a dimension match counts 1. Answers (per item, `answers_table`,
+      the HLD's `node_class_decisions`) beat overrides (per wording). Keys are `(tree_id,
+      node_id)`, NULL-safe. Empty token lists are an error.
     - `apply_vocabulary_review` returns the merged overrides table (DuckDB table functions
       cannot write); the caller stores it with `CREATE OR REPLACE TABLE`. One entry per
-      (wording, source); a NULL source is its own key.
+      (wording, source); a NULL source is its own key. Without `overrides_table` it merges into
+      `vocabulary_overrides` when that table exists (so a forgotten parameter cannot drop
+      earlier reviews), and starts fresh otherwise.
     - `vocabulary_review_queue` takes decisions per wording (tree_id NULL, node_id = wording,
       a NULL source matches any) or per node (averaged over the wording's decided
       occurrences). Output order: impact descending, then wording and source.

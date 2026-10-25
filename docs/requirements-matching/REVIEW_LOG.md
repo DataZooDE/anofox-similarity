@@ -386,3 +386,25 @@ misleading wordings) and hurts both modes alike (regret 0.102 vs 0.100 with hard
 | F11 | low | attrs/decisions without tree_id leak across trees | Fixed: error when the items have tree_id |
 | F12 | low | any_value, control characters, p validation | Fixed: min(); \b \f escaped, other control characters stripped (documented); p validated in the queue |
 | F13 | low | Duplicated helpers | Deferred to the R5 refactor |
+
+## R4-3 — 2026-10-25 — before the R4 milestone (end-of-release review)
+
+- **Crew:** correctness, usability, testing, design (codex/claude). Verdict:
+  REQUEST_CHANGES, no semantic blockers.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | 2.0 suite and CI not recorded | 2.0 suite green after R4-2 (3 498 assertions, 110 files); CI runs once on the umbrella PR |
+| F2 | high | Empty token lists give NULL p silently | Fixed: guard error (red test first) |
+| F3 | med | 'decisions' means two things | `classify_to_catalogue(decisions_table)` renamed `answers_table`; 'decisions' always means a classifier result. Decided without escalation: naming is not a HANDOVER §8 case |
+| F4 | med | apply's default breaks the first review | Default: `vocabulary_overrides` if it exists, else none; explicit NULL = none. A NULL default was rejected: with `CREATE OR REPLACE` a forgotten parameter would drop earlier reviews |
+| F5 | med | Workflows not runnable | Rewritten on the benchmark files, with the wording → label_table recipe |
+| F6 | med | Identifier/range/named-argument tests | Added |
+| F7 | med | Answers cannot make a request reviewed | Documented recipe: write the confirmed classes into class_id |
+| F8 | low | uc_05 JSON checked with LIKE | Kept (no JSON extension linked); the exact escaping is pinned in vocabulary_review.test |
+| F9 | low | Texts matched by node_id alone | Fixed: runtime guard |
+| F10 | low | Three overrides contracts | Deferred: the kernel's source column becomes optional in the R5 refactor |
+| F11 | low | trees_table vs nodes_table, positional review_table, `request` | Kept: the HLD names them so (§4.4, §4.5) |
+| F12 | low | Doc drift | Fixed (function count, share wording) |
+
+**R4 status:** done on DuckDB 1.5.6 (R4: 462 assertions); 2.0 check with the R5 batch.

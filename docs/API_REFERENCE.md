@@ -32,7 +32,7 @@
 
 ## Overview
 
-The anofox-similarity extension provides about 73 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
+The anofox-similarity extension provides about 74 functions across 9 functional categories for multi-modal product similarity detection and coverage matching. All functions are registered as SQL macros, table functions or scalar functions and follow consistent naming conventions.
 
 ### Naming Convention
 
@@ -1663,7 +1663,7 @@ models: bring your own vectors.
 | `attr_bonus` | 1.0 | β × the attribute-template match: mean over the item's attributes of the best same-dimension template |
 | `temperature` | 0.3 | softmax temperature τ |
 | `overrides_table` | NULL | reviewed wordings `(wording, source, class_id)`, matched on the item's `label` |
-| `decisions_table` | NULL | per-item answers `([tree_id,] node_id, class_id)`; they beat overrides |
+| `answers_table` | NULL | per-item answers `([tree_id,] node_id, class_id)`; they beat overrides |
 | `attrs_table`, `templates_table` | NULL | `([tree_id,] node_id, name, dimension)` and `(class_id, dimension[, name, name_en, name_de])` for the bonus |
 | `name_vectors`, `name_floor` | NULL, 0.85 | name similarity for the bonus (calibrated cosine); without vectors a dimension match counts 1 |
 | `top` | NULL | keep the best `top` classes per item |
@@ -1672,21 +1672,37 @@ Pipeline per item: centring → similarity → z-score across the catalogue (+ �
 softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p` and
 `overridden = true`. The output is a `label_table` for `tree_coverage`.
 
-**Workflow: review the archive's vocabulary**
+**Workflow: review the archive's vocabulary** (runs on the benchmark files)
 
 ```sql
-CREATE TABLE wordings AS
-SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec FROM vocabulary_vectors;
-CREATE TABLE wording_decisions AS
-SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+FROM read_csv_auto('catalogue_vectors.csv.gz');
+CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('programme_nodes.csv.gz');
+CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec
+FROM read_csv_auto('vocabulary_vectors.csv.gz');
+
+-- classify every wording once; the archive's items take the distribution of their wording
+CREATE TABLE wording_decisions AS SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
+CREATE TABLE programme_labels AS
+SELECT n.tree_id, n.node_id, d.class_id, d.p
+FROM programme_nodes n JOIN wording_decisions d ON d.node_id = n.label AND d.source = n.source
+WHERE n.node_kind = 'item';
 
 -- the few wordings that touch most trees, least certain first
-SELECT * FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wording_decisions',
-                                      overrides_table := 'vocabulary_overrides') LIMIT 10;
+SELECT wording, top1, top2, round(margin, 3) AS margin, n_trees_affected, round(impact, 1) AS impact
+FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wording_decisions') LIMIT 10;
 
--- store the reviewer's answers (table functions cannot write)
-CREATE OR REPLACE TABLE vocabulary_overrides AS
-SELECT * FROM apply_vocabulary_review('review', overrides_table := 'vocabulary_overrides');
+-- the reviewer's answers (wording, source, class_id[, reviewed_by, reviewed_at]); store the merged
+-- overrides (table functions cannot write). Without overrides_table, the review merges into an
+-- existing vocabulary_overrides table, or starts one.
+CREATE TABLE review AS SELECT * FROM (VALUES ('Klimapaket Heizung', 'internal', 'seat_ventilation'))
+    t(wording, source, class_id);
+CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');
+
+-- rank with the reviewed wordings; the rest keep the classifier's soft labels
+SELECT * FROM tree_coverage('R12', k := 20, nodes_table := 'request_nodes', attrs_table := NULL,
+       candidate_nodes_table := 'programme_nodes', candidate_attrs_table := NULL,
+       overrides_table := 'vocabulary_overrides', label_table := 'programme_labels');
 ```
 
 **Workflow: send uncertain items to an external reviewer**
@@ -1702,10 +1718,21 @@ SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
 CREATE TABLE request_labels AS
 SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items',
        catalogue_table := 'catalogue', attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
-       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'), decisions_table := 'answers');
+       name_vectors := 'name_vectors', name_floor := getvariable('name_floor'), answers_table := 'answers');
 SELECT * FROM tree_coverage('R07', k := 20, nodes_table := 'request_nodes', attrs_table := 'request_attributes',
        candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
        overrides_table := 'vocabulary_overrides', label_table := 'request_labels');
+```
+
+`share` selects the lowest-margin share of the items that are not overridden (ceil(share × n)).
+A tree becomes *reviewed* only through `class_id` or the reviewed vocabulary, not through a
+`label_table`. Once every item of a request is confirmed, write the classes into its nodes to
+let `auto` partition:
+
+```sql
+CREATE TABLE request_nodes_reviewed AS
+SELECT n.* REPLACE (COALESCE(n.class_id, l.class_id) AS class_id)
+FROM request_nodes n LEFT JOIN (SELECT * FROM request_labels WHERE p = 1.0) l USING (tree_id, node_id);
 ```
 
 **Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after

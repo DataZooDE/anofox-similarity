@@ -171,7 +171,7 @@ FROM sap_to_materials_with_desc(
 
 ## 📚 API Reference
 
-The extension provides about 73 functions organized into 9 functional categories:
+The extension provides about 74 functions organized into 9 functional categories:
 
 ### Core Similarity Algorithms
 - **Jaccard Similarity** - Component overlap detection (O(n) time)
