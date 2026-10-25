@@ -180,3 +180,11 @@ query I
 SELECT count(*) FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attrs_table := NULL);
 ----
 0
+
+# the same table under another spelling is still the same table: the query is not its own
+# candidate (code-quality review CQ-1 F2)
+query I
+SELECT count(*) FROM tree_coverage('R', k := 5, nodes_table := 'req_nodes', attrs_table := NULL,
+                                   candidate_nodes_table := 'main.REQ_NODES', candidate_attrs_table := NULL);
+----
+0
