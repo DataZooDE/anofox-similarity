@@ -281,10 +281,13 @@ string BandsSQL(const string &idx) {
 unique_ptr<TableRef> MinhashBandsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("minhash_bands");
 	CoverageParamReader p {context, input.named_parameters, "minhash_bands"};
-	auto index = p.Positional(input, 0, "index_table", {"entity_id", "partition", "band_hashes", "num_hashes"});
+	auto index = p.Positional(input, 0, "index_table", {"entity_id", "partition", "band_hashes", "num_hashes", "seed"});
+	// num_hashes and seed travel along, so a search can check the band table against its index
 	auto sql = StringUtil::Format(
 	    "WITH idx AS (SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(partition AS BIGINT) AS part, band_hashes, "
-	    "CAST(num_hashes AS BIGINT) AS nh FROM %s) SELECT entity_id, part, r, j, h FROM (%s) ORDER BY entity_id, r, j",
+	    "CAST(num_hashes AS BIGINT) AS nh, CAST(seed AS BIGINT) AS sd FROM %s) "
+	    "SELECT bands.entity_id, bands.part, bands.r, bands.j, bands.h, i.nh AS num_hashes, i.sd AS seed FROM (%s) bands "
+	    "JOIN idx i ON i.entity_id = bands.entity_id ORDER BY bands.entity_id, bands.r, bands.j",
 	    QuotedIdentifier(index), BandsSQL("idx"));
 	return CoverageSubquery(sql, context, p.fn);
 }
@@ -316,13 +319,17 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 	string estimate = mode == "jaccard" ? "j" : "least(1.0, j * (qt + ct) / ((1 + j) * qt))";
 	// the index's band hashes in long form: from a stored minhash_bands table (a hash join,
 	// sub-linear) or unnested from the index on the fly (linear in the index size)
-	auto bands_table = p.Table("bands_table", "", {"entity_id", "part", "r", "j", "h"});
+	auto bands_table = p.Table("bands_table", "", {"entity_id", "part", "r", "j", "h", "num_hashes", "seed"});
 	string bands_sql = bands_table.empty()
 	                       ? BandsSQL("idx") + " WHERE EXISTS (SELECT 1 FROM qr WHERE qr.part = b.part AND qr.r = b.r)"
-	                       : StringUtil::Format("SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(part AS BIGINT) AS "
-	                                            "part, CAST(r AS BIGINT) AS r, CAST(j AS BIGINT) AS j, h FROM %s b WHERE "
-	                                            "EXISTS (SELECT 1 FROM qr WHERE qr.part = b.part AND qr.r = b.r)",
-	                                            QuotedIdentifier(bands_table));
+	                       : StringUtil::Format(
+	                             "SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(part AS BIGINT) AS part, CAST(r AS "
+	                             "BIGINT) AS r, CAST(j AS BIGINT) AS j, h FROM %s b WHERE EXISTS (SELECT 1 FROM qr WHERE "
+	                             "qr.part = b.part AND qr.r = b.r) AND (SELECT CASE WHEN EXISTS (SELECT 1 FROM %s x WHERE "
+	                             "x.num_hashes <> (SELECT nh FROM prm) OR x.seed <> (SELECT sd FROM prm)) OR (SELECT "
+	                             "count(DISTINCT entity_id) FROM %s) <> (SELECT count(*) FROM idx) THEN "
+	                             "error('find_covering_entities_lsh: bands_table was built from another index') END) IS NULL",
+	                             QuotedIdentifier(bands_table), QuotedIdentifier(bands_table), QuotedIdentifier(bands_table));
 	auto sql = StringUtil::Format(R"(
 		WITH idx AS (
 			SELECT CAST(entity_id AS VARCHAR) AS entity_id, CAST(total_weight AS DOUBLE) AS total_weight,
@@ -447,7 +454,7 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	    {"coverage", "recall"});
 	RegisterCoverageTableFunction(
 	    loader, "minhash_bands", {vc}, {"index_table"}, MinhashBandsBindReplace, {},
-	    "The band hashes of a minhash_index in long form (entity_id, part, r, j, h): one row per entity, rows per "
+	    "The band hashes of a minhash_index in long form (entity_id, part, r, j, h, num_hashes, seed): one row per entity, rows per "
 	    "band (1, 2, 4, 8) and band. Store it and pass it to find_covering_entities_lsh as bands_table, so the "
 	    "search joins on the band hash instead of unnesting the index.",
 	    {"CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');"}, {"coverage", "recall"});

@@ -1821,7 +1821,7 @@ optional accelerators.
 | `lsh_bands(signature, bands)` | one hash per band |
 | `minhash_index(feature_table [, num_hashes := 128, seed := 7, partitions := 4, entity_col, feature_col, weight_col])` | `entity_id, total_weight, partition, signature, band_hashes, num_hashes, seed` |
 | `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5, bands_table])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
-| `minhash_bands(index_table)` | the band hashes in long form `(entity_id, part, r, j, h)`, for `bands_table` |
+| `minhash_bands(index_table)` | the band hashes in long form `(entity_id, part, r, j, h, num_hashes, seed)`, for `bands_table`; a band table from another index is an error |
 
 The index works in the LSH-Ensemble style. Entities are split into size partitions, and for
 each query and partition the containment threshold becomes a Jaccard threshold for the

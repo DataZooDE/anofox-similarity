@@ -481,3 +481,29 @@ ICWS signature is seed-independent (test changed), `precision` must be quoted in
 
 **Release status (R0–R5):** full suite green on DuckDB 1.5.6 and 2.0. Coverage suite: 72 s on
 32 cores and 87 s on 2 cores (HANDOVER §8 budget +5 min). Dataset: 3.4 MB (budget 8 MB).
+
+## CQ-1 — 2026-10-25 — code-quality review of the whole branch (user request)
+
+- **Crew:** correctness, maintainability, design, performance (codex/claude). Verdict:
+  REQUEST_CHANGES: one performance bug, two correctness edges, consolidation and splits.
+  Public SQL API and outputs unchanged (the suite is the safety net after every step).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Request-side OR aggregation exponential in nesting depth | Fixed (red test: 40 nested alternatives hung > 120 s): AggregateAlternatives returns its chosen items, each alternative evaluated once |
+| F2 | med | Self-exclusion compared raw table names | Fixed: ResolvedRelationName ('main.REQ_NODES' = 'req_nodes'); test |
+| F3 | med | any_value over duplicate name vectors | Fixed: NameVectorsSQL errors on different vectors for one name (kernel, classifier); test |
+| F4 | med | ReadCoverageParams duplicated the parameter reader | ReadTreeSides / ReadKernelSettings / ReadSideTables on CoverageParamReader; KernelSettingsError shared with the scalar |
+| F5 | med | Set-measure SQL written twice | ContainmentSQL / JaccardSQL / TieBrokenScoreSQL shared; filters unchanged |
+| F6 | med | coverage_sql.hpp depended on property_tree.hpp; split lookups | LookupRelation in core backs TableExists, TableHasColumn, ValidateTableColumns, ResolvedRelationName; StringListParameter/QuotedList moved |
+| F7 | med | RunKernel, LoadTree too long | Split: ScoreRequirement, PartitionBlocks, TraceRow/AppendTrace; ReadRawNodes, ReadDistribution, ReadAttributes, WalkTree |
+| F8 | med | ClassifyBindReplace 250 lines | ReadClassifyParams + one builder per step |
+| F9 | med | Packing CTEs repeated | PackedSidesSQL |
+| F10 | low | Registration helper duplicated | Stage1Parameters/KernelParameters over RegisterCoverageTableFunction; scalars via RegisterCoverageScalar (four copies removed) |
+| F11 | low | Optional-column CAST repeated ~25 times | CastOrNullSQL / OptionalColumnSQL |
+| F12 | low | Comma-counted grid cap, dead branch, names | MAX_GRID_VALUES; dead branch removed; TreeCoverageParams/SearchParams, ItemScore, FieldText, … |
+| F13 | low | Query tree reloaded per candidate | Deferred: within the BR-40 budget (0.58 s per request) |
+| F14 | low | NULL template bound, NULL-score picks, stale bands_table | Stale band table: fixed (minhash_bands carries num_hashes/seed; mismatch is an error). The two semantic edges are deferred: they change behaviour and need a product decision |
+
+Also found while doing this: the Windows builds on DuckDB 1.5.6 (PR #25 CI) overflowed the 1 MB
+stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
