@@ -26,8 +26,12 @@ struct TreeSource {
 	bool has_context = false;
 };
 
+//! Whether a table or view exists (true when the path cannot be looked up: the query decides).
+bool TableExists(ClientContext &context, const string &path);
+
 //! Validate the table and column parameters of a TreeSource (identifiers, required columns).
-void ValidateTreeSource(ClientContext &context, TreeSource &source, const string &fn);
+//! prefix names the parameters in errors, e.g. 'candidate_' for candidate_nodes_table.
+void ValidateTreeSource(ClientContext &context, TreeSource &source, const string &fn, const string &prefix = "");
 
 //! SQL for the resolved nodes of a TreeSource:
 //!   tree_id, node_id, parent_id, node_kind, edge_type, label, context, source, count,

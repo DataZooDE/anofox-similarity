@@ -170,3 +170,35 @@ query I
 SELECT count(*) FROM tree_anchors('v_nodes');
 ----
 2
+
+# named arguments in the documented order (on DuckDB 1.5.6 scalar arguments bind by position)
+query TT
+SELECT DISTINCT n.tree_id, n.attributes[1].dimension FROM (SELECT unnest(tree_from_json(
+  json := '{"root": {"node_id": "X", "kind": "item", "attributes": [{"name": "Weg", "text": "mindestens 2,5 cm"}]}}',
+  tree_id := 'T9', lang := 'de')) AS n);
+----
+T9	length
+
+# a count must be positive and finite in every stage
+statement ok
+CREATE TABLE inf_nodes AS SELECT * FROM (VALUES
+    ('I', 'I', NULL, 'container', 'AND', 'spec', NULL, 1.0),
+    ('I', 'I.1', 'I', 'item', 'AND', 'x', 'seat_track', 'inf'::DOUBLE))
+    t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query TT
+SELECT node_id, issue FROM validate_trees('inf_nodes') WHERE severity = 'error';
+----
+I.1	bad_count
+
+statement error
+SELECT * FROM tree_class_multiset('inf_nodes');
+----
+count must be positive and finite
+
+# errors name the candidate parameters
+statement error
+SELECT * FROM tree_coverage('I', candidates := ['I'], nodes_table := 'inf_nodes', attrs_table := NULL,
+                            candidate_nodes_table := 'inf_nodes', candidate_attrs_table := 'no_such_table');
+----
+candidate_attrs_table

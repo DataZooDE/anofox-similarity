@@ -116,6 +116,7 @@ statement ok
 CREATE TABLE bad_index AS SELECT entity_id, feature_id FROM prog_index;
 
 statement error
-SELECT * FROM coverage_recall('R01', candidate_nodes_table := 'prog_nodes', candidate_multiset_table := 'bad_index');
+SELECT * FROM coverage_recall('R01', nodes_table := 'req_nodes', candidate_nodes_table := 'prog_nodes',
+                              candidate_multiset_table := 'bad_index');
 ----
 weight

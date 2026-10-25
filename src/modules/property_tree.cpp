@@ -693,6 +693,10 @@ void TreeMultisetFun(DataChunk &args, ExpressionState &, Vector &result) {
 					n.cls = v.ToString();
 				} else if (name == "count") {
 					n.count = v.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+					if (!std::isfinite(n.count) || n.count <= 0) {
+						throw InvalidInputException("tree_multiset: a count must be positive and finite (validate_trees "
+						                            "reports such nodes as bad_count)");
+					}
 				}
 			}
 			nodes.push_back(n);
@@ -883,26 +887,50 @@ vector<string> StringListParameter(const Value &value, const string &name) {
 	return out;
 }
 
-void ValidateTreeSource(ClientContext &context, TreeSource &src, const string &fn) {
-	src.nodes_table = ValidateSQLIdentifierPath(src.nodes_table, "nodes_table");
-	ValidateTableColumns(context, src.nodes_table,
-	                     {"tree_id", "node_id", "parent_id", "node_kind", "edge_type", "label", "class_id", "count"},
-	                     "nodes_table");
+bool TableExists(ClientContext &context, const string &path) {
+	// a relation exists when a probe for a column name that cannot exist resolves it
+	vector<string> parts = StringUtil::Split(path, '.');
+	try {
+		auto catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
+		auto schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
+		for (auto type : {CatalogType::TABLE_ENTRY, CatalogType::VIEW_ENTRY}) {
+			EntryLookupInfo lookup(type, duckdb_compat::EntryName(parts.back()));
+			if (Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup,
+			                      OnEntryNotFound::RETURN_NULL)) {
+				return true;
+			}
+		}
+	} catch (...) {
+		return true;
+	}
+	return false;
+}
+
+void ValidateTreeSource(ClientContext &context, TreeSource &src, const string &fn, const string &prefix) {
+	// a missing table is an error that names the parameter
+	auto columns = [&](const string &table, const vector<string> &cols, const string &param) {
+		if (!TableExists(context, table)) {
+			throw BinderException("%s: %s '%s' does not exist", fn, param, table);
+		}
+		ValidateTableColumns(context, table, cols, param);
+	};
+	src.nodes_table = ValidateSQLIdentifierPath(src.nodes_table, prefix + "nodes_table");
+	columns(src.nodes_table, {"tree_id", "node_id", "parent_id", "node_kind", "edge_type", "label", "class_id", "count"},
+	        prefix + "nodes_table");
 	src.has_source = TableHasColumn(context, src.nodes_table, "source");
 	src.has_context = TableHasColumn(context, src.nodes_table, "context");
 	if (!src.attrs_table.empty()) {
-		src.attrs_table = ValidateSQLIdentifierPath(src.attrs_table, "attrs_table");
-		ValidateTableColumns(context, src.attrs_table, {"tree_id", "node_id", "attr_id"}, "attrs_table");
+		src.attrs_table = ValidateSQLIdentifierPath(src.attrs_table, prefix + "attrs_table");
+		columns(src.attrs_table, {"tree_id", "node_id", "attr_id"}, prefix + "attrs_table");
 	}
 	if (!src.overrides_table.empty()) {
 		src.overrides_table = ValidateSQLIdentifierPath(src.overrides_table, "overrides_table");
-		ValidateTableColumns(context, src.overrides_table, {"wording", "source", "class_id"}, "overrides_table");
+		columns(src.overrides_table, {"wording", "source", "class_id"}, "overrides_table");
 	}
 	if (!src.label_table.empty()) {
 		src.label_table = ValidateSQLIdentifierPath(src.label_table, "label_table");
-		ValidateTableColumns(context, src.label_table, {"tree_id", "node_id", "class_id", "p"}, "label_table");
+		columns(src.label_table, {"tree_id", "node_id", "class_id", "p"}, "label_table");
 	}
-	(void)fn;
 }
 
 string ResolvedNodesSQL(const TreeSource &src) {
@@ -1101,8 +1129,8 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 				SELECT tree_id, node_id, NULL, 'bad_edge_type', 'error', 'edge_type must be AND or OR'
 				FROM n WHERE upper(COALESCE(edge_type, 'AND')) NOT IN ('AND', 'OR')
 				UNION ALL
-				SELECT tree_id, node_id, NULL, 'bad_count', 'error', 'count must be positive'
-				FROM n WHERE count IS NOT NULL AND count <= 0
+				SELECT tree_id, node_id, NULL, 'bad_count', 'error', 'count must be positive and finite'
+				FROM n WHERE count IS NOT NULL AND (count <= 0 OR NOT isfinite(CAST(count AS DOUBLE)))
 				UNION ALL
 				SELECT c.tree_id, c.node_id, NULL, 'orphan', 'error', 'parent ' || c.parent_id || ' does not exist'
 				FROM n c WHERE c.parent_id IS NOT NULL

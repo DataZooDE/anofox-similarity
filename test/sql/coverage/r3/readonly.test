@@ -1,0 +1,68 @@
+# name: test/sql/coverage/r3/readonly.test
+# description: The tree and coverage functions inline their SQL, so they work on a read-only
+#              database, also with qualified table paths (HLD §6).
+# group: [coverage]
+
+require anofox_similarity
+
+load __TEST_DIR__/coverage_r3_readonly.db
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+statement ok
+CREATE TABLE tree_index AS SELECT * FROM tree_class_multiset('tree_nodes');
+
+load __TEST_DIR__/coverage_r3_readonly.db readonly
+
+statement ok
+LOAD anofox_similarity
+
+statement error
+CREATE TABLE proof_readonly(x INTEGER);
+----
+read-only
+
+query I
+SELECT count(*) > 0 FROM tree_anchors('coverage_r3_readonly.main.tree_nodes', tree_ids := ['Q1']);
+----
+true
+
+query I
+SELECT count(*) > 0 FROM tree_class_multiset('coverage_r3_readonly.main.tree_nodes', tree_ids := ['Q1']);
+----
+true
+
+query I
+SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes') WHERE severity = 'error';
+----
+0
+
+query TR
+SELECT candidate_id, coverage FROM tree_coverage('Q1', candidates := ['S1'], mu := 0.0,
+       nodes_table := 'coverage_r3_readonly.main.tree_nodes', attrs_table := 'coverage_r3_readonly.main.tree_attributes');
+----
+S1	1.0
+
+query I
+SELECT count(*) > 0 FROM tree_coverage_trace('Q1', candidates := ['S1']);
+----
+true
+
+query I
+SELECT count(*) FROM coverage_recall('Q1', k := 3, candidate_multiset_table := 'coverage_r3_readonly.main.tree_index');
+----
+3
+
+query I
+SELECT len(tree_from_json('{"root": {"node_id": "X", "kind": "item", "class_id": "seat_track"}}'));
+----
+1
+
+query I
+SELECT cardinality(tree_multiset([{'node_id': 'X', 'node_kind': 'item', 'class_id': 'seat_track'}]));
+----
+1

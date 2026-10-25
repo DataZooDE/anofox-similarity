@@ -81,6 +81,12 @@ FROM results r
 JOIN gold g ON g.query_id = r.query_id AND g.candidate_id = r.candidate_id
 JOIN gold_requests q ON q.request_id = r.query_id;
 
+# every evaluated pair has ground truth, so no KPI denominator shrinks silently
+query II
+SELECT count(DISTINCT query_id), count(*) FROM scored;
+----
+80	1600
+
 # recall@20 of a best candidate >= 0.90
 query I
 SELECT avg((SELECT bool_or(true_coverage >= best_coverage - 1e-9) FROM scored s2 WHERE s2.query_id = s.query_id)::INT) >= 0.90

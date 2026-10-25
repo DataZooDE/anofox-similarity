@@ -227,7 +227,9 @@ KTree LoadTree(const Value &list) {
 		if (auto cnt = Field(entry, "count"); cnt && !cnt->IsNull()) {
 			r.count = cnt->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			if (!std::isfinite(r.count) || r.count <= 0) {
-				throw InvalidInputException("coverage_kernel: node '%s': count must be positive and finite", r.id);
+				throw InvalidInputException("coverage_kernel: node '%s': count must be positive and finite (validate_trees "
+				                            "reports such nodes as bad_count)",
+				                            r.id);
 			}
 		}
 		auto rev = Field(entry, "reviewed");
@@ -926,24 +928,6 @@ struct CoverageParams {
 	bool multiset_has_reviewed = false;
 };
 
-bool TableExists(ClientContext &context, const string &path) {
-	// a relation exists when a probe for a column name that cannot exist resolves it
-	vector<string> parts = StringUtil::Split(path, '.');
-	try {
-		auto catalog_name = parts.size() == 3 ? parts[0] : INVALID_CATALOG;
-		auto schema_name = parts.size() >= 2 ? parts[parts.size() - 2] : INVALID_SCHEMA;
-		for (auto type : {CatalogType::TABLE_ENTRY, CatalogType::VIEW_ENTRY}) {
-			EntryLookupInfo lookup(type, duckdb_compat::EntryName(parts.back()));
-			if (Catalog::GetEntry(context, duckdb_compat::Ident(catalog_name), duckdb_compat::Ident(schema_name), lookup,
-			                      OnEntryNotFound::RETURN_NULL)) {
-				return true;
-			}
-		}
-	} catch (...) {
-		return true;
-	}
-	return false;
-}
 
 const Value *Named(const duckdb_compat::BindNamedParameters &named, const char *name) {
 	return duckdb_compat::FindNamedParameter(named, name);
@@ -1011,14 +995,7 @@ CoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindInput
 	}
 	// identifiers (candidate parameters named as such in errors)
 	ValidateTreeSource(context, p.q, fn);
-	{
-		auto c = p.c;
-		c.nodes_table = ValidateSQLIdentifierPath(c.nodes_table, "candidate_nodes_table");
-		if (!c.attrs_table.empty()) {
-			ValidateSQLIdentifierPath(c.attrs_table, "candidate_attrs_table");
-		}
-		ValidateTreeSource(context, p.c, fn);
-	}
+	ValidateTreeSource(context, p.c, fn, "candidate_");
 	str("labels", p.labels);
 	p.labels = StringUtil::Lower(p.labels);
 	if (p.labels != "soft" && p.labels != "hard") {
