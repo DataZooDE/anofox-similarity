@@ -366,6 +366,7 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	    items_label ? "CAST(label AS VARCHAR)" : "NULL::VARCHAR",
 	    has(items, "vec") ? "CAST(vec AS DOUBLE[])" : "NULL::DOUBLE[]",
 	    late ? "CAST(tokens AS DOUBLE[][])" : "NULL::DOUBLE[][]", qi);
+	items_sql += late ? " WHERE tokens IS NOT NULL" : " WHERE vec IS NOT NULL"; // items without a vector are skipped
 	string cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s",
 	                                    late ? "NULL::DOUBLE[]" : "CAST(vec AS DOUBLE[])",
 	                                    late ? "CAST(exemplar_tokens AS DOUBLE[][])" : "NULL::DOUBLE[][]", qc);
