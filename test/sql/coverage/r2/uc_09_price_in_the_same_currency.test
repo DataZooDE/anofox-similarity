@@ -1,0 +1,22 @@
+# name: test/sql/coverage/r2/uc_09_price_in_the_same_currency.test
+# description: A trim cover has a target price of at most 120 €. Quotes arrive in EUR and
+#              USD. Prices are compared in the same currency only; a USD quote is a gate, not
+#              a silent conversion (HANDOVER §7.2).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE quotes AS SELECT * FROM (VALUES ('Q1', '110 EUR'), ('Q2', '118 €'), ('Q3', '126 €'), ('Q4', '100 USD'))
+    t(quote, price);
+
+# currency is linear: Q1 1; Q2 1; Q3 d 6/120 = 0.05 -> 1 - 0.03/0.05 = 0.4; Q4 gate
+query TRT
+SELECT quote, round(v.score, 4), v.rule
+FROM quotes, LATERAL (SELECT value_satisfies(parse_quantity('höchstens 120 €', 'de'), parse_quantity(price)) AS v)
+ORDER BY quote;
+----
+Q1	1.0	at_most
+Q2	1.0	at_most
+Q3	0.4	at_most
+Q4	0.0	gate

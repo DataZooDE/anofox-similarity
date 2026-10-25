@@ -1,0 +1,43 @@
+# name: test/sql/coverage/r2/uc_07_unqualified_values_take_the_template_bound.test
+# description: Many requirements give a bare value ("noise 38 dB(A)", "travel 24 cm"). The
+#              engineer lets each one take the direction of its catalogue attribute template
+#              (HLD §11.1) instead of treating it as an exact point.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE templates AS SELECT * FROM read_csv_auto('test/data/coverage/catalogue_attributes.csv.gz');
+
+# the catalogue knows that seat-track noise is a lower-is-better limit, travel a minimum
+query TT
+SELECT attr_key, bound FROM templates WHERE class_id = 'seat_track' AND attr_key IN ('noise', 'travel')
+ORDER BY attr_key;
+----
+noise	at_most
+travel	at_least
+
+statement ok
+CREATE TABLE req AS SELECT * FROM (VALUES
+    ('noise', '38 dB(A)', 'sound_level'), ('travel', '24 cm', 'length')) t(attr_key, value_text, dimension);
+
+# provided: noise 35 dB(A), travel 0.26 m
+statement ok
+CREATE TABLE prov AS SELECT * FROM (VALUES ('noise', 35.0), ('travel', 0.26)) t(attr_key, value);
+
+# As exact points, both miss: 35 is not 38 (outside ±2 %), 0.26 is not 0.24 (outside ±0.01 decades)
+# With the template bound, both are met.
+query TRTRT
+SELECT r.attr_key,
+       value_satisfies(parse_quantity(r.value_text), {'lo': p.value, 'hi': p.value, 'dimension': r.dimension}).score,
+       value_satisfies(parse_quantity(r.value_text), {'lo': p.value, 'hi': p.value, 'dimension': r.dimension}).rule,
+       value_satisfies(parse_quantity(r.value_text), {'lo': p.value, 'hi': p.value, 'dimension': r.dimension},
+                       NULL, 0.02, 0.05, t.bound).score,
+       value_satisfies(parse_quantity(r.value_text), {'lo': p.value, 'hi': p.value, 'dimension': r.dimension},
+                       NULL, 0.02, 0.05, t.bound).rule
+FROM req r JOIN prov p USING (attr_key)
+JOIN templates t ON t.class_id = 'seat_track' AND t.attr_key = r.attr_key
+ORDER BY r.attr_key;
+----
+noise	0.0	point	1.0	at_most
+travel	0.0	point	1.0	at_least

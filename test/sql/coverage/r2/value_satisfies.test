@@ -1,0 +1,257 @@
+# name: test/sql/coverage/r2/value_satisfies.test
+# description: Direction-aware value comparison (HLD §4.2 with the §11 amendments) and
+#              compat_score for ordinal attributes. Every expected score is computed by hand:
+#              tol = 0.02 (decades on log scale, i.e. 1 - 10^-0.02 = 4.5007 % relative; 2 % on
+#              linear scale), soft band 0.05: score = 1 if d <= tol, else max(0, 1 - (d - tol)/0.05).
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- at_most (lower is better)
+
+# sound level is compared on a linear scale. Requirement: at most 38 dB(A).
+#   35 -> d 0                                  -> 1
+#   38.5 -> d 0.5/38 = 0.01316 <= 0.02          -> 1
+#   39 -> d 1/38 = 0.02632 -> 1 - 0.00632/0.05  -> 0.8737
+#   41 -> d 3/38 = 0.07895 -> beyond the band   -> 0
+query RRRT
+SELECT p, round(v.score, 4), round(v.distance, 4), v.rule FROM (
+    SELECT p, value_satisfies({'lo': 38.0, 'hi': 38.0, 'dimension': 'sound_level', 'bound': 'at_most'},
+                              {'lo': p, 'hi': p, 'dimension': 'sound_level'}) AS v
+    FROM (VALUES (35.0), (38.5), (39.0), (41.0)) t(p))
+ORDER BY p;
+----
+35.0	1.0	0.0	at_most
+38.5	1.0	0.0132	at_most
+39.0	0.8737	0.0263	at_most
+41.0	0.0	0.0789	at_most
+
+# at_most is judged on the low end of a provided range: noise 33..40 dB(A) can be set to 33
+query R
+SELECT value_satisfies({'lo': 38.0, 'hi': 38.0, 'dimension': 'sound_level', 'bound': 'at_most'},
+                       {'lo': 33.0, 'hi': 40.0, 'dimension': 'sound_level'}).score;
+----
+1.0
+
+# ---------------------------------------------------------------- at_least (higher is better)
+
+# length is compared on a log scale. Requirement: at least 0.24 m.
+#   0.235 -> d 0.02083 <= 0.04501 -> 1
+#   0.22  -> d 0.08333 -> 1 - (0.08333 - 0.04501)/0.05 = 0.2335
+#   0.20  -> d 0.16667 -> 0
+query RRR
+SELECT p, round(v.score, 4), round(v.distance, 4) FROM (
+    SELECT p, value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                              {'lo': p, 'hi': p, 'dimension': 'length'}) AS v
+    FROM (VALUES (0.20), (0.22), (0.235), (0.30)) t(p))
+ORDER BY p;
+----
+0.2	0.0	0.1667
+0.22	0.2335	0.0833
+0.235	1.0	0.0208
+0.3	1.0	0.0
+
+# at_least is judged on the high end of a provided range: 0.20..0.26 m reaches 0.24
+query R
+SELECT value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 0.20, 'hi': 0.26, 'dimension': 'length'}).score;
+----
+1.0
+
+# linear scale on request (scale := 'linear'): 0.235 m -> d 0.02083 > 0.02 -> 1 - 0.00083/0.05 = 0.9833
+query R
+SELECT round(value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                             {'lo': 0.235, 'hi': 0.235, 'dimension': 'length'}, 'linear').score, 4);
+----
+0.9833
+
+# time is linear by default: at most 180 s, provided 190 s -> d 0.05556 -> 1 - 0.03556/0.05 = 0.2889
+query R
+SELECT round(value_satisfies({'lo': 180.0, 'hi': 180.0, 'dimension': 'time', 'bound': 'at_most'},
+                             {'lo': 190.0, 'hi': 190.0, 'dimension': 'time'}).score, 4);
+----
+0.2889
+
+# ---------------------------------------------------------------- within and equals
+
+# within (log): required speed 0.015..0.025 m/s
+#   provided 0.010..0.030 covers it                                     -> 1
+#   provided 0.020..0.030: a = log10 0.015 = -1.823909, b = log10 0.025 = -1.602060 (width 0.221849)
+#     c = log10 0.020 - 0.02 = -1.718970; overlap = b - c = 0.116910   -> 0.5270, distance 0.4730
+query RRR
+SELECT p_lo, round(v.score, 4), round(v.distance, 4) FROM (
+    SELECT p_lo, value_satisfies({'lo': 0.015, 'hi': 0.025, 'dimension': 'speed', 'bound': 'within'},
+                                 {'lo': p_lo, 'hi': 0.030, 'dimension': 'speed'}) AS v
+    FROM (VALUES (0.010), (0.020)) t(p_lo))
+ORDER BY p_lo;
+----
+0.01	1.0	0.0
+0.02	0.527	0.473
+
+# equals (log): 220 N; 225 N -> d 0.02273 <= 0.04501 -> 1; 235 N -> d 0.06818 -> 1 - 0.02317/0.05 = 0.5365
+query RR
+SELECT round(value_satisfies({'lo': 220.0, 'hi': 220.0, 'dimension': 'force', 'bound': 'equals'},
+                             {'lo': 225.0, 'hi': 225.0, 'dimension': 'force'}).score, 4),
+       round(value_satisfies({'lo': 220.0, 'hi': 220.0, 'dimension': 'force', 'bound': 'equals'},
+                             {'lo': 235.0, 'hi': 235.0, 'dimension': 'force'}).score, 4);
+----
+1.0	0.5365
+
+# ---------------------------------------------------------------- unqualified values
+
+# an unqualified point v is within [v * 10^-0.01, v * 10^0.01] (log), so 0.24 m:
+#   provided 0.243 -> inside the tolerance -> 1, rule 'point'
+#   provided 0.26 -> log10 0.26 - 0.02 = -0.605027 is above log10(0.24 * 10^0.01) = -0.609806 -> 0
+query RRT
+SELECT p, v.score, v.rule FROM (
+    SELECT p, value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': NULL},
+                              {'lo': p, 'hi': p, 'dimension': 'length'}) AS v
+    FROM (VALUES (0.243), (0.26)) t(p))
+ORDER BY p;
+----
+0.243	1.0	point
+0.26	0.0	point
+
+# HLD §11.1: a default bound turns the unqualified value into a limit; 0.26 m is at least 0.24 m
+query RT
+SELECT v.score, v.rule FROM (
+    SELECT value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': NULL},
+                           {'lo': 0.26, 'hi': 0.26, 'dimension': 'length'},
+                           NULL, 0.02, 0.05, 'at_least') AS v);
+----
+1.0	at_least
+
+# the default does not override a stated bound
+query T
+SELECT value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_most'},
+                       {'lo': 0.26, 'hi': 0.26, 'dimension': 'length'}, NULL, 0.02, 0.05, 'at_least').rule;
+----
+at_most
+
+# ---------------------------------------------------------------- gates
+
+# different dimensions never match (BR-11): 5 V never satisfies 5 A
+query RRT
+SELECT v.score, v.distance, v.rule FROM (
+    SELECT value_satisfies({'lo': 5.0, 'hi': 5.0, 'dimension': 'current', 'bound': 'at_least'},
+                           {'lo': 5.0, 'hi': 5.0, 'dimension': 'voltage'}) AS v);
+----
+0.0	NULL	gate
+
+# an unknown dimension (unparsed unit) is a gate too
+query T
+SELECT value_satisfies({'lo': 5.0, 'hi': 5.0, 'dimension': NULL, 'bound': 'at_least'},
+                       {'lo': 5.0, 'hi': 5.0, 'dimension': 'current'}).rule;
+----
+gate
+
+# currency: same currency only (HANDOVER §7.2)
+query RT
+SELECT v.score, v.rule FROM (
+    SELECT value_satisfies({'lo': 180.0, 'hi': 180.0, 'dimension': 'currency', 'unit': 'EUR', 'bound': 'at_most'},
+                           {'lo': 150.0, 'hi': 150.0, 'dimension': 'currency', 'unit': 'USD'}) AS v);
+----
+0.0	gate
+
+query R
+SELECT value_satisfies({'lo': 180.0, 'hi': 180.0, 'dimension': 'currency', 'unit': 'EUR', 'bound': 'at_most'},
+                       {'lo': 150.0, 'hi': 150.0, 'dimension': 'currency', 'unit': 'EUR'}).score;
+----
+1.0
+
+# no provided value
+query RT
+SELECT v.score, v.rule FROM (
+    SELECT value_satisfies({'lo': 0.24, 'hi': 0.24, 'dimension': 'length', 'bound': 'at_least'},
+                           {'lo': NULL::DOUBLE, 'hi': NULL::DOUBLE, 'dimension': 'length'}) AS v);
+----
+0.0	missing
+
+# NULL in, NULL out
+query I
+SELECT value_satisfies(NULL, {'lo': 1.0, 'hi': 1.0, 'dimension': 'length'}) IS NULL;
+----
+true
+
+# ---------------------------------------------------------------- temperature (HLD §11.3)
+
+# absolute tolerance 1 K, soft band 2.5 K; at most 37 °C = 310.15 K
+#   311.15 (38 °C) -> d 1 K   -> 1
+#   312.65 (39.5)  -> d 2.5 K -> 1 - 1.5/2.5 = 0.4
+#   318.15 (45 °C) -> d 8 K   -> 0
+query RRR
+SELECT p, round(v.score, 4), round(v.distance, 4) FROM (
+    SELECT p, value_satisfies({'lo': 310.15, 'hi': 310.15, 'dimension': 'temperature', 'bound': 'at_most'},
+                              {'lo': p, 'hi': p, 'dimension': 'temperature'}) AS v
+    FROM (VALUES (311.15), (312.65), (318.15)) t(p))
+ORDER BY p;
+----
+311.15	1.0	1.0
+312.65	0.4	2.5
+318.15	0.0	8.0
+
+# ---------------------------------------------------------------- parameters
+
+statement error
+SELECT value_satisfies({'lo': 1.0, 'hi': 1.0, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 1.0, 'hi': 1.0, 'dimension': 'length'}, 'cubic');
+----
+scale must be 'log' or 'linear'
+
+statement error
+SELECT value_satisfies({'lo': 1.0, 'hi': 1.0, 'dimension': 'length', 'bound': 'roughly'},
+                       {'lo': 1.0, 'hi': 1.0, 'dimension': 'length'});
+----
+unknown bound 'roughly'
+
+statement error
+SELECT value_satisfies({'lo': 1.0, 'hi': 1.0, 'dimension': 'length', 'bound': 'at_least'},
+                       {'lo': 1.0, 'hi': 1.0, 'dimension': 'length'}, 'log', -0.1, 0.05);
+----
+tol and soft_band must be non-negative
+
+# a struct without lo is not a quantity
+statement error
+SELECT value_satisfies({'value': 1.0}, {'lo': 1.0, 'hi': 1.0, 'dimension': 'length'});
+----
+needs a field 'lo'
+
+# parse_quantity output plugs straight in
+query R
+SELECT value_satisfies(parse_quantity('max. 38 dB(A)'), parse_quantity('35 dB(A)')).score;
+----
+1.0
+
+# ---------------------------------------------------------------- compat_score
+
+statement ok
+CREATE TABLE compatibility_rules AS
+SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+
+# IP65 satisfies IP54; IP54 is one step short of IP65 (0.5); IP40 is far from IP67 (0)
+query RRR
+SELECT compat_score('protection_class', 'IP54', 'IP65'),
+       compat_score('protection_class', 'IP65', 'IP54'),
+       compat_score('protection_class', 'IP67', 'IP40');
+----
+1.0	0.5	0.0
+
+# no rule: 1 if equal, else 0
+query RR
+SELECT compat_score('cert_level', 'gold', 'gold'), compat_score('cert_level', 'gold', 'silver');
+----
+1.0	0.0
+
+# another rules table
+statement ok
+CREATE TABLE my_rules AS SELECT 'cert_level' AS dimension, 'silver' AS required, 'gold' AS provided, 1.0 AS score;
+
+query R
+SELECT compat_score('cert_level', 'silver', 'gold', rules_table := 'my_rules');
+----
+1.0
+
+query I
+SELECT compat_score('protection_class', NULL, 'IP65') IS NULL;
+----
+true

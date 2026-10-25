@@ -1,0 +1,242 @@
+# name: test/sql/coverage/r2/units_and_parse.test
+# description: Quantity layer (HLD §4.2): the built-in units seed, parse_quantity and
+#              normalize_quantity. Values are normalised to the base unit of their
+#              dimension; unknown units are never guessed. Expected values are hand-derived.
+# group: [coverage]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- units seed
+
+# the seed is a read-only table function; base units have factor 1
+query TTRR
+SELECT symbol, dimension, factor, "offset" FROM quantity_units()
+WHERE symbol IN ('m', 'mm', 'kN', '°C', 'A', 'mA', 'dB(A)', 's', 'min')
+ORDER BY dimension, symbol;
+----
+A	current	1.0	0.0
+mA	current	0.001	0.0
+kN	force	1000.0	0.0
+m	length	1.0	0.0
+mm	length	0.001	0.0
+dB(A)	sound_level	1.0	0.0
+min	time	60.0	0.0
+s	time	1.0	0.0
+°C	temperature	1.0	273.15
+
+# currencies are never converted: factor NULL
+query TTR
+SELECT symbol, dimension, factor FROM quantity_units() WHERE symbol IN ('EUR', 'USD') ORDER BY symbol;
+----
+EUR	currency	NULL
+USD	currency	NULL
+
+# every dimension has exactly one base unit
+query I
+SELECT count(*) FROM (
+    SELECT dimension FROM quantity_units() WHERE factor = 1 AND "offset" = 0 AND symbol = base_unit
+    GROUP BY dimension HAVING count(*) <> 1);
+----
+0
+
+# ---------------------------------------------------------------- parse_quantity: bounds
+
+# 'max. 38 dB(A)': at most 38 in the base unit dB(A)
+query RRTTT
+SELECT p.lo, p.hi, p.unit, p.dimension, p.bound FROM (SELECT parse_quantity('max. 38 dB(A)') AS p);
+----
+38.0	38.0	dB(A)	sound_level	at_most
+
+# 'mindestens 24 cm' = at least 0.24 m
+query RRTTT
+SELECT p.lo, p.hi, p.unit, p.dimension, p.bound FROM (SELECT parse_quantity('mindestens 24 cm') AS p);
+----
+0.24	0.24	m	length	at_least
+
+# '≥ 0.8627 A'
+query RTT
+SELECT p.lo, p.dimension, p.bound FROM (SELECT parse_quantity('≥ 0.8627 A') AS p);
+----
+0.8627	current	at_least
+
+# '9379…43004 mV' = within [9.379 V, 43.004 V]
+query RRTT
+SELECT round(p.lo, 6), round(p.hi, 6), p.unit, p.bound FROM (SELECT parse_quantity('9379…43004 mV') AS p);
+----
+9.379	43.004	V	within
+
+# ranges: en dash, 'to', 'bis', 'between ... and', 'zwischen ... und'
+query TRRT
+SELECT t, p.lo, p.hi, p.bound FROM (
+    SELECT t, parse_quantity(t) AS p FROM (VALUES ('6–18 V'), ('40 to 60 W'), ('40 bis 60 W'),
+                                                 ('between 15 and 25 mm/s'), ('zwischen 15 und 25 mm/s')) v(t))
+ORDER BY t;
+----
+40 bis 60 W	40.0	60.0	within
+40 to 60 W	40.0	60.0	within
+6–18 V	6.0	18.0	within
+between 15 and 25 mm/s	0.015	0.025	within
+zwischen 15 und 25 mm/s	0.015	0.025	within
+
+# at-most words: 'up to', 'bis zu', 'not more than', 'höchstens', '≤'
+query TRT
+SELECT t, p.lo, p.bound FROM (
+    SELECT t, parse_quantity(t) AS p FROM (VALUES ('up to 27 kg'), ('bis zu 27 kg'), ('not more than 27 kg'),
+                                                 ('höchstens 27 kg'), ('≤ 27 kg')) v(t))
+ORDER BY t;
+----
+bis zu 27 kg	27.0	at_most
+höchstens 27 kg	27.0	at_most
+not more than 27 kg	27.0	at_most
+up to 27 kg	27.0	at_most
+≤ 27 kg	27.0	at_most
+
+# equals: tolerance notation and nominal values
+query TRRT
+SELECT t, p.lo, p.hi, p.bound FROM (
+    SELECT t, parse_quantity(t) AS p FROM (VALUES ('220 N ± 2 %'), ('nominal 220 N'), ('Nennwert 220 N')) v(t))
+ORDER BY t;
+----
+220 N ± 2 %	220.0	220.0	equals
+Nennwert 220 N	220.0	220.0	equals
+nominal 220 N	220.0	220.0	equals
+
+# no bound word: unqualified (bound NULL)
+query RT
+SELECT p.lo, p.bound FROM (SELECT parse_quantity('38 dB(A)') AS p);
+----
+38.0	NULL
+
+# ---------------------------------------------------------------- parse_quantity: units and numbers
+
+# time: '2 Wochen' = 2 * 7 * 86400 s = 1209600 s; 6 weeks and 42 days are the same
+query RRR
+SELECT parse_quantity('mindestens 2 Wochen').lo, parse_quantity('6 weeks').lo, parse_quantity('42 days').lo;
+----
+1209600.0	3628800.0	3628800.0
+
+# 2500 mA = 2.5 A; 'not more than 5 ms' = 0.005 s
+query RRT
+SELECT parse_quantity('2500 mA').lo, parse_quantity('not more than 5 ms').lo, parse_quantity('not more than 5 ms').unit;
+----
+2.5	0.005	s
+
+# temperature has an offset: 37 °C = 310.15 K; '-40 to 85 °C' = [233.15 K, 358.15 K]
+query RRRT
+SELECT round(parse_quantity('37 °C').lo, 2), round(parse_quantity('-40 to 85 °C').lo, 2),
+       round(parse_quantity('-40 to 85 °C').hi, 2), parse_quantity('37 °C').dimension;
+----
+310.15	233.15	358.15	temperature
+
+# German decimal comma and thousands separators need the language
+#   '2,5 A' = 2.5 (a comma with one digit after is always decimal)
+#   '65.000 Zyklen' (de) = 65000; '85,000 cycles' (en) = 85000
+#   '2.500 mA' de = 2500 mA = 2.5 A; en = 2.5 mA = 0.0025 A
+query RRRRR
+SELECT parse_quantity('2,5 A').lo, parse_quantity('65.000 Zyklen', 'de').lo, parse_quantity('85,000 cycles', 'en').lo,
+       parse_quantity('2.500 mA', 'de').lo, parse_quantity('2.500 mA', 'en').lo;
+----
+2.5	65000.0	85000.0	2.5	0.0025
+
+# both separators: the last one is the decimal separator
+query RR
+SELECT round(parse_quantity('1.234,5 mm', 'de').lo, 6), round(parse_quantity('1,234.5 mm', 'en').lo, 6);
+----
+1.2345	1.2345
+
+# a language list: the first language decides ambiguous separators
+query RR
+SELECT parse_quantity('2.500 mA', ['de', 'en']).lo, parse_quantity('2.500 mA', ['en', 'de']).lo;
+----
+2.5	0.0025
+
+# a bare number is a count
+query RTTT
+SELECT p.lo, p.unit, p.dimension, p.bound FROM (SELECT parse_quantity('≥ 4') AS p);
+----
+4.0	1	count	at_least
+
+# currency keeps its code; the symbol maps to the code
+query RTT
+SELECT p.lo, p.unit, p.dimension FROM (SELECT parse_quantity('höchstens 180 €') AS p);
+----
+180.0	EUR	currency
+
+# an unknown unit is never guessed: the number stays as written, dimension NULL
+query RTT
+SELECT p.lo, p.source_unit, p.dimension FROM (SELECT parse_quantity('12 furlongs') AS p);
+----
+12.0	furlongs	NULL
+
+# the customer's unit and the raw text are kept
+query TT
+SELECT p.source_unit, p.raw FROM (SELECT parse_quantity('mindestens 24 cm') AS p);
+----
+cm	mindestens 24 cm
+
+# ordinal classes are categories, not numbers ('IP54' is not 54)
+query TTR
+SELECT p.category, p.bound, p.lo FROM (SELECT parse_quantity('IP54 or better') AS p);
+----
+IP54	at_least	NULL
+
+query TT
+SELECT p.category, p.bound FROM (SELECT parse_quantity('mindestens F1') AS p);
+----
+F1	at_least
+
+# NULL and text without a quantity
+query II
+SELECT parse_quantity(NULL) IS NULL, parse_quantity('see drawing').lo IS NULL;
+----
+true	true
+
+# a user unit table extends or overrides the seed:
+#   'Stk.' (pieces) as a count, and a fictional 'lane' of 3.5 m
+statement ok
+CREATE TABLE my_units AS SELECT * FROM (VALUES
+    ('pcs', ['Stk.', 'Stk', 'pieces'], 'count', 1.0, 0.0),
+    ('lane', ['lanes'], 'length', 3.5, 0.0)) t(symbol, alias, dimension, factor, "offset");
+
+query RTRT
+SELECT parse_quantity('3 Stk.', 'de', (SELECT list(u) FROM my_units u)).lo,
+       parse_quantity('3 Stk.', 'de', (SELECT list(u) FROM my_units u)).dimension,
+       parse_quantity('2 lanes', 'en', (SELECT list(u) FROM my_units u)).lo,
+       parse_quantity('2 lanes', 'en', (SELECT list(u) FROM my_units u)).unit;
+----
+3.0	count	7.0	m
+
+# named arguments in the documented order: text, lang, unit_table
+query I
+SELECT parse_quantity(text := '65.000 Zyklen', lang := 'de').lo = parse_quantity('65.000 Zyklen', 'de').lo;
+----
+true
+
+# ---------------------------------------------------------------- normalize_quantity
+
+query RTT
+SELECT n.value, n.unit, n.dimension FROM (SELECT normalize_quantity(2500, 'mA') AS n);
+----
+2.5	A	current
+
+query RRT
+SELECT normalize_quantity(6, 'weeks').value, round(normalize_quantity(37, '°C').value, 2),
+       normalize_quantity(100, '€').unit;
+----
+3628800.0	310.15	EUR
+
+# unknown unit: value and unit unchanged, dimension NULL
+query RTT
+SELECT n.value, n.unit, n.dimension FROM (SELECT normalize_quantity(5, 'furlong') AS n);
+----
+5.0	furlong	NULL
+
+query II
+SELECT normalize_quantity(NULL, 'mm') IS NULL, normalize_quantity(5, NULL).dimension IS NULL;
+----
+true	true
+
+query R
+SELECT normalize_quantity(3, 'lanes', (SELECT list(u) FROM my_units u)).value;
+----
+10.5

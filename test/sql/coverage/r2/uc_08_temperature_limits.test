@@ -1,0 +1,22 @@
+# name: test/sql/coverage/r2/uc_08_temperature_limits.test
+# description: A heating requirement limits the seat surface to 43 °C. Temperatures are
+#              stored in kelvin, but tolerances are absolute (1 K, band 2.5 K, HLD §11.3), so a
+#              45 °C mat is clearly too hot.
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE mats AS SELECT * FROM (VALUES ('M-42', '42 °C'), ('M-44', '44 °C'), ('M-45', '45 °C'), ('M-47', '47 °C'))
+    t(mat, surface_temp);
+
+# at most 43 °C: 42 -> 1; 44 -> d 1 K -> 1; 45 -> d 2 K -> 1 - 1/2.5 = 0.6; 47 -> d 4 K -> 0
+query TRR
+SELECT mat, round(v.score, 4), round(v.distance, 4)
+FROM mats, LATERAL (SELECT value_satisfies(parse_quantity('max. 43 °C'), parse_quantity(surface_temp)) AS v)
+ORDER BY mat;
+----
+M-42	1.0	0.0
+M-44	1.0	1.0
+M-45	0.6	2.0
+M-47	0.0	4.0

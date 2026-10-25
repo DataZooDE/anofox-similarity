@@ -1,0 +1,25 @@
+# name: test/sql/coverage/r2/uc_03_volts_never_satisfy_amps.test
+# description: A wiring requirement asks for a current rating of at least 5 A. An offer
+#              sheet lists 5 V, 12 V and 10 A. Only the amps count; volts never match amps,
+#              however close the number (BR-11).
+# group: [coverage]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE offer_sheet AS SELECT * FROM (VALUES
+    ('O1', '5 V'), ('O2', '12 V'), ('O3', '10 A'), ('O4', '4 A'), ('O5', '5 furlongs')) t(offer_id, rating);
+
+# at least 5 A:
+#   O1/O2 volts: gate; O3 10 A: 1; O4 4 A: d 0.2 (log) -> 0; O5 unknown unit: gate
+query TRT
+SELECT offer_id, v.score, v.rule
+FROM offer_sheet,
+     LATERAL (SELECT value_satisfies(parse_quantity('at least 5 A'), parse_quantity(rating)) AS v)
+ORDER BY offer_id;
+----
+O1	0.0	gate
+O2	0.0	gate
+O3	1.0	at_least
+O4	0.0	at_least
+O5	0.0	gate
