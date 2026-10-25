@@ -1,0 +1,240 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R50.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 550.0,
+          "lo": 550.0,
+          "name": "hardness",
+          "text": "550 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide seat padding with hardness 550 N.",
+        "node_id": "R50.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R50.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "folding time",
+          "text": "up to 1500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide tumble seat function with folding time up to 1500 ms.",
+        "node_id": "R50.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R50.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 90.0,
+            "lo": 90.0,
+            "name": "angle range",
+            "text": "at least 90 °",
+            "unit": "°"
+           }
+          ],
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "The seat shall provide recliner fittings with angle range at least 90 °.",
+          "node_id": "R50.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Performance",
+        "node_id": "R50.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R50.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 4.5,
+            "lo": 4.5,
+            "name": "mass",
+            "text": "at most 4.5 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "The seat shall provide seat structure with mass at most 4.5 kg.",
+          "node_id": "R50.r05"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Performance",
+        "node_id": "R50.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat frame / structure",
+      "node_id": "R50.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 150000.0,
+          "lo": 150000.0,
+          "name": "abrasion resistance",
+          "text": "150000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide a trim cover with abrasion resistance 150000 cycles.",
+        "node_id": "R50.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 trim cover",
+      "node_id": "R50.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R50.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 120.0,
+        "lo": 120.0,
+        "name": "height travel",
+        "text": "at least 120 mm",
+        "unit": "mm"
+       }
+      ],
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The seat shall provide mechanical head support with height travel at least 120 mm.",
+      "node_id": "R50.r03"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R50.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 30.0,
+          "lo": 30.0,
+          "name": "current rating",
+          "text": "≥ 30 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The seat shall provide seat cabling and connectors with current rating ≥ 30 A.",
+        "node_id": "R50.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R50.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R50.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification AUR-R50",
+  "node_id": "R50"
+ },
+ "source": "aurivon",
+ "tree_id": "R50"
+}

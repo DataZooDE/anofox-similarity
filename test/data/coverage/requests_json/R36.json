@@ -1,0 +1,304 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R36.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes seat padding.",
+        "node_id": "R36.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R36.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Scope includes tumble seat function.",
+          "node_id": "R36.r05"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R36.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R36.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 48.0,
+        "lo": 48.0,
+        "name": "recline angle",
+        "text": "at least 48 °",
+        "unit": "°"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Scope includes backrest tilt fitting with recline angle at least 48 °.",
+      "node_id": "R36.r08"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 180.0,
+          "lo": 180.0,
+          "name": "target price",
+          "text": "180 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes load-bearing seat structure with target price 180 EUR.",
+        "node_id": "R36.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat frame / structure",
+      "node_id": "R36.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes a seat slide track.",
+        "node_id": "R36.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat track",
+      "node_id": "R36.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes leather trim.",
+        "node_id": "R36.r12"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R36.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R36.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 115.0,
+        "lo": 50.0,
+        "name": "heating power",
+        "text": "between 50 and 115 W",
+        "unit": "W"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 170.0,
+        "lo": 170.0,
+        "name": "heat-up time",
+        "text": "up to 170 s",
+        "unit": "s"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Scope includes 4 × heated seat cushion and backrest with heating power between 50 and 115 W and heat-up time up to 170 s.",
+      "node_id": "R36.r01"
+     },
+     {
+      "children": [
+       {
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes 2 × ventilated seats.",
+        "node_id": "R36.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat ventilation",
+      "node_id": "R36.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes elbow rest.",
+        "node_id": "R36.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 armrest",
+      "node_id": "R36.c2.s3"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 6.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Scope includes 6 × massage programmes in the backrest.",
+      "node_id": "R36.r07"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R36.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes height-adjustable head restraint.",
+        "node_id": "R36.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R36.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R36.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 5.0,
+            "lo": 5.0,
+            "name": "output torque",
+            "text": "not less than 5 N·m",
+            "unit": "N·m"
+           }
+          ],
+          "context": "4.1.1 Performance",
+          "count": 6.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Scope includes 6 × motor drive units with output torque not less than 5 N·m.",
+          "node_id": "R36.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Performance",
+        "node_id": "R36.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat motor drive",
+      "node_id": "R36.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes electrical harness.",
+        "node_id": "R36.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R36.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R36.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification GRV-R36",
+  "node_id": "R36"
+ },
+ "source": "grovania",
+ "tree_id": "R36"
+}

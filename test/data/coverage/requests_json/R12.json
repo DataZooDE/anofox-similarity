@@ -1,0 +1,480 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R12.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 3.9,
+          "lo": 1.6,
+          "name": "adjustment speed",
+          "text": "1.6–3.9 cm/s",
+          "unit": "cm/s"
+         }
+        ],
+        "context": "1.1 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes a longitudinal seat adjuster with adjustment speed 1.6–3.9 cm/s.",
+        "node_id": "R12.r01"
+       },
+       {
+        "context": "1.1 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes track adjuster fore/aft.",
+        "node_id": "R12.r14"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 seat track",
+      "node_id": "R12.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R12.c1.s2.n1"
+       },
+       {
+        "children": [
+         {
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes cushion lifting kinematics.",
+          "node_id": "R12.r02"
+         },
+         {
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes cushion lifting kinematics.",
+          "node_id": "R12.r15"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R12.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 height adjuster",
+      "node_id": "R12.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes PU foam padding.",
+          "node_id": "R12.r06"
+         },
+         {
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes foam cushion pad.",
+          "node_id": "R12.r19"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Performance",
+        "node_id": "R12.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R12.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "angle range",
+          "text": "50 °",
+          "unit": "°"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes a reclining joint with angle range 50 °.",
+        "node_id": "R12.r08"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2950.0,
+          "lo": 2950.0,
+          "name": "locking strength",
+          "text": "≥ 2950 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes a backrest recliner with locking strength ≥ 2950 Nm.",
+        "node_id": "R12.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 recliner",
+      "node_id": "R12.c1.s4"
+     },
+     {
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes seat structure.",
+      "node_id": "R12.r09"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 13.0,
+        "lo": 13.0,
+        "name": "weight",
+        "text": "13 kg",
+        "unit": "kg"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes seat structure with weight 13 kg.",
+      "node_id": "R12.r23"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 110.0,
+        "lo": 110.0,
+        "name": "target price",
+        "text": "110 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes fabric seat covers with target price 110 €.",
+      "node_id": "R12.r12"
+     },
+     {
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes a trim cover.",
+      "node_id": "R12.r26"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R12.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "2.1 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes power head support.",
+        "node_id": "R12.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "height travel",
+          "text": "min. 70 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 23.0,
+          "lo": 18.0,
+          "name": "adjustment speed",
+          "text": "18 to 23 mm/s",
+          "unit": "mm/s"
+         }
+        ],
+        "context": "2.1 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes power head support with height travel min. 70 mm and adjustment speed 18 to 23 mm/s.",
+        "node_id": "R12.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 powered headrest",
+      "node_id": "R12.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes seat armrest.",
+          "node_id": "R12.r05"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1.5,
+            "lo": 1.5,
+            "name": "vertical load",
+            "text": "not less than 1.5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes seat armrest with vertical load not less than 1.5 kN.",
+          "node_id": "R12.r18"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Performance",
+        "node_id": "R12.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 armrest",
+      "node_id": "R12.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes adjustable lower-back support.",
+        "node_id": "R12.r07"
+       },
+       {
+        "context": "2.3 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes lumbar basket.",
+        "node_id": "R12.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 lumbar support",
+      "node_id": "R12.c2.s3"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Scope includes 2 × seat warmer.",
+      "node_id": "R12.r10"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes 2 × cushion heating elements.",
+      "node_id": "R12.r24"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R12.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes side airbag integration.",
+        "node_id": "R12.r11"
+       },
+       {
+        "context": "3.1 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes airbag chute.",
+        "node_id": "R12.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 side airbag integration",
+      "node_id": "R12.c3.s1"
+     },
+     {
+      "context": "3 Safety",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Scope includes occupant detection.",
+      "node_id": "R12.r21"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R12.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.1.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Scope includes 4 × electric seat drives.",
+          "node_id": "R12.r04"
+         },
+         {
+          "context": "4.1.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Scope includes 4 × electric seat drives.",
+          "node_id": "R12.r17"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Performance",
+        "node_id": "R12.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat motor drive",
+      "node_id": "R12.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Scope includes connector set.",
+        "node_id": "R12.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "protection class",
+          "text": "IP40 or better"
+         }
+        ],
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Scope includes electrical harness with protection class IP40 or better.",
+        "node_id": "R12.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R12.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R12.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification GRV-R12",
+  "node_id": "R12"
+ },
+ "source": "grovania",
+ "tree_id": "R12"
+}

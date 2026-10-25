@@ -1,0 +1,488 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R08.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 32.0,
+            "lo": 14.0,
+            "name": "speed",
+            "text": "14 to 32 mm/s",
+            "unit": "mm/s"
+           }
+          ],
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Requirement: fore-aft seat rails with speed 14 to 32 mm/s.",
+          "node_id": "R08.r01"
+         },
+         {
+          "context": "1.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Requirement: fore-aft seat rails.",
+          "node_id": "R08.r13"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Performance",
+        "node_id": "R08.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 seat track",
+      "node_id": "R08.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Requirement: a seat lifter.",
+          "node_id": "R08.r02"
+         },
+         {
+          "context": "1.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Requirement: cushion lifting kinematics.",
+          "node_id": "R08.r14"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Performance",
+        "node_id": "R08.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 height adjuster",
+      "node_id": "R08.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: PU foam padding.",
+        "node_id": "R08.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "weight",
+          "text": "2 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: PU foam padding with weight 2 kg.",
+        "node_id": "R08.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R08.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2950.0,
+          "lo": 2950.0,
+          "name": "static strength",
+          "text": "minimum 2950 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: a backrest recliner with static strength minimum 2950 Nm.",
+        "node_id": "R08.r07"
+       },
+       {
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: backrest tilt fitting.",
+        "node_id": "R08.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 recliner",
+      "node_id": "R08.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 13.5,
+          "lo": 13.5,
+          "name": "mass",
+          "text": "max. 13.5 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: seat structure with mass max. 13.5 kg.",
+        "node_id": "R08.r08"
+       },
+       {
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: backrest and cushion frames.",
+        "node_id": "R08.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat frame / structure",
+      "node_id": "R08.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Requirement: fabric seat covers.",
+          "node_id": "R08.r11"
+         },
+         {
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Requirement: a trim cover.",
+          "node_id": "R08.r24"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R08.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R08.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R08.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 3.0,
+        "lo": 3.0,
+        "name": "tilt travel",
+        "text": "3 cm",
+        "unit": "cm"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: Requirement: power head support with tilt travel 3 cm.",
+      "node_id": "R08.r03"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 7.5,
+        "lo": 7.5,
+        "name": "height travel",
+        "text": "min. 7.5 cm",
+        "unit": "cm"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: Requirement: e-headrest with height travel min. 7.5 cm.",
+      "node_id": "R08.r15"
+     },
+     {
+      "children": [
+       {
+        "context": "2.2 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: a lumbar support.",
+        "node_id": "R08.r06"
+       },
+       {
+        "context": "2.2 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: adjustable lower-back support.",
+        "node_id": "R08.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 lumbar support",
+      "node_id": "R08.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 60.0,
+          "name": "heating power",
+          "text": "between 60 and 85 W",
+          "unit": "W"
+         }
+        ],
+        "context": "2.3 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: 2 × cushion heating elements with heating power between 60 and 85 W.",
+        "node_id": "R08.r09"
+       },
+       {
+        "context": "2.3 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: 2 × heated seat cushion and backrest.",
+        "node_id": "R08.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 seat heating",
+      "node_id": "R08.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R08.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: Requirement: seat-mounted side airbag.",
+          "node_id": "R08.r10"
+         },
+         {
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: Requirement: side airbag integration.",
+          "node_id": "R08.r23"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R08.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 side airbag integration",
+      "node_id": "R08.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 occupant detection mat",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: passenger presence mat.",
+        "node_id": "R08.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 occupant detection mat",
+      "node_id": "R08.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R08.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R08.c4.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 14.0,
+          "lo": 14.0,
+          "name": "torque",
+          "text": "not less than 14 N·m",
+          "unit": "N·m"
+         }
+        ],
+        "context": "4.1 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: 4 × motor drive units with torque not less than 14 N·m.",
+        "node_id": "R08.r04"
+       },
+       {
+        "context": "4.1 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: 4 × seat adjustment motors.",
+        "node_id": "R08.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat motor drive",
+      "node_id": "R08.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R08.c4.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "protection class",
+          "text": "min. IP65"
+         }
+        ],
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: Requirement: a seat wiring harness with protection class min. IP65.",
+        "node_id": "R08.r12"
+       },
+       {
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: Requirement: connector set.",
+        "node_id": "R08.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R08.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R08.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification CAL-R08",
+  "node_id": "R08"
+ },
+ "source": "calvento",
+ "tree_id": "R08"
+}

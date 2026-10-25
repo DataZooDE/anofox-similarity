@@ -1,0 +1,353 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R24.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 4500.0,
+        "lo": 4500.0,
+        "name": "folding time",
+        "text": "max. 4500 ms",
+        "unit": "ms"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 70.0,
+        "lo": 70.0,
+        "name": "operating force",
+        "text": "at most 70 N",
+        "unit": "N"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_least",
+        "hi": 32000.0,
+        "lo": 32000.0,
+        "name": "durability",
+        "text": "at least 32,000 cycles",
+        "unit": "cycles"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The system must include flat-folding backrest with folding time max. 4500 ms and operating force at most 70 N and durability at least 32,000 cycles.",
+      "node_id": "R24.r02"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "recline angle",
+          "text": "not less than 48 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 3400.0,
+          "lo": 3400.0,
+          "name": "static strength",
+          "text": "3400 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "noise level",
+          "text": "up to 46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.2 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include a reclining joint with recline angle not less than 48 ° and static strength 3400 Nm and noise level up to 46 dB(A).",
+        "node_id": "R24.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 recliner",
+      "node_id": "R24.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 13.0,
+          "lo": 13.0,
+          "name": "mass",
+          "text": "13 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 200.0,
+          "lo": 200.0,
+          "name": "target price",
+          "text": "up to 200 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.3 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include seat frame structure with mass 13 kg and target price up to 200 EUR.",
+        "node_id": "R24.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 seat frame / structure",
+      "node_id": "R24.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "Martindale",
+          "text": "≥ 45000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "flammability class",
+          "text": "at least F2"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 140.0,
+          "lo": 140.0,
+          "name": "target price",
+          "text": "≤ 140 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include fabric seat covers with Martindale ≥ 45000 cycles and flammability class at least F2 and target price ≤ 140 EUR.",
+        "node_id": "R24.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 trim cover",
+      "node_id": "R24.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R24.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R24.c2.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 95.0,
+          "lo": 70.0,
+          "name": "heating power",
+          "text": "70 to 95 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4.8,
+          "lo": 4.8,
+          "name": "time to 37 °C",
+          "text": "≤ 4.8 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 5000.0,
+          "lo": 5000.0,
+          "name": "current draw",
+          "text": "not more than 5000 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.1 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include 2 × heated seat cushion and backrest with heating power 70 to 95 W and time to 37 °C ≤ 4.8 min and current draw not more than 5000 mA.",
+        "node_id": "R24.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 seat heating",
+      "node_id": "R24.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R24.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "height travel",
+          "text": "not less than 50 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "positions",
+          "text": "min. 2",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include height-adjustable head restraint with height travel not less than 50 mm and positions min. 2.",
+        "node_id": "R24.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R24.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R24.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 3.0,
+        "lo": 3.0,
+        "name": "torque",
+        "text": "3 Nm",
+        "unit": "Nm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 10000.0,
+        "lo": 10000.0,
+        "name": "current consumption",
+        "text": "10000 mA",
+        "unit": "mA"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 48.0,
+        "lo": 48.0,
+        "name": "noise level",
+        "text": "not more than 48 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 6.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The system must include 6 × seat adjustment motors with torque 3 Nm and current consumption 10000 mA and noise level not more than 48 dB(A).",
+      "node_id": "R24.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "category": "IP54",
+        "name": "protection class",
+        "text": "at least IP54"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The system must include seat cabling and connectors with protection class at least IP54.",
+      "node_id": "R24.r09"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R24.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification DRV-R24",
+  "node_id": "R24"
+ },
+ "source": "dravik",
+ "tree_id": "R24"
+}

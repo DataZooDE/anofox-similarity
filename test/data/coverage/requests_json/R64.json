@@ -1,0 +1,289 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R64.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 260.0,
+          "lo": 260.0,
+          "name": "hardness",
+          "text": "260 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1.7,
+          "lo": 1.7,
+          "name": "mass",
+          "text": "up to 1.7 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include foam cushion pad with hardness 260 N and mass up to 1.7 kg.",
+        "node_id": "R64.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R64.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "folding time",
+          "text": "max. 9 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 90.0,
+          "lo": 90.0,
+          "name": "operating force",
+          "text": "at most 90 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include tumble seat function with folding time max. 9 s and operating force at most 90 N.",
+        "node_id": "R64.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R64.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2950.0,
+        "lo": 2950.0,
+        "name": "static strength",
+        "text": "minimum 2950 N·m",
+        "unit": "N·m"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The system must include recliner fittings with static strength minimum 2950 N·m.",
+      "node_id": "R64.r04"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R64.c1.s4.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 14.0,
+          "lo": 14.0,
+          "name": "weight",
+          "text": "max. 14 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 26.0,
+          "lo": 26.0,
+          "name": "crash strength",
+          "text": "≥ 26 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 245.0,
+          "lo": 245.0,
+          "name": "target price",
+          "text": "up to 245 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include seat frame structure with weight max. 14 kg and crash strength ≥ 26 kN and target price up to 245 EUR.",
+        "node_id": "R64.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat frame / structure",
+      "node_id": "R64.c1.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 85000.0,
+        "lo": 85000.0,
+        "name": "Martindale",
+        "text": "min. 85000 cycles",
+        "unit": "cycles"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "F1",
+        "name": "flammability class",
+        "text": "F1 or better"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "The system must include trim cover set with Martindale min. 85000 cycles and flammability class F1 or better.",
+      "node_id": "R64.r06"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R64.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 65.0,
+            "lo": 65.0,
+            "name": "height travel",
+            "text": "not less than 65 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "detent positions",
+            "text": "at least 3",
+            "unit": ""
+           }
+          ],
+          "context": "3.1.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "The system must include a manual headrest with height travel not less than 65 mm and detent positions at least 3.",
+          "node_id": "R64.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Performance",
+        "node_id": "R64.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R64.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R64.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "current rating",
+          "text": "minimum 7 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "at least IP54"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include a seat wiring harness with current rating minimum 7 A and protection class at least IP54.",
+        "node_id": "R64.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R64.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R64.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification DRV-R64",
+  "node_id": "R64"
+ },
+ "source": "dravik",
+ "tree_id": "R64"
+}

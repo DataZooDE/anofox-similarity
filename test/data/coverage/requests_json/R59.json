@@ -1,0 +1,362 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R59.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R59.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7000.0,
+          "lo": 7000.0,
+          "name": "Umlegezeit",
+          "text": "bis zu 7000 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 60.0,
+          "lo": 60.0,
+          "name": "Bedienkraft",
+          "text": "max. 60 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 26000.0,
+          "lo": 26000.0,
+          "name": "Lebensdauer",
+          "text": "min. 26000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.1 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss Flachklappmechanik mit Umlegezeit bis zu 7000 ms und Bedienkraft max. 60 N und Lebensdauer min. 26000 Zyklen enthalten.",
+        "node_id": "R59.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Klapp-/Tumblemechanik",
+      "node_id": "R59.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R59.c1.s2.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 50.0,
+            "lo": 50.0,
+            "name": "Winkelbereich",
+            "text": "min. 50 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 33.0,
+            "lo": 33.0,
+            "name": "Geräuschpegel",
+            "text": "maximal 33 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss Rückenlehnenverstellung mit Winkelbereich min. 50 ° und Geräuschpegel maximal 33 dB(A) enthalten.",
+          "node_id": "R59.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R59.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Lehnenverstellung",
+      "node_id": "R59.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Gewicht",
+          "text": "max. 10 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 51.0,
+          "lo": 51.0,
+          "name": "Crashfestigkeit",
+          "text": "min. 51 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 115.0,
+          "lo": 115.0,
+          "name": "Zielpreis",
+          "text": "max. 115 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.3 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss tragende Sitzstruktur mit Gewicht max. 10 kg und Crashfestigkeit min. 51 kN und Zielpreis max. 115 EUR enthalten.",
+        "node_id": "R59.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzstruktur",
+      "node_id": "R59.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 55000.0,
+            "lo": 55000.0,
+            "name": "Scheuerbeständigkeit",
+            "text": "minimal 55.000 Zyklen",
+            "unit": "Zyklen"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F1",
+            "name": "Brennbarkeitsklasse",
+            "text": "mindestens F1"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 195.0,
+            "lo": 195.0,
+            "name": "Zielpreis",
+            "text": "maximal 195 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.4.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss Lederbezüge mit Scheuerbeständigkeit minimal 55.000 Zyklen und Brennbarkeitsklasse mindestens F1 und Zielpreis maximal 195 € enthalten.",
+          "node_id": "R59.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Leistungsdaten",
+        "node_id": "R59.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzbezug",
+      "node_id": "R59.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R59.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 80.0,
+          "lo": 40.0,
+          "name": "Heizleistung",
+          "text": "40 bis 80 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "höchstens 3,6 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "Strom",
+          "text": "bis zu 9,5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss 4 × beheizte Sitzflächen mit Heizleistung 40 bis 80 W und Aufheizzeit auf 37 °C höchstens 3,6 min und Strom bis zu 9,5 A enthalten.",
+        "node_id": "R59.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R59.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R59.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 8.0,
+            "lo": 8.0,
+            "name": "Höhenverstellweg",
+            "text": "8 cm",
+            "unit": "cm"
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Das System muss Kopfstütze mit Rasten mit Höhenverstellweg 8 cm enthalten.",
+          "node_id": "R59.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R59.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R59.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R59.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "Strombelastbarkeit",
+          "text": "9 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "mindestens IP40"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Das System muss einen Sitzkabelbaum mit Strombelastbarkeit 9 A und Schutzart mindestens IP40 enthalten.",
+        "node_id": "R59.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R59.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R59.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage DRV-R59",
+  "node_id": "R59"
+ },
+ "source": "dravik",
+ "tree_id": "R59"
+}

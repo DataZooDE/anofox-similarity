@@ -1,0 +1,265 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R35.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 300.0,
+        "lo": 300.0,
+        "name": "Härte",
+        "text": "300 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit PU-Schaumpolster mit Härte 300 N.",
+      "node_id": "R35.r01"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "Bedienkraft",
+          "text": "≤ 75 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 31000.0,
+          "lo": 31000.0,
+          "name": "Dauerhaltbarkeit",
+          "text": "minimal 31.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit eine Umklappfunktion mit Bedienkraft ≤ 75 N und Dauerhaltbarkeit minimal 31.000 Zyklen.",
+        "node_id": "R35.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R35.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Lehnenwinkel",
+          "text": "≥ 42 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 2850.0,
+          "lo": 2850.0,
+          "name": "Haltemoment",
+          "text": "≥ 2850 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 29.0,
+          "lo": 29.0,
+          "name": "Betriebsgeräusch",
+          "text": "bis zu 29 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Neigungsgelenk Lehne mit Lehnenwinkel ≥ 42 ° und Haltemoment ≥ 2850 Nm und Betriebsgeräusch bis zu 29 dB(A).",
+        "node_id": "R35.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R35.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 175.0,
+          "lo": 175.0,
+          "name": "Zielpreis",
+          "text": "≤ 175 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit tragende Sitzstruktur mit Zielpreis ≤ 175 €.",
+        "node_id": "R35.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R35.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "Martindale",
+          "text": "≥ 45.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "F2 oder besser"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 130.0,
+          "lo": 130.0,
+          "name": "Zielpreis",
+          "text": "höchstens 130 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Polsterbezug mit Martindale ≥ 45.000 Zyklen und Brennbarkeitsklasse F2 oder besser und Zielpreis höchstens 130 €.",
+        "node_id": "R35.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R35.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R35.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 60.0,
+            "lo": 60.0,
+            "name": "Höhenverstellweg",
+            "text": "min. 60 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "Positionen",
+            "text": "minimal 3",
+            "unit": ""
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Sitzanlage mit eine manuelle Kopfstütze mit Höhenverstellweg min. 60 mm und Positionen minimal 3.",
+          "node_id": "R35.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R35.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R35.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R35.c3"
+   },
+   {
+    "children": [
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit Steckverbinder.",
+      "node_id": "R35.r07"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R35.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R35",
+  "node_id": "R35"
+ },
+ "source": "estrelo",
+ "tree_id": "R35"
+}

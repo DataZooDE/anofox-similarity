@@ -1,0 +1,368 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R51.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 250.0,
+        "lo": 250.0,
+        "name": "Härte",
+        "text": "250 N",
+        "unit": "N"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 1800.0,
+        "lo": 1800.0,
+        "name": "Gewicht",
+        "text": "1800 g",
+        "unit": "g"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert Polsterschaum mit Härte 250 N und Gewicht 1800 g.",
+      "node_id": "R51.r01"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R51.c1.s2.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 7000.0,
+            "lo": 7000.0,
+            "name": "Klappzeit",
+            "text": "7000 ms",
+            "unit": "ms"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 33000.0,
+            "lo": 33000.0,
+            "name": "Dauerhaltbarkeit",
+            "text": "≥ 33.000 Zyklen",
+            "unit": "Zyklen"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert Tumble-Funktion mit Klappzeit 7000 ms und Dauerhaltbarkeit ≥ 33.000 Zyklen.",
+          "node_id": "R51.r02"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R51.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R51.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 54.0,
+            "lo": 54.0,
+            "name": "Lehnenwinkel",
+            "text": "≥ 54 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 4350.0,
+            "lo": 4350.0,
+            "name": "Festigkeit",
+            "text": "nicht weniger als 4350 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 48.0,
+            "lo": 48.0,
+            "name": "Geräuschpegel",
+            "text": "≤ 48 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert Rückenlehnenverstellung mit Lehnenwinkel ≥ 54 ° und Festigkeit nicht weniger als 4350 N·m und Geräuschpegel ≤ 48 dB(A).",
+          "node_id": "R51.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Leistungsdaten",
+        "node_id": "R51.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R51.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 12.0,
+            "lo": 12.0,
+            "name": "Masse",
+            "text": "12 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 23.0,
+            "lo": 23.0,
+            "name": "Crashlast",
+            "text": "nicht weniger als 23 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 200.0,
+            "lo": 200.0,
+            "name": "Zielpreis",
+            "text": "höchstens 200 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.4.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert Sitzstruktur mit Masse 12 kg und Crashlast nicht weniger als 23 kN und Zielpreis höchstens 200 €.",
+          "node_id": "R51.r05"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Leistungsdaten",
+        "node_id": "R51.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R51.c1.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "category": "F2",
+        "name": "Brennbarkeitsklasse",
+        "text": "mindestens F2"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 195.0,
+        "lo": 195.0,
+        "name": "Zielpreis",
+        "text": "≤ 195 EUR",
+        "unit": "EUR"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert Stoffbezug mit Brennbarkeitsklasse mindestens F2 und Zielpreis ≤ 195 EUR.",
+      "node_id": "R51.r07"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R51.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 60.0,
+          "lo": 60.0,
+          "name": "Verstellweg",
+          "text": "60 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Positionen",
+          "text": "min. 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert eine manuelle Kopfstütze mit Verstellweg 60 mm und Positionen min. 3.",
+        "node_id": "R51.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R51.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R51.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2.5,
+          "lo": 2.5,
+          "name": "Drehmoment",
+          "text": "mindestens 2,5 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 10.5,
+          "lo": 10.5,
+          "name": "Stromverbrauch",
+          "text": "maximal 10,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Geräusch",
+          "text": "≤ 46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 Sitzverstellmotor",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert 6 × elektrische Sitzantriebe mit Drehmoment mindestens 2,5 Nm und Stromverbrauch maximal 10,5 A und Geräusch ≤ 46 dB(A).",
+        "node_id": "R51.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R51.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "Strombelastbarkeit",
+          "text": "minimal 18 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP65",
+          "name": "Schutzart",
+          "text": "IP65 oder besser"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Kabelsatz Sitz mit Strombelastbarkeit minimal 18 A und Schutzart IP65 oder besser.",
+        "node_id": "R51.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R51.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R51.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R51",
+  "node_id": "R51"
+ },
+ "source": "brennholt",
+ "tree_id": "R51"
+}

@@ -1,0 +1,404 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R45.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R45.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 125.0,
+          "lo": 125.0,
+          "name": "Vorschubweg",
+          "text": "min. 125 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 39.0,
+          "lo": 39.0,
+          "name": "Betätigungskraft",
+          "text": "≤ 39 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Easy-Entry-Mechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Easy-Entry-Mechanik mit Vorschubweg min. 125 mm und Betätigungskraft ≤ 39 N.",
+        "node_id": "R45.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Easy-Entry-Mechanik",
+      "node_id": "R45.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 2000.0,
+          "lo": 2000.0,
+          "name": "Masse",
+          "text": "2000 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.2 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Polsterschaum mit Masse 2000 g.",
+        "node_id": "R45.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Polsterschaum",
+      "node_id": "R45.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 75.0,
+        "lo": 75.0,
+        "name": "Bedienkraft",
+        "text": "≤ 75 N",
+        "unit": "N"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 32000.0,
+        "lo": 32000.0,
+        "name": "Lebensdauer",
+        "text": "min. 32.000 Zyklen",
+        "unit": "Zyklen"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit umlegbare Rücksitze mit Bedienkraft ≤ 75 N und Lebensdauer min. 32.000 Zyklen.",
+      "node_id": "R45.r04"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Winkelbereich",
+          "text": "min. 46 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Geräusch",
+          "text": "maximal 46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit eine Lehnenneigungsverstellung mit Winkelbereich min. 46 ° und Geräusch maximal 46 dB(A).",
+        "node_id": "R45.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Lehnenverstellung",
+      "node_id": "R45.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 24.0,
+          "lo": 24.0,
+          "name": "Crashlast",
+          "text": "24 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.5 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Lehnen- und Kissenrahmen mit Crashlast 24 kN.",
+        "node_id": "R45.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzstruktur",
+      "node_id": "R45.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 360.0,
+          "lo": 360.0,
+          "name": "Längsverstellweg",
+          "text": "360 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 3.1,
+          "lo": 1.6,
+          "name": "Geschwindigkeit",
+          "text": "1,6–3,1 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 21500.0,
+          "lo": 21500.0,
+          "name": "Haltelast",
+          "text": "minimal 21500 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.6 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit eine Längsverstellung mit Längsverstellweg 360 mm und Geschwindigkeit 1,6–3,1 cm/s und Haltelast minimal 21500 N.",
+        "node_id": "R45.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzlängsverstellung",
+      "node_id": "R45.c1.s6"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 60000.0,
+          "lo": 60000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "60.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 130.0,
+          "lo": 130.0,
+          "name": "Stückpreis",
+          "text": "130 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.7 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Stoffbezug mit Scheuerbeständigkeit 60.000 Zyklen und Stückpreis 130 €.",
+        "node_id": "R45.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.7 Sitzbezug",
+      "node_id": "R45.c1.s7"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R45.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 1.5,
+        "lo": 1.5,
+        "name": "Belastbarkeit",
+        "text": "min. 1,5 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 10.0,
+        "lo": 10.0,
+        "name": "Schwenkwinkel",
+        "text": "minimal 10 °",
+        "unit": "°"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit eine Armlehne mit Belastbarkeit min. 1,5 kN und Schwenkwinkel minimal 10 °.",
+      "node_id": "R45.r01"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R45.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R45.c3.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Höhenverstellweg",
+          "text": "≥ 5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Raststellungen",
+          "text": "min. 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Kopfstütze mit Rasten mit Höhenverstellweg ≥ 5 cm und Raststellungen min. 3.",
+        "node_id": "R45.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R45.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R45.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 18.0,
+            "lo": 18.0,
+            "name": "Strombelastbarkeit",
+            "text": "18 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "Schutzart",
+            "text": "IP54 oder besser"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Sitzanlage mit Sitzverkabelung mit Strombelastbarkeit 18 A und Schutzart IP54 oder besser.",
+          "node_id": "R45.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R45.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R45.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R45.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R45",
+  "node_id": "R45"
+ },
+ "source": "estrelo",
+ "tree_id": "R45"
+}

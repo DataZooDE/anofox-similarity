@@ -1,0 +1,194 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+    "node_id": "R72.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 900.0,
+          "lo": 900.0,
+          "name": "mass",
+          "text": "900 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes foam cushion pad with mass 900 g.",
+        "node_id": "R72.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R72.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes flat-folding backrest.",
+        "node_id": "R72.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R72.c1.s2"
+     },
+     {
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Scope includes seat back angle adjustment.",
+      "node_id": "R72.r04"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 47.0,
+        "lo": 47.0,
+        "name": "crash load",
+        "text": "47 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Scope includes backrest and cushion frames with crash load 47 kN.",
+      "node_id": "R72.r05"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes fabric seat covers.",
+        "node_id": "R72.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 trim cover",
+      "node_id": "R72.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R72.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R72.c3.s1.n1"
+       },
+       {
+        "context": "3.1 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes headrest with detents.",
+        "node_id": "R72.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R72.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R72.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "operating noise",
+          "text": "at most 50 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.1 seat motor drive",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes 6 × seat adjustment motors with operating noise at most 50 dB(A).",
+        "node_id": "R72.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat motor drive",
+      "node_id": "R72.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Scope includes connector set.",
+        "node_id": "R72.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 wiring and connectors",
+      "node_id": "R72.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R72.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification GRV-R72",
+  "node_id": "R72"
+ },
+ "source": "grovania",
+ "tree_id": "R72"
+}

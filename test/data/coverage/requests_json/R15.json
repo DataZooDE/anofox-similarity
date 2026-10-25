@@ -1,0 +1,282 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R15.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 34.0,
+            "lo": 34.0,
+            "name": "Betätigungskraft",
+            "text": "34 N",
+            "unit": "N"
+           }
+          ],
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Es wird gefordert, dass der Sitz Easy-Entry-Mechanik mit Betätigungskraft 34 N hat.",
+          "node_id": "R15.r02"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R15.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Easy-Entry-Mechanik",
+      "node_id": "R15.c1.s1"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 230.0,
+        "lo": 230.0,
+        "name": "Stauchhärte",
+        "text": "230 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Es wird gefordert, dass der Sitz PU-Schaumpolster mit Stauchhärte 230 N hat.",
+      "node_id": "R15.r03"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "Bedienkraft",
+          "text": "≤ 70 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.3 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Es wird gefordert, dass der Sitz eine Umklappfunktion mit Bedienkraft ≤ 70 N hat.",
+        "node_id": "R15.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Klapp-/Tumblemechanik",
+      "node_id": "R15.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 13.5,
+          "lo": 13.5,
+          "name": "Gewicht",
+          "text": "≤ 13,5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 185.0,
+          "lo": 185.0,
+          "name": "Zielpreis",
+          "text": "höchstens 185 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Es wird gefordert, dass der Sitz tragende Sitzstruktur mit Gewicht ≤ 13,5 kg und Zielpreis höchstens 185 EUR hat.",
+        "node_id": "R15.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R15.c1.s4"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 55000.0,
+        "lo": 55000.0,
+        "name": "Scheuerbeständigkeit",
+        "text": "55000 Zyklen",
+        "unit": "Zyklen"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "F2",
+        "name": "Brennbarkeitsklasse",
+        "text": "F2 oder besser"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Es wird gefordert, dass der Sitz Stoffbezug mit Scheuerbeständigkeit 55000 Zyklen und Brennbarkeitsklasse F2 oder besser hat.",
+      "node_id": "R15.r07"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R15.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 1.6,
+          "lo": 1.6,
+          "name": "Belastbarkeit",
+          "text": "1,6 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Es wird gefordert, dass der Sitz Mittelarmlehne klappbar mit Belastbarkeit 1,6 kN hat.",
+        "node_id": "R15.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R15.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R15.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Raststellungen",
+          "text": "4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Es wird gefordert, dass der Sitz eine manuelle Kopfstütze mit Raststellungen 4 hat.",
+        "node_id": "R15.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R15.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R15.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "Strombelastbarkeit",
+          "text": "≥ 15 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "mindestens IP40"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Es wird gefordert, dass der Sitz Kabelsatz Sitz mit Strombelastbarkeit ≥ 15 A und Schutzart mindestens IP40 hat.",
+        "node_id": "R15.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R15.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R15.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage FKM-R15",
+  "node_id": "R15"
+ },
+ "source": "falkmoor",
+ "tree_id": "R15"
+}

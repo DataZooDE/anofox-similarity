@@ -1,0 +1,464 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R01.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 33.0,
+          "lo": 33.0,
+          "name": "Betriebsgeräusch",
+          "text": "max. 33 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.1 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert eine Längsverstellung mit Betriebsgeräusch max. 33 dB(A).",
+        "node_id": "R01.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "Haltelast",
+          "text": "17 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.1 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert eine Längsverstellung mit Haltelast 17 kN.",
+        "node_id": "R01.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Sitzlängsverstellung",
+      "node_id": "R01.c1.s1"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert einen Sitzheber.",
+      "node_id": "R01.r04"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Lieferant liefert einen Sitzheber.",
+      "node_id": "R01.r18"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert Formschaumteile.",
+      "node_id": "R01.r08"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Lieferant liefert PU-Schaumpolster.",
+      "node_id": "R01.r22"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Neigungsgelenk Lehne.",
+        "node_id": "R01.r10"
+       },
+       {
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Rückenlehnenverstellung.",
+        "node_id": "R01.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Lehnenverstellung",
+      "node_id": "R01.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R01.c1.s5.n1"
+       },
+       {
+        "children": [
+         {
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert tragende Sitzstruktur.",
+          "node_id": "R01.r11"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 12500.0,
+            "lo": 12500.0,
+            "name": "Gewicht",
+            "text": "12500 g",
+            "unit": "g"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 180.0,
+            "lo": 180.0,
+            "name": "Zielpreis",
+            "text": "höchstens 180 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert tragende Sitzstruktur mit Gewicht 12500 g und Zielpreis höchstens 180 €.",
+          "node_id": "R01.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R01.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzstruktur",
+      "node_id": "R01.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert einen Sitzbezug.",
+        "node_id": "R01.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 65000.0,
+          "lo": 65000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "65000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Polsterbezug mit Scheuerbeständigkeit 65000 Zyklen.",
+        "node_id": "R01.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R01.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R01.c1"
+   },
+   {
+    "children": [
+     {
+      "context": "2 Komfortfunktionen",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert 4 × beheizte Sitzflächen.",
+      "node_id": "R01.r01"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 30.0,
+          "lo": 30.0,
+          "name": "Neigungsweg",
+          "text": "30 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert eine elektrische Kopfstütze mit Neigungsweg 30 mm.",
+        "node_id": "R01.r05"
+       },
+       {
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert motorische Kopfstütze.",
+        "node_id": "R01.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Kopfstütze elektrisch",
+      "node_id": "R01.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert Ellbogenauflage.",
+          "node_id": "R01.r07"
+         },
+         {
+          "context": "2.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert eine Armlehne.",
+          "node_id": "R01.r21"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.3.1 Leistungsdaten",
+        "node_id": "R01.c2.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Armlehne",
+      "node_id": "R01.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R01.c2.s4.n1"
+       },
+       {
+        "context": "2.4 Lordosenstütze",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert eine Lordosenstütze.",
+        "node_id": "R01.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Lordosenstütze",
+      "node_id": "R01.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R01.c2.s5.n1"
+       },
+       {
+        "context": "2.5 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert 2 × eine Sitzbelüftung.",
+        "node_id": "R01.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 Sitzbelüftung",
+      "node_id": "R01.c2.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R01.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 27.0,
+          "lo": 27.0,
+          "name": "Erkennungsschwelle",
+          "text": "bis zu 27 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "3.1 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Sensormatte Sitzbelegung mit Erkennungsschwelle bis zu 27 kg.",
+        "node_id": "R01.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Sitzbelegungserkennung",
+      "node_id": "R01.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Seitenairbag im Sitz.",
+        "node_id": "R01.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R01.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R01.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.1.1 Leistungsdaten",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert 4 × Sitzverstellmotoren.",
+          "node_id": "R01.r06"
+         },
+         {
+          "context": "4.1.1 Leistungsdaten",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert 4 × elektrische Sitzantriebe.",
+          "node_id": "R01.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R01.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R01.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Steckverbinder.",
+        "node_id": "R01.r14"
+       },
+       {
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Sitzverkabelung.",
+        "node_id": "R01.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R01.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R01.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R01",
+  "node_id": "R01"
+ },
+ "source": "brennholt",
+ "tree_id": "R01"
+}

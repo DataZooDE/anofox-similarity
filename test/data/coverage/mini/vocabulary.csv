@@ -1,0 +1,13 @@
+wording,source,class_id,apparent_class_id
+Heizmatte,internal,seat_heating,seat_heating
+Sitzheizung Carbon,internal,seat_heating,seat_heating
+Lüftermodul,internal,seat_ventilation,seat_ventilation
+Klimapaket Heizung,internal,seat_ventilation,seat_heating
+Massagemodul pneumatisch,internal,massage,massage
+Massage-Blasenmatte,internal,massage,massage
+KS elektrisch,internal,headrest_powered,headrest_powered
+Kopfstützenantrieb,internal,headrest_powered,headrest_powered
+Memory-SG,internal,memory_module,memory_module
+Sitzmemory,internal,memory_module,memory_module
+Längsversteller,internal,seat_track,seat_track
+LV-Schiene,internal,seat_track,seat_track

@@ -1,0 +1,490 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R46.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has foam cushion pad.",
+        "node_id": "R46.r07"
+       },
+       {
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has PU foam padding.",
+        "node_id": "R46.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R46.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 height adjuster",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has height pumping mechanism.",
+        "node_id": "R46.r09"
+       },
+       {
+        "context": "1.2 height adjuster",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has height pumping mechanism.",
+        "node_id": "R46.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 height adjuster",
+      "node_id": "R46.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has backrest tilt fitting.",
+        "node_id": "R46.r11"
+       },
+       {
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has recliner fittings.",
+        "node_id": "R46.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R46.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has load-bearing seat structure.",
+          "node_id": "R46.r12"
+         },
+         {
+          "context": "1.4.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has backrest and cushion frames.",
+          "node_id": "R46.r29"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.4.1 Performance",
+        "node_id": "R46.c1.s4.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat frame / structure",
+      "node_id": "R46.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has a longitudinal seat adjuster.",
+        "node_id": "R46.r13"
+       },
+       {
+        "context": "1.5 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has fore-aft seat rails.",
+        "node_id": "R46.r30"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat track",
+      "node_id": "R46.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has trim cover set.",
+        "node_id": "R46.r16"
+       },
+       {
+        "context": "1.6 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has trim cover set.",
+        "node_id": "R46.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R46.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R46.c1"
+   },
+   {
+    "children": [
+     {
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has 2 × seat heating.",
+      "node_id": "R46.r01"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 3.2,
+        "lo": 3.2,
+        "name": "time to 37 °C",
+        "text": "max. 3.2 min",
+        "unit": "min"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 2.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has 2 × cushion heating elements with time to 37 °C max. 3.2 min.",
+      "node_id": "R46.r18"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 30.0,
+          "lo": 30.0,
+          "name": "operating noise",
+          "text": "30 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has 2 × seat ventilation with operating noise 30 dB(A).",
+        "node_id": "R46.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 2.6,
+          "lo": 2.6,
+          "name": "current consumption",
+          "text": "up to 2.6 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has 2 × active seat climate airflow with current consumption up to 2.6 A.",
+        "node_id": "R46.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat ventilation",
+      "node_id": "R46.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has elbow rest.",
+        "node_id": "R46.r05"
+       },
+       {
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has seat armrest.",
+        "node_id": "R46.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 armrest",
+      "node_id": "R46.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "2.4 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has e-headrest.",
+        "node_id": "R46.r08"
+       },
+       {
+        "context": "2.4 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has e-headrest.",
+        "node_id": "R46.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 powered headrest",
+      "node_id": "R46.c2.s4"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has lumbar bladder system.",
+      "node_id": "R46.r10"
+     },
+     {
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has 4-way lumbar.",
+      "node_id": "R46.r26"
+     },
+     {
+      "children": [
+       {
+        "context": "2.6 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has lateral support wings.",
+        "node_id": "R46.r15"
+       },
+       {
+        "context": "2.6 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has side support adjustment.",
+        "node_id": "R46.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 side bolster adjustment",
+      "node_id": "R46.c2.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R46.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 3000.0,
+          "lo": 3000.0,
+          "name": "cycle time",
+          "text": "max. 3000 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has a belt buckle presenter with cycle time max. 3000 ms.",
+        "node_id": "R46.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 175.0,
+          "lo": 175.0,
+          "name": "reach",
+          "text": "not less than 175 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has belt reach assist with reach not less than 175 mm.",
+        "node_id": "R46.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 seat-belt buckle presenter",
+      "node_id": "R46.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has side airbag integration.",
+        "node_id": "R46.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 side airbag integration",
+      "node_id": "R46.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R46.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "4.1 seat memory module",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat memory ECU.",
+        "node_id": "R46.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat memory module",
+      "node_id": "R46.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "4.2 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has 4 × seat adjustment motors.",
+        "node_id": "R46.r04"
+       },
+       {
+        "context": "4.2 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has 4 × electric seat drives.",
+        "node_id": "R46.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 seat motor drive",
+      "node_id": "R46.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has electrical harness.",
+        "node_id": "R46.r17"
+       },
+       {
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has connector set.",
+        "node_id": "R46.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 wiring and connectors",
+      "node_id": "R46.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R46.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification FKM-R46",
+  "node_id": "R46"
+ },
+ "source": "falkmoor",
+ "tree_id": "R46"
+}

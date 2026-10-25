@@ -1,0 +1,186 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R02.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 1100.0,
+          "lo": 1100.0,
+          "name": "weight",
+          "text": "≤ 1100 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include PU foam padding with weight ≤ 1100 g.",
+        "node_id": "R02.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R02.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include tumble seat function.",
+        "node_id": "R02.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R02.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include backrest tilt fitting.",
+        "node_id": "R02.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R02.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include backrest and cushion frames.",
+        "node_id": "R02.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 seat frame / structure",
+      "node_id": "R02.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include seat upholstery.",
+        "node_id": "R02.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 trim cover",
+      "node_id": "R02.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R02.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "height travel",
+          "text": "not less than 6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "positions",
+          "text": "≥ 4",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include a manual headrest with height travel not less than 6 cm and positions ≥ 4.",
+        "node_id": "R02.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R02.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R02.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "The system must include connector set.",
+        "node_id": "R02.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R02.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R02.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification DRV-R02",
+  "node_id": "R02"
+ },
+ "source": "dravik",
+ "tree_id": "R02"
+}

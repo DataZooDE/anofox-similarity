@@ -1,0 +1,598 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R39.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.7,
+          "lo": 0.7,
+          "name": "Gewicht",
+          "text": "≤ 0,7 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Polsterschaum mit Gewicht ≤ 0,7 kg.",
+        "node_id": "R39.r02"
+       },
+       {
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Sitzpolsterung.",
+        "node_id": "R39.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R39.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Höhenverstellmechanik.",
+        "node_id": "R39.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 74.0,
+          "lo": 74.0,
+          "name": "Hub",
+          "text": "74 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Pumpe für Sitzhöhe mit Hub 74 mm.",
+        "node_id": "R39.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R39.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Lehnenbeschläge.",
+        "node_id": "R39.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R39.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 19500.0,
+          "lo": 19500.0,
+          "name": "Gewicht",
+          "text": "maximal 19500 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 175.0,
+          "lo": 175.0,
+          "name": "Zielpreis",
+          "text": "höchstens 175 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit ein Sitzgestell mit Gewicht maximal 19500 g und Zielpreis höchstens 175 €.",
+        "node_id": "R39.r08"
+       },
+       {
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit ein Sitzgestell.",
+        "node_id": "R39.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R39.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Geräuschpegel",
+          "text": "höchstens 42 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Sitzschienen für die Längsverstellung mit Geräuschpegel höchstens 42 dB(A).",
+        "node_id": "R39.r11"
+       },
+       {
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit Sitzlängsführung.",
+        "node_id": "R39.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzlängsverstellung",
+      "node_id": "R39.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "category": "F2",
+            "name": "Brennbarkeitsklasse",
+            "text": "F2 oder besser"
+           }
+          ],
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit Stoffbezug mit Brennbarkeitsklasse F2 oder besser.",
+          "node_id": "R39.r15"
+         },
+         {
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Lederbezüge.",
+          "node_id": "R39.r31"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Leistungsdaten",
+        "node_id": "R39.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R39.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R39.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "Schwenkwinkel",
+          "text": "min. 50 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Mittelarmlehne klappbar mit Schwenkwinkel min. 50 °.",
+        "node_id": "R39.r01"
+       },
+       {
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit eine Armlehne.",
+        "node_id": "R39.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R39.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "Stromverbrauch",
+          "text": "maximal 2 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit motorische Kopfstütze mit Stromverbrauch maximal 2 A.",
+        "node_id": "R39.r03"
+       },
+       {
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit motorische Kopfstütze.",
+        "node_id": "R39.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Kopfstütze elektrisch",
+      "node_id": "R39.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit eine Lordosenstütze.",
+          "node_id": "R39.r05"
+         },
+         {
+          "context": "2.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Lordosenverstellung.",
+          "node_id": "R39.r21"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.3.1 Leistungsdaten",
+        "node_id": "R39.c2.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Lordosenstütze",
+      "node_id": "R39.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "Oberflächentemperatur",
+          "text": "48 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.4 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit 4 × Sitzwärmer mit Oberflächentemperatur 48 °C.",
+        "node_id": "R39.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "Aufheizzeit",
+          "text": "max. 290 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.4 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit 4 × eine Sitzheizung mit Aufheizzeit max. 290 s.",
+        "node_id": "R39.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Sitzheizung",
+      "node_id": "R39.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "2.5 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit 2 × aktive Sitzklimatisierung.",
+        "node_id": "R39.r12"
+       },
+       {
+        "context": "2.5 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit 2 × eine Sitzbelüftung.",
+        "node_id": "R39.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 Sitzbelüftung",
+      "node_id": "R39.c2.s5"
+     },
+     {
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Sitzanlage mit verstellbare Seitenwangen.",
+      "node_id": "R39.r30"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R39.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 12.5,
+            "lo": 12.5,
+            "name": "Auslösezeit",
+            "text": "12,5 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit Thoraxairbag mit Auslösezeit 12,5 ms.",
+          "node_id": "R39.r13"
+         },
+         {
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit eine Seitenairbag-Integration.",
+          "node_id": "R39.r29"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R39.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Seitenairbag-Integration",
+      "node_id": "R39.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 0.21,
+          "lo": 0.21,
+          "name": "Ansprechzeit",
+          "text": "≤ 0,21 s",
+          "unit": "s"
+         }
+        ],
+        "context": "3.2 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Sitzanlage mit eine Sitzbelegungserkennung mit Ansprechzeit ≤ 0,21 s.",
+        "node_id": "R39.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Sitzbelegungserkennung",
+      "node_id": "R39.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R39.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "4.1 Memory-Steuergerät",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Sitzanlage mit Memoryfunktion.",
+        "node_id": "R39.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Memory-Steuergerät",
+      "node_id": "R39.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.2.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit 2 × elektrische Sitzantriebe.",
+          "node_id": "R39.r10"
+         },
+         {
+          "context": "4.2.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit 2 × Antriebseinheiten.",
+          "node_id": "R39.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.2.1 Leistungsdaten",
+        "node_id": "R39.c4.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzverstellmotor",
+      "node_id": "R39.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 6.0,
+            "lo": 6.0,
+            "name": "Strombelastbarkeit",
+            "text": "mindestens 6 A",
+            "unit": "A"
+           }
+          ],
+          "context": "4.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Sitzanlage mit einen Sitzkabelbaum mit Strombelastbarkeit mindestens 6 A.",
+          "node_id": "R39.r16"
+         },
+         {
+          "context": "4.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Sitzanlage mit Sitzverkabelung.",
+          "node_id": "R39.r32"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.3.1 Leistungsdaten",
+        "node_id": "R39.c4.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Sitzkabelsatz",
+      "node_id": "R39.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R39.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R39",
+  "node_id": "R39"
+ },
+ "source": "estrelo",
+ "tree_id": "R39"
+}

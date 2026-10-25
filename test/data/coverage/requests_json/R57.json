@@ -1,0 +1,631 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R57.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst Sitzpolsterung.",
+          "node_id": "R57.r08"
+         },
+         {
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Lieferumfang umfasst Sitzpolsterung.",
+          "node_id": "R57.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R57.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R57.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst einen Sitzheber.",
+        "node_id": "R57.r10"
+       },
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst eine Sitzhöhenverstellung.",
+        "node_id": "R57.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R57.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Lehnenbeschläge.",
+        "node_id": "R57.r13"
+       },
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst eine Lehnenneigungsverstellung.",
+        "node_id": "R57.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R57.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst ein Schienensystem längs.",
+        "node_id": "R57.r15"
+       },
+       {
+        "context": "1.4 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst ein Schienensystem längs.",
+        "node_id": "R57.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzlängsverstellung",
+      "node_id": "R57.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Polsterbezug.",
+        "node_id": "R57.r18"
+       },
+       {
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Lederbezüge.",
+        "node_id": "R57.r37"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R57.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Lehnen- und Kissenrahmen.",
+        "node_id": "R57.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzstruktur",
+      "node_id": "R57.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R57.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 1.8,
+          "lo": 1.8,
+          "name": "Aufheizzeit",
+          "text": "≤ 1,8 min",
+          "unit": "min"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst 4 × eine Sitzheizung mit Aufheizzeit ≤ 1,8 min.",
+        "node_id": "R57.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 50.0,
+          "name": "Leistung",
+          "text": "50 bis 85 W",
+          "unit": "W"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst 4 × Sitzwärmer mit Leistung 50 bis 85 W.",
+        "node_id": "R57.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R57.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 30.0,
+          "lo": 15.0,
+          "name": "Luftvolumenstrom",
+          "text": "zwischen 15 und 30 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4.0,
+          "lo": 4.0,
+          "name": "Stromverbrauch",
+          "text": "höchstens 4 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst 2 × belüftete Sitzflächen mit Luftvolumenstrom zwischen 15 und 30 m³/h und Stromverbrauch höchstens 4 A.",
+        "node_id": "R57.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 3700.0,
+          "lo": 3700.0,
+          "name": "Stromverbrauch",
+          "text": "bis zu 3700 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst 2 × aktive Sitzklimatisierung mit Stromverbrauch bis zu 3700 mA.",
+        "node_id": "R57.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Sitzbelüftung",
+      "node_id": "R57.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Schwenkwinkel",
+          "text": "≥ 5 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.3 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Ellbogenauflage mit Schwenkwinkel ≥ 5 °.",
+        "node_id": "R57.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "Belastbarkeit",
+          "text": "nicht weniger als 1500 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.3 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Ellbogenauflage mit Belastbarkeit nicht weniger als 1500 N.",
+        "node_id": "R57.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Armlehne",
+      "node_id": "R57.c2.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "2.4 Sitzkissenverlängerung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst eine Sitztiefenverstellung.",
+        "node_id": "R57.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.8,
+          "lo": 5.8,
+          "name": "Auszugsweg",
+          "text": "mindestens 5,8 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "2.4 Sitzkissenverlängerung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Oberschenkelauflage mit Auszugsweg mindestens 5,8 cm.",
+        "node_id": "R57.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Sitzkissenverlängerung",
+      "node_id": "R57.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 19.0,
+          "lo": 12.0,
+          "name": "Verstellgeschwindigkeit",
+          "text": "zwischen 12 und 19 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "Stromverbrauch",
+          "text": "≤ 3500 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.5 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst elektrisch verstellbare Kopfstütze mit Verstellgeschwindigkeit zwischen 12 und 19 mm/s und Stromverbrauch ≤ 3500 mA.",
+        "node_id": "R57.r09"
+       },
+       {
+        "context": "2.5 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst motorische Kopfstütze.",
+        "node_id": "R57.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 Kopfstütze elektrisch",
+      "node_id": "R57.c2.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "2.6 Lordosenstütze",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Lordosenverstellung.",
+        "node_id": "R57.r11"
+       },
+       {
+        "context": "2.6 Lordosenstütze",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Kreuzstütze.",
+        "node_id": "R57.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 Lordosenstütze",
+      "node_id": "R57.c2.s6"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R57.c2.s7.n1"
+       },
+       {
+        "context": "2.7 Massagefunktion",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst 4 × Massageprogramme.",
+        "node_id": "R57.r12"
+       },
+       {
+        "context": "2.7 Massagefunktion",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst 4 × Rückenmassage.",
+        "node_id": "R57.r30"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 Massagefunktion",
+      "node_id": "R57.c2.s7"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 5000.0,
+        "lo": 5000.0,
+        "name": "Verstellzeit",
+        "text": "höchstens 5000 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst Seitenhalt aktiv mit Verstellzeit höchstens 5000 ms.",
+      "node_id": "R57.r17"
+     },
+     {
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst eine Seitenwangenverstellung.",
+      "node_id": "R57.r36"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R57.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 Gurtschlossbringer",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst einen Gurtschlossbringer.",
+        "node_id": "R57.r06"
+       },
+       {
+        "context": "3.1 Gurtschlossbringer",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst einen Gurtschlossbringer.",
+        "node_id": "R57.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Gurtschlossbringer",
+      "node_id": "R57.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "3.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst Thoraxairbag.",
+          "node_id": "R57.r16"
+         },
+         {
+          "context": "3.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Lieferumfang umfasst eine Seitenairbag-Integration.",
+          "node_id": "R57.r35"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.2.1 Leistungsdaten",
+        "node_id": "R57.c3.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R57.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "3.3 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Insassenerkennung.",
+        "node_id": "R57.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R57.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R57.c3"
+   },
+   {
+    "children": [
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst ein Memory-Steuergerät.",
+      "node_id": "R57.r03"
+     },
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst 4 × Getriebemotoren.",
+      "node_id": "R57.r04"
+     },
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 4.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst 4 × Antriebseinheiten.",
+      "node_id": "R57.r22"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "mindestens IP54"
+         }
+        ],
+        "context": "4.3 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst einen Sitzkabelbaum mit Schutzart mindestens IP54.",
+        "node_id": "R57.r19"
+       },
+       {
+        "context": "4.3 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Sitzverkabelung.",
+        "node_id": "R57.r38"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Sitzkabelsatz",
+      "node_id": "R57.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R57.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage GRV-R57",
+  "node_id": "R57"
+ },
+ "source": "grovania",
+ "tree_id": "R57"
+}

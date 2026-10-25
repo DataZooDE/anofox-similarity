@@ -1,0 +1,328 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: where no seat is named, the requirement applies to both front seats.",
+    "node_id": "R48.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 230.0,
+          "lo": 230.0,
+          "name": "hardness",
+          "text": "230 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2100.0,
+          "lo": 2100.0,
+          "name": "weight",
+          "text": "≤ 2100 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has a moulded foam pad with hardness 230 N and weight ≤ 2100 g.",
+        "node_id": "R48.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 foam pad",
+      "node_id": "R48.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: where no seat is named, the requirement applies to both front seats.",
+        "node_id": "R48.c1.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 7000.0,
+          "lo": 7000.0,
+          "name": "folding time",
+          "text": "7000 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "operating force",
+          "text": "75 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 27000.0,
+          "lo": 27000.0,
+          "name": "durability",
+          "text": "≥ 27,000 cycles",
+          "unit": "cycles"
+         }
+        ],
+        "context": "1.2 fold-flat / tumble mechanism",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has folding rear seat with folding time 7000 ms and operating force 75 N and durability ≥ 27,000 cycles.",
+        "node_id": "R48.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 fold-flat / tumble mechanism",
+      "node_id": "R48.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3150.0,
+          "lo": 3150.0,
+          "name": "locking strength",
+          "text": "not less than 3150 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "noise level",
+          "text": "max. 46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has backrest tilt fitting with locking strength not less than 3150 N·m and noise level max. 46 dB(A).",
+        "node_id": "R48.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 recliner",
+      "node_id": "R48.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 14500.0,
+        "lo": 14500.0,
+        "name": "mass",
+        "text": "≤ 14500 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 23.0,
+        "lo": 23.0,
+        "name": "crash strength",
+        "text": "23 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 135.0,
+        "lo": 135.0,
+        "name": "target price",
+        "text": "≤ 135 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "It is required that the seat has a seat frame with mass ≤ 14500 g and crash strength 23 kN and target price ≤ 135 €.",
+      "node_id": "R48.r05"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R48.c1.s5.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 55000.0,
+          "lo": 55000.0,
+          "name": "Martindale",
+          "text": "at least 55,000 cycles",
+          "unit": "cycles"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "flammability class",
+          "text": "min. F3"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 150.0,
+          "lo": 150.0,
+          "name": "piece price",
+          "text": "not more than 150 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.5 trim cover",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has leather trim with Martindale at least 55,000 cycles and flammability class min. F3 and piece price not more than 150 EUR.",
+        "node_id": "R48.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 trim cover",
+      "node_id": "R48.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R48.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 65.0,
+          "lo": 65.0,
+          "name": "height travel",
+          "text": "65 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "detent positions",
+          "text": "not less than 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 manual headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has headrest with detents with height travel 65 mm and detent positions not less than 3.",
+        "node_id": "R48.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 manual headrest",
+      "node_id": "R48.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R48.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: the supplier shall confirm each requirement in the compliance matrix.",
+        "node_id": "R48.c4.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 14.0,
+          "lo": 14.0,
+          "name": "current rating",
+          "text": "at least 14 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "protection class",
+          "text": "IP54 or better"
+         }
+        ],
+        "context": "4.1 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "It is required that the seat has wiring loom with current rating at least 14 A and protection class IP54 or better.",
+        "node_id": "R48.r07"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 wiring and connectors",
+      "node_id": "R48.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R48.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification FKM-R48",
+  "node_id": "R48"
+ },
+ "source": "falkmoor",
+ "tree_id": "R48"
+}

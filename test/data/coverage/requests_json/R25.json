@@ -1,0 +1,281 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R25.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 230.0,
+          "lo": 230.0,
+          "name": "Stauchhärte",
+          "text": "230 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2200.0,
+          "lo": 2200.0,
+          "name": "Gewicht",
+          "text": "max. 2200 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit PU-Schaumpolster mit Stauchhärte 230 N und Gewicht max. 2200 g.",
+        "node_id": "R25.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R25.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Umlegezeit",
+          "text": "bis zu 5,5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 75.0,
+          "lo": 75.0,
+          "name": "Bedienkraft",
+          "text": "75 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 29000.0,
+          "lo": 29000.0,
+          "name": "Lebensdauer",
+          "text": "mindestens 29.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit eine Umklappfunktion mit Umlegezeit bis zu 5,5 s und Bedienkraft 75 N und Lebensdauer mindestens 29.000 Zyklen.",
+        "node_id": "R25.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R25.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2950.0,
+          "lo": 2950.0,
+          "name": "Festigkeit",
+          "text": "minimal 2950 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Betriebsgeräusch",
+          "text": "42 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Neigungsgelenk Lehne mit Festigkeit minimal 2950 Nm und Betriebsgeräusch 42 dB(A).",
+        "node_id": "R25.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R25.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 15000.0,
+        "lo": 15000.0,
+        "name": "Masse",
+        "text": "≤ 15000 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 21.0,
+        "lo": 21.0,
+        "name": "Crashfestigkeit",
+        "text": "minimal 21 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 180.0,
+        "lo": 180.0,
+        "name": "Zielpreis",
+        "text": "180 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit Lehnen- und Kissenrahmen mit Masse ≤ 15000 g und Crashfestigkeit minimal 21 kN und Zielpreis 180 €.",
+      "node_id": "R25.r05"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 55000.0,
+        "lo": 55000.0,
+        "name": "Martindale",
+        "text": "min. 55000 Zyklen",
+        "unit": "Zyklen"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "F1",
+        "name": "Brennbarkeitsklasse",
+        "text": "F1 oder besser"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit einen Sitzbezug mit Martindale min. 55000 Zyklen und Brennbarkeitsklasse F1 oder besser.",
+      "node_id": "R25.r06"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R25.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 55.0,
+        "lo": 55.0,
+        "name": "Höhenverstellweg",
+        "text": "≥ 55 mm",
+        "unit": "mm"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit Kopfstütze mit Rasten mit Höhenverstellweg ≥ 55 mm.",
+      "node_id": "R25.r03"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R25.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R25.c4.s1.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "Schutzart",
+            "text": "min. IP54"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Sitzanlage mit Sitzverkabelung mit Schutzart min. IP54.",
+          "node_id": "R25.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R25.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R25.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R25.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R25",
+  "node_id": "R25"
+ },
+ "source": "estrelo",
+ "tree_id": "R25"
+}

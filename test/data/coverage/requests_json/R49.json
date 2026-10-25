@@ -1,0 +1,339 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R49.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "Gewicht",
+          "text": "max. 1500 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Polsterschaum mit Gewicht max. 1500 g.",
+        "node_id": "R49.r01"
+       },
+       {
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Formschaumteile.",
+        "node_id": "R49.r11"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R49.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst eine Sitzhöhenverstellung.",
+        "node_id": "R49.r03"
+       },
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst einen Sitzheber.",
+        "node_id": "R49.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R49.c1.s2"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst Lehnenbeschläge.",
+      "node_id": "R49.r04"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst Lehnenbeschläge.",
+      "node_id": "R49.r14"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Sitzschienen für die Längsverstellung.",
+        "node_id": "R49.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 32.0,
+          "lo": 22.0,
+          "name": "Geschwindigkeit",
+          "text": "22 bis 32 mm/s",
+          "unit": "mm/s"
+         }
+        ],
+        "context": "1.4 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst Sitzschienen für die Längsverstellung mit Geschwindigkeit 22 bis 32 mm/s.",
+        "node_id": "R49.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzlängsverstellung",
+      "node_id": "R49.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 85.0,
+            "lo": 85.0,
+            "name": "Zielpreis",
+            "text": "max. 85 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Lieferumfang umfasst Stoffbezug mit Zielpreis max. 85 EUR.",
+          "node_id": "R49.r09"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 80000.0,
+            "lo": 80000.0,
+            "name": "Scheuerbeständigkeit",
+            "text": "80.000 Zyklen",
+            "unit": "Zyklen"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Lieferumfang umfasst Lederbezüge mit Scheuerbeständigkeit 80.000 Zyklen.",
+          "node_id": "R49.r19"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R49.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R49.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst ein Sitzgestell.",
+        "node_id": "R49.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzstruktur",
+      "node_id": "R49.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R49.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 85.0,
+          "lo": 45.0,
+          "name": "Leistung",
+          "text": "zwischen 45 und 85 W",
+          "unit": "W"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst 4 × beheizte Sitzflächen mit Leistung zwischen 45 und 85 W.",
+        "node_id": "R49.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 80.0,
+          "lo": 55.0,
+          "name": "Leistung",
+          "text": "55 bis 80 W",
+          "unit": "W"
+         }
+        ],
+        "context": "2.1 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst 4 × eine Sitzheizung mit Leistung 55 bis 80 W.",
+        "node_id": "R49.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Sitzheizung",
+      "node_id": "R49.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R49.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R49.c3.s1.n1"
+       },
+       {
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Lieferumfang umfasst Kopfstütze handverstellbar.",
+        "node_id": "R49.r02"
+       },
+       {
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Lieferumfang umfasst eine manuelle Kopfstütze.",
+        "node_id": "R49.r12"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R49.c3.s1"
+     },
+     {
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst eine Seitenairbag-Integration.",
+      "node_id": "R49.r08"
+     },
+     {
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst eine Seitenairbag-Integration.",
+      "node_id": "R49.r18"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R49.c3"
+   },
+   {
+    "children": [
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Lieferumfang umfasst Kabelsatz Sitz.",
+      "node_id": "R49.r10"
+     },
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Lieferumfang umfasst einen Sitzkabelbaum.",
+      "node_id": "R49.r20"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R49.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage GRV-R49",
+  "node_id": "R49"
+ },
+ "source": "grovania",
+ "tree_id": "R49"
+}

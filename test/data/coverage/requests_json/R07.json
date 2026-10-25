@@ -1,0 +1,315 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R07.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 280.0,
+          "lo": 280.0,
+          "name": "Stauchhärte",
+          "text": "280 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert PU-Schaumpolster mit Stauchhärte 280 N.",
+        "node_id": "R07.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R07.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 8.5,
+            "lo": 8.5,
+            "name": "Klappzeit",
+            "text": "bis zu 8,5 s",
+            "unit": "s"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Der Lieferant liefert umlegbare Rücksitze mit Klappzeit bis zu 8,5 s.",
+          "node_id": "R07.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R07.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R07.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "Gewicht",
+          "text": "höchstens 18 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 240.0,
+          "lo": 240.0,
+          "name": "Zielpreis",
+          "text": "240 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.3 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Lehnen- und Kissenrahmen mit Gewicht höchstens 18 kg und Zielpreis 240 EUR.",
+        "node_id": "R07.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzstruktur",
+      "node_id": "R07.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "Längsverstellweg",
+        "text": "30 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "within",
+        "hi": 4.0,
+        "lo": 1.5,
+        "name": "Verstellgeschwindigkeit",
+        "text": "zwischen 1,5 und 4 cm/s",
+        "unit": "cm/s"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 37.0,
+        "lo": 37.0,
+        "name": "Betriebsgeräusch",
+        "text": "bis zu 37 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert Sitzschienen für die Längsverstellung mit Längsverstellweg 30 cm und Verstellgeschwindigkeit zwischen 1,5 und 4 cm/s und Betriebsgeräusch bis zu 37 dB(A).",
+      "node_id": "R07.r07"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 70000.0,
+          "lo": 70000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "70.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F2",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F2"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 110.0,
+          "lo": 110.0,
+          "name": "Stückpreis",
+          "text": "110 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Polsterbezug mit Scheuerbeständigkeit 70.000 Zyklen und Brennbarkeitsklasse min. F2 und Stückpreis 110 €.",
+        "node_id": "R07.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R07.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R07.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R07.c2.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "Schwenkwinkel",
+          "text": "nicht weniger als 5 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert Armauflage mit Schwenkwinkel nicht weniger als 5 °.",
+        "node_id": "R07.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R07.c2.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R07.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Verstellweg",
+          "text": "nicht weniger als 6 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Der Lieferant liefert mechanische Kopfstütze mit Verstellweg nicht weniger als 6 cm.",
+        "node_id": "R07.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R07.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R07.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "Strombelastbarkeit",
+        "text": "mindestens 5 A",
+        "unit": "A"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "category": "IP54",
+        "name": "Schutzart",
+        "text": "IP54 oder besser"
+       }
+      ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Der Lieferant liefert Kabelsatz Sitz mit Strombelastbarkeit mindestens 5 A und Schutzart IP54 oder besser.",
+      "node_id": "R07.r09"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R07.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R07",
+  "node_id": "R07"
+ },
+ "source": "brennholt",
+ "tree_id": "R07"
+}

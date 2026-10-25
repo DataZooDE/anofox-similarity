@@ -1,0 +1,268 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R19.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R19.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 280.0,
+          "lo": 280.0,
+          "name": "Härte",
+          "text": "280 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "Masse",
+          "text": "max. 2 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Formschaumteile mit Härte 280 N und Masse max. 2 kg.",
+        "node_id": "R19.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R19.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R19.c1.s2.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8500.0,
+          "lo": 8500.0,
+          "name": "Umlegezeit",
+          "text": "≤ 8500 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 85.0,
+          "lo": 85.0,
+          "name": "Bedienkraft",
+          "text": "höchstens 85 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Tumble-Funktion mit Umlegezeit ≤ 8500 ms und Bedienkraft höchstens 85 N.",
+        "node_id": "R19.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R19.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 11.0,
+          "lo": 11.0,
+          "name": "Masse",
+          "text": "≤ 11 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 160.0,
+          "lo": 160.0,
+          "name": "Zielpreis",
+          "text": "160 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.3 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit tragende Sitzstruktur mit Masse ≤ 11 kg und Zielpreis 160 EUR.",
+        "node_id": "R19.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Sitzstruktur",
+      "node_id": "R19.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 45000.0,
+          "lo": 45000.0,
+          "name": "Martindale",
+          "text": "minimal 45.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F3",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F3"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 135.0,
+          "lo": 135.0,
+          "name": "Stückpreis",
+          "text": "höchstens 135 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.4 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit einen Sitzbezug mit Martindale minimal 45.000 Zyklen und Brennbarkeitsklasse mindestens F3 und Stückpreis höchstens 135 €.",
+        "node_id": "R19.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzbezug",
+      "node_id": "R19.c1.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R19.c1"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 55.0,
+        "lo": 55.0,
+        "name": "Höhenverstellweg",
+        "text": "minimal 55 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Raststellungen",
+        "text": "nicht weniger als 2",
+        "unit": ""
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Sitzanlage mit Kopfstütze mit Rasten mit Höhenverstellweg minimal 55 mm und Raststellungen nicht weniger als 2.",
+      "node_id": "R19.r03"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R19.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "Strombelastbarkeit",
+          "text": "min. 18 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP54",
+          "name": "Schutzart",
+          "text": "IP54 oder besser"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Sitzanlage mit Kabelsatz Sitz mit Strombelastbarkeit min. 18 A und Schutzart IP54 oder besser.",
+        "node_id": "R19.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R19.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R19.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage EST-R19",
+  "node_id": "R19"
+ },
+ "source": "estrelo",
+ "tree_id": "R19"
+}

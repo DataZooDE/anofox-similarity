@@ -1,0 +1,376 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+    "node_id": "R53.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert Polsterschaum.",
+          "node_id": "R53.r01"
+         },
+         {
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Polsterschaum.",
+          "node_id": "R53.r10"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R53.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R53.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 34.0,
+            "lo": 34.0,
+            "name": "Höhenhub",
+            "text": "nicht weniger als 34 mm",
+            "unit": "mm"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert eine Sitzhöhenverstellung mit Höhenhub nicht weniger als 34 mm.",
+          "node_id": "R53.r03"
+         },
+         {
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert eine Sitzhöhenverstellung.",
+          "node_id": "R53.r12"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R53.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R53.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Neigungsgelenk Lehne.",
+        "node_id": "R53.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "Geräusch",
+          "text": "maximal 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert eine Lehnenneigungsverstellung mit Geräusch maximal 43 dB(A).",
+        "node_id": "R53.r14"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R53.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert tragende Sitzstruktur.",
+        "node_id": "R53.r05"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 15.5,
+          "lo": 15.5,
+          "name": "Masse",
+          "text": "max. 15,5 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert ein Sitzgestell mit Masse max. 15,5 kg.",
+        "node_id": "R53.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R53.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R53.c1.s5.n1"
+       },
+       {
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert ein Schienensystem längs.",
+        "node_id": "R53.r06"
+       },
+       {
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert ein Schienensystem längs.",
+        "node_id": "R53.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzlängsverstellung",
+      "node_id": "R53.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert Lederbezüge.",
+          "node_id": "R53.r08"
+         },
+         {
+          "context": "1.6.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Lederbezüge.",
+          "node_id": "R53.r18"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Leistungsdaten",
+        "node_id": "R53.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R53.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R53.c1"
+   },
+   {
+    "children": [
+     {
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert eine manuelle Kopfstütze.",
+      "node_id": "R53.r02"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 8.0,
+        "lo": 8.0,
+        "name": "Höhenverstellweg",
+        "text": "nicht weniger als 8 cm",
+        "unit": "cm"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Lieferant liefert eine manuelle Kopfstütze mit Höhenverstellweg nicht weniger als 8 cm.",
+      "node_id": "R53.r11"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 0.32,
+        "lo": 0.32,
+        "name": "Nahtfestigkeit",
+        "text": "0,32 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert eine Seitenairbag-Integration mit Nahtfestigkeit 0,32 kN.",
+      "node_id": "R53.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 10.5,
+        "lo": 10.5,
+        "name": "Auslösezeit",
+        "text": "höchstens 10,5 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "3 Sicherheit",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Lieferant liefert Airbag-Aufreißnaht mit Auslösezeit höchstens 10,5 ms.",
+      "node_id": "R53.r17"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R53.c3.s3.n1"
+       },
+       {
+        "context": "3.3 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert eine Sitzbelegungserkennung.",
+        "node_id": "R53.r13"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R53.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R53.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R53.c4.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "min. IP40"
+         }
+        ],
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Kabelsatz Sitz mit Schutzart min. IP40.",
+        "node_id": "R53.r09"
+       },
+       {
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Steckverbinder.",
+        "node_id": "R53.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R53.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R53.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R53",
+  "node_id": "R53"
+ },
+ "source": "brennholt",
+ "tree_id": "R53"
+}

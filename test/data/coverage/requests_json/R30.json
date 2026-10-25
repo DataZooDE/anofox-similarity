@@ -1,0 +1,1287 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R30.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "within",
+        "hi": 26.0,
+        "lo": 16.0,
+        "name": "adjustment speed",
+        "text": "16 to 26 mm/s",
+        "unit": "mm/s"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 43.0,
+        "lo": 43.0,
+        "name": "operating noise",
+        "text": "43 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 13500.0,
+        "lo": 13500.0,
+        "name": "holding load",
+        "text": "13500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has a seat slide track with adjustment speed 16 to 26 mm/s and operating noise 43 dB(A) and holding load 13500 N.",
+      "node_id": "R30.r03"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 30.0,
+        "lo": 30.0,
+        "name": "fore-aft travel",
+        "text": "30 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 47.0,
+        "lo": 47.0,
+        "name": "noise level",
+        "text": "≤ 47 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_least",
+        "hi": 11500.0,
+        "lo": 11500.0,
+        "name": "retention load",
+        "text": "at least 11500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has a longitudinal seat adjuster with fore-aft travel 30 cm and noise level ≤ 47 dB(A) and retention load at least 11500 N.",
+      "node_id": "R30.r21"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 8.0,
+        "lo": 8.0,
+        "name": "height stroke",
+        "text": "8 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "adjustment time",
+        "text": "not more than 5 s",
+        "unit": "s"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has height pumping mechanism with height stroke 8 cm and adjustment time not more than 5 s.",
+      "node_id": "R30.r04"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 80.0,
+        "lo": 80.0,
+        "name": "vertical travel",
+        "text": "80 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 4500.0,
+        "lo": 4500.0,
+        "name": "adjustment time",
+        "text": "not more than 4500 ms",
+        "unit": "ms"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_least",
+        "hi": 8500.0,
+        "lo": 8500.0,
+        "name": "holding load",
+        "text": "min. 8500 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Structure and mechanisms",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has height pumping mechanism with vertical travel 80 mm and adjustment time not more than 4500 ms and holding load min. 8500 N.",
+      "node_id": "R30.r22"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 230.0,
+          "lo": 230.0,
+          "name": "hardness",
+          "text": "230 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1.9,
+          "lo": 1.9,
+          "name": "weight",
+          "text": "1.9 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat padding with hardness 230 N and weight 1.9 kg.",
+        "node_id": "R30.r10"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "mass",
+          "text": "up to 2 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.3 foam pad",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has a moulded foam pad with mass up to 2 kg.",
+        "node_id": "R30.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R30.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 41.0,
+          "lo": 41.0,
+          "name": "operating noise",
+          "text": "41 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has a backrest recliner with operating noise 41 dB(A).",
+        "node_id": "R30.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "angle range",
+          "text": "not less than 52 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3250.0,
+          "lo": 3250.0,
+          "name": "static strength",
+          "text": "min. 3250 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "noise",
+          "text": "≤ 47 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has seat back angle adjustment with angle range not less than 52 ° and static strength min. 3250 N·m and noise ≤ 47 dB(A).",
+        "node_id": "R30.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 recliner",
+      "node_id": "R30.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5000.0,
+          "lo": 5000.0,
+          "name": "mass",
+          "text": "not more than 5000 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 81.0,
+          "lo": 81.0,
+          "name": "crash load",
+          "text": "at least 81 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has a seat frame with mass not more than 5000 g and crash load at least 81 kN.",
+        "node_id": "R30.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 11500.0,
+          "lo": 11500.0,
+          "name": "weight",
+          "text": "11500 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 22.0,
+          "lo": 22.0,
+          "name": "crash strength",
+          "text": "at least 22 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 190.0,
+          "lo": 190.0,
+          "name": "target price",
+          "text": "not more than 190 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has seat frame structure with weight 11500 g and crash strength at least 22 kN and target price not more than 190 €.",
+        "node_id": "R30.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat frame / structure",
+      "node_id": "R30.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 55000.0,
+            "lo": 55000.0,
+            "name": "abrasion resistance",
+            "text": "minimum 55,000 cycles",
+            "unit": "cycles"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 145.0,
+            "lo": 145.0,
+            "name": "piece price",
+            "text": "max. 145 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has a trim cover with abrasion resistance minimum 55,000 cycles and piece price max. 145 €.",
+          "node_id": "R30.r17"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 145.0,
+            "lo": 145.0,
+            "name": "piece price",
+            "text": "at most 145 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has a trim cover with piece price at most 145 EUR.",
+          "node_id": "R30.r35"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R30.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R30.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R30.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 175.0,
+            "lo": 60.0,
+            "name": "power",
+            "text": "60 to 175 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 60.0,
+            "lo": 60.0,
+            "name": "time to 37 °C",
+            "text": "at most 60 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 1.5,
+            "lo": 1.5,
+            "name": "current draw",
+            "text": "at most 1.5 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a4",
+            "bound": null,
+            "hi": 26.0,
+            "lo": 26.0,
+            "name": "surface temperature",
+            "text": "26 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has 2 × cushion heating elements with power 60 to 175 W and time to 37 °C at most 60 s and current draw at most 1.5 A and surface temperature 26 °C.",
+          "node_id": "R30.r01"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 95.0,
+            "lo": 45.0,
+            "name": "power",
+            "text": "45–95 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "heat-up time",
+            "text": "at most 3 min",
+            "unit": "min"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 43.0,
+            "lo": 43.0,
+            "name": "surface temperature",
+            "text": "up to 43 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.1.1 Performance",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has 2 × heated seat cushion and backrest with power 45–95 W and heat-up time at most 3 min and surface temperature up to 43 °C.",
+          "node_id": "R30.r19"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Performance",
+        "node_id": "R30.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 seat heating",
+      "node_id": "R30.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 440.0,
+          "lo": 340.0,
+          "name": "air flow",
+          "text": "between 340 and 440 l/min",
+          "unit": "l/min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 36.0,
+          "lo": 36.0,
+          "name": "noise level",
+          "text": "36 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has 2 × seat ventilation with air flow between 340 and 440 l/min and noise level 36 dB(A).",
+        "node_id": "R30.r02"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 56.0,
+          "lo": 21.0,
+          "name": "air flow",
+          "text": "21–56 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "noise level",
+          "text": "18 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 600.0,
+          "lo": 600.0,
+          "name": "current draw",
+          "text": "at most 600 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 seat ventilation",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has 2 × active seat climate airflow with air flow 21–56 m³/h and noise level 18 dB(A) and current draw at most 600 mA.",
+        "node_id": "R30.r20"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat ventilation",
+      "node_id": "R30.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1.4,
+          "lo": 1.4,
+          "name": "vertical load",
+          "text": "≥ 1.4 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "pivot angle",
+          "text": "15 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat armrest with vertical load ≥ 1.4 kN and pivot angle 15 °.",
+        "node_id": "R30.r07"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1500.0,
+          "lo": 1500.0,
+          "name": "vertical load",
+          "text": "at least 1500 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "pivot angle",
+          "text": "at least 10 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.3 armrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has elbow rest with vertical load at least 1500 N and pivot angle at least 10 °.",
+        "node_id": "R30.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 armrest",
+      "node_id": "R30.c2.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 110.0,
+        "lo": 110.0,
+        "name": "extension travel",
+        "text": "min. 110 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 1.5,
+        "lo": 1.5,
+        "name": "adjustment time",
+        "text": "up to 1.5 s",
+        "unit": "s"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has thigh support extension with extension travel min. 110 mm and adjustment time up to 1.5 s.",
+      "node_id": "R30.r09"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 58.0,
+        "lo": 58.0,
+        "name": "extension",
+        "text": "min. 58 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "adjustment time",
+        "text": "5 s",
+        "unit": "s"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has cushion depth adjustment with extension min. 58 mm and adjustment time 5 s.",
+      "node_id": "R30.r26"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 13.0,
+        "lo": 13.0,
+        "name": "height travel",
+        "text": "13 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 6.0,
+        "lo": 6.0,
+        "name": "fore-aft tilt",
+        "text": "6 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "within",
+        "hi": 44.0,
+        "lo": 18.0,
+        "name": "adjustment speed",
+        "text": "between 18 and 44 mm/s",
+        "unit": "mm/s"
+       },
+       {
+        "attr_id": "a4",
+        "bound": "at_most",
+        "hi": 0.5,
+        "lo": 0.5,
+        "name": "max. current",
+        "text": "≤ 0.5 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: It is required that the seat has motorised headrest with height travel 13 cm and fore-aft tilt 6 cm and adjustment speed between 18 and 44 mm/s and max. current ≤ 0.5 A.",
+      "node_id": "R30.r11"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 75.0,
+        "lo": 75.0,
+        "name": "height travel",
+        "text": "75 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 3.6,
+        "lo": 3.6,
+        "name": "fore-aft tilt",
+        "text": "min. 3.6 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 3800.0,
+        "lo": 3800.0,
+        "name": "current draw",
+        "text": "max. 3800 mA",
+        "unit": "mA"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: It is required that the seat has a powered headrest with height travel 75 mm and fore-aft tilt min. 3.6 cm and current draw max. 3800 mA.",
+      "node_id": "R30.r28"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 72.0,
+          "lo": 72.0,
+          "name": "lumbar travel",
+          "text": "min. 72 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "adjustment ways",
+          "text": "not less than 6",
+          "unit": ""
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 400.0,
+          "lo": 400.0,
+          "name": "max. current",
+          "text": "max. 400 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.6 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has lumbar basket with lumbar travel min. 72 mm and adjustment ways not less than 6 and max. current max. 400 mA.",
+        "node_id": "R30.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 2.0,
+          "lo": 2.0,
+          "name": "adjustment ways",
+          "text": "min. 2",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1300.0,
+          "lo": 1300.0,
+          "name": "current consumption",
+          "text": "up to 1300 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.6 lumbar support",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has a lumbar support with adjustment ways min. 2 and current consumption up to 1300 mA.",
+        "node_id": "R30.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 lumbar support",
+      "node_id": "R30.c2.s6"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3.1,
+          "lo": 3.1,
+          "name": "bolster travel",
+          "text": "minimum 3.1 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "2.7 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has bolster bladders with bolster travel minimum 3.1 cm.",
+        "node_id": "R30.r16"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 32.0,
+          "lo": 32.0,
+          "name": "bolster travel",
+          "text": "at least 32 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "2.7 side bolster adjustment",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has lateral support wings with bolster travel at least 32 mm.",
+        "node_id": "R30.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 side bolster adjustment",
+      "node_id": "R30.c2.s7"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R30.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 16.5,
+          "lo": 16.5,
+          "name": "reach",
+          "text": "minimum 16.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "cycle time",
+          "text": "not more than 3500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has buckle presenter actuator with reach minimum 16.5 cm and cycle time not more than 3500 ms.",
+        "node_id": "R30.r08"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "presenter stroke",
+          "text": "≥ 17 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "cycle time",
+          "text": "up to 3500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has belt reach assist with presenter stroke ≥ 17 cm and cycle time up to 3500 ms.",
+        "node_id": "R30.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 seat-belt buckle presenter",
+      "node_id": "R30.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "seam opening time",
+          "text": "not more than 7 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has side airbag integration with seam opening time not more than 7 ms.",
+        "node_id": "R30.r15"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "seam opening time",
+          "text": "up to 7 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: It is required that the seat has side airbag integration with seam opening time up to 7 ms.",
+        "node_id": "R30.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 side airbag integration",
+      "node_id": "R30.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 24.0,
+            "lo": 24.0,
+            "name": "detection threshold",
+            "text": "24 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 420.0,
+            "lo": 420.0,
+            "name": "response time",
+            "text": "420 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "3.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has occupancy detection pad with detection threshold 24 kg and response time 420 ms.",
+          "node_id": "R30.r30"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.3.1 Performance",
+        "node_id": "R30.c3.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 occupant detection mat",
+      "node_id": "R30.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R30.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "memorised ways",
+          "text": "at least 8",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 1.0,
+          "lo": 1.0,
+          "name": "quiescent current",
+          "text": "≤ 1 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 0.21,
+          "lo": 0.21,
+          "name": "response time",
+          "text": "at most 0.21 s",
+          "unit": "s"
+         }
+        ],
+        "context": "4.1 seat memory module",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: It is required that the seat has seat memory ECU with memorised ways at least 8 and quiescent current ≤ 1 mA and response time at most 0.21 s.",
+        "node_id": "R30.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 seat memory module",
+      "node_id": "R30.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 9.0,
+            "lo": 9.0,
+            "name": "torque",
+            "text": "at least 9 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 8000.0,
+            "lo": 8000.0,
+            "name": "max. current",
+            "text": "up to 8000 mA",
+            "unit": "mA"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 47.0,
+            "lo": 47.0,
+            "name": "noise",
+            "text": "47 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "4.2.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has 4 × seat adjustment motors with torque at least 9 N·m and max. current up to 8000 mA and noise 47 dB(A).",
+          "node_id": "R30.r06"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 7.0,
+            "lo": 7.0,
+            "name": "max. current",
+            "text": "7 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 47.0,
+            "lo": 47.0,
+            "name": "noise level",
+            "text": "47 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "4.2.1 Performance",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has 4 × seat adjustment motors with max. current 7 A and noise level 47 dB(A).",
+          "node_id": "R30.r23"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.2.1 Performance",
+        "node_id": "R30.c4.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 seat motor drive",
+      "node_id": "R30.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "current rating",
+            "text": "min. 10 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "protection class",
+            "text": "min. IP54"
+           }
+          ],
+          "context": "4.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: It is required that the seat has connector set with current rating min. 10 A and protection class min. IP54.",
+          "node_id": "R30.r18"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 30.0,
+            "lo": 30.0,
+            "name": "current rating",
+            "text": "≥ 30 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP65",
+            "name": "protection class",
+            "text": "at least IP65"
+           }
+          ],
+          "context": "4.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: It is required that the seat has a seat wiring harness with current rating ≥ 30 A and protection class at least IP65.",
+          "node_id": "R30.r36"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.3.1 Performance",
+        "node_id": "R30.c4.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 wiring and connectors",
+      "node_id": "R30.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R30.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification FKM-R30",
+  "node_id": "R30"
+ },
+ "source": "falkmoor",
+ "tree_id": "R30"
+}

@@ -1,0 +1,1185 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R79.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 200.0,
+          "lo": 200.0,
+          "name": "Härte",
+          "text": "200 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 1.6,
+          "lo": 1.6,
+          "name": "Masse",
+          "text": "1,6 kg",
+          "unit": "kg"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Polsterschaum mit Härte 200 N und Masse 1,6 kg bereitstellen.",
+        "node_id": "R79.r03"
+       },
+       {
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Polsterschaum bereitstellen.",
+        "node_id": "R79.r21"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R79.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 4.8,
+            "lo": 4.8,
+            "name": "Höhenhub",
+            "text": "minimal 4,8 cm",
+            "unit": "cm"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss einen Sitzheber mit Höhenhub minimal 4,8 cm bereitstellen.",
+          "node_id": "R79.r05"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 4.6,
+            "lo": 4.6,
+            "name": "Hub",
+            "text": "min. 4,6 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 12.5,
+            "lo": 12.5,
+            "name": "Haltekraft",
+            "text": "≥ 12,5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss eine Sitzhöhenverstellung mit Hub min. 4,6 cm und Haltekraft ≥ 12,5 kN bereitstellen.",
+          "node_id": "R79.r23"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R79.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R79.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3000.0,
+          "lo": 3000.0,
+          "name": "Haltemoment",
+          "text": "min. 3000 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 43.0,
+          "lo": 43.0,
+          "name": "Geräusch",
+          "text": "max. 43 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss eine Lehnenneigungsverstellung mit Haltemoment min. 3000 N·m und Geräusch max. 43 dB(A) bereitstellen.",
+        "node_id": "R79.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 42.0,
+          "lo": 42.0,
+          "name": "Winkelbereich",
+          "text": "≥ 42 °",
+          "unit": "°"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss eine Lehnenneigungsverstellung mit Winkelbereich ≥ 42 ° bereitstellen.",
+        "node_id": "R79.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R79.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 12.5,
+          "lo": 12.5,
+          "name": "Gewicht",
+          "text": "12,5 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 28.0,
+          "lo": 28.0,
+          "name": "Crashfestigkeit",
+          "text": "mindestens 28 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 210.0,
+          "lo": 210.0,
+          "name": "Zielpreis",
+          "text": "210 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Sitzstruktur mit Gewicht 12,5 kg und Crashfestigkeit mindestens 28 kN und Zielpreis 210 EUR bereitstellen.",
+        "node_id": "R79.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R79.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 3.1,
+          "lo": 1.6,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,6–3,1 cm/s",
+          "unit": "cm/s"
+         }
+        ],
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss ein Schienensystem längs mit Verstellgeschwindigkeit 1,6–3,1 cm/s bereitstellen.",
+        "node_id": "R79.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 2.7,
+          "lo": 1.9,
+          "name": "Geschwindigkeit",
+          "text": "1,9–2,7 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 41.0,
+          "lo": 41.0,
+          "name": "Betriebsgeräusch",
+          "text": "höchstens 41 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "Haltekraft",
+          "text": "nicht weniger als 15 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.5 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss eine Längsverstellung mit Geschwindigkeit 1,9–2,7 cm/s und Betriebsgeräusch höchstens 41 dB(A) und Haltekraft nicht weniger als 15 kN bereitstellen.",
+        "node_id": "R79.r31"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzlängsverstellung",
+      "node_id": "R79.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 80000.0,
+          "lo": 80000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "min. 80.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F0",
+          "name": "Brennbarkeitsklasse",
+          "text": "F0 oder besser"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Polsterbezug mit Scheuerbeständigkeit min. 80.000 Zyklen und Brennbarkeitsklasse F0 oder besser bereitstellen.",
+        "node_id": "R79.r17"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 80000.0,
+          "lo": 80000.0,
+          "name": "Martindale",
+          "text": "mindestens 80.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F1",
+          "name": "Brennbarkeitsklasse",
+          "text": "min. F1"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Polsterbezug mit Martindale mindestens 80.000 Zyklen und Brennbarkeitsklasse min. F1 bereitstellen.",
+        "node_id": "R79.r35"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R79.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R79.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1.7,
+          "lo": 1.7,
+          "name": "Vertikallast",
+          "text": "mindestens 1,7 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Ellbogenauflage mit Vertikallast mindestens 1,7 kN bereitstellen.",
+        "node_id": "R79.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 1600.0,
+          "lo": 1600.0,
+          "name": "Vertikallast",
+          "text": "min. 1600 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "Schwenkwinkel",
+          "text": "70 °",
+          "unit": "°"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Mittelarmlehne klappbar mit Vertikallast min. 1600 N und Schwenkwinkel 70 ° bereitstellen.",
+        "node_id": "R79.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R79.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 5.2,
+            "lo": 5.2,
+            "name": "Verlängerung",
+            "text": "5,2 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 4.0,
+            "lo": 4.0,
+            "name": "Verstellzeit",
+            "text": "maximal 4 s",
+            "unit": "s"
+           }
+          ],
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss eine Sitztiefenverstellung mit Verlängerung 5,2 cm und Verstellzeit maximal 4 s bereitstellen.",
+          "node_id": "R79.r02"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 52.0,
+            "lo": 52.0,
+            "name": "Verlängerung",
+            "text": "52 mm",
+            "unit": "mm"
+           }
+          ],
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss Oberschenkelauflage mit Verlängerung 52 mm bereitstellen.",
+          "node_id": "R79.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Leistungsdaten",
+        "node_id": "R79.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Sitzkissenverlängerung",
+      "node_id": "R79.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 2.1,
+          "lo": 1.6,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,6–2,1 cm/s",
+          "unit": "cm/s"
+         }
+        ],
+        "context": "2.3 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Kopfstütze mit Antrieb mit Verstellgeschwindigkeit 1,6–2,1 cm/s bereitstellen.",
+        "node_id": "R79.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 21.0,
+          "lo": 15.0,
+          "name": "Verstellgeschwindigkeit",
+          "text": "15–21 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2.1,
+          "lo": 2.1,
+          "name": "Strom",
+          "text": "höchstens 2,1 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.3 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss eine elektrische Kopfstütze mit Verstellgeschwindigkeit 15–21 mm/s und Strom höchstens 2,1 A bereitstellen.",
+        "node_id": "R79.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Kopfstütze elektrisch",
+      "node_id": "R79.c2.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 1.8,
+        "lo": 1.8,
+        "name": "Tiefe",
+        "text": "mindestens 1,8 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 2.6,
+        "lo": 2.6,
+        "name": "Stromverbrauch",
+        "text": "höchstens 2,6 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss Kreuzstütze mit Tiefe mindestens 1,8 cm und Stromverbrauch höchstens 2,6 A bereitstellen.",
+      "node_id": "R79.r06"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 20.0,
+        "lo": 20.0,
+        "name": "Tiefe",
+        "text": "minimal 20 mm",
+        "unit": "mm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Wege",
+        "text": "mindestens 2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 2.4,
+        "lo": 2.4,
+        "name": "Stromaufnahme",
+        "text": "2,4 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss eine Lordosenstütze mit Tiefe minimal 20 mm und Wege mindestens 2 und Stromaufnahme 2,4 A bereitstellen.",
+      "node_id": "R79.r24"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Massageprogramme",
+        "text": "minimal 2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 42.0,
+        "lo": 42.0,
+        "name": "Geräusch",
+        "text": "höchstens 42 dB(A)",
+        "unit": "dB(A)"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 8.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Sitz muss 8 × Rückenmassage mit Massageprogramme minimal 2 und Geräusch höchstens 42 dB(A) bereitstellen.",
+      "node_id": "R79.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Programme",
+        "text": "mindestens 2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 44.0,
+        "lo": 44.0,
+        "name": "Betriebsgeräusch",
+        "text": "≤ 44 dB(A)",
+        "unit": "dB(A)"
+       },
+       {
+        "attr_id": "a3",
+        "bound": "at_most",
+        "hi": 3.0,
+        "lo": 3.0,
+        "name": "Stromaufnahme",
+        "text": "≤ 3 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 8.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Sitz muss 8 × eine Massagefunktion mit Programme mindestens 2 und Betriebsgeräusch ≤ 44 dB(A) und Stromaufnahme ≤ 3 A bereitstellen.",
+      "node_id": "R79.r25"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 95.0,
+            "lo": 60.0,
+            "name": "Leistung",
+            "text": "60–95 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 240.0,
+            "lo": 240.0,
+            "name": "Aufheizzeit",
+            "text": "≤ 240 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 40.0,
+            "lo": 40.0,
+            "name": "Oberflächentemperatur",
+            "text": "40 °C",
+            "unit": "°C"
+           }
+          ],
+          "context": "2.6.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss 2 × Sitzwärmer mit Leistung 60–95 W und Aufheizzeit ≤ 240 s und Oberflächentemperatur 40 °C bereitstellen.",
+          "node_id": "R79.r11"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 90.0,
+            "lo": 65.0,
+            "name": "Heizleistung",
+            "text": "65–90 W",
+            "unit": "W"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3.8,
+            "lo": 3.8,
+            "name": "Aufheizzeit",
+            "text": "≤ 3,8 min",
+            "unit": "min"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 10.0,
+            "lo": 10.0,
+            "name": "Stromverbrauch",
+            "text": "höchstens 10 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.6.1 Leistungsdaten",
+          "count": 2.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss 2 × Sitzwärmer mit Heizleistung 65–90 W und Aufheizzeit ≤ 3,8 min und Stromverbrauch höchstens 10 A bereitstellen.",
+          "node_id": "R79.r29"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.6.1 Leistungsdaten",
+        "node_id": "R79.c2.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 Sitzheizung",
+      "node_id": "R79.c2.s6"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 32.0,
+          "lo": 18.0,
+          "name": "Luftvolumenstrom",
+          "text": "18 bis 32 m³/h",
+          "unit": "m³/h"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 39.0,
+          "lo": 39.0,
+          "name": "Geräuschpegel",
+          "text": "bis zu 39 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "Strom",
+          "text": "höchstens 3,6 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.7 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss 2 × belüftete Sitzflächen mit Luftvolumenstrom 18 bis 32 m³/h und Geräuschpegel bis zu 39 dB(A) und Strom höchstens 3,6 A bereitstellen.",
+        "node_id": "R79.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 480.0,
+          "lo": 260.0,
+          "name": "Luftvolumenstrom",
+          "text": "260–480 l/min",
+          "unit": "l/min"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 36.0,
+          "lo": 36.0,
+          "name": "Geräuschpegel",
+          "text": "höchstens 36 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 3.1,
+          "lo": 3.1,
+          "name": "Stromverbrauch",
+          "text": "3,1 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.7 Sitzbelüftung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss 2 × Lüfter im Sitz mit Luftvolumenstrom 260–480 l/min und Geräuschpegel höchstens 36 dB(A) und Stromverbrauch 3,1 A bereitstellen.",
+        "node_id": "R79.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 Sitzbelüftung",
+      "node_id": "R79.c2.s7"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 20.0,
+            "lo": 20.0,
+            "name": "Wangenhub",
+            "text": "20 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 6000.0,
+            "lo": 6000.0,
+            "name": "Verstellzeit",
+            "text": "6000 ms",
+            "unit": "ms"
+           }
+          ],
+          "context": "2.8.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss eine Seitenwangenverstellung mit Wangenhub 20 mm und Verstellzeit 6000 ms bereitstellen.",
+          "node_id": "R79.r16"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 20.0,
+            "lo": 20.0,
+            "name": "Wangenhub",
+            "text": "20 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 6.5,
+            "lo": 6.5,
+            "name": "Verstellzeit",
+            "text": "maximal 6,5 s",
+            "unit": "s"
+           }
+          ],
+          "context": "2.8.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss eine Seitenwangenverstellung mit Wangenhub 20 mm und Verstellzeit maximal 6,5 s bereitstellen.",
+          "node_id": "R79.r34"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.8.1 Leistungsdaten",
+        "node_id": "R79.c2.s8.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.8 Seitenwangenverstellung",
+      "node_id": "R79.c2.s8"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R79.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 12.0,
+          "lo": 12.0,
+          "name": "Auslösezeit",
+          "text": "max. 12 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 700.0,
+          "lo": 700.0,
+          "name": "Nahtfestigkeit",
+          "text": "700 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.1 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Seitenairbag im Sitz mit Auslösezeit max. 12 ms und Nahtfestigkeit 700 N bereitstellen.",
+        "node_id": "R79.r15"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 0.7,
+          "lo": 0.7,
+          "name": "Nahtfestigkeit",
+          "text": "0,7 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.1 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss eine Seitenairbag-Integration mit Nahtfestigkeit 0,7 kN bereitstellen.",
+        "node_id": "R79.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Seitenairbag-Integration",
+      "node_id": "R79.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 520.0,
+          "lo": 520.0,
+          "name": "Ansprechzeit",
+          "text": "≤ 520 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "3.2 Sitzbelegungserkennung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss Insassenerkennung mit Ansprechzeit ≤ 520 ms bereitstellen.",
+        "node_id": "R79.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Sitzbelegungserkennung",
+      "node_id": "R79.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R79.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+        "node_id": "R79.c4.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "Wege",
+          "text": "10",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 0.0048,
+          "lo": 0.0048,
+          "name": "Ruhestrom",
+          "text": "max. 0,0048 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 100.0,
+          "lo": 100.0,
+          "name": "Reaktionszeit",
+          "text": "≤ 100 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "4.1 Memory-Steuergerät",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss Sitzpositionsspeicher mit Wege 10 und Ruhestrom max. 0,0048 A und Reaktionszeit ≤ 100 ms bereitstellen.",
+        "node_id": "R79.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Memory-Steuergerät",
+      "node_id": "R79.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Drehmoment",
+          "text": "min. 3 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 10.5,
+          "lo": 10.5,
+          "name": "Strom",
+          "text": "≤ 10,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 46.0,
+          "lo": 46.0,
+          "name": "Geräusch",
+          "text": "46 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 Sitzverstellmotor",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Sitz muss 6 × Sitzverstellmotoren mit Drehmoment min. 3 Nm und Strom ≤ 10,5 A und Geräusch 46 dB(A) bereitstellen.",
+        "node_id": "R79.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Abtriebsmoment",
+          "text": "≥ 3 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 9.5,
+          "lo": 9.5,
+          "name": "Strom",
+          "text": "9,5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.2 Sitzverstellmotor",
+        "count": 6.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Sitz muss 6 × elektrische Sitzantriebe mit Abtriebsmoment ≥ 3 N·m und Strom 9,5 A bereitstellen.",
+        "node_id": "R79.r30"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzverstellmotor",
+      "node_id": "R79.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 16.0,
+            "lo": 16.0,
+            "name": "Strombelastbarkeit",
+            "text": "nicht weniger als 16 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "IP54",
+            "name": "Schutzart",
+            "text": "IP54 oder besser"
+           }
+          ],
+          "context": "4.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Sitz muss einen Sitzkabelbaum mit Strombelastbarkeit nicht weniger als 16 A und Schutzart IP54 oder besser bereitstellen.",
+          "node_id": "R79.r18"
+         },
+         {
+          "context": "4.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Sitz muss Kabelsatz Sitz bereitstellen.",
+          "node_id": "R79.r36"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.3.1 Leistungsdaten",
+        "node_id": "R79.c4.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 Sitzkabelsatz",
+      "node_id": "R79.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R79.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage AUR-R79",
+  "node_id": "R79"
+ },
+ "source": "aurivon",
+ "tree_id": "R79"
+}

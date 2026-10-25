@@ -1,0 +1,1142 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R23.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 360.0,
+            "lo": 360.0,
+            "name": "Stauchhärte",
+            "text": "360 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 1.4,
+            "lo": 1.4,
+            "name": "Gewicht",
+            "text": "1,4 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: Formschaumteile mit Stauchhärte 360 N und Gewicht 1,4 kg.",
+          "node_id": "R23.r02"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 360.0,
+            "lo": 360.0,
+            "name": "Härte",
+            "text": "360 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 1.4,
+            "lo": 1.4,
+            "name": "Gewicht",
+            "text": "1,4 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: Sitzpolsterung mit Härte 360 N und Gewicht 1,4 kg.",
+          "node_id": "R23.r16"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.1.1 Leistungsdaten",
+        "node_id": "R23.c1.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R23.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 7.0,
+            "lo": 7.0,
+            "name": "Hub",
+            "text": "7 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 16.5,
+            "lo": 16.5,
+            "name": "Haltekraft",
+            "text": "16,5 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: Höhenverstellmechanik mit Hub 7 cm und Haltekraft 16,5 kN.",
+          "node_id": "R23.r05"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 70.0,
+            "lo": 70.0,
+            "name": "Hub",
+            "text": "70 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 5.5,
+            "lo": 5.5,
+            "name": "Laufzeit",
+            "text": "höchstens 5,5 s",
+            "unit": "s"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 15.0,
+            "lo": 15.0,
+            "name": "Haltekraft",
+            "text": "minimal 15 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: einen Sitzheber mit Hub 70 mm und Laufzeit höchstens 5,5 s und Haltekraft minimal 15 kN.",
+          "node_id": "R23.r19"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R23.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R23.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 2700.0,
+            "lo": 2700.0,
+            "name": "Festigkeit",
+            "text": "nicht weniger als 2700 Nm",
+            "unit": "Nm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 33.0,
+            "lo": 33.0,
+            "name": "Geräuschpegel",
+            "text": "maximal 33 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: Neigungsgelenk Lehne mit Festigkeit nicht weniger als 2700 Nm und Geräuschpegel maximal 33 dB(A).",
+          "node_id": "R23.r07"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 54.0,
+            "lo": 54.0,
+            "name": "Lehnenwinkel",
+            "text": "≥ 54 °",
+            "unit": "°"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 35.0,
+            "lo": 35.0,
+            "name": "Geräusch",
+            "text": "höchstens 35 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "1.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: eine Lehnenneigungsverstellung mit Lehnenwinkel ≥ 54 ° und Geräusch höchstens 35 dB(A).",
+          "node_id": "R23.r22"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Leistungsdaten",
+        "node_id": "R23.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R23.c1.s3"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 21.0,
+        "lo": 21.0,
+        "name": "Gewicht",
+        "text": "maximal 21 kg",
+        "unit": "kg"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 52.0,
+        "lo": 52.0,
+        "name": "Crashfestigkeit",
+        "text": "nicht weniger als 52 kN",
+        "unit": "kN"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Funktion: tragende Sitzstruktur mit Gewicht maximal 21 kg und Crashfestigkeit nicht weniger als 52 kN.",
+      "node_id": "R23.r08"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 20000.0,
+        "lo": 20000.0,
+        "name": "Masse",
+        "text": "≤ 20000 g",
+        "unit": "g"
+       },
+       {
+        "attr_id": "a2",
+        "bound": null,
+        "hi": 80.0,
+        "lo": 80.0,
+        "name": "Zielpreis",
+        "text": "80 €",
+        "unit": "€"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Funktion: tragende Sitzstruktur mit Masse ≤ 20000 g und Zielpreis 80 €.",
+      "node_id": "R23.r23"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 22.0,
+            "lo": 22.0,
+            "name": "Weg",
+            "text": "minimal 22 cm",
+            "unit": "cm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": null,
+            "hi": 34.0,
+            "lo": 34.0,
+            "name": "Betriebsgeräusch",
+            "text": "34 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": null,
+            "hi": 15000.0,
+            "lo": 15000.0,
+            "name": "Haltelast",
+            "text": "15000 N",
+            "unit": "N"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: Sitzschienen für die Längsverstellung mit Weg minimal 22 cm und Betriebsgeräusch 34 dB(A) und Haltelast 15000 N.",
+          "node_id": "R23.r11"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 235.0,
+            "lo": 235.0,
+            "name": "Längsverstellweg",
+            "text": "minimal 235 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 36.0,
+            "lo": 36.0,
+            "name": "Geräusch",
+            "text": "max. 36 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_least",
+            "hi": 19.0,
+            "lo": 19.0,
+            "name": "Haltekraft",
+            "text": "minimal 19 kN",
+            "unit": "kN"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: ein Schienensystem längs mit Längsverstellweg minimal 235 mm und Geräusch max. 36 dB(A) und Haltekraft minimal 19 kN.",
+          "node_id": "R23.r26"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R23.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzlängsverstellung",
+      "node_id": "R23.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 80000.0,
+          "lo": 80000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "mindestens 80000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "F0",
+          "name": "Brennbarkeitsklasse",
+          "text": "mindestens F0"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 185.0,
+          "lo": 185.0,
+          "name": "Stückpreis",
+          "text": "max. 185 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: Stoffbezug mit Scheuerbeständigkeit mindestens 80000 Zyklen und Brennbarkeitsklasse mindestens F0 und Stückpreis max. 185 €.",
+        "node_id": "R23.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 80000.0,
+          "lo": 80000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "minimal 80.000 Zyklen",
+          "unit": "Zyklen"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 170.0,
+          "lo": 170.0,
+          "name": "Zielpreis",
+          "text": "max. 170 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: Polsterbezug mit Scheuerbeständigkeit minimal 80.000 Zyklen und Zielpreis max. 170 EUR.",
+        "node_id": "R23.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R23.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R23.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 1600.0,
+            "lo": 1600.0,
+            "name": "Vertikallast",
+            "text": "nicht weniger als 1600 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 75.0,
+            "lo": 75.0,
+            "name": "Schwenkwinkel",
+            "text": "min. 75 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: Armauflage mit Vertikallast nicht weniger als 1600 N und Schwenkwinkel min. 75 °.",
+          "node_id": "R23.r01"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 1.8,
+            "lo": 1.8,
+            "name": "Vertikallast",
+            "text": "1,8 kN",
+            "unit": "kN"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 75.0,
+            "lo": 75.0,
+            "name": "Schwenkwinkel",
+            "text": "minimal 75 °",
+            "unit": "°"
+           }
+          ],
+          "context": "2.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: Ellbogenauflage mit Vertikallast 1,8 kN und Schwenkwinkel minimal 75 °.",
+          "node_id": "R23.r15"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.1.1 Leistungsdaten",
+        "node_id": "R23.c2.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R23.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "Höhenverstellweg",
+          "text": "min. 5,5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "Neigungsweg",
+          "text": "≥ 18 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 19.0,
+          "lo": 10.0,
+          "name": "Verstellgeschwindigkeit",
+          "text": "zwischen 10 und 19 mm/s",
+          "unit": "mm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 2.4,
+          "lo": 2.4,
+          "name": "Strom",
+          "text": "bis zu 2,4 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: Kopfstütze mit Antrieb mit Höhenverstellweg min. 5,5 cm und Neigungsweg ≥ 18 mm und Verstellgeschwindigkeit zwischen 10 und 19 mm/s und Strom bis zu 2,4 A.",
+        "node_id": "R23.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.0,
+          "lo": 6.0,
+          "name": "Höhenverstellweg",
+          "text": "min. 6 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 1.7,
+          "lo": 1.7,
+          "name": "Neigungsverstellung",
+          "text": "≥ 1,7 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 1.9,
+          "lo": 1.3,
+          "name": "Verstellgeschwindigkeit",
+          "text": "1,3 bis 1,9 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_most",
+          "hi": 2300.0,
+          "lo": 2300.0,
+          "name": "Stromaufnahme",
+          "text": "≤ 2300 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: motorische Kopfstütze mit Höhenverstellweg min. 6 cm und Neigungsverstellung ≥ 1,7 cm und Verstellgeschwindigkeit 1,3 bis 1,9 cm/s und Stromaufnahme ≤ 2300 mA.",
+        "node_id": "R23.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Kopfstütze elektrisch",
+      "node_id": "R23.c2.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Tiefe",
+        "text": "nicht weniger als 2 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Verstellrichtungen",
+        "text": "≥ 2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 1.6,
+        "lo": 1.6,
+        "name": "Stromaufnahme",
+        "text": "1,6 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Funktion: Kreuzstütze mit Tiefe nicht weniger als 2 cm und Verstellrichtungen ≥ 2 und Stromaufnahme 1,6 A.",
+      "node_id": "R23.r06"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Lordosenhub",
+        "text": "mindestens 2 cm",
+        "unit": "cm"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 2.0,
+        "lo": 2.0,
+        "name": "Wege",
+        "text": "≥ 2",
+        "unit": ""
+       },
+       {
+        "attr_id": "a3",
+        "bound": null,
+        "hi": 1.6,
+        "lo": 1.6,
+        "name": "Stromverbrauch",
+        "text": "1,6 A",
+        "unit": "A"
+       }
+      ],
+      "context": "2 Komfortfunktionen",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Funktion: Lordosenverstellung mit Lordosenhub mindestens 2 cm und Wege ≥ 2 und Stromverbrauch 1,6 A.",
+      "node_id": "R23.r20"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 95.0,
+          "lo": 70.0,
+          "name": "Leistung",
+          "text": "70 bis 95 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.6,
+          "lo": 3.6,
+          "name": "Aufheizzeit",
+          "text": "maximal 3,6 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 11.5,
+          "lo": 11.5,
+          "name": "Stromverbrauch",
+          "text": "max. 11,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "Oberflächentemperatur",
+          "text": "48 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.4 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: 4 × Sitzwärmer mit Leistung 70 bis 95 W und Aufheizzeit maximal 3,6 min und Stromverbrauch max. 11,5 A und Oberflächentemperatur 48 °C.",
+        "node_id": "R23.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 100.0,
+          "lo": 70.0,
+          "name": "Leistung",
+          "text": "70 bis 100 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.8,
+          "lo": 3.8,
+          "name": "Aufheizzeit auf 37 °C",
+          "text": "≤ 3,8 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 11.5,
+          "lo": 11.5,
+          "name": "Stromaufnahme",
+          "text": "≤ 11,5 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "Oberflächentemperatur",
+          "text": "48 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.4 Sitzheizung",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: 4 × Heizmatten in Kissen und Lehne mit Leistung 70 bis 100 W und Aufheizzeit auf 37 °C ≤ 3,8 min und Stromaufnahme ≤ 11,5 A und Oberflächentemperatur 48 °C.",
+        "node_id": "R23.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 Sitzheizung",
+      "node_id": "R23.c2.s4"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R23.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 80.0,
+          "lo": 80.0,
+          "name": "Verstellweg",
+          "text": "≥ 80 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Positionen",
+          "text": "minimal 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: Kopfstütze mit Rasten mit Verstellweg ≥ 80 mm und Positionen minimal 3.",
+        "node_id": "R23.r03"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "Höhenverstellweg",
+          "text": "≥ 7 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "Raststellungen",
+          "text": "min. 3",
+          "unit": ""
+         }
+        ],
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: mechanische Kopfstütze mit Höhenverstellweg ≥ 7 cm und Raststellungen min. 3.",
+        "node_id": "R23.r17"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R23.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 11.5,
+          "lo": 11.5,
+          "name": "Auslösezeit",
+          "text": "11,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 360.0,
+          "lo": 360.0,
+          "name": "Nahtfestigkeit",
+          "text": "min. 360 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: Airbag-Aufreißnaht mit Auslösezeit 11,5 ms und Nahtfestigkeit min. 360 N.",
+        "node_id": "R23.r12"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 11.5,
+          "lo": 11.5,
+          "name": "Auslösezeit",
+          "text": "11,5 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 0.37,
+          "lo": 0.37,
+          "name": "Nahtfestigkeit",
+          "text": "0,37 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: Thoraxairbag mit Auslösezeit 11,5 ms und Nahtfestigkeit 0,37 kN.",
+        "node_id": "R23.r27"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R23.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 31.0,
+            "lo": 31.0,
+            "name": "Ansprechschwelle",
+            "text": "≤ 31 kg",
+            "unit": "kg"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 0.29,
+            "lo": 0.29,
+            "name": "Ansprechzeit",
+            "text": "höchstens 0,29 s",
+            "unit": "s"
+           }
+          ],
+          "context": "3.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: Belegungssensor mit Ansprechschwelle ≤ 31 kg und Ansprechzeit höchstens 0,29 s.",
+          "node_id": "R23.r21"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.3.1 Leistungsdaten",
+        "node_id": "R23.c3.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R23.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R23.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R23.c4.s1.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 3.0,
+            "lo": 3.0,
+            "name": "Stromaufnahme",
+            "text": "3 A",
+            "unit": "A"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 6.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Funktion: 6 × Sitzverstellmotoren mit Stromaufnahme 3 A.",
+          "node_id": "R23.r10"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 4.5,
+            "lo": 4.5,
+            "name": "Abtriebsmoment",
+            "text": "4,5 N·m",
+            "unit": "N·m"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 3.5,
+            "lo": 3.5,
+            "name": "Stromaufnahme",
+            "text": "höchstens 3,5 A",
+            "unit": "A"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 47.0,
+            "lo": 47.0,
+            "name": "Betriebsgeräusch",
+            "text": "≤ 47 dB(A)",
+            "unit": "dB(A)"
+           }
+          ],
+          "context": "4.1.1 Leistungsdaten",
+          "count": 6.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Funktion: 6 × Antriebseinheiten mit Abtriebsmoment 4,5 N·m und Stromaufnahme höchstens 3,5 A und Betriebsgeräusch ≤ 47 dB(A).",
+          "node_id": "R23.r25"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R23.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzverstellmotor",
+      "node_id": "R23.c4.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 15.0,
+          "lo": 15.0,
+          "name": "Strombelastbarkeit",
+          "text": "nicht weniger als 15 A",
+          "unit": "A"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Funktion: Kabelsatz Sitz mit Strombelastbarkeit nicht weniger als 15 A.",
+        "node_id": "R23.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 16.0,
+          "lo": 16.0,
+          "name": "Strombelastbarkeit",
+          "text": "min. 16 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "Schutzart",
+          "text": "min. IP40"
+         }
+        ],
+        "context": "4.2 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Funktion: Steckverbinder mit Strombelastbarkeit min. 16 A und Schutzart min. IP40.",
+        "node_id": "R23.r29"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 Sitzkabelsatz",
+      "node_id": "R23.c4.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R23.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage HIR-R23",
+  "node_id": "R23"
+ },
+ "source": "hirschtal",
+ "tree_id": "R23"
+}

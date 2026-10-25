@@ -1,0 +1,421 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R41.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Sitzschienen für die Längsverstellung.",
+        "node_id": "R41.r01"
+       },
+       {
+        "context": "1.1 Sitzlängsverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Sitzschienen für die Längsverstellung.",
+        "node_id": "R41.r14"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Sitzlängsverstellung",
+      "node_id": "R41.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert eine Sitzhöhenverstellung.",
+        "node_id": "R41.r02"
+       },
+       {
+        "context": "1.2 Sitzhöhenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert einen Sitzheber.",
+        "node_id": "R41.r15"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Sitzhöhenverstellung",
+      "node_id": "R41.c1.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_most",
+        "hi": 1.7,
+        "lo": 1.7,
+        "name": "Gewicht",
+        "text": "bis zu 1,7 kg",
+        "unit": "kg"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Fahrersitz: Der Lieferant liefert Polsterschaum mit Gewicht bis zu 1,7 kg.",
+      "node_id": "R41.r06"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Beifahrersitz: Der Lieferant liefert Formschaumteile.",
+      "node_id": "R41.r19"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 3150.0,
+          "lo": 3150.0,
+          "name": "Festigkeit",
+          "text": "≥ 3150 Nm",
+          "unit": "Nm"
+         }
+        ],
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Lehnenbeschläge mit Festigkeit ≥ 3150 Nm.",
+        "node_id": "R41.r08"
+       },
+       {
+        "context": "1.4 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert eine Lehnenneigungsverstellung.",
+        "node_id": "R41.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Lehnenverstellung",
+      "node_id": "R41.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "context": "1.5 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Sitzstruktur.",
+        "node_id": "R41.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 190.0,
+          "lo": 190.0,
+          "name": "Zielpreis",
+          "text": "≤ 190 EUR",
+          "unit": "EUR"
+         }
+        ],
+        "context": "1.5 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert tragende Sitzstruktur mit Zielpreis ≤ 190 EUR.",
+        "node_id": "R41.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzstruktur",
+      "node_id": "R41.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+        "node_id": "R41.c1.s6.n1"
+       },
+       {
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Lederbezüge.",
+        "node_id": "R41.r12"
+       },
+       {
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert einen Sitzbezug.",
+        "node_id": "R41.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R41.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R41.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "2.1 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert eine elektrische Kopfstütze.",
+        "node_id": "R41.r03"
+       },
+       {
+        "context": "2.1 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert elektrisch verstellbare Kopfstütze.",
+        "node_id": "R41.r16"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Kopfstütze elektrisch",
+      "node_id": "R41.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert eine Lordosenstütze.",
+          "node_id": "R41.r07"
+         },
+         {
+          "context": "2.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Lendenwirbelstütze.",
+          "node_id": "R41.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Leistungsdaten",
+        "node_id": "R41.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Lordosenstütze",
+      "node_id": "R41.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert 2 × Heizmatten in Kissen und Lehne.",
+        "node_id": "R41.r10"
+       },
+       {
+        "context": "2.3 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert 2 × beheizte Sitzflächen.",
+        "node_id": "R41.r24"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Sitzheizung",
+      "node_id": "R41.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R41.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 Gurtschlossbringer",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Gurtzuführung.",
+        "node_id": "R41.r05"
+       },
+       {
+        "context": "3.1 Gurtschlossbringer",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Gurtschlossanhebung.",
+        "node_id": "R41.r18"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Gurtschlossbringer",
+      "node_id": "R41.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Fahrersitz: Der Lieferant liefert Thoraxairbag.",
+        "node_id": "R41.r11"
+       },
+       {
+        "context": "3.2 Seitenairbag-Integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Beifahrersitz: Der Lieferant liefert Airbag-Aufreißnaht.",
+        "node_id": "R41.r25"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 Seitenairbag-Integration",
+      "node_id": "R41.c3.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 21.0,
+            "lo": 21.0,
+            "name": "Ansprechschwelle",
+            "text": "höchstens 21 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "3.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Belegungssensor mit Ansprechschwelle höchstens 21 kg.",
+          "node_id": "R41.r21"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.3.1 Leistungsdaten",
+        "node_id": "R41.c3.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.3 Sitzbelegungserkennung",
+      "node_id": "R41.c3.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R41.c3"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Fahrersitz: Der Lieferant liefert einen Sitzkabelbaum.",
+          "node_id": "R41.r13"
+         },
+         {
+          "context": "4.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Beifahrersitz: Der Lieferant liefert Steckverbinder.",
+          "node_id": "R41.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "4.1.1 Leistungsdaten",
+        "node_id": "R41.c4.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R41.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R41.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage BRH-R41",
+  "node_id": "R41"
+ },
+ "source": "brennholt",
+ "tree_id": "R41"
+}

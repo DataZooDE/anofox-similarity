@@ -1,0 +1,203 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Der Lieferant bestätigt jede Anforderung in der Konformitätsmatrix.",
+    "node_id": "R63.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "1.1 Easy-Entry-Mechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: Durchstiegsfunktion.",
+        "node_id": "R63.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Easy-Entry-Mechanik",
+      "node_id": "R63.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.2.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Funktion: Formschaumteile.",
+          "node_id": "R63.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.2.1 Leistungsdaten",
+        "node_id": "R63.c1.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Polsterschaum",
+      "node_id": "R63.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "1.3.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Funktion: umlegbare Rücksitze.",
+          "node_id": "R63.r04"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Leistungsdaten",
+        "node_id": "R63.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Klapp-/Tumblemechanik",
+      "node_id": "R63.c1.s3"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Funktion: Neigungsgelenk Lehne.",
+      "node_id": "R63.r06"
+     },
+     {
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Funktion: Lehnen- und Kissenrahmen.",
+      "node_id": "R63.r07"
+     },
+     {
+      "children": [
+       {
+        "context": "1.6 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: Lederbezüge.",
+        "node_id": "R63.r09"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 Sitzbezug",
+      "node_id": "R63.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R63.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: Mittelarmlehne klappbar.",
+        "node_id": "R63.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R63.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "context": "2.2 Kopfstütze elektrisch",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: elektrisch verstellbare Kopfstütze.",
+        "node_id": "R63.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Kopfstütze elektrisch",
+      "node_id": "R63.c2.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "2.3 Sitzheizung",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: 2 × eine Sitzheizung.",
+        "node_id": "R63.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.3 Sitzheizung",
+      "node_id": "R63.c2.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R63.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "4.1 Sitzkabelsatz",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Funktion: Sitzverkabelung.",
+        "node_id": "R63.r10"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.1 Sitzkabelsatz",
+      "node_id": "R63.c4.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R63.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage HIR-R63",
+  "node_id": "R63"
+ },
+ "source": "hirschtal",
+ "tree_id": "R63"
+}

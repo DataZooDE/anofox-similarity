@@ -1,0 +1,226 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R61.n0"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 240.0,
+        "lo": 240.0,
+        "name": "Stauchhärte",
+        "text": "240 N",
+        "unit": "N"
+       }
+      ],
+      "context": "1 Struktur und Mechanik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Anforderung: PU-Schaumpolster mit Stauchhärte 240 N.",
+      "node_id": "R61.r02"
+     },
+     {
+      "children": [
+       {
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: eine Umklappfunktion.",
+        "node_id": "R61.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R61.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Lehnenbeschläge.",
+        "node_id": "R61.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R61.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Sitzstruktur.",
+        "node_id": "R61.r06"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R61.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R61.c1.s5.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 65000.0,
+          "lo": 65000.0,
+          "name": "Scheuerbeständigkeit",
+          "text": "65.000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.5 Sitzbezug",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Lederbezüge mit Scheuerbeständigkeit 65.000 Zyklen.",
+        "node_id": "R61.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R61.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R61.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 1600.0,
+          "lo": 1600.0,
+          "name": "Vertikallast",
+          "text": "1600 N",
+          "unit": "N"
+         }
+        ],
+        "context": "2.1 Armlehne",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Ellbogenauflage mit Vertikallast 1600 N.",
+        "node_id": "R61.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 Armlehne",
+      "node_id": "R61.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "context": "2.2.1 Leistungsdaten",
+          "count": 4.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Anforderung: 4 × beheizte Sitzflächen.",
+          "node_id": "R61.r07"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Leistungsdaten",
+        "node_id": "R61.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 Sitzheizung",
+      "node_id": "R61.c2.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Komfortfunktionen",
+    "node_id": "R61.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "context": "3.1 Kopfstütze manuell",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Kopfstütze mit Rasten.",
+        "node_id": "R61.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R61.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R61.c3"
+   },
+   {
+    "children": [
+     {
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Anforderung: Steckverbinder.",
+      "node_id": "R61.r09"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R61.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage CAL-R61",
+  "node_id": "R61"
+ },
+ "source": "calvento",
+ "tree_id": "R61"
+}

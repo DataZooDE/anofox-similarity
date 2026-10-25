@@ -1,0 +1,1223 @@
+{
+ "lang": "en",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+    "node_id": "R74.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 23.0,
+          "lo": 23.0,
+          "name": "adjustment travel",
+          "text": "minimum 23 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "within",
+          "hi": 2.5,
+          "lo": 1.6,
+          "name": "speed",
+          "text": "1.6–2.5 cm/s",
+          "unit": "cm/s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 49.0,
+          "lo": 49.0,
+          "name": "noise",
+          "text": "up to 49 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a4",
+          "bound": "at_least",
+          "hi": 12000.0,
+          "lo": 12000.0,
+          "name": "holding load",
+          "text": "min. 12000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.1 seat track",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include track adjuster fore/aft with adjustment travel minimum 23 cm and speed 1.6–2.5 cm/s and noise up to 49 dB(A) and holding load min. 12000 N.",
+        "node_id": "R74.r03"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 seat track",
+      "node_id": "R74.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 62.0,
+          "lo": 62.0,
+          "name": "vertical travel",
+          "text": "at least 62 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 10.0,
+          "lo": 10.0,
+          "name": "holding load",
+          "text": "≥ 10 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.2 height adjuster",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include height pumping mechanism with vertical travel at least 62 mm and holding load ≥ 10 kN.",
+        "node_id": "R74.r04"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "height stroke",
+          "text": "minimum 7 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 11000.0,
+          "lo": 11000.0,
+          "name": "holding load",
+          "text": "11000 N",
+          "unit": "N"
+         }
+        ],
+        "context": "1.2 height adjuster",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include a seat height adjuster with height stroke minimum 7 cm and holding load 11000 N.",
+        "node_id": "R74.r22"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 height adjuster",
+      "node_id": "R74.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Note: all values apply at 23 °C ambient unless stated otherwise.",
+        "node_id": "R74.c1.s3.n1"
+       },
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 230.0,
+            "lo": 230.0,
+            "name": "hardness",
+            "text": "230 N",
+            "unit": "N"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 2.0,
+            "lo": 2.0,
+            "name": "weight",
+            "text": "not more than 2 kg",
+            "unit": "kg"
+           }
+          ],
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: The system must include cushion foam with hardness 230 N and weight not more than 2 kg.",
+          "node_id": "R74.r10"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_most",
+            "hi": 2000.0,
+            "lo": 2000.0,
+            "name": "weight",
+            "text": "not more than 2000 g",
+            "unit": "g"
+           }
+          ],
+          "context": "1.3.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: The system must include a moulded foam pad with weight not more than 2000 g.",
+          "node_id": "R74.r27"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.3.1 Performance",
+        "node_id": "R74.c1.s3.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 foam pad",
+      "node_id": "R74.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 48.0,
+          "lo": 48.0,
+          "name": "recline angle",
+          "text": "≥ 48 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3050.0,
+          "lo": 3050.0,
+          "name": "locking strength",
+          "text": "min. 3050 Nm",
+          "unit": "Nm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "noise level",
+          "text": "not more than 44 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include a backrest recliner with recline angle ≥ 48 ° and locking strength min. 3050 Nm and noise level not more than 44 dB(A).",
+        "node_id": "R74.r14"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 52.0,
+          "lo": 52.0,
+          "name": "angle range",
+          "text": "minimum 52 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3150.0,
+          "lo": 3150.0,
+          "name": "locking strength",
+          "text": "minimum 3150 N·m",
+          "unit": "N·m"
+         }
+        ],
+        "context": "1.4 recliner",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include recliner fittings with angle range minimum 52 ° and locking strength minimum 3150 N·m.",
+        "node_id": "R74.r32"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 recliner",
+      "node_id": "R74.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 13000.0,
+          "lo": 13000.0,
+          "name": "mass",
+          "text": "13000 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 17.0,
+          "lo": 17.0,
+          "name": "crash load",
+          "text": "minimum 17 kN",
+          "unit": "kN"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 160.0,
+          "lo": 160.0,
+          "name": "target price",
+          "text": "160 €",
+          "unit": "€"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include backrest and cushion frames with mass 13000 g and crash load minimum 17 kN and target price 160 €.",
+        "node_id": "R74.r15"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 13.0,
+          "lo": 13.0,
+          "name": "weight",
+          "text": "13 kg",
+          "unit": "kg"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 19.0,
+          "lo": 19.0,
+          "name": "crash load",
+          "text": "≥ 19 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.5 seat frame / structure",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include seat frame structure with weight 13 kg and crash load ≥ 19 kN.",
+        "node_id": "R74.r33"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 seat frame / structure",
+      "node_id": "R74.c1.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 50000.0,
+            "lo": 50000.0,
+            "name": "Martindale",
+            "text": "at least 50,000 cycles",
+            "unit": "cycles"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F1",
+            "name": "flammability class",
+            "text": "min. F1"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 150.0,
+            "lo": 150.0,
+            "name": "piece price",
+            "text": "at most 150 EUR",
+            "unit": "EUR"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: The system must include trim cover set with Martindale at least 50,000 cycles and flammability class min. F1 and piece price at most 150 EUR.",
+          "node_id": "R74.r17"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 60000.0,
+            "lo": 60000.0,
+            "name": "Martindale",
+            "text": "60000 cycles",
+            "unit": "cycles"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F0",
+            "name": "flammability class",
+            "text": "min. F0"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 145.0,
+            "lo": 145.0,
+            "name": "piece price",
+            "text": "at most 145 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: The system must include fabric seat covers with Martindale 60000 cycles and flammability class min. F0 and piece price at most 145 €.",
+          "node_id": "R74.r35"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.6.1 Performance",
+        "node_id": "R74.c1.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.6 trim cover",
+      "node_id": "R74.c1.s6"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Structure and mechanisms",
+    "node_id": "R74.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 110.0,
+          "lo": 65.0,
+          "name": "heating power",
+          "text": "between 65 and 110 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 3.0,
+          "lo": 3.0,
+          "name": "heat-up time",
+          "text": "up to 3 min",
+          "unit": "min"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 45.0,
+          "lo": 45.0,
+          "name": "surface temperature",
+          "text": "≤ 45 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include 2 × seat heating with heating power between 65 and 110 W and heat-up time up to 3 min and surface temperature ≤ 45 °C.",
+        "node_id": "R74.r01"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "within",
+          "hi": 105.0,
+          "lo": 60.0,
+          "name": "power",
+          "text": "60–105 W",
+          "unit": "W"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 170.0,
+          "lo": 170.0,
+          "name": "time to 37 °C",
+          "text": "up to 170 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 3500.0,
+          "lo": 3500.0,
+          "name": "max. current",
+          "text": "not more than 3500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a4",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "surface temperature",
+          "text": "40 °C",
+          "unit": "°C"
+         }
+        ],
+        "context": "2.1 seat heating",
+        "count": 2.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include 2 × seat warmer with power 60–105 W and time to 37 °C up to 170 s and max. current not more than 3500 mA and surface temperature 40 °C.",
+        "node_id": "R74.r19"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.1 seat heating",
+      "node_id": "R74.c2.s1"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 460.0,
+            "lo": 360.0,
+            "name": "airflow",
+            "text": "360–460 l/min",
+            "unit": "l/min"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 36.0,
+            "lo": 36.0,
+            "name": "noise level",
+            "text": "≤ 36 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 3.3,
+            "lo": 3.3,
+            "name": "current consumption",
+            "text": "up to 3.3 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: The system must include ventilated seats with airflow 360–460 l/min and noise level ≤ 36 dB(A) and current consumption up to 3.3 A.",
+          "node_id": "R74.r02"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "within",
+            "hi": 480.0,
+            "lo": 380.0,
+            "name": "air flow",
+            "text": "between 380 and 480 l/min",
+            "unit": "l/min"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 39.0,
+            "lo": 39.0,
+            "name": "noise level",
+            "text": "≤ 39 dB(A)",
+            "unit": "dB(A)"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 3200.0,
+            "lo": 3200.0,
+            "name": "current consumption",
+            "text": "up to 3200 mA",
+            "unit": "mA"
+           }
+          ],
+          "context": "2.2.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: The system must include active seat climate airflow with air flow between 380 and 480 l/min and noise level ≤ 39 dB(A) and current consumption up to 3200 mA.",
+          "node_id": "R74.r20"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.2.1 Performance",
+        "node_id": "R74.c2.s2.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.2 seat ventilation",
+      "node_id": "R74.c2.s2"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 1.5,
+        "lo": 1.5,
+        "name": "vertical load",
+        "text": "not less than 1.5 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "pivot angle",
+        "text": "min. 5 °",
+        "unit": "°"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: The system must include an armrest with vertical load not less than 1.5 kN and pivot angle min. 5 °.",
+      "node_id": "R74.r07"
+     },
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 1.3,
+        "lo": 1.3,
+        "name": "vertical load",
+        "text": "minimum 1.3 kN",
+        "unit": "kN"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_least",
+        "hi": 5.0,
+        "lo": 5.0,
+        "name": "pivot angle",
+        "text": "≥ 5 °",
+        "unit": "°"
+       }
+      ],
+      "context": "2 Comfort functions",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Passenger seat: The system must include elbow rest with vertical load minimum 1.3 kN and pivot angle ≥ 5 °.",
+      "node_id": "R74.r24"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5.5,
+          "lo": 5.5,
+          "name": "adjustment time",
+          "text": "up to 5.5 s",
+          "unit": "s"
+         }
+        ],
+        "context": "2.4 cushion length extension",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include thigh rest with adjustment time up to 5.5 s.",
+        "node_id": "R74.r09"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 5500.0,
+          "lo": 5500.0,
+          "name": "adjustment time",
+          "text": "at most 5500 ms",
+          "unit": "ms"
+         }
+        ],
+        "context": "2.4 cushion length extension",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include thigh rest with adjustment time at most 5500 ms.",
+        "node_id": "R74.r26"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.4 cushion length extension",
+      "node_id": "R74.c2.s4"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 6.5,
+          "lo": 6.5,
+          "name": "height travel",
+          "text": "≥ 6.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "fore-aft tilt",
+          "text": "40 mm",
+          "unit": "mm"
+         }
+        ],
+        "context": "2.5 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include a powered headrest with height travel ≥ 6.5 cm and fore-aft tilt 40 mm.",
+        "node_id": "R74.r11"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 7.5,
+          "lo": 7.5,
+          "name": "height travel",
+          "text": "7.5 cm",
+          "unit": "cm"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 40.0,
+          "lo": 40.0,
+          "name": "fore-aft tilt",
+          "text": "40 mm",
+          "unit": "mm"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "within",
+          "hi": 2.0,
+          "lo": 1.3,
+          "name": "adjustment speed",
+          "text": "1.3–2 cm/s",
+          "unit": "cm/s"
+         }
+        ],
+        "context": "2.5 powered headrest",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include e-headrest with height travel 7.5 cm and fore-aft tilt 40 mm and adjustment speed 1.3–2 cm/s.",
+        "node_id": "R74.r28"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.5 powered headrest",
+      "node_id": "R74.c2.s5"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 38.0,
+            "lo": 38.0,
+            "name": "lumbar travel",
+            "text": "38 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "hi": 4.0,
+            "lo": 4.0,
+            "name": "ways",
+            "text": "min. 4",
+            "unit": ""
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 1200.0,
+            "lo": 1200.0,
+            "name": "max. current",
+            "text": "not more than 1200 mA",
+            "unit": "mA"
+           }
+          ],
+          "context": "2.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Driver seat: The system must include adjustable lower-back support with lumbar travel 38 mm and ways min. 4 and max. current not more than 1200 mA.",
+          "node_id": "R74.r12"
+         },
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": null,
+            "hi": 38.0,
+            "lo": 38.0,
+            "name": "depth",
+            "text": "38 mm",
+            "unit": "mm"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_most",
+            "hi": 1.3,
+            "lo": 1.3,
+            "name": "current consumption",
+            "text": "not more than 1.3 A",
+            "unit": "A"
+           }
+          ],
+          "context": "2.6.1 Performance",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Passenger seat: The system must include 4-way lumbar with depth 38 mm and current consumption not more than 1.3 A.",
+          "node_id": "R74.r29"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "2.6.1 Performance",
+        "node_id": "R74.c2.s6.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.6 lumbar support",
+      "node_id": "R74.c2.s6"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 44.0,
+          "lo": 44.0,
+          "name": "noise",
+          "text": "≤ 44 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 4500.0,
+          "lo": 4500.0,
+          "name": "max. current",
+          "text": "max. 4500 mA",
+          "unit": "mA"
+         }
+        ],
+        "context": "2.7 massage",
+        "count": 8.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include 8 × pneumatic massage cells with noise ≤ 44 dB(A) and max. current max. 4500 mA.",
+        "node_id": "R74.r13"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "massage programs",
+          "text": "at least 5",
+          "unit": ""
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "operating noise",
+          "text": "up to 47 dB(A)",
+          "unit": "dB(A)"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 5.0,
+          "lo": 5.0,
+          "name": "current consumption",
+          "text": "up to 5 A",
+          "unit": "A"
+         }
+        ],
+        "context": "2.7 massage",
+        "count": 8.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include 8 × pneumatic massage cells with massage programs at least 5 and operating noise up to 47 dB(A) and current consumption up to 5 A.",
+        "node_id": "R74.r30"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "2.7 massage",
+      "node_id": "R74.c2.s7"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "2 Comfort functions",
+    "node_id": "R74.c2"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 18.0,
+          "lo": 18.0,
+          "name": "presenter stroke",
+          "text": "min. 18 cm",
+          "unit": "cm"
+         }
+        ],
+        "context": "3.1 seat-belt buckle presenter",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include seat-belt presenter with presenter stroke min. 18 cm.",
+        "node_id": "R74.r08"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 seat-belt buckle presenter",
+      "node_id": "R74.c3.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "seam opening time",
+          "text": "≤ 8 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 0.28,
+          "lo": 0.28,
+          "name": "seam strength",
+          "text": "minimum 0.28 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include airbag tear seam with seam opening time ≤ 8 ms and seam strength minimum 0.28 kN.",
+        "node_id": "R74.r16"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 8.0,
+          "lo": 8.0,
+          "name": "deployment time",
+          "text": "not more than 8 ms",
+          "unit": "ms"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "seam strength",
+          "text": "min. 290 N",
+          "unit": "N"
+         }
+        ],
+        "context": "3.2 side airbag integration",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include airbag chute with deployment time not more than 8 ms and seam strength min. 290 N.",
+        "node_id": "R74.r34"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.2 side airbag integration",
+      "node_id": "R74.c3.s2"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Safety",
+    "node_id": "R74.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": null,
+        "hi": 0.0008,
+        "lo": 0.0008,
+        "name": "standby current",
+        "text": "0.0008 A",
+        "unit": "A"
+       },
+       {
+        "attr_id": "a2",
+        "bound": "at_most",
+        "hi": 200.0,
+        "lo": 200.0,
+        "name": "response time",
+        "text": "up to 200 ms",
+        "unit": "ms"
+       }
+      ],
+      "context": "4 Electrics and electronics",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Driver seat: The system must include stored seat positions with standby current 0.0008 A and response time up to 200 ms.",
+      "node_id": "R74.r05"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "output torque",
+          "text": "at least 9 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 7.0,
+          "lo": 7.0,
+          "name": "current draw",
+          "text": "7 A",
+          "unit": "A"
+         },
+         {
+          "attr_id": "a3",
+          "bound": null,
+          "hi": 47.0,
+          "lo": 47.0,
+          "name": "operating noise",
+          "text": "47 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include 4 × seat adjustment motors with output torque at least 9 N·m and current draw 7 A and operating noise 47 dB(A).",
+        "node_id": "R74.r06"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 9.0,
+          "lo": 9.0,
+          "name": "output torque",
+          "text": "not less than 9 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 5500.0,
+          "lo": 5500.0,
+          "name": "current draw",
+          "text": "max. 5500 mA",
+          "unit": "mA"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "noise level",
+          "text": "≤ 50 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "4.2 seat motor drive",
+        "count": 4.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include 4 × motor drive units with output torque not less than 9 N·m and current draw max. 5500 mA and noise level ≤ 50 dB(A).",
+        "node_id": "R74.r23"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.2 seat motor drive",
+      "node_id": "R74.c4.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "protection class",
+          "text": "IP40 or better"
+         }
+        ],
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Driver seat: The system must include connector set with protection class IP40 or better.",
+        "node_id": "R74.r18"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "category": "IP40",
+          "name": "protection class",
+          "text": "IP40 or better"
+         }
+        ],
+        "context": "4.3 wiring and connectors",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Passenger seat: The system must include a seat wiring harness with protection class IP40 or better.",
+        "node_id": "R74.r36"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "4.3 wiring and connectors",
+      "node_id": "R74.c4.s3"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Electrics and electronics",
+    "node_id": "R74.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Seat system specification DRV-R74",
+  "node_id": "R74"
+ },
+ "source": "dravik",
+ "tree_id": "R74"
+}

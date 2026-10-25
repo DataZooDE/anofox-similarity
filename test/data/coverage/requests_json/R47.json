@@ -1,0 +1,316 @@
+{
+ "lang": "de",
+ "root": {
+  "children": [
+   {
+    "edge": "AND",
+    "kind": "container",
+    "label": "Hinweis: Alle Werte gelten bei 23 °C Umgebung, sofern nicht anders angegeben.",
+    "node_id": "R47.n0"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "edge": "AND",
+        "kind": "container",
+        "label": "Hinweis: Ohne Sitzangabe gilt die Anforderung für beide Vordersitze.",
+        "node_id": "R47.c1.s1.n1"
+       },
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": null,
+          "hi": 290.0,
+          "lo": 290.0,
+          "name": "Härte",
+          "text": "290 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_most",
+          "hi": 2300.0,
+          "lo": 2300.0,
+          "name": "Masse",
+          "text": "max. 2300 g",
+          "unit": "g"
+         }
+        ],
+        "context": "1.1 Polsterschaum",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Formschaumteile mit Härte 290 N und Masse max. 2300 g.",
+        "node_id": "R47.r01"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.1 Polsterschaum",
+      "node_id": "R47.c1.s1"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 7.5,
+          "lo": 7.5,
+          "name": "Klappzeit",
+          "text": "≤ 7,5 s",
+          "unit": "s"
+         },
+         {
+          "attr_id": "a2",
+          "bound": null,
+          "hi": 70.0,
+          "lo": 70.0,
+          "name": "Bedienkraft",
+          "text": "70 N",
+          "unit": "N"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_least",
+          "hi": 33000.0,
+          "lo": 33000.0,
+          "name": "Dauerhaltbarkeit",
+          "text": "mindestens 33000 Zyklen",
+          "unit": "Zyklen"
+         }
+        ],
+        "context": "1.2 Klapp-/Tumblemechanik",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: eine Umklappfunktion mit Klappzeit ≤ 7,5 s und Bedienkraft 70 N und Dauerhaltbarkeit mindestens 33000 Zyklen.",
+        "node_id": "R47.r02"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.2 Klapp-/Tumblemechanik",
+      "node_id": "R47.c1.s2"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_least",
+          "hi": 50.0,
+          "lo": 50.0,
+          "name": "Winkelbereich",
+          "text": "mindestens 50 °",
+          "unit": "°"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 3250.0,
+          "lo": 3250.0,
+          "name": "Festigkeit",
+          "text": "min. 3250 N·m",
+          "unit": "N·m"
+         },
+         {
+          "attr_id": "a3",
+          "bound": "at_most",
+          "hi": 34.0,
+          "lo": 34.0,
+          "name": "Geräuschpegel",
+          "text": "höchstens 34 dB(A)",
+          "unit": "dB(A)"
+         }
+        ],
+        "context": "1.3 Lehnenverstellung",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Rückenlehnenverstellung mit Winkelbereich mindestens 50 ° und Festigkeit min. 3250 N·m und Geräuschpegel höchstens 34 dB(A).",
+        "node_id": "R47.r04"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.3 Lehnenverstellung",
+      "node_id": "R47.c1.s3"
+     },
+     {
+      "children": [
+       {
+        "attributes": [
+         {
+          "attr_id": "a1",
+          "bound": "at_most",
+          "hi": 11500.0,
+          "lo": 11500.0,
+          "name": "Masse",
+          "text": "bis zu 11500 g",
+          "unit": "g"
+         },
+         {
+          "attr_id": "a2",
+          "bound": "at_least",
+          "hi": 23.0,
+          "lo": 23.0,
+          "name": "Crashlast",
+          "text": "nicht weniger als 23 kN",
+          "unit": "kN"
+         }
+        ],
+        "context": "1.4 Sitzstruktur",
+        "count": 1.0,
+        "edge": "AND",
+        "kind": "item",
+        "label": "Anforderung: Lehnen- und Kissenrahmen mit Masse bis zu 11500 g und Crashlast nicht weniger als 23 kN.",
+        "node_id": "R47.r05"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.4 Sitzstruktur",
+      "node_id": "R47.c1.s4"
+     },
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 55000.0,
+            "lo": 55000.0,
+            "name": "Martindale",
+            "text": "nicht weniger als 55000 Zyklen",
+            "unit": "Zyklen"
+           },
+           {
+            "attr_id": "a2",
+            "bound": "at_least",
+            "category": "F1",
+            "name": "Brennbarkeitsklasse",
+            "text": "F1 oder besser"
+           },
+           {
+            "attr_id": "a3",
+            "bound": "at_most",
+            "hi": 150.0,
+            "lo": 150.0,
+            "name": "Stückpreis",
+            "text": "≤ 150 €",
+            "unit": "€"
+           }
+          ],
+          "context": "1.5.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Anforderung: einen Sitzbezug mit Martindale nicht weniger als 55000 Zyklen und Brennbarkeitsklasse F1 oder besser und Stückpreis ≤ 150 €.",
+          "node_id": "R47.r06"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "1.5.1 Leistungsdaten",
+        "node_id": "R47.c1.s5.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "1.5 Sitzbezug",
+      "node_id": "R47.c1.s5"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "1 Struktur und Mechanik",
+    "node_id": "R47.c1"
+   },
+   {
+    "children": [
+     {
+      "children": [
+       {
+        "children": [
+         {
+          "attributes": [
+           {
+            "attr_id": "a1",
+            "bound": "at_least",
+            "hi": 5.5,
+            "lo": 5.5,
+            "name": "Höhenverstellweg",
+            "text": "mindestens 5,5 cm",
+            "unit": "cm"
+           }
+          ],
+          "context": "3.1.1 Leistungsdaten",
+          "count": 1.0,
+          "edge": "AND",
+          "kind": "item",
+          "label": "Anforderung: Kopfstütze mit Rasten mit Höhenverstellweg mindestens 5,5 cm.",
+          "node_id": "R47.r03"
+         }
+        ],
+        "edge": "AND",
+        "kind": "container",
+        "label": "3.1.1 Leistungsdaten",
+        "node_id": "R47.c3.s1.1"
+       }
+      ],
+      "edge": "AND",
+      "kind": "container",
+      "label": "3.1 Kopfstütze manuell",
+      "node_id": "R47.c3.s1"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "3 Sicherheit",
+    "node_id": "R47.c3"
+   },
+   {
+    "children": [
+     {
+      "attributes": [
+       {
+        "attr_id": "a1",
+        "bound": "at_least",
+        "hi": 9.0,
+        "lo": 9.0,
+        "name": "Strombelastbarkeit",
+        "text": "mindestens 9 A",
+        "unit": "A"
+       }
+      ],
+      "context": "4 Elektrik und Elektronik",
+      "count": 1.0,
+      "edge": "AND",
+      "kind": "item",
+      "label": "Anforderung: einen Sitzkabelbaum mit Strombelastbarkeit mindestens 9 A.",
+      "node_id": "R47.r07"
+     }
+    ],
+    "edge": "AND",
+    "kind": "container",
+    "label": "4 Elektrik und Elektronik",
+    "node_id": "R47.c4"
+   }
+  ],
+  "edge": "AND",
+  "kind": "container",
+  "label": "Lastenheft Sitzanlage CAL-R47",
+  "node_id": "R47"
+ },
+ "source": "calvento",
+ "tree_id": "R47"
+}
