@@ -147,7 +147,7 @@ invalid JSON
 
 # generated attribute ids do not collide with given ones; duplicate given ids are an error
 query T
-SELECT list_transform(n.attributes, x -> x.attr_id)::VARCHAR FROM (SELECT unnest(tree_from_json(
+SELECT [x.attr_id FOR x IN n.attributes]::VARCHAR FROM (SELECT unnest(tree_from_json(
   '{"root": {"node_id": "X", "kind": "item", "attributes": [{"name": "p"}, {"attr_id": "a1", "name": "q"}, {"name": "r"}]}}')) AS n);
 ----
 [a2, a1, a3]
