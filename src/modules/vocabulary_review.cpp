@@ -106,11 +106,21 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		occ AS (SELECT label AS wording, source, count(*) AS n_occurrences, count(DISTINCT tree_id) AS n_trees_affected
 		        FROM items GROUP BY ALL),
 		word_dist AS (
-			SELECT o.wording, o.source, d.class_id, d.p
+			SELECT o.wording, o.source, d.class_id, d.p, CASE WHEN d.source IS NULL THEN 3 ELSE 2 END AS prio
 			FROM d JOIN occ o ON o.wording = d.node_id AND (d.source IS NULL OR d.source = o.source)
 			WHERE d.tree_id IS NULL
 		),
-		dist AS (SELECT * FROM node_dist UNION ALL SELECT * FROM word_dist),
+		-- one distribution per wording: node-level over wording-level, an exact source over NULL
+		dist_all AS (SELECT wording, source, class_id, p, 1 AS prio FROM node_dist UNION ALL SELECT * FROM word_dist),
+		dist AS (
+			SELECT wording, source, class_id, avg(p) AS p FROM (
+				SELECT *, min(prio) OVER (PARTITION BY wording, source) AS best FROM dist_all)
+			WHERE prio = best GROUP BY ALL
+		),
+		guard AS (
+			SELECT CASE WHEN EXISTS (SELECT 1 FROM d WHERE NOT (p >= 0 AND p <= 1))
+			            THEN error('vocabulary_review_queue: p must be in [0, 1] in decisions') END AS g
+		),
 		ranked AS (
 			SELECT *, row_number() OVER (PARTITION BY wording, source ORDER BY p DESC, class_id) AS r FROM dist
 		),
@@ -125,7 +135,8 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		       t.p1 - COALESCE(t.p2, 0) AS margin,
 		       o.n_trees_affected * (1 - (t.p1 - COALESCE(t.p2, 0))) AS impact
 		FROM tops t JOIN occ o ON o.wording = t.wording AND o.source IS NOT DISTINCT FROM t.source
-		WHERE NOT EXISTS (SELECT 1 FROM reviewed v WHERE v.wording = t.wording
+		CROSS JOIN guard
+		WHERE guard.g IS NULL AND NOT EXISTS (SELECT 1 FROM reviewed v WHERE v.wording = t.wording
 		                  AND (v.source IS NULL OR v.source IS NOT DISTINCT FROM t.source))
 		ORDER BY impact DESC, t.wording, t.source
 	)",
@@ -159,16 +170,25 @@ unique_ptr<TableRef> ApplyReviewBindReplace(ClientContext &context, TableFunctio
 	                               : rows(overrides);
 	// one entry per (wording, source): the review wins; within the review, the last reviewed_at
 	auto sql = StringUtil::Format(R"(
-		WITH r AS (
+		WITH r_all AS (%s),
+		r AS (
+			SELECT * FROM r_all
+			QUALIFY row_number() OVER (PARTITION BY wording, source ORDER BY reviewed_at DESC NULLS LAST, class_id) = 1
+		),
+		o AS (
 			SELECT * FROM (%s)
 			QUALIFY row_number() OVER (PARTITION BY wording, source ORDER BY reviewed_at DESC NULLS LAST, class_id) = 1
 		),
-		o AS (%s)
-		SELECT * FROM (
+		guard AS (
+			SELECT CASE WHEN EXISTS (SELECT 1 FROM r_all WHERE class_id IS NULL)
+			            THEN error('apply_vocabulary_review: class_id must not be NULL in review_table') END AS g
+		)
+		SELECT * EXCLUDE (g) FROM (
 			SELECT * FROM o WHERE NOT EXISTS (SELECT 1 FROM r WHERE r.wording = o.wording
 			                                  AND r.source IS NOT DISTINCT FROM o.source)
 			UNION ALL
-			SELECT * FROM r)
+			SELECT * FROM r) CROSS JOIN guard
+		WHERE guard.g IS NULL
 		ORDER BY wording, source
 	)",
 	                              rows(review), old);
@@ -213,7 +233,7 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 	if (!texts.empty()) {
 		bool text_tree = p.Has(texts, "tree_id");
 		texts_sql = StringUtil::Format(
-		    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, any_value(CAST(text AS VARCHAR)) AS text "
+		    "SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, min(CAST(text AS VARCHAR)) AS text "
 		    "FROM %s GROUP BY ALL",
 		    text_tree ? "CAST(tree_id AS VARCHAR)" : "NULL::VARCHAR", QuotedIdentifier(texts));
 		if (!text_tree) {
@@ -223,8 +243,8 @@ unique_ptr<TableRef> UncertainBindReplace(ClientContext &context, TableFunctionB
 	string cat_sql = "SELECT NULL::VARCHAR AS class_id, NULL::VARCHAR AS label, NULL::VARCHAR AS definition WHERE false";
 	if (!catalogue.empty()) {
 		string label = p.Has(catalogue, "label_en") ? "CAST(label_en AS VARCHAR)" : p.Col(catalogue, "label", "VARCHAR");
-		cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, any_value(%s) AS label, "
-		                             "any_value(%s) AS definition FROM %s GROUP BY ALL",
+		cat_sql = StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, min(%s) AS label, "
+		                             "min(%s) AS definition FROM %s GROUP BY ALL",
 		                             label, p.Col(catalogue, "definition", "VARCHAR"), QuotedIdentifier(catalogue));
 	}
 	string select = has_share ? StringUtil::Format("SELECT * FROM items QUALIFY row_number() OVER (ORDER BY margin, "

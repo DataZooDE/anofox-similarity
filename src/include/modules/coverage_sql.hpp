@@ -41,9 +41,9 @@ inline string DoubleLiteral(double v) {
 
 //! A SQL expression turning a VARCHAR expression into a JSON string literal (or null).
 inline string JsonStringSQL(const string &expr) {
-	return "CASE WHEN (" + expr + ") IS NULL THEN 'null' ELSE '\"' || regexp_replace(replace(replace(replace(replace("
+	return "CASE WHEN (" + expr + ") IS NULL THEN 'null' ELSE '\"' || regexp_replace(replace(replace(replace(replace(replace(replace("
 	       "replace(CAST(" + expr + " AS VARCHAR), '\\', '\\\\'), '\"', '\\\"'), chr(10), '\\n'), chr(13), '\\r'), "
-	       "chr(9), '\\t'), '[\\x00-\\x1f]', '', 'g') || '\"' END";
+	       "chr(9), '\\t'), chr(8), '\\b'), chr(12), '\\f'), '[\\x00-\\x1f]', '', 'g') || '\"' END";
 }
 
 //! A SQL expression turning a DOUBLE expression into a JSON number (or null).

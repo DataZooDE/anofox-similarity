@@ -2,6 +2,7 @@
 #include "modules/coverage_sql.hpp"
 #include "modules/property_tree.hpp"
 #include "duckdb_compat.hpp"
+#include "duckdb_compat/list_vector.hpp"
 #include "compat_anofox/scalar_bind.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -24,10 +25,14 @@ namespace {
 // Scalars
 //------------------------------------------------------------------------------
 
-vector<double> Doubles(const Value &list) {
+vector<double> Doubles(const Value &list, const char *fn) {
 	vector<double> out;
 	for (auto &x : ListValue::GetChildren(list)) {
-		out.push_back(x.IsNull() ? 0.0 : x.GetValue<double>());
+		double v = x.IsNull() ? NAN : x.GetValue<double>();
+		if (!std::isfinite(v)) {
+			throw InvalidInputException("%s: vectors must not contain non-finite or NULL elements", fn);
+		}
+		out.push_back(v);
 	}
 	return out;
 }
@@ -50,27 +55,61 @@ double Cosine(const vector<double> &a, const vector<double> &b, const char *fn) 
 	return dot / std::sqrt(na * nb);
 }
 
+//! Direct reader of a LIST(LIST(DOUBLE)) vector (no Value boxing on the hot path).
+class TokenLists {
+public:
+	TokenLists(Vector &input, idx_t count) {
+		duckdb_compat::ToUnifiedFormat(input, count, outer);
+		auto &tokens = ListVector::GetEntry(input);
+		duckdb_compat::ToUnifiedFormat(tokens, ListVector::GetListSize(input), inner);
+		auto &values = ListVector::GetEntry(tokens);
+		duckdb_compat::ToUnifiedFormat(values, ListVector::GetListSize(tokens), leaf);
+	}
+	bool IsNull(idx_t row) const {
+		return !outer.validity.RowIsValid(outer.sel->get_index(row));
+	}
+	//! The row's token vectors (NULL tokens skipped); an error on NULL or non-finite elements.
+	void Read(idx_t row, vector<vector<double>> &out) const {
+		out.clear();
+		auto entry = UnifiedVectorFormat::GetData<list_entry_t>(outer)[outer.sel->get_index(row)];
+		for (idx_t t = entry.offset; t < entry.offset + entry.length; t++) {
+			auto ti = inner.sel->get_index(t);
+			if (!inner.validity.RowIsValid(ti)) {
+				continue;
+			}
+			auto token = UnifiedVectorFormat::GetData<list_entry_t>(inner)[ti];
+			vector<double> v(token.length);
+			for (idx_t k = 0; k < token.length; k++) {
+				auto li = leaf.sel->get_index(token.offset + k);
+				double x = leaf.validity.RowIsValid(li) ? UnifiedVectorFormat::GetData<double>(leaf)[li] : NAN;
+				if (!std::isfinite(x)) {
+					throw InvalidInputException("maxsim: vectors must not contain non-finite or NULL elements");
+				}
+				v[k] = x;
+			}
+			out.push_back(std::move(v));
+		}
+	}
+
+private:
+	UnifiedVectorFormat outer, inner, leaf;
+};
+
 void MaxsimFun(DataChunk &args, ExpressionState &, Vector &result) {
-	for (idx_t row = 0; row < args.size(); row++) {
-		auto q = args.data[0].GetValue(row);
-		auto d = args.data[1].GetValue(row);
-		if (q.IsNull() || d.IsNull()) {
-			result.SetValue(row, Value(LogicalType::DOUBLE));
+	auto count = args.size();
+	TokenLists q(args.data[0], count), d(args.data[1], count);
+	auto out = duckdb_compat::FlatData<double>(result);
+	auto &validity = duckdb_compat::MutableValidity(result);
+	vector<vector<double>> qs, ds;
+	for (idx_t row = 0; row < count; row++) {
+		if (q.IsNull(row) || d.IsNull(row)) {
+			validity.SetInvalid(row);
 			continue;
 		}
-		vector<vector<double>> qs, ds;
-		for (auto &t : ListValue::GetChildren(q)) {
-			if (!t.IsNull()) {
-				qs.push_back(Doubles(t));
-			}
-		}
-		for (auto &t : ListValue::GetChildren(d)) {
-			if (!t.IsNull()) {
-				ds.push_back(Doubles(t));
-			}
-		}
+		q.Read(row, qs);
+		d.Read(row, ds);
 		if (qs.empty() || ds.empty()) {
-			result.SetValue(row, Value(LogicalType::DOUBLE));
+			validity.SetInvalid(row);
 			continue;
 		}
 		double sum = 0;
@@ -81,7 +120,7 @@ void MaxsimFun(DataChunk &args, ExpressionState &, Vector &result) {
 			}
 			sum += best;
 		}
-		result.SetValue(row, Value::DOUBLE(sum / double(qs.size())));
+		out[row] = sum / double(qs.size());
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -139,7 +178,7 @@ void CalibratedCosineFun(DataChunk &args, ExpressionState &, Vector &result) {
 		if (!(floor >= 0 && floor < 1)) {
 			throw InvalidInputException("calibrated_cosine: floor must be in [0, 1)");
 		}
-		double cos = Cosine(Doubles(a), Doubles(b), "calibrated_cosine");
+		double cos = Cosine(Doubles(a, "calibrated_cosine"), Doubles(b, "calibrated_cosine"), "calibrated_cosine");
 		result.SetValue(row, Value::DOUBLE(MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor)))));
 	}
 	if (args.AllConstant()) {
@@ -353,6 +392,13 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	bool items_tree = has(items, "tree_id");
 	bool items_source = has(items, "source");
 	bool items_label = has(items, "label");
+	// node ids repeat across trees: side tables must carry tree_id when the items do
+	if (items_tree && !attrs.empty() && !has(attrs, "tree_id")) {
+		throw BinderException("%s: attrs_table needs a tree_id column when items_table has one", fn);
+	}
+	if (items_tree && !decisions.empty() && !has(decisions, "tree_id")) {
+		throw BinderException("%s: decisions_table needs a tree_id column when items_table has one", fn);
+	}
 	if (!overrides.empty() && !items_label) {
 		throw BinderException("%s: items_table needs a label column to apply overrides_table", fn);
 	}
@@ -466,6 +512,13 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 	                    : "SELECT tree_id, node_id, first(cls ORDER BY prio) AS cls FROM (" + forced_parts +
 	                          ") GROUP BY ALL";
 
+	auto bad_vec = [](const string &col) {
+		return StringUtil::Format("%s IS NULL OR len([x FOR x IN %s IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
+	};
+	auto bad_tokens = [](const string &col) {
+		return StringUtil::Format(
+		    "%s IS NULL OR len([x FOR x IN flatten(%s) IF x IS NULL OR NOT isfinite(x)]) > 0", col, col);
+	};
 	auto sql = StringUtil::Format(R"(
 		WITH items AS (%s),
 		catalogue AS (%s),
@@ -496,6 +549,28 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		ranked AS (
 			SELECT *, row_number() OVER (PARTITION BY tree_id, node_id ORDER BY p DESC, class_id) AS rank FROM probs
 		),
+		guard AS (
+			SELECT CASE
+				WHEN NOT EXISTS (SELECT 1 FROM catalogue) THEN error('classify_to_catalogue: catalogue_table is empty')
+				WHEN EXISTS (SELECT 1 FROM catalogue WHERE class_id IS NULL)
+					THEN error('classify_to_catalogue: class_id in catalogue_table must not be NULL')
+				WHEN EXISTS (SELECT 1 FROM catalogue GROUP BY class_id HAVING count(*) > 1)
+					THEN error('classify_to_catalogue: catalogue_table has duplicate class_id ''' ||
+					           (SELECT min(class_id) FROM (SELECT class_id FROM catalogue GROUP BY class_id HAVING count(*) > 1)) || '''')
+				WHEN EXISTS (SELECT 1 FROM catalogue WHERE %s)
+					THEN error('classify_to_catalogue: catalogue_table has non-finite, NULL or missing vector elements')
+				WHEN EXISTS (SELECT 1 FROM items WHERE node_id IS NULL)
+					THEN error('classify_to_catalogue: node_id must not be NULL in items_table')
+				WHEN EXISTS (SELECT 1 FROM items GROUP BY tree_id, node_id HAVING count(*) > 1)
+					THEN error('classify_to_catalogue: items_table has a duplicate item (tree_id, node_id) ''' ||
+					           (SELECT min(node_id) FROM (SELECT node_id FROM items GROUP BY tree_id, node_id HAVING count(*) > 1)) || '''')
+				WHEN EXISTS (SELECT 1 FROM items WHERE %s)
+					THEN error('classify_to_catalogue: items_table has non-finite or NULL vector elements')
+				WHEN EXISTS (SELECT 1 FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue))
+					THEN error('classify_to_catalogue: class ''' || (SELECT min(cls) FROM forced WHERE cls NOT IN (SELECT class_id FROM catalogue)) ||
+					           ''' from overrides_table or decisions_table is not in catalogue_table')
+			END AS g
+		),
 		margins AS (
 			SELECT tree_id, node_id,
 			       max(p) FILTER (WHERE rank = 1) - COALESCE(max(p) FILTER (WHERE rank = 2), 0) AS margin
@@ -505,12 +580,14 @@ unique_ptr<TableRef> ClassifyBindReplace(ClientContext &context, TableFunctionBi
 		FROM ranked r
 		JOIN margins m ON m.tree_id IS NOT DISTINCT FROM r.tree_id AND m.node_id = r.node_id
 		JOIN items i ON i.tree_id IS NOT DISTINCT FROM r.tree_id AND i.node_id = r.node_id
-		%s
+		CROSS JOIN guard
+		WHERE guard.g IS NULL%s
 		ORDER BY r.tree_id, r.node_id, r.rank
 	)",
 	                              items_sql, cat_sql, vectors, sims_cols, similarity, sims_from, bonus, DoubleLiteral(beta),
-	                              DoubleLiteral(tau), forced,
-	                              top > 0 ? StringUtil::Format("WHERE r.rank <= %lld", (long long)top) : string());
+	                              DoubleLiteral(tau), forced, late ? bad_tokens("tokens") : bad_vec("vec"),
+	                              late ? bad_tokens("tokens") : bad_vec("vec"),
+	                              top > 0 ? StringUtil::Format(" AND r.rank <= %lld", (long long)top) : string());
 	return CoverageSubquery(sql, context, fn);
 }
 
