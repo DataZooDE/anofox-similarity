@@ -159,15 +159,15 @@ string FeatureMultisetSQL(const CoverageParams &p) {
 string RankingSQL(const CoverageParams &p, const string &query_cte, const string &exclude_entity_sql) {
 	string measure;
 	if (p.mode == "containment") {
-		measure = "shared_weight / NULLIF(query_weight, 0)";
+		measure = ContainmentSQL("shared_weight", "query_weight");
 	} else if (p.mode == "jaccard") {
-		measure = "shared_weight / NULLIF(query_weight + candidate_weight - shared_weight, 0)";
+		measure = JaccardSQL("shared_weight", "query_weight", "candidate_weight");
 	} else {
 		measure = StringUtil::Format("shared_weight / NULLIF(shared_weight + %s * (query_weight - shared_weight) + "
 		                             "%s * (candidate_weight - shared_weight), 0)",
 		                             DoubleLiteral(p.alpha), DoubleLiteral(p.beta));
 	}
-	string score = p.mode == "jaccard" ? "jaccard" : StringUtil::Format("measure + %s * jaccard", DoubleLiteral(p.tie_break));
+	string score = TieBrokenScoreSQL(p.mode != "jaccard", "measure", "jaccard", p.tie_break);
 	string exclude = exclude_entity_sql.empty() ? "" : " AND fm.entity_id <> " + exclude_entity_sql;
 	return StringUtil::Format(R"(
 		WITH
@@ -188,8 +188,8 @@ string RankingSQL(const CoverageParams &p, const string &query_cte, const string
 			m AS (
 				SELECT s.entity_id, s.shared_weight, qt.query_weight, t.candidate_weight,
 				       t.candidate_weight - s.shared_weight AS surplus_weight,
-				       s.shared_weight / NULLIF(qt.query_weight, 0) AS containment,
-				       s.shared_weight / NULLIF(qt.query_weight + t.candidate_weight - s.shared_weight, 0) AS jaccard
+				       %s AS containment,
+				       %s AS jaccard
 				FROM shared s JOIN totals t USING (entity_id), qt
 			),
 			scored AS (SELECT *, %s AS measure FROM m)
@@ -200,7 +200,10 @@ string RankingSQL(const CoverageParams &p, const string &query_cte, const string
 		ORDER BY score DESC, entity_id
 		LIMIT %lld
 	)",
-	                          FeatureMultisetSQL(p), query_cte, exclude, measure, score, DoubleLiteral(p.min_score),
+	                          FeatureMultisetSQL(p), query_cte, exclude,
+	                          ContainmentSQL("s.shared_weight", "qt.query_weight"),
+	                          JaccardSQL("s.shared_weight", "qt.query_weight", "t.candidate_weight"), measure, score,
+	                          DoubleLiteral(p.min_score),
 	                          (long long)p.k);
 }
 

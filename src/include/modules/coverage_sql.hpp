@@ -171,6 +171,23 @@ inline void RegisterCoverageTableFunction(ExtensionLoader &loader, const string 
 	loader.RegisterFunction(std::move(info));
 }
 
+//------------------------------------------------------------------------------
+// Weighted set measures over shared = Σ min(q, c), query = Σ q and candidate = Σ c (R1, HLD §4.1)
+//------------------------------------------------------------------------------
+
+inline string ContainmentSQL(const string &shared, const string &query) {
+	return shared + " / NULLIF(" + query + ", 0)";
+}
+
+inline string JaccardSQL(const string &shared, const string &query, const string &candidate) {
+	return shared + " / NULLIF(" + query + " + " + candidate + " - " + shared + ", 0)";
+}
+
+//! Stage-1 score: containment plus tie_break x Jaccard (lean candidates first), or Jaccard.
+inline string TieBrokenScoreSQL(bool containment, const string &measure, const string &jaccard, double tie_break) {
+	return containment ? measure + " + " + DoubleLiteral(tie_break) + " * " + jaccard : jaccard;
+}
+
 //! One documented overload of a coverage scalar.
 struct CoverageScalarOverload {
 	vector<LogicalType> arguments;

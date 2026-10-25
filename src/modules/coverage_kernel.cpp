@@ -1106,20 +1106,22 @@ string Stage1SQL(const CoverageParams &p) {
 		pairs AS (%s),
 		s1 AS (
 			SELECT pr.query_id, pr.candidate_id, c.reviewed,
-			       COALESCE(ov.inter / NULLIF(qt.tot, 0), 0) AS containment,
-			       COALESCE(ov.inter / NULLIF(qt.tot + ct.tot - ov.inter, 0), 0) AS jaccard
+			       COALESCE(%s, 0) AS containment,
+			       COALESCE(%s, 0) AS jaccard
 			FROM pairs pr JOIN c_ms c ON c.tree_id = pr.candidate_id
 			LEFT JOIN ov ON ov.query_id = pr.query_id AND ov.candidate_id = pr.candidate_id
 			LEFT JOIN q_tot qt ON qt.tree_id = pr.query_id LEFT JOIN c_tot ct ON ct.tree_id = pr.candidate_id
 		),
 		s1s AS (
 			SELECT s1.*, mode.mode_used,
-			       CASE WHEN mode.mode_used = 'containment' THEN containment + %s * jaccard ELSE jaccard END AS score
+			       CASE WHEN mode.mode_used = 'containment' THEN %s ELSE jaccard END AS score
 			FROM s1, mode
 		),
 		top AS MATERIALIZED (%s)
 	)",
-	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, DoubleLiteral(p.tie_break), top);
+	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, ContainmentSQL("ov.inter", "qt.tot"),
+	                          JaccardSQL("ov.inter", "qt.tot", "ct.tot"),
+	                          TieBrokenScoreSQL(true, "containment", "jaccard", p.tie_break), top);
 }
 
 //! Attributes of one side, packed per node, with default bounds and name vectors.
