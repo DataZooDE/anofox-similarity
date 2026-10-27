@@ -164,3 +164,14 @@ query I
 SELECT count(*) FROM infer_predecessors('OLD-PUMP');
 ----
 0
+
+# an unknown material id gives an empty result in both searches (as documented)
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('NOPE', 5);
+----
+0
+
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('NOPE', 5);
+----
+0

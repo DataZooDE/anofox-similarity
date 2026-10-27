@@ -256,6 +256,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 					SUM(LEAST(cocc, qocc))::DOUBLE
 						/ NULLIF(SUM(GREATEST(cocc, qocc))::DOUBLE, 0.0) AS similarity
 				FROM pair_components
+				WHERE EXISTS (SELECT 1 FROM query_fp)  -- an unknown query material has no neighbours
 				GROUP BY material_id
 			)
 		SELECT material_id, COALESCE(similarity, 0.0) AS similarity
