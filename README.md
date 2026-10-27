@@ -88,39 +88,34 @@ FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items');
 ```sql
 -- infer_predecessors needs BOTH a bom_items table (to establish structural similarity)
 -- AND a goods_movements table (for temporal anti-correlation).
-CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
 INSERT INTO bom_items VALUES
   ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
   ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
 
-CREATE TABLE goods_movements (
-  material_id VARCHAR,
-  movement_date DATE,
-  quantity DOUBLE
-);
-
--- OLD-PUMP consumption declining, NEW-PUMP rising (anti-correlation), weekly cadence
-INSERT INTO goods_movements VALUES
-  ('OLD-PUMP', '2023-01-15', 100.0),
-  ('OLD-PUMP', '2023-03-15', 80.0),
-  ('OLD-PUMP', '2023-06-15', 40.0),
-  ('OLD-PUMP', '2023-09-15', 10.0),
-  ('NEW-PUMP', '2023-06-01', 20.0),
-  ('NEW-PUMP', '2023-09-01', 60.0),
-  ('NEW-PUMP', '2023-12-01', 100.0);
+-- Weekly consumption: OLD-PUMP declines while NEW-PUMP ramps up (anti-correlation)
+CREATE OR REPLACE TABLE goods_movements AS
+SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date,
+       200.0 - 5 * w AS quantity
+FROM range(0, 40) t(w)
+UNION ALL
+SELECT 'NEW-PUMP', DATE '2023-01-02' + 7 * w::INTEGER, 5.0 * w - 50
+FROM range(10, 52) t(w);
 
 -- The material id is the FIRST positional argument (it cannot be passed by name).
-SELECT predecessor_id, confidence, correlation, overlapping_weeks
-FROM infer_predecessors('NEW-PUMP', min_confidence := 0.5, min_overlapping_weeks := 2)
+SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
+FROM infer_predecessors('NEW-PUMP')
 ORDER BY confidence DESC;
+
+-- Result:
+-- OLD-PUMP | 0.79 | -1.0 | 38
 ```
 
 > **Note on data density.** Predecessor detection aligns predecessor and successor consumption into
 > **weekly** buckets (offset by `lag_weeks`) and requires at least `min_overlapping_weeks` overlapping
-> buckets (default 8). The few, months-apart rows above are deliberately sparse and will typically
-> return **zero** predecessors — real detection needs dense, overlapping weekly history where the
-> predecessor declines as the successor rises (`correlation < 0`). See
-> `test/sql/scenarios/s7_anticorrelation.test` for a dataset that produces a confident match.
+> buckets (default 8). A few months-apart movements return **zero** predecessors; detection needs
+> dense, overlapping weekly history where the predecessor declines as the successor rises
+> (`correlation < 0`). See `test/sql/scenarios/s7_anticorrelation.test` for a larger dataset.
 
 ### Finding Analogs for New Products
 
@@ -131,13 +126,13 @@ SELECT material_id, similarity, history_months, first_usage, last_usage
 FROM cold_start_analogs(
     'NEW-PUMP',
     5,                              -- Return top 5 analogs
-    min_history_months := 12,       -- Require at least 12 months of history
+    min_history_months := 6,        -- Require at least 6 months of history
     bom_table := 'bom_items',
     movements_table := 'goods_movements'
 );
 
--- Returns similar products with consumption history
--- Use their demand patterns to forecast the new product
+-- Result: OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
+-- Use the analogs' demand patterns to forecast the new product
 ```
 
 ### Converting ERP Data (SAP)
@@ -250,7 +245,7 @@ make test
 
 ### Test Suite
 
-The extension includes 52 comprehensive tests (1179 assertions):
+The extension ships a sqllogictest suite under `test/sql/`:
 
 ```bash
 # Run all tests
@@ -307,8 +302,7 @@ The extension implements a **tiered similarity approach**:
 
 ## 🧪 Test Coverage
 
-- **52 SQL tests** across 11 functional categories
-- **1179 assertions** validating core algorithms
+- **SQL logic tests** under `test/sql/`, grouped by functional category
 - **Synthetic data tests** with known ground truth
 - **Real enterprise data tests** (SAP, Dynamics 365)
 - **Edge case tests** (sparse BOMs, circular references, NULL handling)
@@ -345,7 +339,8 @@ SELECT * FROM compute_transactional_embeddings(
   time_window_days := 180        -- last 6 months of history
 );
 
--- Customize BOM explosion depth
+-- Customize BOM explosion depth (the BOM traversal macros read the bom_header and
+-- bom_component tables, see docs/DATA-STRUCTURES.md; pass header_table/component_table otherwise)
 SELECT * FROM bom_explosion_multilevel(
   'PARENT-001',
   max_depth := 5                 -- Limit to 5 levels
@@ -396,17 +391,14 @@ Licensed under **Business Source License 1.1 (BSL 1.1)**:
 - ⚠️ Requires license for SaaS/commercial redistribution
 - 📅 Converts to open source (Apache 2.0) after 4 years
 
-[Full license terms](LICENSE.md)
+[Full license terms](LICENSE)
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Code of conduct
-- Development workflow
-- Testing requirements
-- Pull request process
+We welcome contributions! Please open an issue or a pull request on
+[GitHub](https://github.com/DataZooDE/anofox-similarity); run `make test` before you submit.
 
 ---
 

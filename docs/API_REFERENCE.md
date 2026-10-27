@@ -235,7 +235,7 @@ find_similar_materials_jaccard(
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query_material_id` | VARCHAR | Required | Material to find similar to |
+| `material_id` | VARCHAR | Required | Material to find similar to (positional) |
 | `k` | INTEGER | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
@@ -266,7 +266,7 @@ Finds k most similar materials using Weisfeiler-Lehman graph kernel similarity.
 **Signature:**
 ```sql
 find_similar_materials_wl_kernel(
-    query_material_id VARCHAR,
+    material_id VARCHAR,
     k INTEGER,
     iterations := 3,
     min_similarity := 0.0,
@@ -280,7 +280,7 @@ find_similar_materials_wl_kernel(
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query_material_id` | VARCHAR | Required | Material to find similar to |
+| `material_id` | VARCHAR | Required | Material to find similar to (positional) |
 | `k` | INTEGER | Required | Number of results |
 | `iterations` | INTEGER | 3 | Number of WL refinement iterations |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
@@ -308,7 +308,7 @@ Finds analog materials with consumption history for cold-start forecasting.
 **Signature:**
 ```sql
 cold_start_analogs(
-    query_material_id VARCHAR,
+    material_id VARCHAR,
     k INTEGER,
     min_history_months := 0,
     min_similarity := 0.0,
@@ -328,7 +328,7 @@ cold_start_analogs(
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query_material_id` | VARCHAR | Required | New product needing analogs |
+| `material_id` | VARCHAR | Required | New product needing analogs (positional) |
 | `k` | INTEGER | Required | Number of analog materials to return |
 | `min_history_months` | INTEGER | 0 | Minimum consumption history required |
 | `min_similarity` | DOUBLE | 0.0 | Minimum Jaccard similarity threshold |
@@ -370,7 +370,7 @@ Returns direct children of a parent material (single-level explosion).
 **Signature:**
 ```sql
 bom_explosion_1level(
-    parent_material_id VARCHAR,
+    query_material_id VARCHAR,
     header_table := 'bom_header',
     component_table := 'bom_component'
 ) → TABLE (
@@ -394,7 +394,7 @@ Recursive BOM explosion with depth limit.
 **Signature:**
 ```sql
 bom_explosion_multilevel(
-    parent_material_id VARCHAR,
+    query_material_id VARCHAR,
     max_depth := 10,
     header_table := 'bom_header',
     component_table := 'bom_component'
@@ -413,7 +413,7 @@ bom_explosion_multilevel(
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `parent_material_id` | VARCHAR | Required | Root material ID |
+| `query_material_id` | VARCHAR | Required | Root material ID |
 | `max_depth` | INTEGER | 10 | Maximum recursion depth |
 | `header_table` | VARCHAR | 'bom_header' | Header table name |
 | `component_table` | VARCHAR | 'bom_component' | Component table name |
@@ -1460,8 +1460,9 @@ normalised first.
   temperature. Write "misses by x %" only for the limit rules.
 
 **`compat_score(dimension, required, provided [, rules_table := 'compatibility_rules'])`** →
-DOUBLE: looks up a curated rules table `(dimension, required, provided, score)`. Without a
-rule the result is 1 if the categories are equal, else 0; a NULL category gives NULL. Text
+DOUBLE: looks up a curated rules table `(dimension, required, provided, score)`. The table must
+exist (it may be empty). Without a rule the result is 1 if the categories are equal, else 0, so
+`at_least IP65` is not met by `IP67` unless a rule says so; a NULL category gives NULL. Text
 similarity is never used (BR-15).
 
 ```sql
@@ -1544,8 +1545,8 @@ coverage    = mean req(q);  rank_score = coverage + stage1_weight · stage1_scor
 (ties: the largest remaining count need, then the lowest node id). An item may then not stand
 in for another function (BR-06), and one item serves one requirement. OR alternatives are
 options: every tied requirement may choose them, and each requirement uses its best variant.
-`'best_match'` lets requirements share items. `'auto'` (default) uses partition for reviewed
-candidate trees.
+`'best_match'` lets requirements share items. `'auto'` (default) uses partition when both the
+query tree and the candidate tree are reviewed.
 
 **Named parameters**
 
@@ -1582,20 +1583,26 @@ SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
 ```
 
 **Example: the gap list of the best programme.** The trace takes the same parameters as the
-ranking, so it explains the same score:
+ranking, so it explains the same score. The benchmark's request items have no `class_id`, so
+they take their classes from a `label_table` (`request_labels`, the output of
+[`classify_to_catalogue`](#pivot-classifier-and-vocabulary-review-r4) over `request_item_vectors`).
+A request item without a class matches nothing, and a request without any classified item
+returns no rows:
 
 ```sql
 SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,
-       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes', label_table := 'request_labels',
        candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
        overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
        templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
        name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
     WHERE rank = 1);
 
-SELECT req_node_id, attr_name, req_value, prov_value, round(distance, 3) AS distance
+-- is_gap flags the requirement; attr_score < 1 marks the attribute that falls short
+SELECT req_node_id, attr_name, req_value, prov_value, round(attr_score, 2) AS attr_score,
+       round(distance, 3) AS distance
 FROM tree_coverage_trace('R07', candidates := [getvariable('top')],
-       nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+       nodes_table := 'request_nodes', attrs_table := 'request_attributes', label_table := 'request_labels',
        candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'programme_attributes',
        overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
        templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
@@ -1618,7 +1625,10 @@ input types are checked.
 CREATE TABLE programme_index AS
 SELECT * FROM tree_class_multiset('programme_nodes', overrides_table := 'vocabulary_overrides');
 
-SELECT * FROM tree_coverage('R07', k := 20, candidate_nodes_table := 'programme_nodes',
+SELECT * FROM tree_coverage('R07', k := 20,
+                            nodes_table := 'request_nodes', attrs_table := 'request_attributes',
+                            label_table := 'request_labels',
+                            candidate_nodes_table := 'programme_nodes',
                             candidate_attrs_table := 'programme_attributes',
                             overrides_table := 'vocabulary_overrides',
                             candidate_multiset_table := 'programme_index');
@@ -1702,10 +1712,19 @@ CREATE TABLE review AS SELECT * FROM (VALUES ('Klimapaket Heizung', 'internal', 
     t(wording, source, class_id);
 CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_review('review');
 
--- rank with the reviewed wordings; the rest keep the classifier's soft labels
+-- rank with the reviewed wordings; the rest keep the classifier's soft labels. The request
+-- items need classes too: one label_table serves both sides
+CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('request_nodes.csv.gz');
+CREATE TABLE request_items AS SELECT tree_id, node_id, source, vec::FLOAT[] AS vec
+FROM read_csv_auto('request_item_vectors.csv.gz');
+CREATE TABLE labels AS
+SELECT tree_id, node_id, class_id, p FROM programme_labels
+UNION ALL
+SELECT tree_id, node_id, class_id, p
+FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue');
 SELECT * FROM tree_coverage('R12', k := 20, nodes_table := 'request_nodes', attrs_table := NULL,
        candidate_nodes_table := 'programme_nodes', candidate_attrs_table := NULL,
-       overrides_table := 'vocabulary_overrides', label_table := 'programme_labels');
+       overrides_table := 'vocabulary_overrides', label_table := 'labels');
 ```
 
 **Workflow: send uncertain items to an external reviewer**
@@ -1714,10 +1733,12 @@ SELECT * FROM tree_coverage('R12', k := 20, nodes_table := 'request_nodes', attr
 CREATE TABLE decided AS SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue',
        attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
        name_vectors := 'name_vectors', name_floor := getvariable('name_floor'));
+-- the item texts the reviewer sees: (tree_id, node_id, text)
+CREATE TABLE item_texts AS SELECT tree_id, node_id, label AS text FROM request_nodes WHERE node_kind = 'item';
 -- one JSON object per row, ready for an LLM or a colleague
 SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15,
        texts_table := 'item_texts', catalogue_table := 'catalogue_classes');
--- write the answers (tree_id, node_id, class_id) back and classify again
+-- write the answers into a table answers(tree_id, node_id, class_id) and classify again
 CREATE TABLE request_labels AS
 SELECT tree_id, node_id, class_id, p FROM classify_to_catalogue(items_table := 'request_items',
        catalogue_table := 'catalogue', attrs_table := 'request_attributes', templates_table := 'catalogue_attributes',
@@ -1835,10 +1856,12 @@ index is unnested on every call. Unlike `find_covering_entities`, the queries ta
 `(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
 
 ```sql
-CREATE TABLE programme_index AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
-CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');   -- store once
-CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight FROM tree_class_multiset('request_nodes');
-SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_index', k := 20, threshold := 0.9,
+CREATE TABLE programme_minhash AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
+CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_minhash');   -- store once
+-- request items need classes (label_table or class_id); unclassified items drop out of the multiset
+CREATE TABLE request_ms AS SELECT entity_id AS query_id, feature_id, weight
+FROM tree_class_multiset('request_nodes', label_table := 'request_labels');
+SELECT * FROM find_covering_entities_lsh('request_ms', 'programme_minhash', k := 20, threshold := 0.9,
                                          bands_table := 'programme_bands');
 ```
 
