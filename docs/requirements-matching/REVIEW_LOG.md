@@ -533,3 +533,33 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | E2 | med | find_similar_materials_wl_kernel returned k zero-similarity rows for an unknown id | Fixed: no rows, as documented and as the Jaccard search; regression test |
 | E3 | low | Table-function arguments cannot be subqueries | Documented in conventions (SET VARIABLE pattern) |
 | F6, F7, F8, F11, F12, F16, F19, F21 | low | Banner hint text (submodule); LOAD writes tables; quoted identifiers; 1.5.6 positional named args; mu without name vectors; compat rules table; BOM macros; uniform k validation | Deferred; documented where users meet them |
+
+## UR-2 — 2026-10-27 — second round of user testing and a docs evaluation (user request)
+
+- **User-testing crew** (usability, correctness, performance, testing): four users with goals
+  (planner, bid engineer, data scientist at 10k–100k rows, sceptical reviewer comparing every
+  documented output on 1.5.6 and 2.0). Reports in `docs/dev/exploratory/round2-*.md`. Every
+  documented output matched both shells; no crash.
+- **Evaluation crew** (usability, design, pragmatist, maintainability; anofox-forecast as the
+  standard): REQUEST_CHANGES. README ~8/10; structure forecast-grade; contradictions between
+  generated and hand-written API text; broken moved tutorials; no drift guard.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| G1 | high | German bound words (mind., ab, über, größer, kleiner, bis X) parsed without a bound: met requirements shown as gaps | Fixed; one test per word, negations and ranges pinned |
+| G2 | high | '1 000 N' read as the count 1 | Fixed: space / NBSP / narrow NBSP thousands separator |
+| G3 | high | Generated API text repeated wrong C++ descriptions (bom_usage, upserts, sap_to_materials, full_text) | Descriptions corrected; reference regenerated |
+| G4 | high | Moved tutorials broken (LOAD line, nonexistent HNSW functions) | Fixed; SAP scale track rewritten on exact search + LSH, verified on AdventureWorks |
+| G5 | med | LSH counted duplicate BOM lines as weights (estimate 0.80 vs containment 0.93) | Fixed: unit weights are a set, as in the exact search (found while verifying the tutorial) |
+| G6 | med | tree_coverage silently read another table's attributes | Fixed: an explicit nodes table needs its attributes table |
+| G7 | med | tree_from_json ignored typo'd keys (childs) and count ≤ 0 | Fixed: near-miss keys and non-positive counts are errors |
+| G8 | med | Text movement_date gave an internal date_part error | Fixed: error names the column and the strptime conversion |
+| G9 | med | Guide 08 claimed LSH beats exact search for batches | Corrected with measurements: a batched exact join is ~10× faster up to 100k BOMs |
+| G10 | med | No drift guard; --check could not see a missing function | run_examples checks `-- Expected:` numbers; --check diffs the extension's functions against the pages |
+| G11 | med | Conventions page stale (87 functions, unverified fallbacks and complexity) | Rewritten from tested behaviour; glossary; timings labelled with their source |
+| G12 | low | Missing units (Sek., U/min, Zoll, SAP M/G) | Added |
+| D-1 | med | classify_to_catalogue centring mislabels a large single-class source | Deferred: product decision (shrinkage vs documented assumption) |
+| D-2 | med | infer_predecessors misses clean cut-overs | Deferred: needs a cut-over signal; guide 03 has a recipe |
+| D-3 | med | A partly classified request reads like real gaps | Deferred: an n_unclassified column changes the output; guide 04 shows the check |
+| D-4 | low | `within` requires the whole range; history_months semantics; threshold_at_precision denominator; empty-set convention; 2.0 binder message; one bad id fails a batch | Deferred; documented where users meet them |
+| D-5 | — | CI job for the doc checks | Not added: the user prefers minimal CI; the checks run locally before a PR, readme_quickstart.test runs in CI |
