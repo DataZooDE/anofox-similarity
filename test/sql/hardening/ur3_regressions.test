@@ -291,3 +291,94 @@ SELECT (SELECT coverage FROM tree_coverage('VQ', candidates := ['VC'], nodes_tab
        compat_score('pressure_class', 'PN16', 'PN40', 'pn_rules');
 ----
 1.0	1.0
+
+# --- UR-4 example building: strict limits and designations --------------------------------
+
+# an exact point meets itself with tol 0 and no soft band; a different value does not
+query RRR
+SELECT value_satisfies(parse_quantity('19 mm'), parse_quantity('19 mm'), NULL, 0.0, 0.0).score,
+       value_satisfies(parse_quantity('19 mm'), parse_quantity('19.2 mm'), NULL, 0.0, 0.0).score,
+       value_satisfies(parse_quantity('19 mm'), parse_quantity('19.2 mm')).score;
+----
+1.0	0.0	1.0
+
+# tree_coverage takes tol and soft_band: a 37 kg capability does not cover 38 kg under hard limits
+statement ok
+CREATE TABLE wq AS SELECT * FROM (VALUES ('WQ','WQ',NULL,'container','AND','part',NULL,1.0),
+ ('WQ','WQ.1','WQ','item','AND','casting','casting',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wqa AS SELECT 'WQ' AS tree_id, 'WQ.1' AS node_id, 'w' AS attr_id, 'weight' AS name, 'mass' AS dimension,
+  'kg' AS unit, 38.0 AS lo, 38.0 AS hi, 'at_least' AS bound, NULL::VARCHAR AS category;
+
+statement ok
+CREATE TABLE wc AS SELECT * FROM (VALUES ('WC','WC',NULL,'container','AND','foundry',NULL,1.0),
+ ('WC','WC.1','WC','item','AND','casting','casting',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wca AS SELECT 'WC' AS tree_id, 'WC.1' AS node_id, 'w' AS attr_id, 'weight' AS name, 'mass' AS dimension,
+  'kg' AS unit, 0.0 AS lo, 37.0 AS hi, NULL::VARCHAR AS bound, NULL::VARCHAR AS category;
+
+query RRI
+SELECT (SELECT coverage FROM tree_coverage('WQ', candidates := ['WC'], nodes_table := 'wq', attrs_table := 'wqa',
+          candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', mu := 0.0)) > 0.8,
+       (SELECT coverage FROM tree_coverage('WQ', candidates := ['WC'], nodes_table := 'wq', attrs_table := 'wqa',
+          candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', mu := 0.0, tol := 0.0, soft_band := 0.0)),
+       (SELECT count(*) FILTER (WHERE is_gap) FROM tree_coverage_trace('WQ', candidates := ['WC'], nodes_table := 'wq',
+          attrs_table := 'wqa', candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', tol := 0.0, soft_band := 0.0));
+----
+true	0.0	1
+
+statement error
+SELECT * FROM tree_coverage('WQ', nodes_table := 'wq', attrs_table := 'wqa', tol := -1.0);
+----
+tol and soft_band must be finite and not negative
+
+# a category without a dimension is flagged
+query TT
+SELECT node_id, issue FROM validate_trees('vq', 'vqa') WHERE severity = 'warning';
+----
+VQ.1	category_without_dimension
+
+# material and certificate numbers are designations
+query TT
+SELECT t, parse_quantity(t).dimension FROM (VALUES ('Werkstoff 1.4404'), ('Werkszeugnis 2.2'), ('grade 8.8')) v(t) ORDER BY t;
+----
+Werkstoff 1.4404	NULL
+Werkszeugnis 2.2	NULL
+grade 8.8	NULL
+
+# "in" is an inch as the last word only
+query TTR
+SELECT parse_quantity('0.75 in').dimension, parse_quantity('3 in 1').dimension, parse_quantity('0.75 in').lo;
+----
+length	NULL	0.01905
+
+# the template's scale column decides log or linear comparison (round4-usability R4-U1)
+statement ok
+CREATE TABLE sq AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','spec',NULL,1.0),
+  ('Q','Q.1','Q','item','AND','drive','drive',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE sqa AS SELECT * FROM (VALUES ('Q','Q.1','power','power','power','W',90.0,90.0,NULL,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE sc AS SELECT * FROM (VALUES ('C','C',NULL,'container','AND','offer',NULL,1.0),
+  ('C','C.1','C','item','AND','drive','drive',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE sca AS SELECT * FROM (VALUES ('C','C.1','power','power','power','W',87.0,87.0,NULL,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE stpl AS SELECT * FROM (VALUES ('drive','power','power','Leistung','power','W','at_least','linear'))
+  t(class_id,attr_key,name_en,name_de,dimension,base_unit,bound,scale);
+
+# power defaults to a log scale (87 W passes at_least 90 W); the template says linear
+query TR
+SELECT req_value, round(value_score, 4) FROM tree_coverage_trace('Q', candidates := ['C'],
+  nodes_table := 'sq', attrs_table := 'sqa', candidate_nodes_table := 'sc', candidate_attrs_table := 'sca',
+  mu := 0.0, default_bounds := 'catalogue', templates_table := 'stpl');
+----
+at_least 90 W	0.7333

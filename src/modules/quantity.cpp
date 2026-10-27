@@ -57,7 +57,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"mm", {"MM"}, "length", 1e-3, 0});
 	u.push_back({"µm", {"um"}, "length", 1e-6, 0});
 	u.push_back({"nm", {}, "length", 1e-9, 0});
-	u.push_back({"inch", {"inches", "Zoll", "IN", "\""}, "length", 0.0254, 0}); // not "in": "3 in 1"
+	u.push_back({"inch", {"inches", "Zoll", "IN", "\""}, "length", 0.0254, 0}); // "in" only at the end, see UnitAfter
 	// mass
 	u.push_back({"kg", {"KG"}, "mass", 1.0, 0});
 	u.push_back({"g", {"G"}, "mass", 1e-3, 0});
@@ -177,7 +177,6 @@ bool AffineDimension(const string &dimension) {
 
 const double AFFINE_TOL = 1.0;  // K
 const double AFFINE_BAND = 2.5; // K
-const double POINT_WIDEN = 0.01; // decades
 
 } // namespace
 
@@ -599,6 +598,15 @@ bool IsCodeNumber(const string &s, idx_t begin) {
 				return true;
 			}
 		}
+		// a material or certificate number: Werkstoff 1.4404, Werkszeugnis 2.2, Material-Nr. 1.0038
+		auto lower = AsciiLower(prev);
+		for (auto word : {"werkstoff", "werkstoffnummer", "werkstoff-nr.", "werkstoff-nr", "werkstoffnr.",
+		                  "material-nr.", "material-nr", "materialnummer", "werkszeugnis", "abnahmeprüfzeugnis",
+		                  "zeugnis", "certificate", "material", "grade", "werkstoffgüte"}) {
+			if (lower == word) {
+				return true;
+			}
+		}
 	}
 	return false;
 }
@@ -690,6 +698,18 @@ const UnitDef *UnitAfter(const string &s, idx_t pos, const UnitTable &units, str
 		token = s.substr(pos, matched);
 		end = pos + matched;
 		return unit;
+	}
+	// "in" is an inch only as the last word ("0.75 in"); elsewhere it is a preposition ("3 in 1")
+	if (s.compare(pos, 2, "in") == 0) {
+		auto rest = pos + 2;
+		while (rest < s.size() && (s[rest] == ' ' || s[rest] == '.' || s[rest] == ')')) {
+			rest++;
+		}
+		if (rest >= s.size()) {
+			token = "in";
+			end = pos + 2;
+			return units.Find("inch");
+		}
 	}
 	// an unknown word right after the number: keep it, never guess; operators, tolerance
 	// signs and connectors are not units
@@ -1007,9 +1027,9 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		bool point = bound.empty();
 		double a, b, c, e;
 		if (log_scale) {
-			if (point) {
-				r_lo *= std::pow(10.0, -POINT_WIDEN);
-				r_hi *= std::pow(10.0, POINT_WIDEN);
+			if (point) { // half the tolerance each side, as on the linear scale (0.01 decades by default)
+				r_lo *= std::pow(10.0, -options.tol / 2);
+				r_hi *= std::pow(10.0, options.tol / 2);
 			}
 			a = std::log10(r_lo);
 			b = std::log10(r_hi);
@@ -1027,7 +1047,8 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		}
 		double width = b - a;
 		double inter = MaxValue(0.0, MinValue(b, e) - MaxValue(a, c));
-		r.score = width > 0 ? inter / width : ((c <= a && a <= e) ? 1.0 : 0.0);
+		// a zero-width requirement (a point with tol 0) is met when the offer contains it
+		r.score = width > 1e-12 ? inter / width : ((c <= a + 1e-12 && a <= e + 1e-12) ? 1.0 : 0.0);
 		r.distance = 1.0 - r.score;
 	}
 	r.rule = bound.empty() ? "point" : bound;

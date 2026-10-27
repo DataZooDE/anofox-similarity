@@ -1075,6 +1075,10 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			SELECT tree_id, node_id, attr_id, 'unknown_unit', 'warning', 'a value without a known dimension'
 			FROM a WHERE lo IS NOT NULL AND dimension IS NULL AND category IS NULL
 			UNION ALL
+			SELECT tree_id, node_id, attr_id, 'category_without_dimension', 'warning',
+			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair'
+			FROM a WHERE category IS NOT NULL AND dimension IS NULL
+			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'bad_interval', 'error', 'lo is greater than hi'
 			FROM a WHERE lo > hi
 			UNION ALL
@@ -1308,7 +1312,7 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "detail). Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, "
 	                  "no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, "
 	                  "attribute_on_container, orphan_attribute, "
-	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (one "
+	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension, mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source).",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }

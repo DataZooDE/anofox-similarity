@@ -42,6 +42,7 @@ struct KAttr {
 	double hi = 0;
 	string bound;
 	string default_bound;
+	string scale; // the template's 'log' or 'linear'; empty: per dimension
 	string category;
 	vector<double> name_vec;
 };
@@ -129,7 +130,8 @@ void CheckScalarField(const string &fn, const string &name, const LogicalType &t
 		return;
 	}
 	if (name == "count" || name == "lo" || name == "hi" || name == "score" || name == "label_weight" ||
-	    name == "mu" || name == "partition_gate" || name == "count_gate" || name == "name_floor") {
+	    name == "mu" || name == "partition_gate" || name == "count_gate" || name == "name_floor" || name == "tol" ||
+	    name == "soft_band") {
 		if (!t.IsNumeric()) {
 			TypeError(fn, name + " must be numeric", t);
 		}
@@ -252,6 +254,7 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.has_hi = FieldNumber(a, "hi", k.hi);
 		k.bound = FieldText(a, "bound");
 		k.default_bound = FieldText(a, "default_bound");
+		k.scale = StringUtil::Lower(FieldText(a, "scale"));
 		k.category = FieldText(a, "category");
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
@@ -375,6 +378,7 @@ struct Options {
 	double count_gate = 0.5;
 	double name_floor = 0.85;
 	bool trace = false;
+	ValueOptions values; // tol and soft_band of value_satisfies
 	std::map<std::tuple<string, string, string>, double> rules;
 	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
 	//! NaN when two dimensions disagree on the pair, so no rule is guessed
@@ -419,6 +423,12 @@ Options LoadOptions(const Value &v) {
 	FieldNumber(v, "partition_gate", o.partition_gate);
 	FieldNumber(v, "count_gate", o.count_gate);
 	FieldNumber(v, "name_floor", o.name_floor);
+	FieldNumber(v, "tol", o.values.tol);
+	FieldNumber(v, "soft_band", o.values.soft_band);
+	if (!std::isfinite(o.values.tol) || !std::isfinite(o.values.soft_band) || o.values.tol < 0 ||
+	    o.values.soft_band < 0) {
+		throw InvalidInputException("coverage_kernel: tol and soft_band must be finite and not negative");
+	}
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
 	auto error = KernelSettingsError(StringUtil::Lower(labels), o.assignment, o.label_weight, o.mu, o.partition_gate,
@@ -596,7 +606,10 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			prov.hi = y.hi;
 			prov.dimension = y.dimension;
 			prov.unit = y.dimension == "currency" ? y.unit : string();
-			ValueOptions vo;
+			auto vo = o.values;
+			if (x.scale == "log" || x.scale == "linear") {
+				vo.scale = x.scale;
+			}
 			auto r = ValueSatisfies(req, prov, vo);
 			m.value_score = r.score;
 			m.has_distance = r.has_distance;
@@ -1063,6 +1076,8 @@ struct TreeCoverageParams {
 	string rules_table;
 	string name_vectors;
 	double name_floor = 0.85;
+	double tol = 0.02;       // value_satisfies tolerance (hard limits: 0)
+	double soft_band = 0.05; // value_satisfies soft band (hard limits: 0)
 	bool same_nodes_table = false; // query and candidate trees come from one table
 	string fn;                     // the table function, for error messages
 	string multiset_table; // precomputed candidate class multisets (tree_class_multiset output)
@@ -1148,6 +1163,11 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.stage1_weight = r.Dbl("stage1_weight", p.stage1_weight);
 	p.tie_break = r.Dbl("tie_break", p.tie_break);
 	p.name_floor = r.Dbl("name_floor", p.name_floor);
+	p.tol = r.Dbl("tol", p.tol);
+	p.soft_band = r.Dbl("soft_band", p.soft_band);
+	if (!std::isfinite(p.tol) || !std::isfinite(p.soft_band) || p.tol < 0 || p.soft_band < 0) {
+		throw BinderException("%s: tol and soft_band must be finite and not negative", r.fn);
+	}
 	auto error = KernelSettingsError(p.labels, p.assignment, p.label_weight, p.mu, p.partition_gate, p.count_gate,
 	                                 p.name_floor);
 	if (!error.empty()) {
@@ -1317,14 +1337,20 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
+	string scale = "NULL::VARCHAR";
 	string templates_join;
 	if (query_side && !p.default_bounds.empty()) {
+		// the template's scale column (log / linear), when it has one, decides how values compare
+		bool has_scale = TableHasColumn(context, p.templates_table, "scale");
 		templates_join = StringUtil::Format(
 		    " LEFT JOIN (SELECT CAST(class_id AS VARCHAR) AS class_id, CAST(dimension AS VARCHAR) AS dimension, "
-		    "CASE WHEN count(DISTINCT CAST(bound AS VARCHAR)) = 1 THEN any_value(CAST(bound AS VARCHAR)) END AS bound "
-		    "FROM %s GROUP BY ALL) t ON t.class_id = n.class_id AND t.dimension = x.dimension",
+		    "CASE WHEN count(DISTINCT CAST(bound AS VARCHAR)) = 1 THEN any_value(CAST(bound AS VARCHAR)) END AS bound, "
+		    "%s AS scale FROM %s GROUP BY ALL) t ON t.class_id = n.class_id AND t.dimension = x.dimension",
+		    has_scale ? "CASE WHEN count(DISTINCT CAST(scale AS VARCHAR)) = 1 THEN any_value(CAST(scale AS VARCHAR)) END"
+		              : "NULL::VARCHAR",
 		    QuotedIdentifier(p.templates_table));
 		default_bound = "t.bound";
+		scale = "t.scale";
 	}
 	string vec = "NULL::DOUBLE[]";
 	string vec_join;
@@ -1335,9 +1361,9 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
 	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, default_bound := %s, "
-	    "name_vec := %s) ORDER BY x.attr_id) AS attrs "
+	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
-	    default_bound, vec, base, nodes_cte, templates_join, vec_join);
+	    default_bound, scale, vec, base, nodes_cte, templates_join, vec_join);
 }
 
 string LabelsSQL(const TreeSource &src, const string &ids_cte) {
@@ -1385,9 +1411,10 @@ string OptionsSQL(const TreeCoverageParams &p, bool trace, const string &label_w
 	                                        QuotedIdentifier(p.rules_table));
 	return StringUtil::Format(
 	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
-	    "name_floor := %s, trace := %s, rules := %s)",
+	    "name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s)",
 	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, DoubleLiteral(p.partition_gate),
-	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), trace ? "true" : "false", rules);
+	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), DoubleLiteral(p.tol), DoubleLiteral(p.soft_band),
+	    trace ? "true" : "false", rules);
 }
 
 string KernelSQL(ClientContext &context, const TreeCoverageParams &p, bool trace) {
@@ -1545,7 +1572,7 @@ NamedParameterList KernelParameters() {
 	return {{"attrs_table", vc},     {"candidate_attrs_table", vc}, {"labels", vc},         {"assignment", vc},
 	        {"label_weight", dbl},   {"mu", dbl},                   {"partition_gate", dbl}, {"count_gate", dbl},
 	        {"stage1_weight", dbl},  {"default_bounds", vc},        {"templates_table", vc}, {"rules_table", vc},
-	        {"name_vectors", vc},    {"name_floor", dbl}};
+	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl}};
 }
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
@@ -1574,8 +1601,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		d.description =
 		    "The stage-2 coverage kernel over two packed trees (LIST of STRUCT(node_id, parent_id, node_kind, edge_type, "
 		    "class_id, reviewed, count, probs MAP, attrs LIST(STRUCT(attr_id, name, dimension, unit, lo, hi, bound, "
-		    "category, default_bound, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, "
-		    "partition_gate, count_gate, name_floor, trace, rules). Returns STRUCT(coverage, n_requirements, n_gaps, "
+		    "category, default_bound, scale, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, "
+		    "partition_gate, count_gate, name_floor, tol, soft_band, trace, rules). Returns STRUCT(coverage, n_requirements, n_gaps, "
 		    "reviewed, assignment_used, trace). tree_coverage and tree_coverage_trace build its inputs; use it "
 		    "directly for custom pipelines.";
 		d.examples = {"SELECT coverage_kernel(q.nodes, c.nodes, struct_pack(labels := 'hard')).coverage FROM q, c;"};
@@ -1603,7 +1630,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
 	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
-	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table)." +
+	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). "
+	    "tol and soft_band (default 0.02, 0.05) are passed to value_satisfies; use 0 and 0 for hard limits." +
 	        common,
 	    {"SELECT * FROM tree_coverage('R01', k := 20, candidate_nodes_table := 'programme_nodes', "
 	     "candidate_attrs_table := 'programme_attributes');",
@@ -1645,7 +1673,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"templates_table", vc},
 		     {"rules_table", vc},
 		     {"name_vectors", vc},
-		     {"name_floor", dbl}},
+		     {"name_floor", dbl},
+		     {"tol", dbl},
+		     {"soft_band", dbl}},
 		    "Fits the kernel weights on reviewed matches: for every grid point of label_weights "
 		    "(lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of "
 		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs, "
