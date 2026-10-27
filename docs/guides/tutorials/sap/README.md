@@ -21,12 +21,17 @@ This guide series uses real SAP manufacturing data:
 - **Multi-language**: Material descriptions in EN, DE, FR, etc.
 - **SAP standard**: Uses native SAP field names (matnr, mtart, matkl, etc.)
 
+> [!IMPORTANT]
+> **Bring your own SAP extract.** This track needs SAP tables (MARA, MAKT, MAST, STKO, STPO) as
+> parquet files in `test/data/sap/`. They are not part of the repository. The shape of each table
+> follows the standard SAP field names used below; the AdventureWorks track runs on data that ships
+> with the repository.
+
 ## Quick Setup
 
 ```sql
--- Install and load extension
-INSTALL anofox_similarity FROM community;
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load SAP tables from parquet files
 CREATE TABLE sap_mara AS SELECT * FROM read_parquet('test/data/sap/mara.parquet');
@@ -100,9 +105,10 @@ STPO (BOM Items)
 
 ## Prerequisites
 
-- DuckDB 1.0.0+
+- DuckDB 1.5.6 or 2.0
 - anofox-similarity extension installed
-- SAP parquet files (included in repository at `test/data/sap/`)
+- Your own SAP extract as parquet files (MARA, MAKT, MAST, STKO, STPO) under `test/data/sap/`.
+  The repository does not ship SAP data: the files the tutorial was written on are private.
 - ~2GB disk space for full dataset
 
 ## Performance Note

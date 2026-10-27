@@ -1,5 +1,11 @@
 # Multi-Modal Product Similarity Detection from Enterprise Master Data
 
+> [!NOTE]
+> **Design background, not the product contract.** This document records early design thinking
+> and research. Function names, parameters and examples here may be outdated. For what the
+> extension does today, see the [API reference](../API_REFERENCE.md) and the [guides](../guides/README.md).
+
+
 
 On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 ## A Practical Framework for Manufacturing SMEs

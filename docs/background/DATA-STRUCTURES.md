@@ -1,5 +1,11 @@
 # Data Structures Architecture for anofox-similarity
 
+> [!NOTE]
+> **Design background, not the product contract.** This document records early design thinking
+> and research. Function names, parameters and examples here may be outdated. For what the
+> extension does today, see the [API reference](../API_REFERENCE.md) and the [guides](../guides/README.md).
+
+
 
 On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 Multi-modal product similarity detection in DuckDB requires a carefully designed schema that abstracts ERP-specific BOM representations, leverages native columnar storage for embeddings, and integrates graph structures for structural similarity. This architecture enables **Mittelstand-scale** deployments (10,000-50,000 materials) to perform Jaccard, Weisfeiler-Lehman kernel, and embedding-based similarity computations within a single DuckDB instance.

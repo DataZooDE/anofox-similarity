@@ -22,9 +22,8 @@ AdventureWorks simulates a bicycle manufacturing company with:
 ## Quick Setup
 
 ```sql
--- Install and load extension
-INSTALL anofox_similarity FROM community;
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load AdventureWorks data
 CREATE TABLE materials AS

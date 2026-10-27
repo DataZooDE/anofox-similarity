@@ -1,5 +1,11 @@
 # Microsoft Dynamics 365 Finance & Operations: Bill of Materials (BOM) Explosion Technical Memo
 
+> [!NOTE]
+> **Design background, not the product contract.** This document records early design thinking
+> and research. Function names, parameters and examples here may be outdated. For what the
+> extension does today, see the [API reference](../API_REFERENCE.md) and the [guides](../guides/README.md).
+
+
 ## Executive Summary
 
 This document provides a comprehensive technical specification for extracting and exploding Bill of Materials (BOM) data from Microsoft Dynamics 365 Finance & Operations (D365 F&O). The approach mirrors the SAP BOM explosion pattern: extract source tables via OData to a local database, build a pre-computed single-level edge table, then use recursive SQL CTE to explode multi-level BOMs up to 20 levels deep.

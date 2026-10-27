@@ -1,5 +1,11 @@
 # SAP Bill of Materials (BOM) Explosion - Technical Memo
 
+> [!NOTE]
+> **Design background, not the product contract.** This document records early design thinking
+> and research. Function names, parameters and examples here may be outdated. For what the
+> extension does today, see the [API reference](../API_REFERENCE.md) and the [guides](../guides/README.md).
+
+
 ## Executive Summary
 
 This document provides complete technical documentation of the SAP Bill of Materials explosion logic implemented in DBT. The implementation transforms SAP's hierarchical BOM data into a flattened, multi-level structure suitable for analytics. The system processes BOMs up to 20 levels deep using recursive SQL.
