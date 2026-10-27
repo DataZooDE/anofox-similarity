@@ -1219,7 +1219,7 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "Flattens property trees: one row per item node (containers are transparent) with its "
 	                  "resolved class, depth, anchor_path (ancestor ids from the root), variant_path (the nodes "
 	                  "with an OR edge on the way, i.e. the alternatives chosen), effective_count (product of the "
-	                  "counts along the path) and n_attributes. Works at any depth (BR-04).",
+	                  "counts along the path) and n_attributes. Works at any depth.",
 	                  {"SELECT * FROM tree_anchors('tree_nodes', 'tree_attributes');",
 	                   "SELECT * FROM tree_anchors('tree_nodes', tree_ids := ['M1']);"},
 	                  true);

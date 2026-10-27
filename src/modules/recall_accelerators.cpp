@@ -441,7 +441,7 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	RegisterCoverageTableFunction(
 	    loader, "find_covering_entities_lsh", {vc, vc}, {"queries_table", "index_table"}, LshSearchBindReplace,
 	    {{"k", bi}, {"mode", vc}, {"threshold", LogicalType::DOUBLE}, {"bands_table", vc}},
-	    "Sub-linear candidate search over a minhash_index (HLD §4.7, LSH-Ensemble style). queries_table holds "
+	    "Sub-linear candidate search over a minhash_index (LSH-Ensemble style). queries_table holds "
 	    "(query_id, feature_id[, weight]) multisets. Per query and size partition, the containment threshold "
 	    "(default 0.5) is turned into the Jaccard threshold for the partition's largest set, and the rows per band "
 	    "are chosen so that the LSH S-curve passes below it; candidates share a band. Ranked by the estimate: "

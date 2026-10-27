@@ -606,8 +606,8 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 
 	RegisterCoverageTableFunction(loader, "cosine_floor", {LogicalType::VARCHAR, LogicalType::VARCHAR}, {"table", "column"},
 	              CosineFloorBindReplace, {{"sample", LogicalType::BIGINT}, {"seed", LogicalType::BIGINT}},
-	              "Estimates the cosine floor b of a vector corpus: the median cosine of pairs of distinct vectors "
-	              "(HLD §4.4). With at most `sample` pairs (default 10 000) all pairs count; otherwise `sample` pairs "
+	              "Estimates the cosine floor b of a vector corpus: the median cosine of pairs of distinct vectors. "
+	              "With at most `sample` pairs (default 10 000) all pairs count; otherwise `sample` pairs "
 	              "are drawn deterministically from `seed` (default 7). Returns floor and n_pairs. Use the floor with "
 	              "calibrated_cosine or as name_floor.",
 	              {"SET VARIABLE name_floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));"}, {"coverage", "classification"});
@@ -628,7 +628,7 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	     {"name_floor", LogicalType::DOUBLE},
 	     {"top", LogicalType::BIGINT},
 	     {"min_source_items", LogicalType::BIGINT}},
-	    "Pivot classifier (HLD §4.4): maps every item onto the catalogue as a distribution p(class). Steps: per-source "
+	    "Pivot classifier: maps every item onto the catalogue as a distribution p(class). Steps: per-source "
 	    "mean-centring of the item vectors (center_by_source, centroid mode; sources with fewer than "
 	    "min_source_items items, default 10, use the batch mean); cosine to the class vector, or "
 	    "maxsim(tokens, exemplar_tokens) in mode 'late_interaction'; z-score across the catalogue; plus attr_bonus x "

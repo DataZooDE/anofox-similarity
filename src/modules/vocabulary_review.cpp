@@ -276,7 +276,7 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	     {"decisions", vc},
 	     {"sources", LogicalType::LIST(LogicalType::VARCHAR)},
 	     {"overrides_table", vc}},
-	    "The vocabulary review queue (HLD §4.5): one row per distinct wording and source of the item nodes in "
+	    "The vocabulary review queue: one row per distinct wording and source of the item nodes in "
 	    "trees_table (default 'tree_nodes'), with n_occurrences, n_trees_affected, the classifier's top1/p1 and "
 	    "top2/p2, margin and impact = n_trees_affected x (1 - margin), highest impact first. decisions is a "
 	    "classify_to_catalogue result: per wording (tree_id NULL, node_id = wording) or per node (averaged over the "
@@ -302,7 +302,7 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	     {"top", LogicalType::BIGINT},
 	     {"texts_table", vc},
 	     {"catalogue_table", vc}},
-	    "The external re-rank hook (HLD §4.4, BR-33): the low-margin items of a classify_to_catalogue result "
+	    "The external re-rank hook: the low-margin items of a classify_to_catalogue result "
 	    "(margin < threshold, default 0.2, or the lowest-margin share of the items), overridden items excluded, "
 	    "lowest margin first. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: "
 	    "[tree_id,] node_id, text), margin and the top candidates with p, label and definition (catalogue_table: "

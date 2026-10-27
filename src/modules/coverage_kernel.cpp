@@ -1477,7 +1477,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "resolving every candidate tree.";
 	RegisterCoverageTable(
 	    loader, "tree_coverage", TreeCoverageBindReplace,
-	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover (HLD §4.6, §11). Per request "
+	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
 	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
 	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
 	    "counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each "
@@ -1500,9 +1500,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
 	RegisterCoverageTable(
 	    loader, "coverage_recall", CoverageRecallBindReplace,
-	    "Stage-1 recall over class multisets (HLD §4.7): the top-k candidate trees per query with score, "
+	    "Stage-1 recall over class multisets: the top-k candidate trees per query with score, "
 	    "containment, jaccard, reviewed, mode_used and rank. mode 'auto' uses containment when every candidate tree "
-	    "is reviewed and weighted jaccard otherwise (BRD risk R1)." +
+	    "is reviewed and weighted jaccard otherwise." +
 	        common,
 	    {"SELECT * FROM coverage_recall('R01', k := 20, candidate_nodes_table := 'programme_nodes');"}, false);
 	{
@@ -1527,7 +1527,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"rules_table", vc},
 		     {"name_vectors", vc},
 		     {"name_floor", dbl}},
-		    "Fits the kernel weights on reviewed matches (HLD §4.8, BR-52): for every grid point of label_weights "
+		    "Fits the kernel weights on reviewed matches: for every grid point of label_weights "
 		    "(lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of "
 		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs, "
 		    "n_unresolved (reviewed pairs whose trees are missing) and rank (best first). At most 20 values per axis. The trees and options are given as for tree_coverage. The classifier's beta "

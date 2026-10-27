@@ -1306,7 +1306,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	         .Describe("Compatibility of a provided category with a required one for an ordinal or categorical "
 	                   "dimension (protection class, certification level, qualifier), looked up in a curated rules "
 	                   "table (dimension, required, provided, score). Without a rule: 1 if equal, else 0. Text "
-	                   "similarity is never used (BR-15).")
+	                   "similarity is never used.")
 	         .Example("SELECT compat_score('protection_class', 'IP54', 'IP65')")
 	         .Example("SELECT compat_score('cert_level', 'silver', 'gold', rules_table := 'my_rules')")},
 	    {"coverage", "quantity"});
