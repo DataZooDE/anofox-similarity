@@ -136,3 +136,31 @@ query TT
 SELECT parse_quantity('IP 54 or better').category, parse_quantity('IP 54 or better').bound;
 ----
 IP54	at_least
+
+# infer_predecessors respects direction: a predecessor was in use before the successor started,
+# so the newer material is never reported as the predecessor of the older one
+statement ok
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
+  ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
+
+statement ok
+CREATE OR REPLACE TABLE goods_movements AS
+SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date, 200.0 - 5 * w AS quantity
+FROM range(0, 40) t(w)
+UNION ALL
+SELECT 'NEW-PUMP', DATE '2023-01-02' + 7 * w::INTEGER, 5.0 * w - 50
+FROM range(10, 52) t(w);
+
+query T
+SELECT predecessor_id FROM infer_predecessors('NEW-PUMP');
+----
+OLD-PUMP
+
+query I
+SELECT count(*) FROM infer_predecessors('OLD-PUMP');
+----
+0

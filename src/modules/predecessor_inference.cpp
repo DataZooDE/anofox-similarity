@@ -204,6 +204,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 					FROM scored
 					WHERE correlation < 0
 					  AND temporal_score > 0.0
+					  AND first_usage < query_start  -- a predecessor was in use before the successor started
 				)
 			SELECT
 				material_id AS predecessor_id,
