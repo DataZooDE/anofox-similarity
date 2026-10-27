@@ -21,7 +21,7 @@ EvalInput ReadEvalInput(const CoverageParamReader &p, TableFunctionBindInput &in
 	auto column = [&](const char *param, const char *fallback) -> string {
 		auto v = p.Get(param);
 		if (v && !v->IsNull()) {
-			return p.Column(e.results, param, fallback);
+			return p.Column(e.results, param, fallback, "results");
 		}
 		if (v || !p.Has(e.results, fallback)) {
 			return string();

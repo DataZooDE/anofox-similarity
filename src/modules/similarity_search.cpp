@@ -142,7 +142,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 		SELECT material_id, similarity, shared_components, total_components
 		FROM computed_similarity
 		WHERE similarity >= %.17g
-		ORDER BY similarity DESC
+		ORDER BY similarity DESC, material_id
 		LIMIT %lld
 	)",
 	                                bom_table, query_material_id_sql, query_material_id_sql, min_similarity, k);
@@ -261,7 +261,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 		SELECT material_id, COALESCE(similarity, 0.0) AS similarity
 		FROM scored
 		WHERE COALESCE(similarity, 0.0) >= %.17g
-		ORDER BY similarity DESC
+		ORDER BY similarity DESC, material_id
 		LIMIT %lld
 	)",
 	                                bom_table, bom_table, iterations, query_material_id_sql, query_material_id_sql,
@@ -367,12 +367,13 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 					FROM computed_similarity cs
 					LEFT JOIN material_history mh ON cs.material_id = mh.material_id
 					WHERE cs.similarity >= %.17g
+					  AND mh.first_usage IS NOT NULL -- an analog needs consumption history
 					  AND COALESCE(mh.history_months, 0) >= %lld
 				)
 			SELECT material_id, similarity, shared_components, total_components,
 			       history_months, first_usage, last_usage
 			FROM with_history
-			ORDER BY similarity DESC
+			ORDER BY similarity DESC, material_id
 			LIMIT %lld
 		)
 	)",

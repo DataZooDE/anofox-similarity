@@ -57,7 +57,7 @@ public:
 			auto &entries = StructVector::GetEntries(child);
 			keys = &duckdb_compat::StructChild(entries[0]);
 			auto &values = duckdb_compat::StructChild(entries[1]);
-			if (!values.GetType().IsNumeric()) {
+			if (!values.GetType().IsNumeric() && values.GetType().id() != LogicalTypeId::SQLNULL) {
 				throw InvalidInputException("weights must be numeric, got %s", values.GetType().ToString());
 			}
 			weights = make_uniq<Vector>(LogicalType::DOUBLE, MaxValue<idx_t>(size, 1));

@@ -139,9 +139,9 @@ unique_ptr<TableRef> ClusterMatchesBindReplace(ClientContext &context, TableFunc
 	if (threshold < 0 || threshold > 1) {
 		throw BinderException("%s: threshold must be between 0 and 1", p.fn);
 	}
-	auto left = p.Column(table, "left_col", "a");
-	auto right = p.Column(table, "right_col", "b");
-	auto score = p.Column(table, "score_col", "score");
+	auto left = p.Column(table, "left_col", "a", "pairs_table");
+	auto right = p.Column(table, "right_col", "b", "pairs_table");
+	auto score = p.Column(table, "score_col", "score", "pairs_table");
 	// every entity of the pairs table takes part; pairs at or above the threshold join clusters
 	auto sql = StringUtil::Format(R"(
 		WITH p AS (SELECT CAST(%s AS VARCHAR) AS a, CAST(%s AS VARCHAR) AS b, CAST(%s AS DOUBLE) AS s FROM %s),

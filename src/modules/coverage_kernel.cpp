@@ -959,6 +959,7 @@ struct TreeCoverageParams {
 	string name_vectors;
 	double name_floor = 0.85;
 	bool same_nodes_table = false; // query and candidate trees come from one table
+	string fn;                     // the table function, for error messages
 	string multiset_table; // precomputed candidate class multisets (tree_class_multiset output)
 	bool multiset_has_reviewed = false;
 };
@@ -1069,10 +1070,31 @@ TreeCoverageParams ReadCoverageParams(ClientContext &context, TableFunctionBindI
                                   bool stage2, bool fit = false) {
 	CoverageParamReader reader {context, input.named_parameters, fn};
 	TreeCoverageParams p;
+	p.fn = fn;
 	ReadTreeSides(reader, input, p, stage2, fit);
 	ReadKernelSettings(reader, p);
 	ReadSideTables(reader, p);
 	return p;
+}
+
+//! No silent empty results: an unknown query id, or a query whose items have no class, is an
+//! error that says how to give classes.
+string QueryGuardSQL(const TreeCoverageParams &p) {
+	string unknown = "false";
+	string first_unknown = "NULL";
+	if (p.q.has_tree_ids && !p.query_ids.empty()) {
+		auto ids = "(SELECT unnest(" + QuotedList(p.query_ids) + ") AS id)";
+		unknown = "EXISTS (SELECT 1 FROM " + ids + " WHERE id NOT IN (SELECT tree_id FROM qn))";
+		first_unknown = "(SELECT min(id) FROM " + ids + " WHERE id NOT IN (SELECT tree_id FROM qn))";
+	}
+	string unclassified = "SELECT tree_id FROM qn GROUP BY tree_id HAVING count(*) FILTER (WHERE node_kind = 'item') > 0 "
+	                      "AND count(class_id) FILTER (WHERE node_kind = 'item') = 0";
+	return StringUtil::Format(
+	    "SELECT CASE WHEN %s THEN error(%s || ': query tree ''' || %s || ''' is not in nodes_table ' || %s) "
+	    "WHEN EXISTS (%s) THEN error(%s || ': query tree ''' || (SELECT min(tree_id) FROM (%s)) || ''' has no "
+	    "classified items (give class_id, overrides_table or label_table)') END AS g",
+	    unknown, QuoteSQLStringLiteral(p.fn), first_unknown, QuoteSQLStringLiteral("'" + p.q.nodes_table + "'"),
+	    unclassified, QuoteSQLStringLiteral(p.fn), unclassified);
 }
 
 //! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
@@ -1150,11 +1172,12 @@ string Stage1SQL(const TreeCoverageParams &p) {
 			       CASE WHEN mode.mode_used = 'containment' THEN %s ELSE jaccard END AS score
 			FROM s1, mode
 		),
-		top AS MATERIALIZED (%s)
+		q_guard AS (%s),
+		top AS MATERIALIZED (SELECT t.* FROM (%s) t, q_guard WHERE q_guard.g IS NULL)
 	)",
 	                          ResolvedNodesSQL(p.q), candidates, mode, self, pairs, ContainmentSQL("ov.inter", "qt.tot"),
 	                          JaccardSQL("ov.inter", "qt.tot", "ct.tot"),
-	                          TieBrokenScoreSQL(true, "containment", "jaccard", p.tie_break), top);
+	                          TieBrokenScoreSQL(true, "containment", "jaccard", p.tie_break), QueryGuardSQL(p), top);
 }
 
 //! Attributes of one side, packed per node, with default bounds and name vectors.
@@ -1459,7 +1482,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
 	    "counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each "
 	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
-	    "partition for reviewed candidates. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
+	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
 	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table)." +
 	        common,

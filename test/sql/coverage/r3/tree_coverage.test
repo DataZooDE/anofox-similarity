@@ -302,7 +302,8 @@ SELECT * FROM tree_coverage('Q1', candidates := ['S1'], default_bounds := 'catal
 ----
 templates_table
 
-query I
+# an unknown query id is an error, not an empty result (exploratory user testing)
+statement error
 SELECT count(*) FROM tree_coverage('NOPE', candidates := ['S1']);
 ----
-0
+query tree 'NOPE' is not in nodes_table

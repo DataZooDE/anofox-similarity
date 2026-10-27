@@ -220,7 +220,7 @@ SELECT parameters FROM ours WHERE function_name = 'coverage_recall';
 query I
 SELECT parameters FROM ours WHERE function_name = 'classify_to_catalogue';
 ----
-[items_table, catalogue_table, mode, center_by_source, attr_bonus, temperature, overrides_table, answers_table, attrs_table, templates_table, name_vectors, name_floor, top]
+[items_table, catalogue_table, mode, center_by_source, attr_bonus, temperature, overrides_table, answers_table, attrs_table, templates_table, name_vectors, name_floor, top, min_source_items]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'eval_ranking';

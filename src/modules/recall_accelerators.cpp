@@ -219,12 +219,12 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 	if (table.empty()) {
 		throw BinderException("%s: feature_table must not be NULL", p.fn);
 	}
-	auto entity = p.Column(table, "entity_col", "entity_id");
-	auto feature = p.Column(table, "feature_col", "feature_id");
+	auto entity = p.Column(table, "entity_col", "entity_id", "feature_table");
+	auto feature = p.Column(table, "feature_col", "feature_id", "feature_table");
 	string weight = "1.0::DOUBLE";
 	auto weight_name = p.Str("weight_col", "weight");
 	if (!weight_name.empty()) {
-		weight = "COALESCE(CAST(" + p.Column(table, "weight_col", "weight") + " AS DOUBLE), 1.0)";
+		weight = "COALESCE(CAST(" + p.Column(table, "weight_col", "weight", "feature_table") + " AS DOUBLE), 1.0)";
 	}
 	int64_t nh = p.Int("num_hashes", 128);
 	int64_t seed = p.Int("seed", 7);

@@ -277,6 +277,7 @@ struct ClassifyParams {
 	bool centre = true;
 	double beta = 1.0, tau = 0.3, name_floor = 0.85;
 	int64_t top = 0; // 0: all classes
+	int64_t min_source_items = 10; // smaller sources are centred with the batch mean
 	string items, catalogue, overrides, answers, attrs, templates, name_vectors;
 	bool items_tree = false, items_source = false, items_label = false, items_vec = false;
 	bool attrs_tree = false, attrs_name = false, overrides_source = false, answers_tree = false;
@@ -314,6 +315,10 @@ ClassifyParams ReadClassifyParams(const CoverageParamReader &r) {
 	p.name_floor = r.Dbl("name_floor", p.name_floor);
 	if (p.name_floor < 0 || p.name_floor >= 1) {
 		throw BinderException("%s: name_floor must be in [0, 1)", r.fn);
+	}
+	p.min_source_items = r.Int("min_source_items", p.min_source_items);
+	if (p.min_source_items < 1) {
+		throw BinderException("%s: min_source_items must be at least 1", r.fn);
 	}
 	p.top = r.Int("top", 0);
 	if (r.Get("top") && !r.Get("top")->IsNull() && p.top <= 0) {
@@ -362,14 +367,30 @@ string ClassifyItemsSQL(const ClassifyParams &p) {
 	    CastOrNullSQL(p.late, "tokens", "DOUBLE[][]"), QuotedIdentifier(p.items), p.late ? "tokens" : "vec");
 }
 
-//! catalogue (class_id, vec, tokens).
+//! catalogue (class_id, vec, tokens). In centroid mode the item and catalogue vectors must share
+//! one dimension; the check runs with the catalogue, before any similarity is computed.
 string ClassifyCatalogueSQL(const ClassifyParams &p) {
-	return StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s",
+	string dimension_check;
+	if (!p.late) {
+		dimension_check = StringUtil::Format(
+		    " WHERE (SELECT CASE WHEN (SELECT count(DISTINCT len(vec)) FROM items) > 1 OR "
+		    "(SELECT count(DISTINCT len(CAST(vec AS DOUBLE[]))) FROM %s) > 1 OR "
+		    "(SELECT min(len(vec)) FROM items) <> (SELECT min(len(CAST(vec AS DOUBLE[]))) FROM %s) THEN "
+		    "error('classify_to_catalogue: item vectors have dimension ' || (SELECT string_agg(DISTINCT "
+		    "CAST(len(vec) AS VARCHAR), ', ') FROM items) || ', catalogue vectors ' || (SELECT string_agg(DISTINCT "
+		    "CAST(len(CAST(vec AS DOUBLE[])) AS VARCHAR), ', ') FROM %s)) END) IS NULL",
+		    QuotedIdentifier(p.catalogue), QuotedIdentifier(p.catalogue), QuotedIdentifier(p.catalogue));
+	}
+	return StringUtil::Format("SELECT CAST(class_id AS VARCHAR) AS class_id, %s AS vec, %s AS tokens FROM %s%s",
 	                          CastOrNullSQL(!p.late, "vec", "DOUBLE[]"),
-	                          CastOrNullSQL(p.late, "exemplar_tokens", "DOUBLE[][]"), QuotedIdentifier(p.catalogue));
+	                          CastOrNullSQL(p.late, "exemplar_tokens", "DOUBLE[][]"), QuotedIdentifier(p.catalogue),
+	                          dimension_check);
 }
 
-//! Step 1: the item vectors, mean-centred per source in centroid mode.
+//! Step 1: the item vectors, mean-centred in centroid mode. A source with at least
+//! min_source_items items is centred with its own mean (this removes its boilerplate); a smaller
+//! source with the mean of the whole batch, when the batch has that many items; otherwise the
+//! vectors stay as they are (a mean of one or two items would cancel their content).
 string CentredVectorsSQL(const ClassifyParams &p) {
 	if (p.late) {
 		return "SELECT tree_id, node_id, NULL::DOUBLE[] AS vec FROM items";
@@ -377,13 +398,21 @@ string CentredVectorsSQL(const ClassifyParams &p) {
 	if (!p.centre) {
 		return "SELECT tree_id, node_id, vec FROM items";
 	}
-	return R"(
-			SELECT e.tree_id, e.node_id, list(e.v - m.m ORDER BY e.i) AS vec
-			FROM (SELECT tree_id, node_id, source, unnest(vec) AS v, generate_subscripts(vec, 1) AS i FROM items) e
-			JOIN (SELECT source, i, avg(v) AS m
-			      FROM (SELECT source, unnest(vec) AS v, generate_subscripts(vec, 1) AS i FROM items) GROUP BY ALL) m
-			  ON m.source IS NOT DISTINCT FROM e.source AND m.i = e.i
-			GROUP BY e.tree_id, e.node_id)";
+	return StringUtil::Format(R"(
+			WITH el AS (SELECT tree_id, node_id, source, unnest(vec) AS v, generate_subscripts(vec, 1) AS i FROM items),
+			n_source AS (SELECT source, count(*) AS n FROM items GROUP BY ALL),
+			n_batch AS (SELECT count(*) AS n FROM items),
+			source_mean AS (SELECT source, i, avg(v) AS m FROM el GROUP BY ALL),
+			batch_mean AS (SELECT i, avg(v) AS m FROM el GROUP BY i)
+			SELECT e.tree_id, e.node_id,
+			       list(e.v - CASE WHEN ns.n >= %lld THEN sm.m WHEN (SELECT n FROM n_batch) >= %lld THEN bm.m ELSE 0 END
+			            ORDER BY e.i) AS vec
+			FROM el e
+			JOIN n_source ns ON ns.source IS NOT DISTINCT FROM e.source
+			JOIN source_mean sm ON sm.source IS NOT DISTINCT FROM e.source AND sm.i = e.i
+			JOIN batch_mean bm ON bm.i = e.i
+			GROUP BY e.tree_id, e.node_id)",
+	                          (long long)p.min_source_items, (long long)p.min_source_items);
 }
 
 //! Step 2: the similarity of every item to every class.
@@ -597,9 +626,11 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	     {"templates_table", LogicalType::VARCHAR},
 	     {"name_vectors", LogicalType::VARCHAR},
 	     {"name_floor", LogicalType::DOUBLE},
-	     {"top", LogicalType::BIGINT}},
+	     {"top", LogicalType::BIGINT},
+	     {"min_source_items", LogicalType::BIGINT}},
 	    "Pivot classifier (HLD §4.4): maps every item onto the catalogue as a distribution p(class). Steps: per-source "
-	    "mean-centring of the item vectors (center_by_source, centroid mode); cosine to the class vector, or "
+	    "mean-centring of the item vectors (center_by_source, centroid mode; sources with fewer than "
+	    "min_source_items items, default 10, use the batch mean); cosine to the class vector, or "
 	    "maxsim(tokens, exemplar_tokens) in mode 'late_interaction'; z-score across the catalogue; plus attr_bonus x "
 	    "the attribute-template match (mean over the item's attributes of the best same-dimension template, name "
 	    "similarity by calibrated cosine of name_vectors, or 1 without vectors); softmax with temperature; margin = p1 "
