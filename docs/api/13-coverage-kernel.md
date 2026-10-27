@@ -88,8 +88,9 @@ SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,
        name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
     WHERE rank = 1);
 
--- is_gap flags the requirement; attr_score < 1 marks the attribute that falls short
-SELECT req_node_id, attr_name, req_value, prov_value, round(attr_score, 2) AS attr_score,
+-- is_gap flags the requirement on all its rows; the failing attribute has value_score < 1
+-- (or a count shortfall); attr_score also carries the name discount
+SELECT req_node_id, attr_name, req_value, prov_value, round(value_score, 2) AS value_score,
        round(distance, 3) AS distance
 FROM tree_coverage_trace('R07', candidates := [getvariable('top')],
        nodes_table := 'request_nodes', attrs_table := 'request_attributes', label_table := 'request_labels',
@@ -97,7 +98,7 @@ FROM tree_coverage_trace('R07', candidates := [getvariable('top')],
        overrides_table := 'vocabulary_overrides', default_bounds := 'catalogue',
        templates_table := 'catalogue_attributes', rules_table := 'compatibility_rules',
        name_vectors := 'name_vectors', name_floor := getvariable('name_floor'))
-WHERE is_gap;
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);
 ```
 
 **Request alternatives.** A request may list alternatives (OR edges). The best alternative
