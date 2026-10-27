@@ -121,3 +121,18 @@ query T
 SELECT list(material_id ORDER BY material_id) FROM cold_start_analogs('Q', 10, min_history_months := 0);
 ----
 [M1]
+
+# ---------------------------------------------------------------- parse_quantity: ERP spellings
+
+# upper-case units as ERP extracts write them, and piece units
+query TRTRTR
+SELECT parse_quantity('5 KG').dimension, parse_quantity('5 KG').lo, parse_quantity('3 MM').dimension,
+       parse_quantity('3 MM').lo, parse_quantity('2 ST').dimension, parse_quantity('12 PCS').lo;
+----
+mass	5.0	length	0.003	count	12.0
+
+# a protection class written with a space is still a class
+query TT
+SELECT parse_quantity('IP 54 or better').category, parse_quantity('IP 54 or better').bound;
+----
+IP54	at_least
