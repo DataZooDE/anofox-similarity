@@ -44,13 +44,12 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		                              OptionalColumnSQL(p.context, overrides, "source", "VARCHAR"), QuotedIdentifier(overrides));
 	}
 	auto sql = StringUtil::Format(R"(
-		WITH items AS (
-			SELECT * FROM (
-				SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id,
-				       CAST(label AS VARCHAR) AS label, %s AS source
-				FROM %s WHERE lower(CAST(node_kind AS VARCHAR)) = 'item' AND label IS NOT NULL)
-			WHERE true%s
+		WITH all_items AS (
+			SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id,
+			       CAST(label AS VARCHAR) AS label, %s AS source
+			FROM %s WHERE lower(CAST(node_kind AS VARCHAR)) = 'item' AND label IS NOT NULL
 		),
+		items AS (SELECT * FROM all_items WHERE true%s),
 		d AS (
 			SELECT %s AS tree_id, CAST(node_id AS VARCHAR) AS node_id, %s AS source,
 			       CAST(class_id AS VARCHAR) AS class_id, CAST(p AS DOUBLE) AS p
@@ -85,7 +84,12 @@ unique_ptr<TableRef> QueueBindReplace(ClientContext &context, TableFunctionBindI
 		),
 		guard AS (
 			SELECT CASE WHEN EXISTS (SELECT 1 FROM d WHERE NOT (p >= 0 AND p <= 1))
-			            THEN error('vocabulary_review_queue: p must be in [0, 1] in decisions') END AS g
+			            THEN error('vocabulary_review_queue: p must be in [0, 1] in decisions')
+			            WHEN EXISTS (SELECT 1 FROM d)
+			             AND NOT EXISTS (SELECT 1 FROM d JOIN all_items i ON i.tree_id = d.tree_id AND i.node_id = d.node_id)
+			             AND NOT EXISTS (SELECT 1 FROM d JOIN all_items i ON d.tree_id IS NULL AND i.label = d.node_id)
+			            THEN error('vocabulary_review_queue: no decision matches an item node or wording of '
+			                       || 'trees_table; decisions and trees_table must describe the same trees') END AS g
 		),
 		ranked AS (
 			SELECT *, row_number() OVER (PARTITION BY wording, source ORDER BY p DESC, class_id) AS r FROM dist

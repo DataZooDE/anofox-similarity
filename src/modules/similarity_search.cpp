@@ -44,10 +44,10 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	// Named: bom_table (VARCHAR, default 'bom_items')
 
 	if (input.inputs.size() < 2) {
-		throw BinderException("find_similar_materials_jaccard requires at least 2 arguments: query_material_id, k");
+		throw BinderException("find_similar_materials_jaccard requires at least 2 arguments: material_id, k");
 	}
 	if (input.inputs[0].IsNull()) {
-		throw BinderException("find_similar_materials_jaccard: query_material_id must not be NULL");
+		throw BinderException("find_similar_materials_jaccard: material_id must not be NULL");
 	}
 	if (input.inputs[1].IsNull()) {
 		throw BinderException("find_similar_materials_jaccard: k must not be NULL");
@@ -166,10 +166,10 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	// Named: bom_table (VARCHAR, default 'bom_items')
 
 	if (input.inputs.size() < 2) {
-		throw BinderException("find_similar_materials_wl_kernel requires at least 2 arguments: query_material_id, k");
+		throw BinderException("find_similar_materials_wl_kernel requires at least 2 arguments: material_id, k");
 	}
 	if (input.inputs[0].IsNull()) {
-		throw BinderException("find_similar_materials_wl_kernel: query_material_id must not be NULL");
+		throw BinderException("find_similar_materials_wl_kernel: material_id must not be NULL");
 	}
 	if (input.inputs[1].IsNull()) {
 		throw BinderException("find_similar_materials_wl_kernel: k must not be NULL");
@@ -287,10 +287,10 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	// Named: movements_table (VARCHAR, default 'goods_movements')
 
 	if (input.inputs.size() < 2) {
-		throw BinderException("cold_start_analogs requires at least 2 arguments: query_material_id, k");
+		throw BinderException("cold_start_analogs requires at least 2 arguments: material_id, k");
 	}
 	if (input.inputs[0].IsNull()) {
-		throw BinderException("cold_start_analogs: query_material_id must not be NULL");
+		throw BinderException("cold_start_analogs: material_id must not be NULL");
 	}
 	if (input.inputs[1].IsNull()) {
 		throw BinderException("cold_start_analogs: k must not be NULL");
@@ -323,6 +323,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
 	ValidateDateColumn(context, movements_table, "movement_date", "movements_table");
+	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (

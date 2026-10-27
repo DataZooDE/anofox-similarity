@@ -46,10 +46,10 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	// Named: movements_table (VARCHAR, default 'goods_movements')
 
 	if (input.inputs.size() < 1) {
-		throw BinderException("infer_predecessors requires at least 1 argument: query_material_id");
+		throw BinderException("infer_predecessors requires at least 1 argument: material_id");
 	}
 	if (input.inputs[0].IsNull()) {
-		throw BinderException("infer_predecessors: query_material_id must not be NULL");
+		throw BinderException("infer_predecessors: material_id must not be NULL");
 	}
 
 	string query_material_id = input.inputs[0].GetValue<string>();
@@ -90,6 +90,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
 	ValidateDateColumn(context, movements_table, "movement_date", "movements_table");
+	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (

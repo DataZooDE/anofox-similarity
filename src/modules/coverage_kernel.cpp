@@ -376,6 +376,9 @@ struct Options {
 	double name_floor = 0.85;
 	bool trace = false;
 	std::map<std::tuple<string, string, string>, double> rules;
+	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
+	//! NaN when two dimensions disagree on the pair, so no rule is guessed
+	std::map<std::pair<string, string>, double> rules_any_dimension;
 };
 
 //! The first invalid kernel setting as a message, or "" (shared by the coverage_kernel scalar and
@@ -428,7 +431,15 @@ Options LoadOptions(const Value &v) {
 		for (auto &r : ListValue::GetChildren(*rules)) {
 			double score = 0;
 			if (!r.IsNull() && FieldNumber(r, "score", score)) {
-				o.rules[std::make_tuple(FieldText(r, "dimension"), FieldText(r, "required"), FieldText(r, "provided"))] = score;
+				auto required = FieldText(r, "required"), provided = FieldText(r, "provided");
+				o.rules[std::make_tuple(FieldText(r, "dimension"), required, provided)] = score;
+				auto key = std::make_pair(required, provided);
+				auto any = o.rules_any_dimension.find(key);
+				if (any == o.rules_any_dimension.end()) {
+					o.rules_any_dimension[key] = score;
+				} else if (any->second != score) {
+					any->second = std::nan("");
+				}
 			}
 		}
 	}
@@ -553,7 +564,19 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			}
 			auto dim = !y.dimension.empty() ? y.dimension : x.dimension;
 			auto it = o.rules.find(std::make_tuple(dim, x.category, y.category));
-			m.value_score = it != o.rules.end() ? it->second : (x.category == y.category ? 1.0 : 0.0);
+			if (it != o.rules.end()) {
+				m.value_score = it->second;
+			} else {
+				// a category parsed from text has no dimension: use the rule for the pair if every
+				// dimension agrees on it, as compat_score does with an explicit dimension
+				auto any = dim.empty() ? o.rules_any_dimension.find(std::make_pair(x.category, y.category))
+				                       : o.rules_any_dimension.end();
+				if (any != o.rules_any_dimension.end() && !std::isnan(any->second)) {
+					m.value_score = any->second;
+				} else {
+					m.value_score = x.category == y.category ? 1.0 : 0.0;
+				}
+			}
 			m.rule = "compat";
 		} else {
 			if (x.dimension.empty() || y.dimension.empty() || x.dimension != y.dimension) {
@@ -760,7 +783,15 @@ void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Opt
 //! with most (ties: the largest remaining count deficit, then the lowest node id). OR
 //! alternatives are options and join every tied requirement (§11.9); an item tied between
 //! exclusive request alternatives may serve each of them (§11.11).
-vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, const Options &o) {
+//! A candidate item placed in one requirement block that could have joined any of `tied`.
+struct Placement {
+	const KItem *item;
+	idx_t block;
+	vector<idx_t> tied;
+};
+
+vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, const Options &o,
+                                              vector<Placement> &movable) {
 	vector<vector<const KItem *>> blocks(Q.items.size());
 	vector<double> need(Q.items.size());
 	for (idx_t i = 0; i < Q.items.size(); i++) {
@@ -796,13 +827,85 @@ vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, co
 		}
 		need[pick] -= c.count;
 		blocks[pick].push_back(&c);
+		bool exclusive = false;
 		for (auto i : tied) {
 			if (i != pick && !Compatible(Q.items[i], Q.items[pick])) {
 				blocks[i].push_back(&c);
+				exclusive = true;
 			}
+		}
+		if (tied.size() > 1 && !exclusive) {
+			movable.push_back({&c, pick, tied});
 		}
 	}
 	return blocks;
+}
+
+void RemoveFrom(vector<const KItem *> &block, const KItem *item) {
+	block.erase(std::find(block.begin(), block.end(), item));
+}
+
+//! The greedy partition decides on labels and counts alone, so two requirements of one class
+//! can end up with each other's items (a 95 W motor on the 10 W requirement, the 20 W motor on
+//! the 90 W one). Moves and swaps of items between the requirements they are tied for repair
+//! that; only a strictly higher score sum is accepted, so ties keep the greedy result.
+void ImprovePartition(vector<ReqResult> &results, vector<vector<const KItem *>> &blocks,
+                      vector<Placement> &movable, const Options &o) {
+	auto rescore = [&](idx_t i) {
+		ScoreRequirement(results[i], blocks[i], o);
+		return results[i].score;
+	};
+	for (idx_t round = 0; round < 100; round++) {
+		bool improved = false;
+		for (auto &m : movable) {
+			for (auto t : m.tied) {
+				if (t == m.block) {
+					continue;
+				}
+				auto p = m.block;
+				double before = results[p].score + results[t].score;
+				auto saved_p = blocks[p], saved_t = blocks[t];
+				// move m from p to t
+				RemoveFrom(blocks[p], m.item);
+				blocks[t].push_back(m.item);
+				if (rescore(p) + rescore(t) > before + 1e-9) {
+					m.block = t;
+					improved = true;
+					break;
+				}
+				// swap m with an item of t that is tied for p
+				bool swapped = false;
+				for (auto &n : movable) {
+					if (n.block != t || &n == &m ||
+					    std::find(n.tied.begin(), n.tied.end(), p) == n.tied.end()) {
+						continue;
+					}
+					RemoveFrom(blocks[t], n.item);
+					blocks[p].push_back(n.item);
+					if (rescore(p) + rescore(t) > before + 1e-9) {
+						n.block = p;
+						m.block = t;
+						swapped = true;
+						break;
+					}
+					blocks[p].pop_back();
+					blocks[t] = saved_t; // still holding m from the move above
+					blocks[t].push_back(m.item);
+				}
+				if (swapped) {
+					improved = true;
+					break;
+				}
+				blocks[p] = saved_p;
+				blocks[t] = saved_t;
+				rescore(p);
+				rescore(t);
+			}
+		}
+		if (!improved) {
+			break;
+		}
+	}
 }
 
 //! One trace row: a requirement and one of its attributes (or none).
@@ -861,10 +964,12 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 		results[i].q = &Q.items[i];
 	}
 	if (assignment == "partition") {
-		auto blocks = PartitionBlocks(Q, C, o);
+		vector<Placement> movable;
+		auto blocks = PartitionBlocks(Q, C, o, movable);
 		for (idx_t i = 0; i < Q.items.size(); i++) {
 			ScoreRequirement(results[i], blocks[i], o);
 		}
+		ImprovePartition(results, blocks, movable, o);
 	} else {
 		vector<const KItem *> all;
 		for (auto &c : C.items) {

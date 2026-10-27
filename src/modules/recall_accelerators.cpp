@@ -125,10 +125,15 @@ void WeightedMinhashFun(DataChunk &args, ExpressionState &, Vector &result) {
 	}
 }
 
-vector<uint64_t> Signature(const Value &v) {
+vector<uint64_t> Signature(const Value &v, const char *fn) {
 	vector<uint64_t> out;
 	for (auto &x : ListValue::GetChildren(v)) {
-		out.push_back(x.IsNull() ? 0 : x.GetValue<uint64_t>());
+		if (x.IsNull()) {
+			throw InvalidInputException(string(fn) + ": signature element " + std::to_string(out.size() + 1) +
+			                            " is NULL; a stored signature with NULLs is corrupt, rebuild it with "
+			                            "weighted_minhash or minhash_index");
+		}
+		out.push_back(x.GetValue<uint64_t>());
 	}
 	return out;
 }
@@ -141,7 +146,7 @@ void MinhashSimilarityFun(DataChunk &args, ExpressionState &, Vector &result) {
 			result.SetValue(row, Value(LogicalType::DOUBLE));
 			continue;
 		}
-		auto sa = Signature(a), sb = Signature(b);
+		auto sa = Signature(a, "minhash_similarity"), sb = Signature(b, "minhash_similarity");
 		if (sa.size() != sb.size()) {
 			throw InvalidInputException("minhash_similarity: signatures must have the same length");
 		}
@@ -168,7 +173,7 @@ void LshBandsFun(DataChunk &args, ExpressionState &, Vector &result) {
 			result.SetValue(row, Value(LogicalType::LIST(LogicalType::UBIGINT)));
 			continue;
 		}
-		auto sig = Signature(a);
+		auto sig = Signature(a, "lsh_bands");
 		auto bands = b.GetValue<int64_t>();
 		if (bands <= 0 || sig.empty() || sig.size() % idx_t(bands) != 0) {
 			throw InvalidInputException("lsh_bands: the signature length must be divisible by bands");
@@ -336,8 +341,10 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 	                             "BIGINT) AS r, CAST(j AS BIGINT) AS j, h FROM %s b WHERE EXISTS (SELECT 1 FROM qr WHERE "
 	                             "qr.part = b.part AND qr.r = b.r) AND (SELECT CASE WHEN EXISTS (SELECT 1 FROM %s x WHERE "
 	                             "x.num_hashes <> (SELECT nh FROM prm) OR x.seed <> (SELECT sd FROM prm)) OR (SELECT "
-	                             "count(DISTINCT entity_id) FROM %s) <> (SELECT count(*) FROM idx) THEN "
-	                             "error('find_covering_entities_lsh: bands_table was built from another index') END) IS NULL",
+	                             "sum(hash(CAST(entity_id AS VARCHAR), CAST(h AS UBIGINT))) FROM %s WHERE r = 1 AND j = 1) "
+	                             "IS DISTINCT FROM (SELECT sum(hash(entity_id, CAST(band_hashes[1] AS UBIGINT))) FROM idx) "
+	                             "THEN error('find_covering_entities_lsh: bands_table does not match index_table (another "
+	                             "index, or an older build of it); rebuild it with minhash_bands') END) IS NULL",
 	                             QuotedIdentifier(bands_table), QuotedIdentifier(bands_table), QuotedIdentifier(bands_table));
 	auto sql = StringUtil::Format(R"(
 		WITH idx AS (

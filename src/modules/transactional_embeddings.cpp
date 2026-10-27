@@ -76,6 +76,7 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
 	ValidateDateColumn(context, movements_table, "movement_date", "movements_table");
+	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	// Fail fast, with an actionable message, when the anofox-forecast dependency is missing.
 	// Without this guard the inner extract_ts_features() call resolves anofox_fcst_ts_features()

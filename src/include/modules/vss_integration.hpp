@@ -17,10 +17,11 @@ namespace anofox {
 // Initialize VSS extension (HNSW indexes for approximate k-NN search)
 void InitializeVSSIntegration(Connection &conn);
 
-// Create embedding storage and tracking tables
-void CreateEmbeddingTables(Connection &conn);
+// Create embedding storage and tracking tables; true when material_embeddings is new
+bool CreateEmbeddingTables(Connection &conn);
 
-// Create HNSW indexes for fast similarity search
+// Create HNSW indexes for fast similarity search (only with a new material_embeddings, so a dropped
+// index stays dropped)
 void CreateHNSWIndexes(Connection &conn);
 
 // Register core embedding table functions (Jaccard embeddings, statistics freshness check)

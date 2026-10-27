@@ -1057,6 +1057,15 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
+			SELECT tree_id, node_id, attr_id, 'null_key', 'error', 'an attribute row without tree_id or node_id'
+			FROM a WHERE tree_id IS NULL OR node_id IS NULL
+			UNION ALL
+			SELECT tree_id, node_id, any_value(attr_id), 'duplicate_attribute', 'error',
+			       count(*) || ' rows for attribute ' || coalesce(any_value(attr_id), any_value(name)) ||
+			       '; the kernel would keep only the best value'
+			FROM a WHERE tree_id IS NOT NULL AND node_id IS NOT NULL
+			GROUP BY tree_id, node_id, coalesce(attr_id, name) HAVING count(*) > 1
+			UNION ALL
 			SELECT a.tree_id, a.node_id, a.attr_id, 'attribute_on_container', 'error', 'attributes belong to item nodes'
 			FROM a JOIN n USING (tree_id, node_id) WHERE n.node_kind <> 'item'
 			UNION ALL
@@ -1125,7 +1134,10 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			checks AS (
 				SELECT tree_id, node_id, NULL::VARCHAR AS attr_id, 'duplicate_node' AS issue, 'error' AS severity,
 				       'node_id used more than once' AS detail
-				FROM raw GROUP BY tree_id, node_id HAVING count(*) > 1
+				FROM raw WHERE tree_id IS NOT NULL AND node_id IS NOT NULL GROUP BY tree_id, node_id HAVING count(*) > 1
+				UNION ALL
+				SELECT tree_id, node_id, NULL, 'null_key', 'error', 'a node row without tree_id or node_id'
+				FROM raw WHERE tree_id IS NULL OR node_id IS NULL
 				UNION ALL
 				SELECT tree_id, node_id, NULL, 'bad_node_kind', 'error', 'node_kind must be container, item or variant_group'
 				FROM n WHERE node_kind IS NULL OR node_kind NOT IN ('container', 'item', 'variant_group')
@@ -1293,8 +1305,9 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  false);
 	RegisterTreeTable(loader, "validate_trees", ValidateTreesBindReplace,
 	                  "Checks property trees and returns one row per issue (tree_id, node_id, attr_id, issue, severity, "
-	                  "detail). Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, "
-	                  "multiple_roots, cycle, and with an attribute table attribute_on_container, orphan_attribute, "
+	                  "detail). Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, "
+	                  "no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, "
+	                  "attribute_on_container, orphan_attribute, "
 	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source).",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);

@@ -188,7 +188,7 @@ void RegisterEntityClusteringFunctions(ExtensionLoader &loader) {
 	    "Entity clustering: a C++ union-find over the pairs whose score (score_col, default 'score') is at "
 	    "or above threshold (default 0.8). Returns entity_id, cluster_id (the smallest member id) and cluster_size "
 	    "for every entity in the pairs table (left_col/right_col, default 'a'/'b'); entities without a pair above "
-	    "the threshold form their own cluster. For a graph view, see the DuckPGQ recipe in the API reference.",
+	    "the threshold form their own cluster. For a graph view, see the DuckPGQ recipe in the extension documentation (LSH and clustering).",
 	    {"SELECT * FROM cluster_matches('customer_pairs', threshold := 0.85);"}, {"coverage", "clustering"});
 }
 

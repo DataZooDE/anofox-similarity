@@ -289,7 +289,7 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	                   "model or a real API backend is configured, all providers return a deterministic, "
 	                   "hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).";
 	desc.examples    = {"SELECT embedding_backend('diesel pump', 'gemma-local', '{}');",
-	                    "SELECT embedding_backend('valve seat', 'gemini-api', '{\"api_key\": \"...\"}');"};
+	                    "SELECT embedding_backend('valve seat', 'openai', '{\"api_key\": \"...\"}');"};
 	desc.categories  = {"embeddings", "textual"};
 	desc.parameter_names = {"text", "provider", "provider_config"};
 	desc.parameter_types = {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR};
@@ -334,7 +334,7 @@ void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
 	reg.RegisterTableMacro(COMPUTE_TEXTUAL_EMBEDDINGS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Generates a semantic embedding per material from its description text, returning (material_id, textual_embedding). Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.")
+	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.")
 	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN')")});
 }
 

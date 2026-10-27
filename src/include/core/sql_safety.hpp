@@ -262,5 +262,19 @@ inline void ValidateDateColumn(ClientContext &context, const string &table_path,
 	}
 }
 
+//! A quantity column must be numeric; text quantities get a conversion hint.
+inline void ValidateNumericColumn(ClientContext &context, const string &table_path, const string &column,
+                                  const string &param_name) {
+	LogicalType type;
+	if (!RelationColumnType(context, table_path, column, type) || type.IsNumeric() ||
+	    type.id() == LogicalTypeId::SQLNULL) {
+		return;
+	}
+	throw BinderException("%s '%s': column %s is %s, expected a number; convert it in a view, e.g. "
+	                      "replace(menge, ',', '.')::DOUBLE AS %s",
+	                      param_name.c_str(), table_path.c_str(), column.c_str(), type.ToString().c_str(),
+	                      column.c_str());
+}
+
 } // namespace anofox
 } // namespace duckdb

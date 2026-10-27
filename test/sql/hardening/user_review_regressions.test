@@ -387,3 +387,27 @@ query I
 SELECT len(tree_from_json('{"root": {"node_id": "r", "class_id": "x", "comment": "from page 3"}}'));
 ----
 1
+
+# --- UR-3: third round of user testing --------------------------------------------------
+
+# "mind" without the period is the same at-least bound as "mind." (a 7 cm offer meets "mind 6 cm")
+query TT
+SELECT (parse_quantity('mind 6 cm')).bound, (parse_quantity('Breite mind 6 cm')).bound;
+----
+at_least	at_least
+
+query R
+SELECT (value_satisfies(parse_quantity('mind 6 cm'), parse_quantity('7 cm'))).score;
+----
+1.0
+
+# a NULL element in a stored signature is corrupt data, not a hash value of 0
+statement error
+SELECT minhash_similarity([NULL::UBIGINT], [0::UBIGINT]);
+----
+minhash_similarity: signature element 1 is NULL
+
+statement error
+SELECT lsh_bands([1::UBIGINT, NULL::UBIGINT], 1);
+----
+lsh_bands: signature element 2 is NULL
