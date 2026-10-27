@@ -15,7 +15,8 @@ with the query.
 > An earlier version of this page described an HNSW index for Jaccard search. The extension
 > has no such workflow: `find_similar_materials_jaccard` never uses an index. The steps below use
 > the functions that exist. They were verified on the AdventureWorks BOM shipped in
-> `test/data/adventureworks/`; with your SAP extract, only the first step differs.
+> `test/data/adventureworks/`, which is also what Step 1 loads. With your SAP extract, only the
+> first step and the two material numbers differ.
 
 ## Step 1: The universal BOM table
 
@@ -23,15 +24,16 @@ with the query.
 -- Load the extension (built from source, see docs/guides/01-getting-started.md)
 LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
-CREATE TABLE sap_mast AS SELECT * FROM read_parquet('test/data/sap/mast.parquet');
-CREATE TABLE sap_stko AS SELECT * FROM read_parquet('test/data/sap/stko.parquet');
-CREATE TABLE sap_stpo AS SELECT * FROM read_parquet('test/data/sap/stpo.parquet');
+-- The steps below run as written on the AdventureWorks BOM shipped with the repository:
+CREATE TABLE bom_items AS SELECT * FROM read_csv('test/data/adventureworks/bom_items.csv.gz');
 
-CREATE TABLE bom_items AS
-SELECT * FROM sap_to_bom_items('sap_mast', 'sap_stko', 'sap_stpo', reference_date := CURRENT_DATE);
-
--- Without an SAP extract, follow along with the AdventureWorks BOM instead:
--- CREATE TABLE bom_items AS SELECT * FROM read_csv('test/data/adventureworks/bom_items.csv.gz');
+-- With your SAP extract, build the same table instead (fix the date so reruns agree),
+-- and replace 'AW-752' and 'AW-954' below with two of your material numbers:
+-- CREATE TABLE sap_mast AS SELECT * FROM read_parquet('test/data/sap/mast.parquet');
+-- CREATE TABLE sap_stko AS SELECT * FROM read_parquet('test/data/sap/stko.parquet');
+-- CREATE TABLE sap_stpo AS SELECT * FROM read_parquet('test/data/sap/stpo.parquet');
+-- CREATE TABLE bom_items AS
+-- SELECT * FROM sap_to_bom_items('sap_mast', 'sap_stko', 'sap_stpo', reference_date := DATE '2026-01-01');
 
 SELECT count(*) AS bom_rows, count(DISTINCT parent_id) AS boms FROM bom_items;
 ```

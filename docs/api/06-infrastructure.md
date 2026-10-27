@@ -123,6 +123,15 @@ The extension creates several database objects on load to store embeddings.
 > HNSW indexes below in that database file. A file that contains them needs the `vss`
 > extension to insert into `material_embeddings` later. Use a separate database file, or attach
 > your data read-only, if you do not want them in your own file.
+>
+> The HNSW indexes are created only together with a new `material_embeddings` table, so an index
+> you drop stays dropped (`DROP INDEX hnsw_combined_idx;` and the other two). Rewriting rows of
+> the indexed table grows the file several times faster than a plain table. The tables
+> themselves are created at every load on a writable file; to keep them out of a database file,
+> start the shell without a file and `ATTACH` it; see
+> [nightly pipelines](../guides/09-nightly-pipelines.md#keep-the-extensions-tables-out-of-your-file).
+> On DuckDB 2.0 without an installable `vss` extension, the tables are created without the
+> indexes; a file with the indexes from 1.5.6 then cannot be written to `material_embeddings` there.
 
 ### Tables
 

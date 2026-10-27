@@ -213,7 +213,7 @@ no extra extension.
 |---|---|
 | LSH is slower than the exact search | Small vocabulary or single queries. Use `find_covering_entities`. |
 | LSH misses a candidate | Lower `threshold`, or raise `num_hashes`. Exact search stays the reference. |
-| Stale index | Rebuild `minhash_index` and `minhash_bands` after archive changes. |
+| Stale index | Rebuild the feature multiset, `minhash_index` and `minhash_bands` after archive changes, all of them. A band table that no longer matches its index is an error that names the fix. |
 | One wrong pair merges two clusters | Clustering is transitive. Raise the threshold or block more strictly. |
 | Records missing from the clusters | Add a self-pair `(id, id, 1.0)` for every record. |
 

@@ -76,7 +76,10 @@ normalised first.
   catalogue attribute template. A stated bound always wins.
 - Categorical values (`category` set) are rejected; use `compat_score`.
 - `distance` is relative for the limit rules, a share for within and point, and kelvin for
-  temperature. Write "misses by x %" only for the limit rules.
+  the temperature limit rules (temperature within and point are shares too). Write "misses by
+  x %" only for the limit rules.
+- A value exactly at the tolerance scores 1 in every unit: `at least 100 mm` against `98 mm`
+  (linear) and `at least 100 m` against `98 m` both pass.
 
 **`compat_score(dimension, required, provided [, rules_table := 'compatibility_rules'])`** →
 DOUBLE: looks up a curated rules table `(dimension, required, provided, score)`. The table must

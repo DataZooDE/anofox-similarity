@@ -18,6 +18,8 @@ coverage_recall(query_tree_id, <named>)
   → TABLE(query_id, candidate_id, score, containment, jaccard, reviewed, mode_used, rank)
 ```
 
+`n_gaps` counts requirements (items), not attributes; the trace lists the failing attributes.
+
 **Pipeline.** Stage 1 ranks the candidate trees by their class multisets, using containment
 (+ `tie_break` × Jaccard) when every candidate tree is reviewed and weighted Jaccard otherwise
 (on unreviewed labels containment admits wrong matches). It keeps the top `k` per query. Stage 2 runs the kernel over those candidates:
@@ -46,7 +48,7 @@ query tree and the candidate tree are reviewed.
 | `k` | 20 | stage-1 depth |
 | `nodes_table`, `attrs_table` | `'tree_nodes'`, `'tree_attributes'` | the query trees; `attrs_table := NULL` for none. A `nodes_table` other than the default needs its `attrs_table` |
 | `candidate_nodes_table`, `candidate_attrs_table` | the query tables | the candidate trees; a `candidate_nodes_table` other than the query's needs its `candidate_attrs_table` |
-| `overrides_table`, `label_table` | NULL | class resolution (see above) |
+| `overrides_table`, `label_table` | NULL | class resolution (see [property trees](12-property-trees.md)) |
 | `labels` | `'soft'` | `'soft'` uses the classifier's probabilities; `'hard'` uses one class |
 | `assignment` | `'auto'` | `'partition'`, `'best_match'`, `'auto'` |
 | `label_weight` | 0.0 | λ: label credit independent of the values |
@@ -62,7 +64,12 @@ query tree and the candidate tree are reviewed.
 **Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
 value below 1. It does not depend on how soft the labels are. A required attribute that the
 matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
-a share for within and point, and in K for temperature.
+a share for within and point (also for temperature), and in K for the temperature limit rules.
+
+**Partition and repeated classes.** The partition first assigns items by class agreement, then
+moves or swaps items between requirements of the same class while that raises the summed score.
+A request for a 10 W and a 90 W motor against an offer of a 95 W and a 20 W motor is therefore
+covered in full, whatever the item ids; one 95 W motor still cannot serve both.
 
 **Recommended setup.** Calibrate the attribute-name floor once per corpus. It is the median
 cosine between unrelated names:
@@ -77,7 +84,8 @@ ranking, so it explains the same score. The benchmark's request items have no `c
 they take their classes from a `label_table` (`request_labels`, the output of
 [`classify_to_catalogue`](14-classification-and-review.md#classify_to_catalogue) over `request_item_vectors`).
 A request item without a class matches nothing, and a request without any classified item
-returns no rows:
+raises an error naming the fix (see [guide 04](../guides/04-coverage-matching.md)). The trace of
+the best candidate for one benchmark request:
 
 ```sql
 SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('R07', k := 20,

@@ -21,6 +21,12 @@ models: bring your own vectors.
 | `apply_vocabulary_review(review_table [, overrides_table])` | The merged overrides; the review wins per wording and source |
 | `uncertain_decisions(decisions [, threshold \| share, top, texts_table, catalogue_table])` | `(tree_id, node_id, margin, request)` with `request` as JSON text |
 
+`cosine_floor` returns `NULL` when fewer than two vectors make a pair, and can return `1.0`
+when every sampled pair is identical. `calibrated_cosine` requires a floor below `1.0`;
+for an identical-vector corpus, cap the estimate (for example, `LEAST(floor, 0.999)`).
+For a `NULL` estimate, supply a floor chosen for the embedding model rather than treating
+the empty sample as a measured value.
+
 **`classify_to_catalogue` parameters** (all named)
 
 | Parameter | Default | Description |
@@ -121,7 +127,7 @@ interaction beats the centroid by more than 10 points. The review queue puts the
 misleading archive wordings first. With classifier labels on the request side, the pipeline
 reaches recall@20 0.86 and regret 0.022. After a reviewer answers the 15 % lowest-margin items,
 it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets all BRD
-targets.
+targets. The tests `test/sql/coverage/r4/uc_01`…`uc_07` assert these figures (with tolerances).
 
 **`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
 are reviewed. Classifier labels are not reviewed, so `auto` uses best match. The

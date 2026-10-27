@@ -45,6 +45,17 @@ Rules to know:
   `mindestens`, `ab`, `über`, `größer (gleich)`, `mehr als`, `nicht weniger als`, `≥`, `>` for at
   least; `zwischen ... und`, ranges with `bis`, `to` or `–` for within. `über` and `unter` are
   treated like `≥` and `≤`.
+- A negation right before a bound word flips it: `nicht über 38 dB(A)`, `no more than 38 dB(A)`
+  and `must not exceed 38 dB(A)` are `at_most`; `nicht unter 24 cm` and `no less than 24 cm`
+  are `at_least`. The bound word closest to the number decides. Check the parsed `bound` of
+  phrasings you have not seen before:
+
+```sql
+SELECT t, parse_quantity(t).bound AS bound
+FROM (VALUES ('nicht über 38 dB(A)'), ('no more than 38 dB(A)'), ('greater than 24 cm')) v(t);
+-- at_most, at_most, at_least
+```
+
 - A value without a bound word has `bound` NULL (unqualified).
 - An unknown unit is never guessed. The number stays, `dimension` is NULL, and every comparison with
   it is a gate.
@@ -280,6 +291,9 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | A bare value never matches | Use `default_bound` or `default_bounds := 'catalogue'`. |
 | `IP65` does not satisfy `at_least IP54` | Add a row to `compatibility_rules`. |
 | Unknown unit gives score 0 | Add the unit through `unit_table`. |
+| `M8x1,25`, `A4-70`, `EN 10204` or `DIN 933` come back empty | Designations are not values: `parse_quantity` refuses to guess a number from them. Map them to categories in SQL (e.g. `regexp_extract`) and compare them with `compatibility_rules`. `PN 16`, `DN 50` and `IP 65` are categories. |
+| A 2 % overshoot of a hard limit scores 1 | The default `tol` is 0.02. For limits without slack pass `tol := 0` and `soft_band := 0` (by position on DuckDB 1.5.6). |
+| `± 0,02 mm` | A tolerance class without a nominal is an `at_most` limit on the half-width: `± 0,02 mm` satisfies `± 0,05 mm`. |
 
 ## Next Steps
 

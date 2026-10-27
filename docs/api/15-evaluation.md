@@ -23,6 +23,7 @@ column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, 
   candidate without gold counts as 0. `top_k_accuracy` is the share of queries with a best
   candidate in the top k (the BRD's "recall@k of the best candidate"). `recall_at_k` is the
   share of each query's best candidates in the top k; the two differ only with ties.
+  `mean_regret` and `share_regret_le_005` measure the top-1 pick, so they repeat on every k row.
 - `threshold_at_precision` looks at the top-1 picks. It returns the lowest score threshold whose
   precision (share of picks with true coverage ≥ `good`) reaches the target, which gives the
   largest auto-accept share. `target` is a reserved word in DuckDB, hence `target_precision`.

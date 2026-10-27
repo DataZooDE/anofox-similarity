@@ -155,7 +155,7 @@ bom_dfs_neighborhood(
 ```
 > [!IMPORTANT]
 > `max_depth` is clamped to a **hard ceiling of 64** (bounds traversal cost on cyclic BOMs); a value
-> above that is silently treated as 64. `max_depth := N` returns components reachable within exactly
+> above that is silently treated as 64. `max_depth := N` returns components reachable in at most
 > N hops of `root_material_id`.
 
 **Example:**

@@ -15,7 +15,7 @@
 ## Textual Embeddings
 
 ### Compute Textual Embeddings
-Generates semantic embeddings from material descriptions.
+Generates one placeholder embedding per material description (see the warning above).
 
 **Signature:**
 ```sql
@@ -23,7 +23,7 @@ compute_textual_embeddings(
     makt_table := 'sap_makt',
     language := 'EN',
     provider := 'gemma-local',
-    provider_config := NULL
+    provider_config := ''
 ) → TABLE (
     material_id VARCHAR,
     textual_embedding FLOAT[384]
@@ -36,11 +36,11 @@ compute_textual_embeddings(
 | `makt_table` | VARCHAR | 'sap_makt' | Material text master table |
 | `language` | VARCHAR | 'EN' | Language code |
 | `provider` | VARCHAR | 'gemma-local' | Embedding provider |
-| `provider_config` | VARCHAR | NULL | Provider-specific config JSON |
+| `provider_config` | VARCHAR | '' | Provider-specific config JSON |
 
 **Providers** (names the function accepts; none is wired to a real model in the released build):
 - `gemma-local` - intended for a local OpenVINO model (384-D)
-- `openai`, `anthropic` - intended for the vendors' APIs (config: `{"api_key": "..."}`)
+- `openai`, `anthropic`, `cohere` - intended for the vendors' APIs (config: `{"api_key": "..."}`)
 
 > [!IMPORTANT]
 > Unless the extension is built with a local OpenVINO model or a real API backend is wired in,
@@ -65,7 +65,7 @@ FROM compute_textual_embeddings(
 );
 ```
 
-### Embed Text Lambda
+### Embed Text
 
 User-friendly text embedding function.
 
@@ -117,7 +117,7 @@ compute_transactional_embeddings(
 - **Consumption Metrics** (0-9): mean, median, variance, std dev, trend, sum, length, extrema
 - **Volatility Metrics** (10-19): coefficient of variation, skewness, kurtosis, entropy
 - **Frequency Metrics** (20-29): FFT coefficients and aggregates
-- **Temporal Metrics** (30-97): Autocorrelation, quantiles, seasonality indicators
+- **Temporal Metrics** (30-91): Autocorrelation, quantiles, seasonality indicators
 - **Domain-Specific Features** (92-97): Movement types, lifecycle indicators
 
 **Returns:**
@@ -373,7 +373,7 @@ CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH 
 
 *Table macro*
 
-Generates a semantic embedding per material from its description text, returning (material_id, textual_embedding). Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.
+Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.
 
 ```sql
 compute_textual_embeddings(makt_table, language, provider, provider_config)
@@ -415,7 +415,7 @@ embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → F
 
 ```sql
 SELECT embedding_backend('diesel pump', 'gemma-local', '{}');
-SELECT embedding_backend('valve seat', 'gemini-api', '{"api_key": "..."}');
+SELECT embedding_backend('valve seat', 'openai', '{"api_key": "..."}');
 ```
 
 ### `compute_transactional_embeddings`

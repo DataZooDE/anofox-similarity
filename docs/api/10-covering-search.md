@@ -8,7 +8,7 @@
 
 Asymmetric, explainable matching of a **request** (a specification, a BOM to source, a
 profile) against **offers** (products, past solutions, modules). It answers "does B
-satisfy what A asks for?", where the similarity functions above answer "how alike are A
+satisfy what A asks for?", where the [similarity functions](01-similarity-scalars.md) answer "how alike are A
 and B?". Design: [requirements-matching/HLD.md](../requirements-matching/HLD.md) (§11 lists
 the amendments decided during implementation). Test dataset:
 [test/data/coverage](../../test/data/coverage/README.md).
@@ -109,7 +109,7 @@ QUALIFY row_number() OVER (PARTITION BY r.request_id ORDER BY score DESC, c.enti
 ```
 
 The scores equal those of `find_covering_entities_for`. The scalars process about 10⁵ pairs in
-0.15 s.
+0.15 s (measured once during development, DuckDB 1.5.6, a laptop).
 
 **Choosing the measure:** containment is the right question once the
 candidates' labels are reliable (reviewed vocabulary). On unreviewed labels a mislabelled

@@ -19,7 +19,7 @@ down the tree, add across AND siblings and never add across OR alternatives.
 | `tree_anchors(nodes_table [, attrs_table], overrides_table, label_table, tree_ids)` | One row per item: class, reviewed, `effective_count`, `depth`, `anchor_path` (ancestors), `variant_path` (OR choices, the item included), `n_attributes` |
 | `tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)` | `(entity_id, feature_id, weight, reviewed)` for stage 1; the elementwise maximum across OR alternatives (an optimistic bound) |
 | `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |
-| `validate_trees(nodes_table [, attrs_table], tree_ids := ...)` | `(tree_id, node_id, attr_id, issue, severity, detail)`. Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, unreachable, too_deep, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (per source and name) |
+| `validate_trees(nodes_table [, attrs_table], tree_ids := ...)` | `(tree_id, node_id, attr_id, issue, severity, detail)`. Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, unreachable, too_deep, duplicate_attribute, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (per source and name) |
 
 Examples:
 
@@ -66,7 +66,7 @@ SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_tex
 
 *Table function*
 
-Checks property trees and returns one row per issue (tree_id, node_id, attr_id, issue, severity, detail). Errors: duplicate_node, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, and with an attribute table attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (one attribute name with several dimensions within a source).
+Checks property trees and returns one row per issue (tree_id, node_id, attr_id, issue, severity, detail). Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, attribute_on_container, orphan_attribute, bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, mixed_dimensions (one attribute name with several dimensions within a source).
 
 ```sql
 validate_trees(nodes_table, attrs_table, overrides_table, label_table, tree_ids)

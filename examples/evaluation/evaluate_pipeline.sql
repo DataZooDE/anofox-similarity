@@ -103,7 +103,7 @@ ORDER BY k;
 SELECT n_pairs, round(mae, 4) AS mae, round(bias, 4) AS bias,
        round(pearson, 3) AS pearson, round(spearman, 3) AS spearman
 FROM eval_calibration('results', 'gold');
--- Expected: 1600 | 0.0356 | 0.0309 | 0.975 | 0.972   (BRD target: MAE <= 0.05)
+-- Expected: 1600 | 0.0358 | 0.0312 | 0.975 | 0.972   (BRD target: MAE <= 0.05)
 
 .print ''
 .print '>>> 4. Auto-accept threshold for 95 % precision'

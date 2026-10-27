@@ -302,35 +302,27 @@ FROM textual_embeddings_de;
 
 ### Cross-Language Similarity
 
-Find similar materials even when they have descriptions in different languages:
+Finding the same material across languages needs vectors that place translations close
+together, and `embed_text` does not (see the warning above). Compute the vectors with a
+multilingual model of your choice outside DuckDB, store them as a table
+`(material_id, language, vec FLOAT[])`, and rank by cosine:
 
 ```sql
--- Store embeddings with language info
-CREATE TABLE material_text_embeddings AS
-SELECT
-    k.matnr AS material_id,
-    k.spras AS language,
-    embed_text(k.maktx) AS text_embedding
-FROM sap_makt k
-WHERE k.maktx IS NOT NULL
-  AND k.maktx != ''
-  AND k.spras IN ('E', 'D', 'F');  -- Limit to major languages
-
--- Find similar materials across languages
-WITH query_embedding AS (
-    SELECT text_embedding
-    FROM material_text_embeddings
+-- material_text_vectors: one row per (material, language), vectors from your own model
+WITH query_vec AS (
+    SELECT vec
+    FROM material_text_vectors
     WHERE material_id = '000000000010561200' AND language = 'E'
 )
 SELECT
-    e.material_id,
-    e.language,
+    v.material_id,
+    v.language,
     k.maktx AS description,
-    array_cosine_similarity(e.text_embedding, q.text_embedding) AS similarity
-FROM material_text_embeddings e
-CROSS JOIN query_embedding q
-JOIN sap_makt k ON e.material_id = k.matnr AND e.language = k.spras
-WHERE e.material_id != '000000000010561200'
+    list_cosine_similarity(v.vec, q.vec) AS similarity
+FROM material_text_vectors v
+CROSS JOIN query_vec q
+JOIN sap_makt k ON v.material_id = k.matnr AND v.language = k.spras
+WHERE v.material_id <> '000000000010561200'
 ORDER BY similarity DESC
 LIMIT 10;
 ```

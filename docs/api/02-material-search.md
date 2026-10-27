@@ -6,6 +6,8 @@
 
 ## Predecessor Inference
 Identifies predecessor-successor relationships through BOM similarity combined with anti-correlation temporal analysis.
+It only considers the 100 materials with the most similar BOMs; with many near-identical variants a
+predecessor can fall outside them (see [guide 03](../guides/03-predecessors-and-cold-start.md)).
 
 **Signature:**
 ```sql
@@ -80,7 +82,7 @@ ORDER BY confidence DESC;
 
 ## Similarity Search
 
-## Find Similar Materials - Jaccard
+### Find Similar Materials - Jaccard
 Finds k most similar materials using Jaccard component overlap.
 
 **Signature:**
@@ -103,7 +105,7 @@ find_similar_materials_jaccard(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | Material to find similar to (positional) |
-| `k` | INTEGER | Required | Number of results |
+| `k` | BIGINT | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 | `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](10-covering-search.md#find_covering_entities) |
@@ -126,7 +128,7 @@ FROM find_similar_materials_jaccard('PUMP-A', 10)
 WHERE similarity >= 0.5;
 ```
 
-## Find Similar Materials - WL Kernel
+### Find Similar Materials - WL Kernel
 Finds k most similar materials using Weisfeiler-Lehman graph kernel similarity.
 
 **Signature:**
@@ -147,7 +149,7 @@ find_similar_materials_wl_kernel(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | Material to find similar to (positional) |
-| `k` | INTEGER | Required | Number of results |
+| `k` | BIGINT | Required | Number of results |
 | `iterations` | INTEGER | 3 | Number of WL refinement iterations |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
@@ -167,7 +169,7 @@ FROM find_similar_materials_wl_kernel('PUMP-A', 10, iterations := 5)
 WHERE similarity >= 0.5;
 ```
 
-## Cold Start Analogs
+### Cold Start Analogs
 Finds analog materials with consumption history for cold-start forecasting.
 
 **Signature:**
@@ -194,7 +196,7 @@ cold_start_analogs(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | New product needing analogs (positional) |
-| `k` | INTEGER | Required | Number of analog materials to return |
+| `k` | BIGINT | Required | Number of analog materials to return |
 | `min_history_months` | INTEGER | 0 | Minimum months between the first and the last movement |
 | `min_similarity` | DOUBLE | 0.0 | Minimum Jaccard similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |

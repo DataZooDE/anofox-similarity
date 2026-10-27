@@ -234,6 +234,7 @@ Classifier labels are soft, so coverage stays below 1 without gaps. They are not
 | Pitfall | Solution |
 |---|---|
 | A single item gets the wrong class | A batch below `min_source_items` is not centred. Classify items in batches. |
+| `p` and `margin` change when you classify new items alone | Centring uses the source mean of the batch. Re-classify all items of the source, so stored decisions and review queues stay comparable ([nightly pipelines](09-nightly-pipelines.md#what-to-rebuild-when-data-changes)). |
 | Vector dimension mismatch | Items and catalogue must use the same model. The function checks this. |
 | An override class is not in the catalogue | Error. Fix the review table. |
 | The review seems lost | `apply_vocabulary_review` only returns rows. Store them with `CREATE OR REPLACE TABLE`. |

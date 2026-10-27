@@ -81,9 +81,9 @@ SELECT * FROM fit_coverage_weights('reviewed',
 SELECT rank, label_weight, mu, round(mae, 4) AS mae, n_pairs, n_unresolved
 FROM fit ORDER BY rank;
 -- Expected: 9 grid points, 400 pairs each, none unresolved. The best three:
---   1 | 0.0 | 0.4 | 0.032
---   2 | 0.0 | 0.2 | 0.0361   (the defaults)
---   3 | 0.0 | 0.0 | 0.0434
+--   1 | 0.0 | 0.4 | 0.0321
+--   2 | 0.0 | 0.2 | 0.0363   (the defaults)
+--   3 | 0.0 | 0.0 | 0.0435
 -- Any label credit (λ > 0) inflates the coverage of programmes whose values miss.
 
 .print ''
@@ -110,6 +110,6 @@ SELECT 'fitted (λ ' || getvariable('best_lw') || ', μ ' || getvariable('best_m
        round(mae, 4)
 FROM eval_calibration('holdout_fitted', 'gold');
 -- Expected:
---   defaults (λ 0.0, μ 0.2) | 0.0354
---   fitted (λ 0.0, μ 0.4)   | 0.0318
+--   defaults (λ 0.0, μ 0.2) | 0.0357
+--   fitted (λ 0.0, μ 0.4)   | 0.0321
 -- The fitted weights also help on requests they were not fitted on.

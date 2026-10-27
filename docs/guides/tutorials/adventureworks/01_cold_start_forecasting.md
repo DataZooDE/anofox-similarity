@@ -8,9 +8,12 @@ This is the **cold-start problem** in demand planning: new products have no cons
 
 ## The Solution
 
-Use **BOM similarity** to find analogous products that share components with the new product. These analogs have established consumption patterns you can use for forecasting.
+Use **BOM similarity** to find analogous products that share components with the new product. Analogs with a long consumption history are candidates whose history can seed a forecast.
 
-**Why it works:** Products with similar components typically have similar demand patterns. A new road bike shares 90% of its components with existing road bikes, so their sales history is predictive.
+**What it does and does not tell you:** BOM similarity finds products built from the same
+components. Whether their demand is a good proxy is a planning judgement: compare the components
+that differ, check how dense the analog's movement history is, and validate against your own
+forecast errors before relying on an analog.
 
 ## Prerequisites
 
@@ -104,17 +107,19 @@ This reveals that the only difference is the frame size (62 vs 44 cm), confirmin
 
 ### Jaccard Similarity Interpretation
 
-| Similarity | Relationship | Forecasting Confidence |
-|------------|--------------|----------------------|
-| 0.90 - 1.00 | Size/color variant | Very High |
-| 0.70 - 0.89 | Same product family | High |
-| 0.50 - 0.69 | Related category | Medium |
-| < 0.50 | Different product | Low |
+A screening rule of thumb for this dataset, not a validated forecast accuracy:
+
+| Similarity | Typical relationship |
+|------------|----------------------|
+| 0.90 - 1.00 | Size/color variant |
+| 0.70 - 0.89 | Same product family |
+| 0.50 - 0.69 | Related category |
+| < 0.50 | Different product |
 
 ### Choosing the Right Analog
 
 For cold-start forecasting, prefer analogs that:
-1. **High similarity** (>0.8 Jaccard) - ensures similar demand drivers
+1. **High similarity** (>0.8 Jaccard) - mostly the same components
 2. **Longer sales history** - more data = better forecasts
 3. **Same market segment** - HL bikes forecast HL bikes, not LL bikes
 
@@ -139,13 +144,13 @@ FROM cold_start_analogs(
 );
 ```
 
-This automatically filters to products with at least 12 months of consumption history, returning only analogs suitable for forecasting.
+This keeps analogs whose first and last movement are at least 12 months apart. That is a calendar span, not the number of months with movements: check the density yourself (see [Guide 03](../../03-predecessors-and-cold-start.md)).
 
 ## Variations
 
 ### Stricter Similarity Threshold
 
-For high-confidence forecasts, require higher similarity:
+To keep only close variants, require a higher similarity:
 
 ```sql
 SELECT material_id, similarity, shared_components

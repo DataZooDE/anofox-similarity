@@ -33,8 +33,9 @@ matters; the extension does not ship language models.
 - **BOM traversal**: explosion, where-used, common components, property graph helpers
 
 ### 📐 Coverage matching (16 functions)
-- **Directional set measures**: containment, Tversky and weighted measures that do not punish a
-  richer offer (`containment`, `weighted_containment`, `find_covering_entities`)
+- **Covering search**: rank entities by how much of a request they contain, with the
+  directional set measures listed under material similarity (`containment`, Tversky and
+  weighted variants) that do not punish a richer offer (`find_covering_entities`)
 - **Quantities**: parse EN/DE values with units and bounds, compare them with direction and
   tolerance (`parse_quantity`, `value_satisfies`, `compat_score`)
 - **Property trees and the coverage kernel**: load extracted specs from JSON, rank candidates by
@@ -177,11 +178,52 @@ The [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classe
 alternatives and large archives; the [examples](examples/coverage_matching/) run the full
 seating benchmark.
 
+### Use your own ERP columns
+
+You can keep your source column names. For a flat BOM, make a view with the two names the
+similarity search expects. The optional quantity is ignored by Jaccard:
+
+```sql
+CREATE TABLE erp_bom AS SELECT * FROM (VALUES
+  ('P-100', 'MOTOR', 1), ('P-100', 'SEAL', 2),
+  ('P-200', 'MOTOR', 1), ('P-200', 'SEAL', 2), ('P-200', 'SENSOR', 1)
+) t(ProductNumber, ComponentNumber, QtyPer);
+CREATE VIEW erp_bom_items AS
+SELECT ProductNumber AS parent_id, ComponentNumber AS child_id, QtyPer AS quantity FROM erp_bom;
+
+SELECT material_id, round(similarity, 3) AS similarity
+FROM find_similar_materials_jaccard('P-100', 5,
+  bom_table := 'erp_bom_items', min_similarity := 0.01);
+-- P-200 | 0.667
+```
+
+For a requirement list with counts, map the three columns directly. Here `REQ-7` is the
+requirement list and the other IDs are offers; `containment = 1` means every requested count is
+covered. The `score` also includes a Jaccard tie-break, so it can exceed 1.
+
+```sql
+CREATE TABLE erp_offer_lines AS SELECT * FROM (VALUES
+  ('REQ-7', 'MOTOR', 1), ('REQ-7', 'SEAL', 2),
+  ('OFFER-A', 'MOTOR', 1), ('OFFER-A', 'SEAL', 2), ('OFFER-A', 'SENSOR', 1),
+  ('OFFER-B', 'MOTOR', 1)
+) t(OfferNumber, RequirementCode, Units);
+
+SELECT entity_id, round(containment, 3) AS coverage
+FROM find_covering_entities('REQ-7', 5,
+  feature_table := 'erp_offer_lines', entity_col := 'OfferNumber',
+  feature_col := 'RequirementCode', weight_col := 'Units');
+-- OFFER-A | 1.0
+-- OFFER-B | 0.333
+```
+
+This checks feature presence and counts. For limits such as “at most 8 A” and a value-by-value
+gap list, use [property trees](docs/guides/04-coverage-matching.md#property-trees).
+
 ## 📚 Documentation
 
 | | |
 |---|---|
-| **[Guides](docs/guides/README.md)** | Task-based guides: getting started, material similarity, predecessors and cold start, coverage matching, quantities, classification and review, evaluation, scale and dedup |
+| **[Guides](docs/guides/README.md)** | Task-based guides: getting started, material similarity, predecessors and cold start, coverage matching, quantities, classification and review, evaluation, scale and dedup, nightly pipelines |
 | **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
 | **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
 | **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |
@@ -199,13 +241,17 @@ The extension is SQL; any DuckDB client runs it.
 | Language | Client | Example |
 |---|---|---|
 | **SQL** | DuckDB CLI | `SELECT * FROM find_similar_materials_jaccard('PUMP-A', 3);` |
-| **Python** | `duckdb` package | `duckdb.sql("SELECT * FROM tree_coverage('Q1', k := 3)")` |
+| **Python** | `duckdb` package | `con.sql("SELECT * FROM tree_coverage('Q1', k := 3)")` |
 | **R** | `duckdb` package | `dbGetQuery(con, "SELECT ...")` |
 | **Java** | JDBC driver | `stmt.executeQuery("SELECT ...")` |
 | **Node.js** | `@duckdb/node-api` | `connection.run("SELECT ...")` |
 
 Load the extension binary in the client the same way as in the shell (`LOAD '<path>'`, with
-unsigned extensions allowed).
+unsigned extensions allowed). The client must have exactly the DuckDB version the binary was
+built for (`pip install duckdb==1.5.6` for a 1.5.6 build). In Python, load and query on the same
+connection: `con = duckdb.connect(config={"allow_unsigned_extensions": "true"})`, then
+`con.execute("LOAD '<path>'")` and `con.sql(...)`; the module-level `duckdb.sql` uses another connection.
+For scheduled jobs see [nightly pipelines](docs/guides/09-nightly-pipelines.md).
 
 ## 📦 Development
 
@@ -231,8 +277,11 @@ regenerate the reference with `python3 scripts/generate_api_reference.py`.
 
 ### Telemetry
 
-The extension sends anonymous usage events (function names, no data). Disable them with
-`DATAZOO_DISABLE_TELEMETRY=1` or `SET anofox_telemetry_enabled = false;` ([details](TELEMETRY.md)).
+The extension sends anonymous usage events: one event when it loads and one per function call,
+with the function name, OS, architecture and a pseudonymous machine hash; never your data, table
+names or SQL. `DATAZOO_DISABLE_TELEMETRY=1` switches off everything;
+`SET anofox_telemetry_enabled = false;` switches off the events after the load event
+([details](TELEMETRY.md)).
 
 ## 📄 License
 

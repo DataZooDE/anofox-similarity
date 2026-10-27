@@ -50,6 +50,17 @@ SET VARIABLE floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));
 SELECT * FROM tree_coverage('Q1', k := 5, name_floor := getvariable('floor'));
 ```
 
+For a prepared table-function query whose input changes between executions, use a prepared
+parameter. On DuckDB 1.5.6, `getvariable()` is evaluated when the statement is prepared, so
+changing the variable before `EXECUTE` leaves the old search input in place. DuckDB 2.0 picks up
+the new value. A parameter works on both versions:
+
+```sql
+PREPARE search AS SELECT entity_id FROM find_covering_entities_for($1, 1);
+EXECUTE search(MAP {'x': 1});
+EXECUTE search(MAP {'y': 1});
+```
+
 ---
 
 ## Parameter Reference

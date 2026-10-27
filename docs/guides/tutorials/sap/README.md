@@ -55,7 +55,7 @@ UNION ALL SELECT 'stpo', COUNT(*) FROM sap_stpo;
 | [01 - Data Transformation](01_data_transformation.md) | "How do I convert SAP tables for analysis?" | `sap_to_materials()`, `sap_to_bom_items()` |
 | [02 - Alternative BOMs](02_alternative_boms.md) | "How do we compare different manufacturing approaches?" | Alternative BOM loading, Jaccard comparison |
 | [03 - Point-in-Time Analysis](03_point_in_time_analysis.md) | "How has our BOM changed over time?" | `reference_date` parameter, change tracking |
-| [04 - Similarity at Scale](04_similarity_at_scale.md) | "How do I search 1M+ materials efficiently?" | HNSW indexing, embeddings |
+| [04 - Similarity at Scale](04_similarity_at_scale.md) | "How do I search 1M+ materials efficiently?" | Exact search, MinHash index, LSH batch search |
 | [05 - Multi-Language Descriptions](05_multilanguage_descriptions.md) | "How do I work with multi-language descriptions?" | Language filtering, MAKT joins |
 
 ## SAP Table Structure
@@ -71,7 +71,8 @@ MARA (Material Master)
 MAKT (Descriptions)
 ├── matnr: Material number
 ├── spras: Language key (E=English, D=German, F=French)
-└── maktx: Description text
+├── maktx: Description text
+└── maktg: Description in upper case (used for matching)
 
 MAST (BOM Assignment)
 ├── matnr: Parent material

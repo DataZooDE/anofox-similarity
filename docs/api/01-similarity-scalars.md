@@ -96,6 +96,11 @@ FROM cross_product_of_materials;
   non-negative; a NULL weight counts as 1, and a zero weight means "absent". Keys may be of
   any type and are compared by their text form, so `1` and `'1'` match (in the scalars and in
   `find_covering_entities_for` against the feature column cast to VARCHAR).
+- List elements of different types: `tversky_similarity` and `containment` compare the text
+  form, `jaccard_similarity` the typed value. So `jaccard_similarity([1, 2], ['1', '2'])` is 0.0
+  while `tversky_similarity([1, 2], ['1', '2'])` is 1.0, and an INTEGER list never matches a
+  DOUBLE or DECIMAL list in any of them (`'1'` vs `'1.0'`). Cast both sides to the same type,
+  for example `::VARCHAR[]`, before comparing ids from different sources.
 - NULL arguments give NULL. `alpha` and `beta` must be non-negative.
 - The parameters are called `query` and `candidate` because the measures are directional
   (`jaccard_similarity` keeps `list_a` / `list_b`).

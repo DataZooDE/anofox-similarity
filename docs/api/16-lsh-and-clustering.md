@@ -21,8 +21,9 @@ each query and partition the containment threshold becomes a Jaccard threshold f
 partition's largest set. The rows per band (1, 2, 4 or 8) are chosen so that the LSH S-curve
 passes below that threshold. The containment estimate is J (|q| + |c|) / ((1 + J) |q|), capped
 at 1. With a pivot vocabulary of about 20 classes the multisets overlap so much that LSH still
-scores about half the candidates (examples/dedup_and_lsh). It pays off for large raw vocabularies such as BOM
-components. With 20 000 entities over 5 000 features, it scores 80 candidates per query; a
+scores about half the candidates (examples/dedup_and_lsh). It can pay off for large raw
+vocabularies such as BOM components, but measure first: on 20 000 and 100 000 BOMs a batched
+exact join was faster ([guide 08](../guides/08-scale-and-dedup.md)). A
 stored `minhash_bands` table turns the band lookup into a hash join, while without it the
 index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
 `(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
@@ -187,7 +188,7 @@ SELECT connected_components([{'a': 'x', 'b': 'y'}, {'a': 'y', 'b': 'z'}]);
 
 *Table function*
 
-Entity clustering: a C++ union-find over the pairs whose score (score_col, default 'score') is at or above threshold (default 0.8). Returns entity_id, cluster_id (the smallest member id) and cluster_size for every entity in the pairs table (left_col/right_col, default 'a'/'b'); entities without a pair above the threshold form their own cluster. For a graph view, see the DuckPGQ recipe in the API reference.
+Entity clustering: a C++ union-find over the pairs whose score (score_col, default 'score') is at or above threshold (default 0.8). Returns entity_id, cluster_id (the smallest member id) and cluster_size for every entity in the pairs table (left_col/right_col, default 'a'/'b'); entities without a pair above the threshold form their own cluster. For a graph view, see the DuckPGQ recipe in the extension documentation (LSH and clustering).
 
 ```sql
 cluster_matches(pairs_table, threshold, left_col, right_col, score_col)

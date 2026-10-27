@@ -110,7 +110,7 @@ FROM eval_calibration('results', 'gold');
 
 | n_pairs | mae    | bias   | spearman |
 |--------:|-------:|-------:|---------:|
-| 1600    | 0.0356 | 0.0309 | 0.972    |
+| 1600    | 0.0358 | 0.0312 | 0.972    |
 
 ## Auto-Accept Threshold
 
@@ -179,9 +179,9 @@ SELECT label_weight, mu, round(mae, 4) AS mae, n_pairs, rank FROM fit ORDER BY r
 
 | label_weight | mu  | mae    | n_pairs | rank |
 |-------------:|----:|-------:|--------:|-----:|
-| 0.0          | 0.4 | 0.032  | 400     | 1    |
-| 0.0          | 0.2 | 0.0361 | 400     | 2    |
-| 0.0          | 0.0 | 0.0434 | 400     | 3    |
+| 0.0          | 0.4 | 0.0321 | 400     | 1    |
+| 0.0          | 0.2 | 0.0363 | 400     | 2    |
+| 0.0          | 0.0 | 0.0435 | 400     | 3    |
 
 Check the best point on the 60 requests that were not used for the fit:
 
@@ -205,7 +205,7 @@ SELECT (SELECT round(mae, 4) FROM eval_calibration('holdout_default', 'gold')) A
 
 | mae_default | mae_fitted |
 |------------:|-----------:|
-| 0.0354      | 0.0318     |
+| 0.0357      | 0.0321     |
 
 The fitted weights hold on the holdout. Only then change the defaults in your pipeline. The grid
 takes at most 20 values per axis. Tune the classifier's `attr_bonus` and `temperature` separately

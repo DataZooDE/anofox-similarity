@@ -563,3 +563,42 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | D-3 | med | A partly classified request reads like real gaps | Deferred: an n_unclassified column changes the output; guide 04 shows the check |
 | D-4 | low | `within` requires the whole range; history_months semantics; threshold_at_precision denominator; empty-set convention; 2.0 binder message; one bad id fails a batch | Deferred; documented where users meet them |
 | D-5 | — | CI job for the doc checks | Not added: the user prefers minimal CI; the checks run locally before a PR, readme_quickstart.test runs in CI |
+
+## UR-3 — 2026-10-27 — third round of user testing and a docs evaluation (user request)
+
+- **User-testing crew** with new angles: adversarial inputs over all 79 functions, a data
+  engineer running a nightly pipeline on a database file, property-based checks of the math
+  (thousands of generated cases), and a Dynamics 365 newcomer with 30 minutes. Reports in
+  `docs/dev/exploratory/round3-*.md`. No crash, no INTERNAL error. The set measures, value
+  monotonicity and unit invariance, trace bookkeeping, evaluation metrics and clustering held
+  on every generated case. UR-2 fixes held beyond their regression inputs.
+- **Evaluation crew** (reader-advocate, consistency-auditor, pragmatist): REQUEST_CHANGES,
+  consensus about 8/10. Remaining issues sat in tutorials and hand-written API prose.
+- **Scenario research** (UR-4 preparation, review mode with a discussion round) re-probed the
+  parser with procurement and tender text; its parser findings are fixed here (H1–H4).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Negated bound words reversed: `nicht über 38 dB(A)` accepted 45 dB(A) | Fixed: the phrase closest to the number decides, a negation before it flips it; English comparatives added |
+| F2 | high | Partition assigned same-class items by node id, ignoring values: false gaps, rank depended on ids | Fixed: moves and swaps between tied requirements while the score sum rises. 109 of 1 600 benchmark pairs score higher (mean +0.004), rankings unchanged; MAE 0.0356 → 0.0358 |
+| F3 | med | `jaccard_similarity` compares typed values, `tversky`/`containment` text: mixed-type lists disagree | Deferred: one comparison rule changes existing output; documented in api/01 |
+| F4 | low | A value exactly at the tolerance scored below 1 in mm, 1 in m | Fixed: epsilon at the tolerance |
+| F5 | low | `weighted_jaccard` gave NaN for weights near 1e308 | Fixed: weights scaled by the largest one |
+| F6 | low | `1 00 N` read as the count 1 | Fixed: unparsed trailing digits give the unknown-unit form |
+| U3-1 | high | `mind 6 cm` (no period) had no bound | Fixed |
+| A1 | med | NULL signature elements compared as 0 (false MinHash matches) | Fixed: an error naming the element |
+| A2 | med | A prepared `getvariable()` search keeps the old input on 1.5.6 | DuckDB 1.5.6 behaviour; `$1` parameters documented in api/00 |
+| A3 | low | `cosine_floor` of identical vectors is 1.0, which `calibrated_cosine` rejects | Documented (cap with `LEAST(floor, 0.999)`) |
+| DE1 | med | HNSW indexes recreated on every load (a dropped index came back; file growth) | Fixed: indexes only with a new `material_embeddings` |
+| DE2 | med | A stale `minhash_bands` table went undetected | Fixed: fingerprint of every entity's first band hash |
+| DE4 | med | `validate_trees` missed duplicate attribute rows and NULL keys | Fixed: `duplicate_attribute`, `null_key` |
+| DE8 | low | `vocabulary_review_queue` empty when no decision matched a node | Fixed: an error (a `sources` filter may still empty it) |
+| DE9 | low | VARCHAR `quantity` gave a raw binder error | Fixed: error names the column and the conversion |
+| DE3, DE6, DE7 | med | `filter_recent_movements` on text dates; TIMESTAMPTZ without ICU on the built shell; 2.0 without vss | Documented in guide 09 |
+| DE5 | med | `classify_to_catalogue` centring depends on the batch (incremental runs differ) | Deferred: needs stored source means; documented in guides 06 and 09 |
+| H1 | high | `not to exceed`, `nicht zu überschreiten`, trailing `nicht überschreiten` | Fixed |
+| H2 | high | Designations read as numbers (`M8x1,25` → 25, `A4-70`, `EN-GJS-400-15`, `EN 10204`) | Fixed: refuse to guess (empty parse); `PN 16`/`DN 50` are categories like `IP 65` |
+| H3 | med | Categories parsed from text have no dimension, so the kernel missed their rules (compat_score did not) | Fixed: a rule for the pair is used when every dimension agrees on it |
+| H4 | med | A bare `± 0,02 mm` had no bound | Fixed: `at_most` on the half-width |
+| E1–E16 | — | Evaluation: SAP scale tutorial queried AdventureWorks ids; embed_text cross-language recipe; unvalidated forecasting claims; placeholder described as semantic; api/13 vs guide 04; api/16 vs guide 08; README telemetry and counts; error texts named query_material_id | Fixed (docs and C++ descriptions; reference regenerated) |
+| — | low | "Please report it" suffix on input errors | Deferred: comes from the shared datazoo-banner submodule (all extensions) |
