@@ -89,6 +89,7 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 	ValidateTableColumns(context, bom_table, {"parent_id", "child_id"}, "bom_table");
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
+	ValidateDateColumn(context, movements_table, "movement_date", "movements_table");
 
 	string sql = StringUtil::Format(R"(
 		SELECT * FROM (

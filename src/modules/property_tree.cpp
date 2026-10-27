@@ -398,7 +398,56 @@ struct JsonTreeContext {
 	std::unordered_set<string> seen;
 };
 
+idx_t EditDistance(const string &a, const string &b) {
+	vector<idx_t> row(b.size() + 1);
+	for (idx_t j = 0; j <= b.size(); j++) {
+		row[j] = j;
+	}
+	for (idx_t i = 1; i <= a.size(); i++) {
+		idx_t diagonal = row[0];
+		row[0] = i;
+		for (idx_t j = 1; j <= b.size(); j++) {
+			idx_t above = row[j];
+			row[j] = MinValue(MinValue(row[j] + 1, row[j - 1] + 1), diagonal + (a[i - 1] == b[j - 1] ? 0 : 1));
+			diagonal = above;
+		}
+	}
+	return row[b.size()];
+}
+
+//! A key that is close to a known one is a typo that would drop data silently; other keys are
+//! metadata and are ignored.
+void CheckKeys(const Json &object, std::initializer_list<const char *> known, const string &where) {
+	for (auto &field : object.fields) {
+		bool is_known = false;
+		for (auto k : known) {
+			is_known = is_known || field.first == k;
+		}
+		if (is_known || field.first.size() < 3) {
+			continue;
+		}
+		auto key = StringUtil::Lower(field.first);
+		for (auto k : known) {
+			string known_key = k;
+			idx_t common = 0;
+			while (common < key.size() && common < known_key.size() && key[common] == known_key[common]) {
+				common++;
+			}
+			// two edits away, or a shortened / inflected form (childs, attrib) of the known key
+			bool same_stem = common >= 4 && key.size() <= known_key.size() + 2;
+			idx_t max_edits = key.size() <= 3 ? 1 : 2; // short keys (pos, ref) are rarely typos of lo/hi
+			if (EditDistance(key, known_key) <= max_edits || same_stem) {
+				throw InvalidInputException("tree_from_json: %s: unknown key '%s' (did you mean '%s'?)", where,
+				                            field.first, k);
+			}
+		}
+	}
+}
+
 Value AttributeFromJson(const Json &a, const string &attr_id, const string &node_id, const JsonTreeContext &ctx) {
+	CheckKeys(a,
+	          {"attr_id", "name", "text", "value_text", "lo", "hi", "unit", "bound", "role", "qualifier", "category"},
+	          "node '" + node_id + "', attribute '" + attr_id + "'");
 	auto &units = *ctx.units;
 	string text = JsonString(a.Get("text"));
 	if (text.empty()) {
@@ -487,6 +536,10 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	if (node_id.empty()) {
 		throw InvalidInputException("tree_from_json: a node has no node_id (%s)", where);
 	}
+	CheckKeys(n,
+	          {"node_id", "kind", "node_kind", "children", "attributes", "edge", "edge_type", "count", "source",
+	           "class_id", "label", "context", "tree_id", "lang", "role"}, // a bare root node carries the document's keys
+	          "node '" + node_id + "'");
 	if (!ctx.seen.insert(node_id).second) {
 		throw InvalidInputException("tree_from_json: duplicate node_id '%s' in tree '%s'", node_id, ctx.tree_id);
 	}
@@ -521,6 +574,10 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	auto count_field = n.Get("count");
 	if (count_field && !count_field->IsNull() && (!JsonNumber(count_field, count) || !std::isfinite(count))) {
 		throw InvalidInputException("tree_from_json: node '%s': count must be a number", node_id);
+	}
+	if (count <= 0) {
+		throw InvalidInputException("tree_from_json: node '%s': count must be positive, not %s", node_id,
+		                            Value::DOUBLE(count).ToString());
 	}
 	string source = JsonString(n.Get("source"));
 	if (source.empty()) {
@@ -584,6 +641,8 @@ void TreeFromJsonFun(DataChunk &args, ExpressionState &, Vector &result) {
 		const Json *root = root_doc.Get("root");
 		if (!root) {
 			root = &root_doc; // a bare node is accepted as the root
+		} else {
+			CheckKeys(root_doc, {"tree_id", "root", "source", "lang", "role"}, "the document");
 		}
 		JsonTreeContext ctx;
 		Value override_id = args.ColumnCount() > 1 ? args.data[1].GetValue(i) : Value();
@@ -1176,7 +1235,8 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 		    "[...]}}) into a LIST of node STRUCTs with normalised attributes (base units, dimension; text-only values "
 		    "are parsed with parse_quantity in the document's lang, or lang if given; unit_table extends the units "
 		    "seed as in parse_quantity). Attribute STRUCTs carry tree_id and node_id. Unnest it into tree_nodes and "
-		    "tree_attributes. Schema: docs/requirements-matching/tree.schema.json.";
+		    "tree_attributes. A non-positive count, or a key close to a known one (childs, txt), is an error naming the "
+		    "node; other keys are ignored. Schema: docs/requirements-matching/tree.schema.json.";
 		for (auto names : {vector<string> {"json"}, vector<string> {"json", "tree_id"},
 		                   vector<string> {"json", "tree_id", "lang"},
 		                   vector<string> {"json", "tree_id", "lang", "unit_table"}}) {

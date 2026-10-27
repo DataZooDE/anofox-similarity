@@ -1008,6 +1008,20 @@ void ReadTreeSides(const CoverageParamReader &r, TableFunctionBindInput &input, 
 	}
 	ValidateTreeSource(r.context, p.q, r.fn);
 	ValidateTreeSource(r.context, p.c, r.fn, "candidate_");
+	if (stage2) {
+		// an explicit nodes table without its attributes would silently read another table's values
+		if (r.Get("nodes_table") && !r.Get("attrs_table") && p.q.nodes_table != "tree_nodes") {
+			throw BinderException("%s: nodes_table '%s' is given but attrs_table is not; name the attributes table "
+			                      "(attrs_table := NULL for none)",
+			                      r.fn, p.q.nodes_table);
+		}
+		if (r.Get("candidate_nodes_table") && !r.Get("candidate_attrs_table") &&
+		    p.c.nodes_table != p.q.nodes_table) {
+			throw BinderException("%s: candidate_nodes_table '%s' is given but candidate_attrs_table is not; name the "
+			                      "candidates' attributes table (candidate_attrs_table := NULL for none)",
+			                      r.fn, p.c.nodes_table);
+		}
+	}
 	p.same_nodes_table =
 	    ResolvedRelationName(r.context, p.q.nodes_table) == ResolvedRelationName(r.context, p.c.nodes_table);
 }
@@ -1470,7 +1484,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	const string common =
 	    " query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default "
 	    "'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the "
-	    "same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
+	    "same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
 	    "Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else "
 	    "by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class "
 	    "multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip "

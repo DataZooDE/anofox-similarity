@@ -51,19 +51,20 @@ void AddPrefixed(vector<UnitDef> &out, const string &base, const string &dimensi
 vector<UnitDef> SeedUnits() {
 	vector<UnitDef> u;
 	// length
-	u.push_back({"m", {}, "length", 1.0, 0});
+	u.push_back({"m", {"M"}, "length", 1.0, 0}); // M, G, KG, MM: SAP unit codes
 	u.push_back({"km", {"KM"}, "length", 1e3, 0});
 	u.push_back({"cm", {"CM"}, "length", 1e-2, 0});
 	u.push_back({"mm", {"MM"}, "length", 1e-3, 0});
 	u.push_back({"µm", {"um"}, "length", 1e-6, 0});
 	u.push_back({"nm", {}, "length", 1e-9, 0});
+	u.push_back({"inch", {"inches", "Zoll", "IN", "\""}, "length", 0.0254, 0}); // not "in": "3 in 1"
 	// mass
 	u.push_back({"kg", {"KG"}, "mass", 1.0, 0});
-	u.push_back({"g", {}, "mass", 1e-3, 0});
+	u.push_back({"g", {"G"}, "mass", 1e-3, 0});
 	u.push_back({"mg", {}, "mass", 1e-6, 0});
 	u.push_back({"t", {}, "mass", 1e3, 0});
 	// time
-	u.push_back({"s", {"sec", "second", "seconds", "Sekunde", "Sekunden"}, "time", 1.0, 0});
+	u.push_back({"s", {"sec", "second", "seconds", "Sek", "Sekunde", "Sekunden"}, "time", 1.0, 0});
 	u.push_back({"ms", {}, "time", 1e-3, 0});
 	u.push_back({"µs", {"us"}, "time", 1e-6, 0});
 	u.push_back({"min", {"minute", "minutes", "Minute", "Minuten"}, "time", 60.0, 0});
@@ -79,6 +80,7 @@ vector<UnitDef> SeedUnits() {
 	AddPrefixed(u, "Ω", "resistance", {{"m", 1e-3}, {"k", 1e3}, {"M", 1e6}}, {"Ohm", "ohm"});
 	AddPrefixed(u, "F", "capacitance", {{"m", 1e-3}, {"µ", 1e-6}, {"n", 1e-9}, {"p", 1e-12}});
 	AddPrefixed(u, "Hz", "frequency", {{"k", 1e3}, {"M", 1e6}, {"G", 1e9}});
+	u.push_back({"rpm", {"U/min", "1/min", "min-1", "RPM"}, "frequency", 1.0 / 60.0, 0});
 	// energy
 	AddPrefixed(u, "J", "energy", {{"k", 1e3}, {"M", 1e6}});
 	u.push_back({"Wh", {}, "energy", 3600.0, 0});
@@ -459,6 +461,41 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 				break;
 			}
 		}
+		// a space (or NBSP, narrow NBSP) between groups of three digits is a thousands separator
+		// (DIN 1333, SI style): 1 000 N, 12 345 678 mm
+		bool spaced = false;
+		if (j - i <= 3 && std::all_of(s.begin() + i, s.begin() + j, IsDigit)) {
+			auto space_width = [&](idx_t p) -> idx_t {
+				if (p < s.size() && s[p] == ' ') {
+					return 1;
+				}
+				if (p + 1 < s.size() && (unsigned char)s[p] == 0xC2 && (unsigned char)s[p + 1] == 0xA0) {
+					return 2;
+				}
+				if (p + 2 < s.size() && (unsigned char)s[p] == 0xE2 && (unsigned char)s[p + 1] == 0x80 &&
+				    (unsigned char)s[p + 2] == 0xAF) {
+					return 3;
+				}
+				return 0;
+			};
+			while (auto w = space_width(j)) {
+				idx_t d = j + w;
+				if (d + 3 <= s.size() && IsDigit(s[d]) && IsDigit(s[d + 1]) && IsDigit(s[d + 2]) &&
+				    (d + 3 == s.size() || !IsDigit(s[d + 3]))) {
+					j = d + 3;
+					spaced = true;
+				} else {
+					break;
+				}
+			}
+			// a decimal part after the last group: 1 000,5
+			if (spaced && j + 1 < s.size() && (s[j] == '.' || s[j] == ',') && IsDigit(s[j + 1])) {
+				j++;
+				while (j < s.size() && IsDigit(s[j])) {
+					j++;
+				}
+			}
+		}
 		// scientific notation: 1e-3, 2.5E6
 		if (j < s.size() && (s[j] == 'e' || s[j] == 'E')) {
 			idx_t k = j + 1;
@@ -473,6 +510,15 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 			}
 		}
 		auto raw = s.substr(begin, j - begin);
+		if (spaced) {
+			string digits_only;
+			for (auto c : raw) {
+				if (c != ' ' && (unsigned char)c < 0x80) {
+					digits_only += c; // drops the spaces and the bytes of NBSP / narrow NBSP
+				}
+			}
+			raw = digits_only;
+		}
 		out.push_back({begin, j, ParseNumberText(raw, primary_lang), minus});
 		i = j;
 	}
@@ -763,12 +809,16 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 		q.bound = "at_most";
 	} else if (tolerance || ends_with(trimmed_prefix, "=") || HasWord(pw, {"nominal", "nennwert"})) {
 		q.bound = "equals";
-	} else if (HasWord(pw, {"at most", "max.", "max", "maximum", "maximal", "höchstens", "bis zu", "up to",
-	                        "not more than", "nicht mehr als"}) ||
+	} else if (HasWord(pw, {"not less than", "nicht weniger als"})) {
+		q.bound = "at_least"; // before "less than" / "weniger als" below
+	} else if (HasWord(pw, {"at most", "max.", "max", "maximum", "maximal", "höchstens", "bis zu", "bis", "up to",
+	                        "not more than", "nicht mehr als", "unter", "kleiner", "weniger als", "below",
+	                        "less than"}) ||
 	           HasWord(sw, {"max.", "max", "maximum", "or less", "oder weniger"})) {
 		q.bound = "at_most";
-	} else if (HasWord(pw, {"at least", "min.", "min", "minimum", "minimal", "mindestens", "not less than",
-	                        "nicht weniger als"}) ||
+	} else if (HasWord(pw, {"at least", "min.", "min", "minimum", "minimal", "mindestens", "mind.", "not less than",
+	                        "nicht weniger als", "ab", "über", "größer", "mehr als", "above", "more than",
+	                        "from"}) ||
 	           HasWord(sw, {"min.", "min", "minimum", "or better", "oder besser", "or more", "oder mehr"})) {
 		q.bound = "at_least";
 	}
@@ -1240,7 +1290,8 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, "
 	    "equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators "
 	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, dimension, factor, "
-	    "offset) that extends or overrides the seed (see quantity_units()). A bare number is a count; an unknown unit "
+	    "offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator "
+	    "('1 000 N'). A bare number is a count; an unknown unit "
 	    "keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).",
 	    {{{vc}, {"text"}, {"SELECT parse_quantity('max. 38 dB(A)');"}},
 	     {{vc, vc}, {"text", "lang"}, {"SELECT parse_quantity('65.000 Zyklen', 'de');"}},

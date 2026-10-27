@@ -204,5 +204,63 @@ inline bool TableHasColumn(ClientContext &context, const string &table_path, con
 	return true;
 }
 
+//! The type of a table's or view's column; false when it cannot be determined.
+inline bool RelationColumnType(ClientContext &context, const string &path, const string &column, LogicalType &type) {
+	auto entry = LookupRelation(context, path, CatalogType::TABLE_ENTRY);
+	if (entry) {
+		auto &table = entry->Cast<TableCatalogEntry>();
+		if (!table.ColumnExists(duckdb_compat::Ident(column))) {
+			return false;
+		}
+		type = table.GetColumn(duckdb_compat::Ident(column)).Type();
+		return true;
+	}
+	try {
+		auto view = LookupRelation(context, path, CatalogType::VIEW_ENTRY);
+		if (!view) {
+			return false;
+		}
+		auto &v = view->Cast<ViewCatalogEntry>();
+		v.BindView(context);
+		auto info = v.GetColumnInfo();
+		if (!info) {
+			return false;
+		}
+		for (idx_t i = 0; i < info->names.size() && i < info->types.size(); i++) {
+			const string &name = i < v.aliases.size() ? static_cast<const string &>(v.aliases[i])
+			                                          : static_cast<const string &>(info->names[i]);
+			if (StringUtil::CIEquals(name, column)) {
+				type = info->types[i];
+				return true;
+			}
+		}
+	} catch (...) {
+	}
+	return false;
+}
+
+//! A date column (movement_date) must be a DATE or TIMESTAMP; text dates get a conversion hint.
+inline void ValidateDateColumn(ClientContext &context, const string &table_path, const string &column,
+                               const string &param_name) {
+	LogicalType type;
+	if (!RelationColumnType(context, table_path, column, type)) {
+		return;
+	}
+	switch (type.id()) {
+	case LogicalTypeId::DATE:
+	case LogicalTypeId::TIMESTAMP:
+	case LogicalTypeId::TIMESTAMP_TZ:
+	case LogicalTypeId::TIMESTAMP_SEC:
+	case LogicalTypeId::TIMESTAMP_MS:
+	case LogicalTypeId::TIMESTAMP_NS:
+		return;
+	default:
+		throw BinderException("%s '%s': column %s is %s, expected DATE or TIMESTAMP; convert it in a view, e.g. "
+		                      "strptime(budat, '%%Y%%m%%d')::DATE AS %s",
+		                      param_name.c_str(), table_path.c_str(), column.c_str(), type.ToString().c_str(),
+		                      column.c_str());
+	}
+}
+
 } // namespace anofox
 } // namespace duckdb

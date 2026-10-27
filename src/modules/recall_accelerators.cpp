@@ -222,9 +222,16 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 	auto entity = p.Column(table, "entity_col", "entity_id", "feature_table");
 	auto feature = p.Column(table, "feature_col", "feature_id", "feature_table");
 	string weight = "1.0::DOUBLE";
+	string combine = "max"; // unit weights are a set, as in find_covering_entities
 	auto weight_name = p.Str("weight_col", "weight");
 	if (!weight_name.empty()) {
+		if (!p.Get("weight_col") && !p.Has(table, "weight")) {
+			throw BinderException("%s: feature_table '%s' has no column 'weight'; pass weight_col := '<column>', or "
+			                      "weight_col := NULL for unit weights",
+			                      p.fn, table);
+		}
 		weight = "COALESCE(CAST(" + p.Column(table, "weight_col", "weight", "feature_table") + " AS DOUBLE), 1.0)";
+		combine = "sum";
 	}
 	int64_t nh = p.Int("num_hashes", 128);
 	int64_t seed = p.Int("seed", 7);
@@ -245,7 +252,7 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 			SELECT CASE WHEN EXISTS (SELECT 1 FROM raw WHERE w < 0 OR NOT isfinite(w))
 			            THEN error('minhash_index: weights must not be negative or non-finite') END AS g
 		),
-		f AS (SELECT entity_id, feature_id, sum(w) AS w FROM raw, guard WHERE guard.g IS NULL GROUP BY ALL),
+		f AS (SELECT entity_id, feature_id, %s(w) AS w FROM raw, guard WHERE guard.g IS NULL GROUP BY ALL),
 		s AS (
 			SELECT entity_id, sum(w) AS total_weight,
 			       weighted_minhash(map_from_entries(list(struct_pack(k := feature_id, v := w))), %lld, %lld) AS signature
@@ -258,7 +265,7 @@ unique_ptr<TableRef> MinhashIndexBindReplace(ClientContext &context, TableFuncti
 		       %lld AS num_hashes, %lld AS seed
 		FROM s ORDER BY entity_id
 	)",
-	                              entity, feature, weight, QuotedIdentifier(table), entity, feature, (long long)nh,
+	                              entity, feature, weight, QuotedIdentifier(table), entity, feature, combine, (long long)nh,
 	                              (long long)seed, (long long)parts, (long long)nh, (long long)(nh / 2),
 	                              (long long)(nh / 4), (long long)(nh / 8), (long long)nh, (long long)seed);
 	return CoverageSubquery(sql, context, p.fn);
@@ -310,7 +317,9 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 	if (!(t > 0 && t <= 1)) {
 		throw BinderException("%s: threshold must be in (0, 1]", p.fn);
 	}
-	string weight = p.Has(queries, "weight") ? "COALESCE(CAST(weight AS DOUBLE), 1.0)" : "1.0::DOUBLE";
+	bool weighted_queries = p.Has(queries, "weight");
+	string weight = weighted_queries ? "COALESCE(CAST(weight AS DOUBLE), 1.0)" : "1.0::DOUBLE";
+	string combine = weighted_queries ? "sum" : "max"; // unweighted queries are sets
 	// per query and size partition, the Jaccard threshold that the containment threshold implies
 	// for the partition's largest set, and the rows per band whose S-curve threshold lies below it
 	string jstar = mode == "jaccard" ? DoubleLiteral(t)
@@ -349,7 +358,7 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 			SELECT CASE WHEN EXISTS (SELECT 1 FROM qraw WHERE w < 0 OR NOT isfinite(w))
 			            THEN error('find_covering_entities_lsh: weights must not be negative or non-finite') END AS g
 		),
-		qf AS (SELECT query_id, f, sum(w) AS w FROM qraw, qguard WHERE qguard.g IS NULL GROUP BY ALL),
+		qf AS (SELECT query_id, f, %s(w) AS w FROM qraw, qguard WHERE qguard.g IS NULL GROUP BY ALL),
 		qs AS (
 			SELECT query_id, sum(w) AS total,
 			       weighted_minhash(map_from_entries(list(struct_pack(k := f, v := w))), (SELECT nh FROM prm),
@@ -384,7 +393,7 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 		QUALIFY rank <= %lld
 		ORDER BY s.query_id, rank
 	)",
-	                              QuotedIdentifier(index), weight, QuotedIdentifier(queries), jstar, bands_sql, estimate,
+	                              QuotedIdentifier(index), weight, QuotedIdentifier(queries), combine, jstar, bands_sql, estimate,
 	                              estimate, (long long)k);
 	return CoverageSubquery(sql, context, p.fn);
 }
@@ -432,7 +441,8 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	     {"feature_col", vc},
 	     {"weight_col", vc}},
 	    "Builds a weighted-MinHash index of a feature multiset (feature_table, default 'feature_multiset'; "
-	    "entity_col/feature_col/weight_col as in find_covering_entities; weight_col := NULL for unit weights): one "
+	    "entity_col/feature_col/weight_col as in find_covering_entities; weight_col := NULL for unit weights, where "
+	    "duplicate rows count once): one "
 	    "row per entity with total_weight, its size partition (partitions quantiles, default 4), signature "
 	    "(num_hashes, a multiple of 8, default 128; seed default 7), band_hashes for 1, 2, 4 and 8 rows per band "
 	    "(concatenated), num_hashes and seed. Store it as a table; find_covering_entities_lsh searches it.",

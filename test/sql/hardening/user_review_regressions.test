@@ -30,12 +30,14 @@ statement ok
 CREATE TABLE unlabelled AS SELECT * EXCLUDE (class_id), NULL::VARCHAR AS class_id FROM tree_nodes;
 
 statement error
-SELECT * FROM tree_coverage('Q1', k := 5, nodes_table := 'unlabelled', candidate_nodes_table := 'tree_nodes');
+SELECT * FROM tree_coverage('Q1', k := 5, nodes_table := 'unlabelled', attrs_table := 'tree_attributes',
+                            candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes');
 ----
 query tree 'Q1' has no classified items (give class_id, overrides_table or label_table)
 
 statement error
-SELECT * FROM tree_coverage_trace('Q1', candidates := ['S1'], nodes_table := 'unlabelled', candidate_nodes_table := 'tree_nodes');
+SELECT * FROM tree_coverage_trace('Q1', candidates := ['S1'], nodes_table := 'unlabelled', attrs_table := 'tree_attributes',
+                                  candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes');
 ----
 has no classified items
 
@@ -175,3 +177,213 @@ query I
 SELECT count(*) FROM find_similar_materials_jaccard('NOPE', 5);
 ----
 0
+
+# an unweighted feature table (a BOM) gets the same unit-weights hint from minhash_index as from
+# find_covering_entities, and weight_col := NULL indexes it
+statement ok
+CREATE OR REPLACE TABLE plain_bom (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO plain_bom VALUES ('A', 'x'), ('A', 'y'), ('B', 'x'), ('B', 'y'), ('B', 'z');
+
+statement error
+SELECT * FROM minhash_index(feature_table := 'plain_bom', entity_col := 'parent_id', feature_col := 'child_id');
+----
+weight_col := NULL for unit weights
+
+query I
+SELECT count(*) FROM minhash_index(feature_table := 'plain_bom', entity_col := 'parent_id', feature_col := 'child_id', weight_col := NULL);
+----
+2
+
+# unit weights are set semantics in the LSH path, as in find_covering_entities: a duplicate BOM
+# line does not double a component
+statement ok
+CREATE OR REPLACE TABLE dup_bom (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO dup_bom VALUES ('A', 'x'), ('A', 'x'), ('A', 'y'), ('B', 'x'), ('B', 'y');
+
+statement ok
+CREATE OR REPLACE TABLE dup_index AS
+SELECT * FROM minhash_index(feature_table := 'dup_bom', entity_col := 'parent_id', feature_col := 'child_id', weight_col := NULL);
+
+query TR
+SELECT entity_id, total_weight FROM dup_index ORDER BY entity_id;
+----
+A	2.0
+B	2.0
+
+statement ok
+CREATE OR REPLACE TABLE dup_queries AS SELECT * FROM (VALUES ('q', 'x'), ('q', 'x'), ('q', 'y')) t(query_id, feature_id);
+
+query TR
+SELECT entity_id, estimate FROM find_covering_entities_lsh('dup_queries', 'dup_index', k := 2) ORDER BY entity_id;
+----
+A	1.0
+B	1.0
+
+# German bound words that hand-written specs use
+query TT
+SELECT w, parse_quantity(w, 'de').bound FROM (VALUES
+  ('mind. 50.000 Zyklen'), ('ab 5 °C'), ('über 20 N'), ('größer 20 N'), ('größer als 20 N'),
+  ('größer gleich 20 N'), ('mehr als 3 Stk'), ('bis 5 A'), ('unter 40 dB(A)'), ('kleiner 40 dB(A)'),
+  ('kleiner als 40 dB(A)'), ('kleiner gleich 40 dB(A)'), ('weniger als 2 kg'), ('5 bis 10 A')) t(w);
+----
+mind. 50.000 Zyklen	at_least
+ab 5 °C	at_least
+über 20 N	at_least
+größer 20 N	at_least
+größer als 20 N	at_least
+größer gleich 20 N	at_least
+mehr als 3 Stk	at_least
+bis 5 A	at_most
+unter 40 dB(A)	at_most
+kleiner 40 dB(A)	at_most
+kleiner als 40 dB(A)	at_most
+kleiner gleich 40 dB(A)	at_most
+weniger als 2 kg	at_most
+5 bis 10 A	within
+
+query R
+SELECT value_satisfies(parse_quantity('mind. 50.000 Zyklen', 'de'), parse_quantity('100.000 Zyklen', 'de')).score;
+----
+1.0
+
+# SAP's upper-case unit codes for metre and gram
+query TT
+SELECT parse_quantity('3 M').dimension, parse_quantity('5 G').dimension;
+----
+length	mass
+
+query TT
+SELECT w, parse_quantity(w).bound FROM (VALUES ('not less than 5 A'), ('nicht weniger als 5 A'),
+  ('not more than 5 A'), ('nicht mehr als 5 A'), ('less than 5 A'), ('more than 5 A')) t(w);
+----
+not less than 5 A	at_least
+nicht weniger als 5 A	at_least
+not more than 5 A	at_most
+nicht mehr als 5 A	at_most
+less than 5 A	at_most
+more than 5 A	at_least
+
+# a non-positive count is rejected when the tree is loaded, naming the node
+statement error
+SELECT tree_from_json('{"root": {"node_id": "a", "kind": "item", "class_id": "x", "count": 0}}');
+----
+node 'a': count must be positive
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "a", "kind": "item", "class_id": "x", "count": -2}}');
+----
+count must be positive
+
+# a space (also NBSP, narrow NBSP) as thousands separator (DIN 1333, SI style)
+query IRT
+SELECT i, parse_quantity(t, 'de').lo, parse_quantity(t, 'de').dimension FROM (VALUES
+  (1, '1 000 N'), (2, 'mind. 50 000 Zyklen'), (3, '1 000,5 N'), (4, '12 345 678 mm'),
+  (5, '1' || chr(160) || '000 N'), (6, '1' || chr(8239) || '000 N')) v(i, t) ORDER BY i;
+----
+1	1000.0	force
+2	50000.0	count
+3	1000.5	force
+4	12345.678	length
+5	1000.0	force
+6	1000.0	force
+
+# ranges keep working next to the new bound words and separators
+query TT
+SELECT t, parse_quantity(t, 'de').bound FROM (VALUES
+  ('von 22 bis 26 cm'), ('20 bis 28 cm'), ('zwischen 4 und 5 kg'), ('from 22 to 26 cm'), ('2 000 bis 3 000 N')) v(t);
+----
+von 22 bis 26 cm	within
+20 bis 28 cm	within
+zwischen 4 und 5 kg	within
+from 22 to 26 cm	within
+2 000 bis 3 000 N	within
+
+query RR
+SELECT parse_quantity('2 000 bis 3 000 N', 'de').lo, parse_quantity('2 000 bis 3 000 N', 'de').hi;
+----
+2000.0	3000.0
+
+# an explicit nodes table without its attributes table is an error, not a silent read of
+# tree_attributes (or of the query's attributes for the candidates)
+statement ok
+CREATE OR REPLACE TABLE my_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE OR REPLACE TABLE my_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+statement error
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes');
+----
+nodes_table 'my_nodes' is given but attrs_table is not
+
+statement error
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes', attrs_table := 'my_attrs', candidate_nodes_table := 'tree_nodes');
+----
+candidate_nodes_table 'tree_nodes' is given but candidate_attrs_table is not
+
+statement ok
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes', attrs_table := 'my_attrs');
+
+# stage 1 alone needs no attributes
+statement ok
+SELECT * FROM coverage_recall('Q1', nodes_table := 'my_nodes');
+
+# a movement date stored as text (SAP BUDAT) gets an error that names the column and the fix
+statement ok
+CREATE OR REPLACE TABLE text_movements AS SELECT 'OLD-PUMP' AS material_id, '20240101' AS movement_date, 5.0 AS quantity;
+
+statement error
+SELECT * FROM cold_start_analogs('NEW-PUMP', 5, movements_table := 'text_movements');
+----
+movements_table 'text_movements': column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+statement error
+SELECT * FROM infer_predecessors('NEW-PUMP', movements_table := 'text_movements');
+----
+column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+statement ok
+CREATE OR REPLACE VIEW text_movements_v AS SELECT * FROM text_movements;
+
+statement error
+SELECT * FROM cold_start_analogs('NEW-PUMP', 5, movements_table := 'text_movements_v');
+----
+column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+# units from German and imperial specs
+query TRT
+SELECT t, round(parse_quantity(t, 'de').lo, 4), parse_quantity(t, 'de').dimension FROM (VALUES
+  ('10 Sek.'), ('1500 U/min'), ('3000 rpm'), ('3 Zoll'), ('2 inch'), ('4 "')) v(t);
+----
+10 Sek.	10.0	time
+1500 U/min	25.0	frequency
+3000 rpm	50.0	frequency
+3 Zoll	0.0762	length
+2 inch	0.0508	length
+4 "	0.1016	length
+
+# a misspelt key would drop a subtree silently: near-misses of known keys are errors, other
+# keys (metadata) are ignored
+statement error
+SELECT tree_from_json('{"root": {"node_id": "r", "childs": [{"node_id": "a", "class_id": "x"}]}}');
+----
+node 'r': unknown key 'childs' (did you mean 'children'?)
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "r", "class_id": "x", "attributes": [{"name": "noise", "txt": "max. 38 dB(A)"}]}}');
+----
+unknown key 'txt' (did you mean 'text'?)
+
+statement error
+SELECT tree_from_json('{"tree": "T1", "root": {"node_id": "r", "class_id": "x"}}');
+----
+unknown key 'tree' (did you mean 'tree_id'?)
+
+query I
+SELECT len(tree_from_json('{"root": {"node_id": "r", "class_id": "x", "comment": "from page 3"}}'));
+----
+1
