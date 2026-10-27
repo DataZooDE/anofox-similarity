@@ -1,439 +1,264 @@
-# anofox-similarity
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Anofox Logo" width="80" height="80">
+</p>
 
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
-[![DuckDB: 1.5.6 and 2.0](https://img.shields.io/badge/DuckDB-1.5.6%20%7C%202.0-blue)](https://duckdb.org)
-[![Tests](https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml/badge.svg)](https://github.com/DataZooDE/anofox-similarity/actions)
+<h1 align="center">Anofox Similarity</h1>
+<p align="center"><strong>Product similarity and requirements coverage for DuckDB</strong></p>
 
-**Multi-modal product similarity detection for manufacturing supply chain planning**
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
+  <a href="https://duckdb.org"><img src="https://img.shields.io/badge/DuckDB-1.5.6%20%7C%202.0-green.svg" alt="DuckDB 1.5.6 and 2.0"></a>
+  <a href="https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml"><img src="https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml/badge.svg" alt="Build"></a>
+</p>
 
-The `anofox-similarity` extension enables manufacturing companies to identify similar products from enterprise master data (ERP systems like SAP, Microsoft Dynamics 365). Perfect for cold-start forecasting, predecessor detection, and analog-based demand planning.
+A DuckDB extension that answers two questions on enterprise master data, in pure SQL:
 
----
+- **Which products are alike?** Find similar materials from their bills of materials, detect
+  predecessors from consumption history, and pick analogs to forecast new products.
+- **Which past solution covers this request?** Rank offers, designs or past programmes by how much
+  of a structured request they cover, with the gaps listed and explained, including values with
+  units and direction ("at most 38 dB(A)").
 
-## 📋 Overview
+It works on the data ERP systems already have (SAP, Dynamics 365 and others): BOMs, goods
+movements, material texts and extracted specifications. Bring your own vectors where meaning
+matters; the extension does not ship language models.
 
-### Why Product Similarity Matters
+## ✨ Key Features
 
-Mid-sized manufacturers face a persistent planning challenge: *"How do I forecast demand for a new product with no sales history?"* The answer lies in identifying analogous products with established consumption patterns.
+### 🔩 Material similarity (20 functions)
+- **Set and graph similarity**: Jaccard and Weisfeiler-Lehman kernel similarity of BOMs, top-k
+  search (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`)
+- **Predecessors and cold start**: detect a predecessor from anti-correlated consumption, find
+  analogs with history for a new product (`infer_predecessors`, `cold_start_analogs`)
+- **BOM traversal**: explosion, where-used, common components, property graph helpers
 
-**Real-world scenarios:**
-- **Cold-start forecasting**: New product launch (X-750) needs consumption forecast → find similar products with history
-- **Predecessor detection**: Material AL-7076 recently introduced → identify AL-7075 as its precursor
-- **Analog-based planning**: Forecast new product using weighted average of similar products' patterns
+### 📐 Coverage matching (16 functions)
+- **Directional set measures**: containment, Tversky and weighted measures that do not punish a
+  richer offer (`containment`, `weighted_containment`, `find_covering_entities`)
+- **Quantities**: parse EN/DE values with units and bounds, compare them with direction and
+  tolerance (`parse_quantity`, `value_satisfies`, `compat_score`)
+- **Property trees and the coverage kernel**: load extracted specs from JSON, rank candidates by
+  coverage, and list every gap with the failing value and its distance (`tree_from_json`,
+  `tree_coverage`, `tree_coverage_trace`)
 
-### Key Capabilities
+### 🏷️ Classification and review (8 functions)
+- Map items onto a catalogue with your own vectors (`classify_to_catalogue`, `maxsim`)
+- Review the few wordings that matter most, and send uncertain items to an external reviewer as
+  JSON (`vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`)
 
-| Capability | Use Case | Complexity |
-|-----------|----------|-----------|
-| **Component Overlap (Jaccard)** | Find products with similar components | Low |
-| **Graph Structural Similarity (WL Kernel)** | Detect topological BOM similarities | Medium |
-| **Text Embedding Search** | Find similar products by description | Medium |
-| **Temporal Analysis** | Identify predecessor-successor relationships | Medium |
-| **Multi-modal Fusion** | Combine multiple similarity signals | High |
-| **Coverage Matching (directional)** | Which offers or past solutions contain everything a request asks for, counts included | Low |
+### 📊 Evaluation and scale (13 functions)
+- Recall@k, MRR, regret, calibration, the auto-accept threshold for a target precision,
+  cluster bootstrap intervals and a weight fit (`eval_ranking`, `threshold_at_precision`, …)
+- Weighted MinHash and size-partitioned LSH for large archives; duplicate clustering
+  (`find_covering_entities_lsh`, `cluster_matches`)
 
----
+### 🏭 ERP and embeddings (22 functions)
+- SAP and Dynamics 365 transformations, transactional and Jaccard embeddings, HNSW indexes
+- Textual embeddings are a **placeholder** in the released build; see
+  [embeddings](docs/api/04-embeddings.md)
 
-## 🚀 Quick Start (5 minutes)
+## 📋 Table of Contents
 
-### Installation
+- [Installation](#installation)
+- [Quick Start: similar materials](#-quick-start-similar-materials)
+- [Quick Start: coverage matching](#-quick-start-coverage-matching)
+- [Documentation](#-documentation)
+- [Multi-Language Support](#-multi-language-support)
+- [Development](#-development)
+- [License](#-license)
 
-> [!NOTE]
-> The community-repository build is not published yet
-> (`INSTALL anofox_similarity FROM community` currently returns HTTP 404
-> for every platform). Until it lands, build from source (see
-> [Development](#%EF%B8%8F-development)) and load the unsigned binary:
+## Installation
+
+The extension is not yet published in the DuckDB community repository or in DataZoo's
+repository (`INSTALL anofox_similarity FROM community` returns 404). Build it from source:
+
+```bash
+git clone --recurse-submodules https://github.com/DataZooDE/anofox-similarity.git
+cd anofox-similarity
+GEN=ninja make release
+```
+
+Then use the built shell, which has the extension linked in:
+
+```bash
+./build/release/duckdb
+```
+
+or load the binary into another DuckDB 1.5.6 shell started with `-unsigned`:
 
 ```sql
--- After `make release` (requires `duckdb -unsigned` or allow_unsigned_extensions)
 LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
-
--- Verify installation
-SELECT 1 AS test;  -- Should return 1
+SELECT jaccard_similarity(['A', 'B', 'C'], ['A', 'B', 'D']);  -- 0.5
 ```
 
-### Named arguments
-
-On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
-
-### Finding Similar Materials
+## 🚀 Quick Start: similar materials
 
 ```sql
--- Create sample BOM data (components for each product)
-CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
-
+-- Bills of materials: which components each product uses
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
 INSERT INTO bom_items VALUES
-  ('PUMP-A', 'SEAL-001'),
-  ('PUMP-A', 'BEARING-X'),
-  ('PUMP-A', 'MOTOR-M1'),
-  ('PUMP-B', 'SEAL-001'),
-  ('PUMP-B', 'BEARING-X'),
-  ('PUMP-B', 'MOTOR-M1'),
-  ('PUMP-B', 'GASKET-Y'),
-  ('PUMP-C', 'FILTER-F1'),
-  ('PUMP-C', 'VALVE-V2');
+  ('PUMP-A', 'SEAL-001'), ('PUMP-A', 'BEARING-X'), ('PUMP-A', 'MOTOR-M1'),
+  ('PUMP-B', 'SEAL-001'), ('PUMP-B', 'BEARING-X'), ('PUMP-B', 'MOTOR-M1'), ('PUMP-B', 'GASKET-Y'),
+  ('PUMP-C', 'FILTER-F1'), ('PUMP-C', 'VALVE-V2');
 
--- Find top 3 most similar materials to PUMP-A
--- bom_table parameter specifies where to look for BOM data
+-- The products most similar to PUMP-A by shared components
 SELECT material_id, similarity, shared_components, total_components
-FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items');
-
--- Results:
--- PUMP-B: 3 shared / 4 total = 0.75 (high overlap)
--- PUMP-C: 0 shared / 5 total = 0.0 (disjoint)
+FROM find_similar_materials_jaccard('PUMP-A', 3);
+-- PUMP-B | 0.75 | 3 | 4
+-- PUMP-C | 0.0  | 0 | 5
 ```
 
-### Detecting Predecessors
+A new product has no sales history. Find its predecessor from consumption that declines while
+the new product ramps up, and analogs with enough history to forecast from:
 
 ```sql
--- infer_predecessors needs BOTH a bom_items table (to establish structural similarity)
--- AND a goods_movements table (for temporal anti-correlation).
 CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
 INSERT INTO bom_items VALUES
   ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
   ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
 
--- Weekly consumption: OLD-PUMP declines while NEW-PUMP ramps up (anti-correlation)
+-- Weekly consumption: OLD-PUMP declines while NEW-PUMP ramps up
 CREATE OR REPLACE TABLE goods_movements AS
-SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date,
-       200.0 - 5 * w AS quantity
+SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date, 200.0 - 5 * w AS quantity
 FROM range(0, 40) t(w)
 UNION ALL
 SELECT 'NEW-PUMP', DATE '2023-01-02' + 7 * w::INTEGER, 5.0 * w - 50
 FROM range(10, 52) t(w);
 
--- The material id is the FIRST positional argument (it cannot be passed by name).
 SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
-FROM infer_predecessors('NEW-PUMP')
-ORDER BY confidence DESC;
-
--- Result:
+FROM infer_predecessors('NEW-PUMP');
 -- OLD-PUMP | 0.79 | -1.0 | 38
-```
 
-> **Note on data density.** Predecessor detection aligns predecessor and successor consumption into
-> **weekly** buckets (offset by `lag_weeks`) and requires at least `min_overlapping_weeks` overlapping
-> buckets (default 8). A few months-apart movements return **zero** predecessors; detection needs
-> dense, overlapping weekly history where the predecessor declines as the successor rises
-> (`correlation < 0`). See `test/sql/scenarios/s7_anticorrelation.test` for a larger dataset.
-
-### Finding Analogs for New Products
-
-```sql
--- Find products similar to NEW-PUMP that have consumption history
--- Useful for cold-start forecasting when a new product has no history
 SELECT material_id, similarity, history_months, first_usage, last_usage
-FROM cold_start_analogs(
-    'NEW-PUMP',
-    5,                              -- Return top 5 analogs
-    min_history_months := 6,        -- Require at least 6 months of history
-    bom_table := 'bom_items',
-    movements_table := 'goods_movements'
-);
-
--- Result: OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
--- Use the analogs' demand patterns to forecast the new product
+FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 6);
+-- OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
 ```
 
-### Converting ERP Data (SAP)
+Predecessor detection needs dense weekly history; sparse movements return no rows. See the
+[guide](docs/guides/03-predecessors-and-cold-start.md).
+
+## 📐 Quick Start: coverage matching
+
+A request asks for a set of items with values; past programmes provide items with values. Which
+programme covers the request, and what is missing? This runs on the small fixture in the
+repository:
 
 ```sql
--- SAP tables: MARA (materials), MAKT (descriptions)
-CREATE TABLE sap_mara AS SELECT * FROM (VALUES
-    ('MAT-001', 'FERT', 'GRP01', '20200115', NULL),
-    ('MAT-002', 'HALB', 'GRP01', '20210301', NULL)
-) AS t(matnr, mtart, matkl, ersda, lvorm);
+CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
 
-CREATE TABLE sap_makt AS SELECT * FROM (VALUES
-    ('MAT-001', 'E', 'Pump Assembly'),
-    ('MAT-002', 'E', 'Motor Component')
-) AS t(matnr, spras, maktx);
+-- Rank the candidates for request Q1 by the share of it they cover
+SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
+FROM tree_coverage('Q1', k := 3, mu := 0.0);
+-- S1 | 1.0 | 4 | 0
+-- S6 | 1.0 | 4 | 0
+-- S2 | 0.5 | 4 | 2
 
--- Convert to universal schema
-SELECT material_id, material_type, description, created_date
-FROM sap_to_materials_with_desc(
-    mara_table := 'sap_mara',
-    makt_table := 'sap_makt',
-    language := 'E'
-);
-
--- Dynamics 365 conversion (see API_REFERENCE.md for full details)
--- SELECT * FROM dynamics365_to_materials('d365_InventTable');
--- SELECT * FROM dynamics365_to_bom_component('d365_BOM');
+-- Why S2 falls short: the gap list, value by value
+SELECT req_node_id, attr_name, req_value, prov_value, value_score
+FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
+WHERE is_gap
+ORDER BY req_node_id, attr_name;
+-- Q1.1 | current draw  | at_most 8 A     | 9 A    | 0.0
+-- Q1.1 | time to 37 °C | at_most 180 s   | 240 s  | 0.0
+-- Q1.3 | height travel | at_least 0.06 m | 0.05 m | 0.0
 ```
 
----
+`mu := 0.0` switches off the attribute-name discount, which needs name vectors to be meaningful.
+The [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,
+alternatives and large archives; the [examples](examples/coverage_matching/) run the full
+seating benchmark.
 
-## 📚 API Reference
+## 📚 Documentation
 
-The extension provides about 87 functions organized into 9 functional categories:
+| | |
+|---|---|
+| **[Guides](docs/guides/README.md)** | Task-based guides: getting started, material similarity, predecessors and cold start, coverage matching, quantities, classification and review, evaluation, scale and dedup |
+| **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
+| **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
+| **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |
+| **[Background](docs/background/)** | Design notes and research (not the product contract) |
 
-### Core Similarity Algorithms
-- **Jaccard Similarity** - Component overlap detection (O(n) time)
-- **WL Kernel** - Graph structural similarity (O(nm) time)
-- **Predecessor Inference** - Temporal anti-correlation analysis
+On DuckDB 1.5.6, named arguments of **scalar** functions bind by position: give them in the
+documented order. Table functions bind by name. Everything works on a read-only database.
 
-### Data Access & Transformation
-- **SAP Transformations** - Convert SAP tables to universal schema
-- **Dynamics 365 Transformations** - Convert D365 tables to universal schema
-- **BOM Conversion** - Schema normalization and validation
+## 🌍 Multi-Language Support
 
-### Advanced Features
-- **Textual Embeddings** - Semantic similarity from descriptions
-- **Transactional Embeddings** - Time-series feature extraction (98+ features)
-- **Multi-modal Fusion** - Combine multiple similarity signals
+The extension is SQL; any DuckDB client runs it.
 
-### Coverage Matching
-- **Directional set measures** - containment, Tversky, weighted (count-aware) variants
-- **Covering search** - rank past solutions by how much of a request they cover (`find_covering_entities[_for]`)
-- **Quantities** - parse EN/DE limits with units (`parse_quantity`), normalise them, and check them with a direction (`value_satisfies`); ordinal classes via curated rules (`compat_score`)
-- **Property trees** - load extracted specs from JSON (`tree_from_json`), flatten, validate and summarise them (`tree_anchors`, `validate_trees`, `tree_class_multiset`)
-- **Pivot classifier and vocabulary review** - map items onto a catalogue with your own vectors (`classify_to_catalogue`, `maxsim`, `calibrated_cosine`), review the few wordings that matter most (`vocabulary_review_queue`, `apply_vocabulary_review`), and send uncertain items to an external reviewer as JSON (`uncertain_decisions`)
-- **Evaluation and scale** - recall@k, MRR, regret, calibration, the 95 %-precision threshold, cluster bootstrap intervals and a weight fit (`eval_ranking`, `eval_calibration`, `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights`); weighted MinHash and size-partitioned LSH (`minhash_index`, `minhash_bands`, `find_covering_entities_lsh`); duplicate clustering (`cluster_matches`)
-- **Explainable coverage** - "80 % covered, these 3 gaps": stage-1 recall plus a stage-2 kernel with partition or best match, OR variants and a per-requirement trace (`tree_coverage`, `tree_coverage_trace`, `coverage_recall`)
+| Language | Client | Example |
+|---|---|---|
+| **SQL** | DuckDB CLI | `SELECT * FROM find_similar_materials_jaccard('PUMP-A', 3);` |
+| **Python** | `duckdb` package | `duckdb.sql("SELECT * FROM tree_coverage('Q1', k := 3)")` |
+| **R** | `duckdb` package | `dbGetQuery(con, "SELECT ...")` |
+| **Java** | JDBC driver | `stmt.executeQuery("SELECT ...")` |
+| **Node.js** | `@duckdb/node-api` | `connection.run("SELECT ...")` |
 
-### Infrastructure
-- **Vector Search (HNSW)** - Approximate nearest neighbor search
-- **Statistics & Normalization** - Z-score normalization and caching
-- **Property Graph Traversal** - DuckPGQ integration for BOM navigation
+Load the extension binary in the client the same way as in the shell (`LOAD '<path>'`, with
+unsigned extensions allowed).
 
-**Complete API documentation**: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
-
----
-
-## 🔧 Building & Development
+## 📦 Development
 
 ### Prerequisites
 
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt-get install build-essential cmake python3 python3-dev
-```
+A C++17 compiler, CMake, Ninja and Git. The build fetches DuckDB as a submodule.
 
-**macOS:**
-```bash
-brew install cmake python3
-```
-
-**Windows (via WSL2 or MSVC):**
-```bash
-# WSL2: Follow Linux instructions
-# MSVC: Install Visual Studio 2019+ with C++ support
-```
-
-### Build Steps
+### Build and test
 
 ```bash
-# Clone repository with submodules
 git clone --recurse-submodules https://github.com/DataZooDE/anofox-similarity.git
 cd anofox-similarity
+GEN=ninja make release                       # build the extension and a DuckDB shell
 
-# Set up vcpkg (one-time)
-git clone https://github.com/Microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh
-export VCPKG_ROOT=$(pwd)/vcpkg
-
-# Build extension
-GEN=ninja make
-
-# Run tests
-make test
-
-# Load in DuckDB shell
-./build/release/duckdb
+DATAZOO_DISABLE_TELEMETRY=1 make test        # the whole SQL test suite
+./build/release/test/unittest "test/sql/coverage/*"   # one area
+./build/release/test/unittest -s "[jaccard]"          # one tag, with output
 ```
 
-### Test Suite
+The SQL tests live in `test/sql/` ([overview](test/README.md)). Examples run with
+`scripts/run_examples.sh`. After changing a function's description, parameters or examples,
+regenerate the reference with `python3 scripts/generate_api_reference.py`.
 
-The extension ships a sqllogictest suite under `test/sql/`:
+### Telemetry
 
-```bash
-# Run all tests
-make test
+The extension sends anonymous usage events (function names, no data). Disable them with
+`DATAZOO_DISABLE_TELEMETRY=1` or `SET anofox_telemetry_enabled = false;` ([details](TELEMETRY.md)).
 
-# Run specific test group
-./build/release/test/unittest "[similarity]"
+## 📄 License
 
-# Run with verbose output
-./build/release/test/unittest -v "[wl_kernel]"
-```
+**Business Source License 1.1 (BSL 1.1)**
 
----
+✅ **Free for production use**: use it internally in your business
+✅ **Free for development and research**
 
-## 💻 Language Support
+❌ **No hosted service**: you may not offer it to third parties as a hosted or embedded service
 
-Write once in SQL, use everywhere:
+🔄 **Converts to MPL 2.0**: each version becomes Mozilla Public License 2.0 four years after its
+release (the license's Change Date is five years after first publication; the earlier of the
+two applies)
 
-| Language | Support | Example |
-|----------|---------|---------|
-| **SQL (DuckDB)** | ✅ Native | `SELECT * FROM find_similar_materials_jaccard(...)` |
-| **Python** | ✅ DuckDB connector | `duckdb.sql("SELECT * FROM find_similar_materials_jaccard(...)")` |
-| **R** | ✅ duckdb package | `duckdb::execute(con, "SELECT...")` |
-| **Java** | ✅ JDBC driver | `stmt.execute("SELECT...")` |
-| **Node.js** | ✅ duckdb-wasm | `db.query("SELECT...")` |
-
----
-
-## 📊 Architecture
-
-The extension implements a **tiered similarity approach**:
-
-```
-┌─────────────────────────────────────────────────┐
-│     Multi-modal Fusion (Highest Accuracy)       │
-│    Combines: Structural + Textual + Temporal   │
-└─────────────────────────────────────────────────┘
-                        ▲
-        ┌───────────────┼───────────────┐
-        │               │               │
-    [Structural]  [Textual]      [Temporal]
-    WL Kernel +    Text            Anti-correlation
-    Jaccard     Embeddings         Analysis
-        │               │               │
-        └───────────────┼───────────────┘
-                        │
-         [Exact Similarity Computation]
-         (Brute-force or HNSW Index)
-```
-
-**Design Philosophy**: Start simple (Jaccard → 75-85% accuracy), add complexity (WL Kernel, embeddings) only when value justifies cost.
-
----
-
-## 🧪 Test Coverage
-
-- **SQL logic tests** under `test/sql/`, grouped by functional category
-- **Synthetic data tests** with known ground truth
-- **Real enterprise data tests** (SAP, Dynamics 365)
-- **Edge case tests** (sparse BOMs, circular references, NULL handling)
-- **Performance benchmarks** for HNSW indexing
-- **Error handling tests** for graceful degradation
-
----
-
-## 📖 Documentation
-
-| Document | Purpose |
-|----------|---------|
-| **[API_REFERENCE.md](docs/API_REFERENCE.md)** | Complete function documentation with examples |
-| **[CONCEPT.md](docs/CONCEPT.md)** | Algorithmic background and theory |
-| **[DATA-STRUCTURES.md](docs/DATA-STRUCTURES.md)** | Schema definitions and data models |
-| **[requirements-matching/BRD.md](docs/requirements-matching/BRD.md)** | Business requirements for requirement-to-offer coverage matching |
-| **[requirements-matching/HLD.md](docs/requirements-matching/HLD.md)** | High-level design for coverage matching, with the amendments decided during implementation (§11) |
-| **[test/data/coverage/README.md](test/data/coverage/README.md)** | The seating-systems benchmark: schema, oracle semantics, KPI feasibility |
-| **[SAP_BOM_Explosion_Technical_Memo.md](docs/SAP_BOM_Explosion_Technical_Memo.md)** | SAP integration specifics |
-| **[Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md](docs/Microsoft_Dynamics_365_BOM_Explosion_Technical_Memo.md)** | Dynamics 365 integration specifics |
-
----
-
-## ⚙️ Configuration
-
-### Extension Parameters
-
-All macros support parameterization for different use cases:
-
-```sql
--- Customize time window for feature extraction (requires anofox-forecast)
-SELECT * FROM compute_transactional_embeddings(
-  movements_table := 'goods_movements',
-  time_window_days := 180        -- last 6 months of history
-);
-
--- Customize BOM explosion depth (the BOM traversal macros read the bom_header and
--- bom_component tables, see docs/DATA-STRUCTURES.md; pass header_table/component_table otherwise)
-SELECT * FROM bom_explosion_multilevel(
-  'PARENT-001',
-  max_depth := 5                 -- Limit to 5 levels
-);
-```
-
-### HNSW Index Configuration
-
-HNSW indexes over the embedding columns are created automatically on load. There is no
-`CreateHNSWIndexes()` function; to build a custom index, use the `vss` extension's DDL directly:
-
-```sql
-INSTALL vss; LOAD vss;
-SET hnsw_enable_experimental_persistence = true;
-CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH (metric = 'cosine');
-```
-
----
-
-## 📈 Performance
-
-Tested on typical Mittelstand data volumes:
-
-| Operation | Data Size | Latency | Notes |
-|-----------|-----------|---------|-------|
-| Jaccard Similarity | 10K materials | <1ms | Per pair, no index |
-| WL Kernel Similarity | 10K materials | <10ms | Per pair, 3 iterations |
-| VSS k-NN Search | 10K materials | <100ms | k=10, HNSW index |
-| Brute-force k-NN | 10K materials | <1s | k=10, no index |
-
----
-
-## 🔐 Data Privacy & Security
-
-The extension processes data locally within DuckDB and never transmits data to external services (unless explicitly configured for embedding providers).
-
-**Optional external services:**
-- Textual embeddings can use OpenAI, Anthropic, or local OpenVINO
-- No data sharing with Datazoo unless explicitly enabled
-
----
-
-## 📝 Licensing
-
-Licensed under **Business Source License 1.1 (BSL 1.1)**:
-- ✅ Free for development, testing, analytics
-- ✅ Free for internal business use
-- ⚠️ Requires license for SaaS/commercial redistribution
-- 📅 Converts to open source (Apache 2.0) after 4 years
-
-[Full license terms](LICENSE)
-
----
+See [LICENSE](LICENSE) for the full terms.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please open an issue or a pull request on
-[GitHub](https://github.com/DataZooDE/anofox-similarity); run `make test` before you submit.
+Issues and pull requests are welcome. Please describe the data shape that shows a problem;
+matching quality depends on real master data.
 
----
+## 📞 Support
 
-## 📮 Support & Community
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/DataZooDE/anofox-similarity/issues)
 
-- **GitHub Issues**: [Report bugs and request features](https://github.com/DataZooDE/anofox-similarity/issues)
-- **GitHub Discussions**: [Ask questions and share ideas](https://github.com/DataZooDE/anofox-similarity/discussions)
-- **Email**: contact@data-zoo.de
-
----
-
-## 🙏 Acknowledgments
-
-- **DuckDB team** for the excellent extension template and framework
-- **Research papers** on WL kernels, BOM similarity, and vector search
-- **Manufacturing partners** who validated use cases and provided enterprise data
-
----
-
-## 📋 Citation
-
-If you use anofox-similarity in research or production, please cite:
+## 🎓 Citation
 
 ```bibtex
-@software{datazoo2024anofoxsimilarity,
-  title = {anofox-similarity: Multi-modal Product Similarity Detection},
-  author = {DataZoo GmbH},
-  year = {2024},
+@software{anofox_similarity,
+  title = {Anofox Similarity: Product Similarity and Requirements Coverage for DuckDB},
+  author = {Joachim Rosskopf and DataZoo GmbH},
+  year = {2026},
   url = {https://github.com/DataZooDE/anofox-similarity}
 }
 ```
-
----
-
-**Made with ❤️ by [DataZoo](https://data-zoo.de)** for manufacturing excellence.
 
 ## Feedback
 
@@ -447,4 +272,3 @@ If it saved you time, a star on the repo helps other people find it.
 The first time you load the extension in an interactive terminal each day, a small
 banner says the same thing. It never prints when output is piped, in notebooks, or in
 CI. Silence it with `SET datazoo_banner = false;` or `DATAZOO_NO_BANNER=1`.
-
