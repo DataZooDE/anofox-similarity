@@ -44,8 +44,8 @@ query tree and the candidate tree are reviewed.
 |---|---|---|
 | `candidates` | NULL | explicit candidate tree ids; NULL → stage-1 top `k` (the query tree is never its own candidate) |
 | `k` | 20 | stage-1 depth |
-| `nodes_table`, `attrs_table` | `'tree_nodes'`, `'tree_attributes'` | the query trees; `attrs_table := NULL` for none |
-| `candidate_nodes_table`, `candidate_attrs_table` | the query tables | the candidate trees |
+| `nodes_table`, `attrs_table` | `'tree_nodes'`, `'tree_attributes'` | the query trees; `attrs_table := NULL` for none. A `nodes_table` other than the default needs its `attrs_table` |
+| `candidate_nodes_table`, `candidate_attrs_table` | the query tables | the candidate trees; a `candidate_nodes_table` other than the query's needs its `candidate_attrs_table` |
 | `overrides_table`, `label_table` | NULL | class resolution (see above) |
 | `labels` | `'soft'` | `'soft'` uses the classifier's probabilities; `'hard'` uses one class |
 | `assignment` | `'auto'` | `'partition'`, `'best_match'`, `'auto'` |
@@ -75,7 +75,7 @@ SET VARIABLE name_floor = (SELECT median(list_cosine_similarity(a.vec, b.vec))
 **Example: the gap list of the best programme.** The trace takes the same parameters as the
 ranking, so it explains the same score. The benchmark's request items have no `class_id`, so
 they take their classes from a `label_table` (`request_labels`, the output of
-[`classify_to_catalogue`](#pivot-classifier-and-vocabulary-review-r4) over `request_item_vectors`).
+[`classify_to_catalogue`](14-classification-and-review.md#classify_to_catalogue) over `request_item_vectors`).
 A request item without a class matches nothing, and a request without any classified item
 returns no rows:
 
@@ -125,8 +125,11 @@ SELECT * FROM tree_coverage('R07', k := 20,
                             candidate_multiset_table := 'programme_index');
 ```
 
-One request against 100 200 trees (2.6 M nodes, laptop): stage 1 takes 0.12 s and stage 2
-0.58 s with the index, and 1.9 s and 12.9 s without it. Building the index takes 1.9 s.
+One request against 100 200 trees (2.6 M nodes): stage 1 took 0.12 s and stage 2 0.58 s with the
+index, and 1.9 s and 12.9 s without it; building the index took 1.9 s. These are indicative
+timings measured once during development (DuckDB 1.5.6, multi-core workstation), not part of
+the test suite; `test/sql/coverage/r3/uc_10_index_the_archive_once.test` checks that the index
+gives the same results.
 Rebuild the index when the archive or the vocabulary changes.
 
 **Input checks.** The `coverage_kernel` scalar checks its argument types, so malformed input
@@ -136,7 +139,10 @@ Soft distributions are normalised to 1.
 
 **Benchmark** (80 requests at once, reviewed vocabulary, catalogue bounds, name vectors):
 recall@20 0.925, top-1 0.925, mean regret 0.009, MAE over the top 20 0.036, unmeetable
-flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s on a laptop.
+flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. Reproduce them with
+`examples/coverage_matching/tree_coverage_benchmark.sql` and `examples/evaluation/evaluate_pipeline.sql`;
+`test/sql/coverage/r3/uc_06_brd_kpis_on_the_benchmark.test` asserts the floors (recall@20 ≥ 0.90,
+top-1 ≥ 0.85, MAE ≤ 0.05, precision at 0.9 ≥ 0.95).
 
 <!-- generated:functions:start -->
 
@@ -148,7 +154,7 @@ flagged 1.0, precision at 0.9 0.985, auto-accept share 82.5 %. It runs in 0.65 s
 
 *Table function*
 
-Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score (coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
+Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score (coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
 
 ```sql
 tree_coverage(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor)
@@ -165,7 +171,7 @@ SELECT * FROM tree_coverage(['R01', 'R02'], candidates := ['P001', 'P002']);
 
 *Table function*
 
-The explanation of tree_coverage: one row per request item and required attribute with the matched candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a value below 1). Same parameters as tree_coverage. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
+The explanation of tree_coverage: one row per request item and required attribute with the matched candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a value below 1). Same parameters as tree_coverage. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
 
 ```sql
 tree_coverage_trace(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor)
@@ -181,7 +187,7 @@ SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;
 
 *Table function*
 
-Stage-1 recall over class multisets: the top-k candidate trees per query with score, containment, jaccard, reviewed, mode_used and rank. mode 'auto' uses containment when every candidate tree is reviewed and weighted jaccard otherwise. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
+Stage-1 recall over class multisets: the top-k candidate trees per query with score, containment, jaccard, reviewed, mode_used and rank. mode 'auto' uses containment when every candidate tree is reviewed and weighted jaccard otherwise. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
 
 ```sql
 coverage_recall(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, mode, tie_break, candidate_multiset_table)

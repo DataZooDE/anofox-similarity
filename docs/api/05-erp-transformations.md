@@ -138,7 +138,7 @@ CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_comp
 
 *Table macro*
 
-Converts the SAP MAST/STKO/STPO trio into the universal BOM shape. 'bom_alternative' picks the alternative BOM, 'reference_date' selects the version valid on that date, and 'bom_usage' filters by usage (NULL means any). Quantity passes through the source MENGE column's type, which is DECIMAL in SAP -- cast if you need DOUBLE.
+Converts the SAP MAST/STKO/STPO trio into the universal BOM shape. 'bom_alternative' picks the alternative BOM, 'reference_date' selects the version valid on that date, and 'bom_usage' is accepted but not applied yet (every usage is returned; filter on MAST.STLAN yourself). Quantity passes through the source MENGE column's type, which is DECIMAL in SAP -- cast if you need DOUBLE.
 
 ```sql
 sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage)
@@ -154,7 +154,7 @@ SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
 
 *Table macro*
 
-Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT.
+Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.
 
 ```sql
 sap_to_materials(mara_table, makt_table, language)
@@ -186,7 +186,7 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 *Table macro*
 
-Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, description).
+Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
 
 ```sql
 extract_material_descriptions(makt_table, language)

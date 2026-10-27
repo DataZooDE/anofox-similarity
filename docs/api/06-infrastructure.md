@@ -1,6 +1,6 @@
 # Helpers and infrastructure
 
-> Helper macros, incremental updates, dependency checks and the tables the extension creates.
+> Helper macros, refreshing embeddings, dependency checks and the tables the extension creates.
 
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
@@ -111,7 +111,7 @@ check_duckpgq_available() → BOOLEAN
 
 ## Database Infrastructure
 
-The extension creates several database objects on load for embedding storage and incremental updates.
+The extension creates several database objects on load to store embeddings.
 
 > [!NOTE]
 > **Read-only databases:** every function works on a database opened read-only, the SQL macros
@@ -140,7 +140,7 @@ CREATE TABLE material_embeddings (
 );
 ```
 
-**material_embeddings_dirty** - Dirty tracking for incremental updates:
+**material_embeddings_dirty** - Reserved for dirty tracking; nothing populates it (see [Incremental Updates](#incremental-updates)):
 ```sql
 CREATE TABLE material_embeddings_dirty (
     material_id VARCHAR PRIMARY KEY,

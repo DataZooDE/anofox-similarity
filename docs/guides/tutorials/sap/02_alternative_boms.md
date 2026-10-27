@@ -17,7 +17,8 @@ Load different BOM alternatives using the `bom_alternative` parameter and compar
 ## Prerequisites
 
 ```sql
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load SAP tables
 CREATE TABLE sap_mast AS SELECT * FROM read_parquet('test/data/sap/mast.parquet');

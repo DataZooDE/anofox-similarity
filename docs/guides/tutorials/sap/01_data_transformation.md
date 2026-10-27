@@ -15,7 +15,8 @@ Use the **SAP transformation macros** to convert SAP tables to the universal sch
 ## Prerequisites
 
 ```sql
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load SAP tables from parquet files
 CREATE TABLE sap_mara AS SELECT * FROM read_parquet('test/data/sap/mara.parquet');

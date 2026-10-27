@@ -13,11 +13,16 @@
 
 `find_covering_entities` is exact. It joins the query's features against the feature table. One
 query over 100 000 entities with 15 features each takes about 0.15–0.2 s. Use it as the default.
+Many queries at once do not need a loop (a table function cannot take a column of a `LATERAL`
+join): the same exact search is one hash join, shown [below](#exact-batch-search).
 
-MinHash/LSH estimates the result. It pays off when:
+MinHash/LSH estimates the result. It can pay off when:
 
 - the vocabulary is large (raw BOM components, part numbers), so most entities share nothing, and
-- you search many queries at once.
+- the feature table is too large to join against for every batch of queries.
+
+Measure before you switch: on the archive below (20 000 BOMs, 400 000 rows) and also on 100 000
+BOMs (2 million rows), the exact batch join is faster than the LSH search for 100 queries.
 
 It does not pay off with a small pivot vocabulary. With about 20 catalogue classes, the multisets
 overlap so much that LSH still scores about half the archive.
@@ -52,8 +57,9 @@ CREATE TABLE part_bands   AS SELECT * FROM minhash_bands('part_minhash');
 ```
 
 The data comes from DuckDB's `hash()`, which can change between DuckDB versions. The outputs below
-are from DuckDB 1.5.6. The index takes about 2 s and the band table about 0.7 s on a laptop. Build both once and rebuild
-them when the archive changes.
+are from DuckDB 1.5.6. On a development workstation the index took about 2 s and the band table about 0.7 s. Build both once and rebuild
+them when the archive changes. With 128 hashes, `minhash_bands` stores 240 rows per entity:
+4.8 million rows for this 20 000-entity archive. Budget memory and storage for these tables.
 
 - `num_hashes` (default 128) sets the precision of the estimate.
 - `partitions` (default 4) splits the entities by size. Small queries inside large sets are found
@@ -96,8 +102,38 @@ FROM hits WHERE rank = 1;
 | 100   | 1.03           |
 
 All 100 source BOMs are found at rank 1. LSH scores about one candidate per query instead of
-20 000. The call takes about 0.3 s for all 100 queries. The exact search takes about 0.08 s per
-query, so about 8 s for the same work.
+20 000. The call takes about 0.2–0.3 s for all 100 queries. One `find_covering_entities_for` call
+takes about 0.05–0.08 s, but you do not have to call it 100 times: see the next section.
+
+### Exact Batch Search
+
+The exact containment for all queries is one join over the shared features. It is the reference
+to check LSH recall against:
+
+```sql
+CREATE TABLE exact_hits AS
+WITH shared AS (
+    SELECT q.query_id, b.entity_id, sum(least(q.weight, b.weight)) AS shared_weight
+    FROM new_boms q JOIN part_bom b USING (feature_id)
+    GROUP BY ALL),
+query_weight AS (SELECT query_id, sum(weight) AS query_weight FROM new_boms GROUP BY ALL)
+SELECT query_id, entity_id, shared_weight / query_weight AS containment,
+       row_number() OVER (PARTITION BY query_id ORDER BY shared_weight / query_weight DESC, entity_id) AS rank
+FROM shared JOIN query_weight USING (query_id)
+QUALIFY rank <= 3;
+
+SELECT count(*) FILTER (WHERE 'NEW-' || entity_id = query_id) AS found FROM exact_hits WHERE rank = 1;
+```
+
+| found |
+|------:|
+| 100   |
+
+This takes about 0.02 s for the 100 queries (DuckDB 1.5.6 and 2.0), about ten times faster than
+the LSH search above. With 100 000 BOMs (2 million rows) it takes under 0.1 s, against about 0.5 s
+for LSH plus about 5 s to build the index and band table. Because only shared features are joined,
+the exact join stays cheap when the vocabulary is large. Use LSH when the join no longer fits your
+time or memory budget, and measure its recall against `exact_hits`.
 
 - `estimate` is the containment estimate (mode `'containment'`, default). `mode := 'jaccard'`
   ranks by `jaccard_estimate`.
@@ -166,7 +202,8 @@ CREATE PROPERTY GRAPH matches VERTEX TABLES (entities)
 SELECT * FROM weakly_connected_component(matches, entities, strong);
 ```
 
-On DuckDB 2.0, also run `SET active_grammar_extensions = ['duckpgq'];` per connection. Check the
+On DuckDB 2.0, also run `SET active_grammar_extensions = ['duckpgq'];` per connection. At the time
+of writing, `INSTALL duckpgq FROM community` returns HTTP 404 on DuckDB 2.0; the recipe runs on 1.5.6. Check the
 DuckPGQ documentation for the syntax of your version. For plain clustering, `cluster_matches` needs
 no extra extension.
 

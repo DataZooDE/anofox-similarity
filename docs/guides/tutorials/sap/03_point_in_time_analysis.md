@@ -16,7 +16,8 @@ Use the `reference_date` parameter in `sap_to_bom_items()` to query BOMs at spec
 ## Prerequisites
 
 ```sql
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load SAP tables
 CREATE TABLE sap_mast AS SELECT * FROM read_parquet('test/data/sap/mast.parquet');

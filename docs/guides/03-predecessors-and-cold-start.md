@@ -23,8 +23,21 @@ SELECT material_id, movement_date, quantity
 FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
 ```
 
-`goods_movements` needs the columns `material_id`, `movement_date` (a DATE) and `quantity`. Other
-columns are ignored. The data has 3 991 movements of 41 materials, about one per week.
+`goods_movements` needs the columns `material_id`, `movement_date` (a DATE or TIMESTAMP) and
+`quantity`. Other columns are ignored. The data has 3 991 movements of 41 materials, about one per
+week.
+
+Map your own tables with a view. A date stored as text, such as SAP's `BUDAT` (`20230115`), must be
+converted; otherwise the call fails with `column movement_date is VARCHAR, expected DATE or TIMESTAMP`:
+
+```sql
+CREATE VIEW my_movements AS
+SELECT matnr AS material_id, strptime(budat, '%Y%m%d')::DATE AS movement_date, menge AS quantity
+FROM mseg;
+```
+
+Quantities are summed per week. Returns with a negative quantity net against the issues of the
+same week. Weeks without any movement are skipped, not counted as zero.
 
 ## How Predecessor Detection Works
 
@@ -143,6 +156,57 @@ You need many weeks with movements on both sides, and a period in which both mat
 your movements table mixes receipts and issues, pass only the issues (consumption), for example
 through a view.
 
+## Pitfall: a Clean Cut-Over Returns Nothing
+
+Often the old material stops from one week to the next, and the new one starts at the same
+demand. There is no ramp in which one falls while the other rises, so the correlation is noise and
+the pair is dropped:
+
+```sql
+CREATE TABLE cutover_bom AS SELECT * FROM (VALUES
+  ('PUMP-V1', 'SEAL-001'), ('PUMP-V1', 'BEARING-X'), ('PUMP-V1', 'MOTOR-M1'), ('PUMP-V1', 'HOUSING-1'),
+  ('PUMP-V2', 'SEAL-001'), ('PUMP-V2', 'BEARING-X'), ('PUMP-V2', 'MOTOR-M1'), ('PUMP-V2', 'HOUSING-2'))
+  t(parent_id, child_id);
+-- Steady demand of about 100 a week; PUMP-V2 replaces PUMP-V1 on 2023-07-03
+CREATE TABLE cutover_movements AS
+SELECT 'PUMP-V1' AS material_id, DATE '2022-01-03' + 7 * w::INTEGER AS movement_date, 100.0 + (w * 7) % 11 - 5 AS quantity
+FROM range(0, 78) t(w)
+UNION ALL
+SELECT 'PUMP-V2', DATE '2022-01-03' + 7 * w::INTEGER, 100.0 + (w * 5) % 11 - 5
+FROM range(78, 130) t(w);
+
+SELECT predecessor_id, confidence, correlation, temporal_score, overlapping_weeks
+FROM infer_predecessors('PUMP-V2', bom_table := 'cutover_bom', movements_table := 'cutover_movements',
+                        min_confidence := 0.0);
+```
+
+| predecessor_id | confidence | correlation | temporal_score | overlapping_weeks |
+|----------------|-----------:|------------:|---------------:|------------------:|
+| PUMP-V1        | 0.407      | -0.0601     | 0.6767         | 8                 |
+
+With the default `min_confidence` of 0.5 the result is empty. For a cut-over, look for a similar
+material whose last movement lies just before the new one's first movement:
+
+```sql
+SET VARIABLE successor_start = (SELECT min(movement_date) FROM cutover_movements WHERE material_id = 'PUMP-V2');
+SELECT s.material_id AS predecessor_id, round(s.similarity, 2) AS similarity, h.last_usage,
+       getvariable('successor_start') - h.last_usage AS days_before_successor
+FROM find_similar_materials_jaccard('PUMP-V2', 20, min_similarity := 0.3, bom_table := 'cutover_bom') s
+JOIN (SELECT material_id, max(movement_date) AS last_usage FROM cutover_movements GROUP BY material_id) h
+  USING (material_id)
+WHERE h.last_usage BETWEEN getvariable('successor_start') - INTERVAL 12 WEEK
+                       AND getvariable('successor_start') + INTERVAL 4 WEEK
+ORDER BY s.similarity DESC;
+```
+
+| predecessor_id | similarity | last_usage | days_before_successor |
+|----------------|-----------:|------------|----------------------:|
+| PUMP-V1        | 0.6        | 2023-06-26 | 7                     |
+
+`infer_predecessors` only considers the 100 materials with the most similar BOMs. In a BOM table
+with many near-identical variants, a predecessor can fall outside them; the recipe above has no
+such limit if you raise its `k`.
+
 ## Cold Start: Analogs for a New Product
 
 A new product has no history. `cold_start_analogs` returns similar materials that do have history.
@@ -166,12 +230,22 @@ FROM cold_start_analogs('FAMILY-00-NEXT', 3, min_history_months := 12, min_simil
 | FAMILY-00-BASE  | 0.75       | 9                 | 47             | 2020-01-01  | 2023-12-20 |
 | FAMILY-00-VAR-2 | 0.5        | 7                 | 23             | 2022-01-01  | 2023-12-23 |
 
-Only materials with movement history are returned. `k` (here 3) is positional.
+Only materials with at least one movement row are returned. `k` (here 3) is positional.
+`history_months` is the calendar-month difference between the first and the last movement
+(`date_diff('month', first_usage, last_usage)`: 31 January to 1 February is 1), not the number of
+months with movements. A material with a single movement reports `history_months = 0` and still
+passes the default `min_history_months := 0`; pass a positive `min_history_months` when you need a
+usable history. Every row counts, whatever its sign or size: a material with only returns
+(negative quantities) or zero-quantity postings has history too. Pass a view with only the
+consumption rows.
 
 How to use the result:
 
 - Weight the analogs' demand by `similarity`, or take the closest one.
-- Prefer analogs with a long `history_months` when you need seasonality.
+- Prefer analogs with a long `history_months` when you need seasonality. `history_months` is the
+  calendar span from the first to the last movement, not the number of months with movements.
+  Two movements two years apart count as 24 months, so check the density as in the
+  [sparse-data query](#pitfall-sparse-data-returns-nothing) before you forecast from an analog.
 - Check `last_usage`. An analog that stopped long ago describes an old market.
 
 If no material has enough history, the result is empty:
@@ -189,6 +263,8 @@ SELECT count(*) AS n FROM cold_start_analogs('FAMILY-00-NEXT', 3, min_history_mo
 | Pitfall | Solution |
 |---|---|
 | Empty predecessor result | Check weekly density and overlap. Lower `min_overlapping_weeks` only with care. |
+| Old material stops the week the new one starts | No ramp, no anti-correlation. Use the [cut-over recipe](#pitfall-a-clean-cut-over-returns-nothing). |
+| "column movement_date is VARCHAR, expected DATE or TIMESTAMP" | `movement_date` is text. Convert it to a DATE in a view. |
 | `query_material_id :=` or `k :=` raises an error | The material id and `k` are positional. |
 | Receipts and issues in one table | Filter to consumption before you call the functions. |
 | Missing column error | The movements table needs `material_id`, `movement_date`, `quantity`. |

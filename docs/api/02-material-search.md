@@ -106,7 +106,7 @@ find_similar_materials_jaccard(
 | `k` | INTEGER | Required | Number of results |
 | `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
-| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](#find_covering_entities--find_covering_entities_for) |
+| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](10-covering-search.md#find_covering_entities) |
 
 **Returns:**
 - `material_id` - ID of similar material
@@ -195,7 +195,7 @@ cold_start_analogs(
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | New product needing analogs (positional) |
 | `k` | INTEGER | Required | Number of analog materials to return |
-| `min_history_months` | INTEGER | 0 | Minimum consumption history required |
+| `min_history_months` | INTEGER | 0 | Minimum months between the first and the last movement |
 | `min_similarity` | DOUBLE | 0.0 | Minimum Jaccard similarity threshold |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 | `movements_table` | VARCHAR | 'goods_movements' | Movements history table |
@@ -205,7 +205,7 @@ cold_start_analogs(
 - `similarity` - Jaccard similarity to query material
 - `shared_components` - Count of shared components
 - `total_components` - Count of unique components in union
-- `history_months` - Months of consumption history
+- `history_months` - Calendar months from the first to the last movement (not months with movements)
 - `first_usage` - First usage date
 - `last_usage` - Last usage date
 

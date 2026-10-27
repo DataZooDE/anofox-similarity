@@ -16,7 +16,8 @@ Use the **language parameter** in transformation functions and query MAKT direct
 ## Prerequisites
 
 ```sql
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 -- Load SAP tables
 CREATE TABLE sap_mara AS SELECT * FROM read_parquet('test/data/sap/mara.parquet');
@@ -258,6 +259,13 @@ LIMIT 20;
 ```
 
 ### Generate Textual Embeddings by Language
+
+> [!WARNING]
+> In the released build, `compute_textual_embeddings` returns a deterministic hash vector, not a
+> semantic embedding, for every provider (see [Embeddings](../../../api/04-embeddings.md)). The
+> steps below show the plumbing only: similar descriptions do not get similar vectors, and a
+> German and an English text of one material are not close. For semantic matching, compute
+> vectors with your own model and load them as a table.
 
 Create embeddings for different languages separately:
 

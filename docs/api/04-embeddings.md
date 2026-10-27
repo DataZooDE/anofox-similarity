@@ -38,10 +38,9 @@ compute_textual_embeddings(
 | `provider` | VARCHAR | 'gemma-local' | Embedding provider |
 | `provider_config` | VARCHAR | NULL | Provider-specific config JSON |
 
-**Providers:**
-- `gemma-local` - Local OpenVINO model (384-D)
-- `openai` - OpenAI API (requires config: `{"api_key": "..."}`)
-- `anthropic` - Anthropic API (requires config)
+**Providers** (names the function accepts; none is wired to a real model in the released build):
+- `gemma-local` - intended for a local OpenVINO model (384-D)
+- `openai`, `anthropic` - intended for the vendors' APIs (config: `{"api_key": "..."}`)
 
 > [!IMPORTANT]
 > Unless the extension is built with a local OpenVINO model or a real API backend is wired in,
@@ -253,34 +252,6 @@ SELECT * FROM check_statistics_freshness();
 -- Result: stat_count=98, is_fresh=true
 ```
 
-### Recompute Embedding Statistics
-Computes z-score normalization statistics for all 98 transactional embedding features.
-**Requires the `anofox-forecast` extension** (it derives time-series features); without it the call
-fails with a catalog error naming `anofox_fcst_ts_features`.
-
-**Signature:**
-```sql
-recompute_embedding_statistics(
-    time_window_days := 365,
-    min_observations := 3
-) → TABLE (
-    feature_name VARCHAR,
-    feature_index INTEGER,
-    feature_category VARCHAR,
-    mean_value DOUBLE,
-    std_value DOUBLE,
-    min_value DOUBLE,
-    max_value DOUBLE,
-    num_samples INTEGER
-)
-```
-
-**Example:**
-```sql
--- Recompute statistics from last 180 days of data
-SELECT * FROM recompute_embedding_statistics(time_window_days := 180);
-```
-
 ### Compute Domain-Specific Statistics
 Computes advanced domain-specific ERP features (indices 92-97).
 
@@ -380,7 +351,7 @@ extract_ts_features(
 ### HNSW Indexes
 
 HNSW indexes over the `material_embeddings` vector columns are **created automatically when the
-extension loads** (see [HNSW Indexes](#hnsw-indexes) below for the index list). There is no
+extension loads** (see [HNSW Indexes](06-infrastructure.md#hnsw-indexes) for the index list). There is no
 SQL-callable `CreateHNSWIndexes(...)` function — that entry point does not exist. Build vector
 indexes directly with the `vss` extension's DDL if you need custom parameters, e.g.:
 
@@ -451,7 +422,7 @@ SELECT embedding_backend('valve seat', 'gemini-api', '{"api_key": "..."}');
 
 *Table function*
 
-Computes 128-dimensional transactional embeddings from goods movement data and upserts them into material_embeddings. Features include demand velocity, seasonality, frequency, and quantity statistics normalized against transactional_embedding_statistics. Supports batched computation via batch_size and batch_offset.
+Computes 128-dimensional transactional embeddings from goods movement data and returns them (it does not write to material_embeddings). Features include demand velocity, seasonality, frequency, and quantity statistics normalized against transactional_embedding_statistics. Supports batched computation via batch_size and batch_offset.
 
 ```sql
 compute_transactional_embeddings(movements_table, time_window_days, batch_size, batch_offset)

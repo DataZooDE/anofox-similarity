@@ -63,12 +63,11 @@ complete partial cover can outrank a full but much larger cover (containment 0.9
 jaccard 0.995 scores 1.00495; a full cover with jaccard 0.2 scores 1.002). Filter with
 `min_score := 1.0` when only full covers count.
 
-**Read-only databases:** the SQL is inlined, so both functions work where macros cannot be
-created. The query argument must be constant: a literal, a parameter, or
-`getvariable('name')`.
+The query argument must be constant: a literal, a parameter, or `getvariable('name')`.
 
 **Performance:** an inverted join on the feature. 100 000 entities with 15 features each
-(1.5 M rows) take about 0.15–0.2 s per query on a laptop.
+(1.5 M rows) took about 0.15–0.2 s per query when measured during development (DuckDB 1.5.6
+and 2.0; indicative, not part of the test suite).
 
 **Examples:**
 ```sql

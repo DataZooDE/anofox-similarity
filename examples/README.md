@@ -21,7 +21,7 @@ A suggested reading order for coverage matching: `quantities` → `coverage_matc
 
 ## Running the Examples
 
-Build the extension first (`make release`). The shell in `build/release/` has the extension
+Build the extension first (`GEN=ninja make release`, see the [README](../README.md#installation)). The shell in `build/release/` has the extension
 linked in, so no `LOAD` is needed. Run the files from the repository root, because the data
 paths are relative to it:
 

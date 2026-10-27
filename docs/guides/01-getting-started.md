@@ -17,8 +17,8 @@ does not find it. Build it from source:
 ```bash
 git clone --recurse-submodules https://github.com/DataZooDE/anofox-similarity.git
 cd anofox-similarity
-GEN=ninja make          # release build: build/release/
-make test               # optional: run the SQL test suite
+GEN=ninja make release                       # build the extension and a DuckDB shell
+DATAZOO_DISABLE_TELEMETRY=1 make test        # optional: the whole SQL test suite
 ```
 
 The build produces two things:
@@ -163,7 +163,7 @@ environment variable for a complete opt-out.
 | Similarity | Symmetric: how alike are A and B? Jaccard and the WL kernel. |
 | Coverage | Directional: does the offer contain what the request asks for? |
 | Positional leading arguments | Material ids, `k` and query ids are always positional. |
-| Table names as strings | Tables are passed as names, for example `bom_table := 'my_bom'`. Schema-qualified names work. |
+| Table names as strings | Tables are passed as names, for example `bom_table := 'my_bom'`. Schema-qualified names work. Names that need quoting (spaces, hyphens) are rejected with `Invalid identifier`; rename such tables or create a view with a plain name. |
 | No models shipped | Text classification uses vectors that you compute yourself. |
 
 ## Common Pitfalls

@@ -20,7 +20,8 @@ Use BOM traversal functions to explore product hierarchies and component relatio
 ## Prerequisites
 
 ```sql
-LOAD anofox_similarity;
+-- Load the extension (built from source, see docs/guides/01-getting-started.md)
+LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
 
 CREATE TABLE materials AS
 SELECT * FROM read_csv_auto('test/data/adventureworks/materials.csv.gz');

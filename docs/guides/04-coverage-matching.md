@@ -12,6 +12,20 @@
 The examples use the hand-made fixture in `test/data/coverage/mini`: requests `Q1`–`Q3`, seat
 programmes `S1`–`S6` and modules `M1`–`M5`. Run them from the repository root.
 
+```mermaid
+flowchart LR
+    J["Request and archive<br/>as JSON"] -->|tree_from_json| T["tree_nodes<br/>tree_attributes"]
+    T -->|validate_trees| T
+    T --> C{"Class per item<br/>class_id → overrides_table → label_table"}
+    C --> S1["Stage 1: tree_coverage<br/>ranks candidates by their class multisets"]
+    I["Optional index:<br/>tree_class_multiset"] -.-> S1
+    S1 -->|top k| S2["Stage 2: coverage kernel<br/>classes, counts, values with units"]
+    S2 --> R["coverage, n_gaps"]
+    S2 -->|tree_coverage_trace| G["Gap list:<br/>required vs provided value"]
+```
+
+Each stage has its own section below: trees, classes, stage 1, stage 2 and the trace.
+
 ## The Idea
 
 Similarity is symmetric: how alike are A and B? Coverage is directional: does the offer B provide
@@ -132,6 +146,12 @@ SELECT node_id, name, dimension, lo, unit, bound FROM spec_attrs;
 For many files: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`.
 The schema is in [tree.schema.json](../requirements-matching/tree.schema.json).
 
+A key close to a known one is an error, because it would drop data silently: `"childs"` gives
+`unknown key 'childs' (did you mean 'children'?)`. Other keys (`"comment"`, `"page"`) are kept out
+of the tree without an error, so you can carry your own metadata. Check parsed values too, with
+`validate_trees` and the attribute rows (see
+[Quantities and specs](05-quantities-and-specs.md#parse-a-quantity)).
+
 ## Stage 2: Coverage With Gaps
 
 `tree_coverage` ranks candidate trees. Stage 1 picks the top `k` by class multiset. Stage 2 compares
@@ -152,8 +172,13 @@ FROM tree_coverage('NEW-1', k := 3, nodes_table := 'spec_nodes', attrs_table := 
 | S6           | 1.0      | 2    | 2              | 0      |
 | S2           | 0.5      | 3    | 2              | 1      |
 
-`candidate_nodes_table` defaults to the query table, so name the archive explicitly. The trace
-explains a score. It takes the same parameters:
+Name all four tables. The defaults are `tree_nodes` and `tree_attributes` for the query, and the
+query's tables for the candidates. A nodes table without its attributes table is an error
+(`nodes_table 'spec_nodes' is given but attrs_table is not`), because the values would otherwise be
+read from another table without a warning. Pass `attrs_table := NULL` for a tree without values.
+
+`n_gaps` counts requirements (items), not attributes. The trace explains a score and lists every
+failing attribute. It takes the same parameters:
 
 ```sql
 SELECT req_node_id, matched_node_id, attr_name, req_value, prov_value,
@@ -192,12 +217,30 @@ A query tree without any classified item is an error:
 
 ```sql
 CREATE TABLE request_nodes AS SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM tree_nodes WHERE tree_id = 'Q1';
-SELECT * FROM tree_coverage('Q1', nodes_table := 'request_nodes', candidate_nodes_table := 'programme_nodes');
+SELECT * FROM tree_coverage('Q1', nodes_table := 'request_nodes', attrs_table := 'tree_attributes',
+                            candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes');
 ```
 
 ```text
 Invalid Input Error: tree_coverage: query tree 'Q1' has no classified items (give class_id, overrides_table or label_table)
 ```
+
+A query tree with only *some* classified items is not an error. Its unclassified items count as
+requirements without a counterpart: S1, which meets all of Q1, drops to 0.208 (0.25 with `mu := 0.0`) when
+only `Q1.1` has a class, and the trace shows the other items with `matched_node_id` NULL, exactly like a missing
+module. List the unclassified items before you trust a low score:
+
+```sql
+CREATE OR REPLACE TABLE request_nodes AS SELECT * REPLACE (CASE WHEN node_id = 'Q1.1' THEN class_id END AS class_id)
+FROM tree_nodes WHERE tree_id = 'Q1';
+SELECT node_id, label FROM tree_anchors('request_nodes') WHERE class_id IS NULL;
+```
+
+| node_id | label                                              |
+|---------|----------------------------------------------------|
+| Q1.2    | 4-zone massage                                     |
+| Q1.3    | powered headrest with height travel at least 60 mm |
+| Q1.4    | seat memory for at least 8 ways                    |
 
 Candidate items without a class match nothing, so such candidates do not appear. Give the archive
 its classes through the reviewed vocabulary:
@@ -256,6 +299,7 @@ to 0.1 s. Rebuild the index when the archive or the vocabulary changes. Pass the
 | Pitfall | Solution |
 |---|---|
 | Empty result | `candidate_nodes_table` defaults to the query table. Name the archive. |
+| "nodes_table ... is given but attrs_table is not" | Name the attributes table of each side, or pass `NULL` for none. |
 | "has no classified items" | Give `class_id`, `overrides_table` or `label_table`. |
 | Coverage below 1 without gaps | Attribute-name discount. Use `name_vectors` or `mu := 0.0`. |
 | A nearly full cover outranks a full one | The tie-break is additive. Filter with `min_score := 1.0` in stage 1. |

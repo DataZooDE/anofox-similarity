@@ -15,7 +15,7 @@ down the tree, add across AND siblings and never add across OR alternatives.
 
 | Function | Purpose |
 |---|---|
-| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](../requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node |
+| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](../requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node: a non-positive `count`, or a key close to a known one (`childs`, `txt`), which would drop data silently. Other keys are ignored, so the JSON can carry metadata |
 | `tree_anchors(nodes_table [, attrs_table], overrides_table, label_table, tree_ids)` | One row per item: class, reviewed, `effective_count`, `depth`, `anchor_path` (ancestors), `variant_path` (OR choices, the item included), `n_attributes` |
 | `tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)` | `(entity_id, feature_id, weight, reviewed)` for stage 1; the elementwise maximum across OR alternatives (an optimistic bound) |
 | `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |
@@ -47,7 +47,7 @@ typically 4–20 levels deep.
 
 *Scalar function*
 
-Turns a tree from upstream extraction (JSON: {tree_id, source, lang, root: {node_id, kind, edge, label, context, class_id, count, attributes: [{attr_id, name, text, lo, hi, unit, bound, category}], children: [...]}}) into a LIST of node STRUCTs with normalised attributes (base units, dimension; text-only values are parsed with parse_quantity in the document's lang, or lang if given; unit_table extends the units seed as in parse_quantity). Attribute STRUCTs carry tree_id and node_id. Unnest it into tree_nodes and tree_attributes. Schema: docs/requirements-matching/tree.schema.json.
+Turns a tree from upstream extraction (JSON: {tree_id, source, lang, root: {node_id, kind, edge, label, context, class_id, count, attributes: [{attr_id, name, text, lo, hi, unit, bound, category}], children: [...]}}) into a LIST of node STRUCTs with normalised attributes (base units, dimension; text-only values are parsed with parse_quantity in the document's lang, or lang if given; unit_table extends the units seed as in parse_quantity). Attribute STRUCTs carry tree_id and node_id. Unnest it into tree_nodes and tree_attributes. A non-positive count, or a key close to a known one (childs, txt), is an error naming the node; other keys are ignored. Schema: docs/requirements-matching/tree.schema.json.
 
 ```sql
 tree_from_json(json VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR)[])[]

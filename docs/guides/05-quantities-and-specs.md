@@ -40,8 +40,11 @@ ORDER BY i;
 
 Rules to know:
 
-- Bound words of both languages are always recognised: `max.`, `höchstens`, `at least`, `mindestens`,
-  `zwischen ... und`, `bis`, ranges with `–`.
+- Bound words of both languages are recognised: `max.`, `höchstens`, `bis`, `bis zu`, `unter`,
+  `kleiner (gleich)`, `weniger als`, `nicht mehr als`, `≤`, `<` for at most; `min.`, `mind.`,
+  `mindestens`, `ab`, `über`, `größer (gleich)`, `mehr als`, `nicht weniger als`, `≥`, `>` for at
+  least; `zwischen ... und`, ranges with `bis`, `to` or `–` for within. `über` and `unter` are
+  treated like `≥` and `≤`.
 - A value without a bound word has `bound` NULL (unqualified).
 - An unknown unit is never guessed. The number stays, `dimension` is NULL, and every comparison with
   it is a gate.
@@ -61,6 +64,28 @@ SELECT parse_quantity('2.500 Zyklen', 'de').lo AS de,
 
 The default is `['en', 'de']`, so English wins. Pass the document's language. The benchmark keeps
 it in `requests.lang`.
+
+German specifications abbreviate bounds and group digits with spaces. Both are read:
+
+```sql
+SELECT t AS text, q.lo, q.unit, q.bound
+FROM (VALUES (1, 'mind. 6 cm'), (2, 'ab 6 cm'), (3, 'kleiner gleich 8 A'), (4, 'unter 40 dB(A)'), (5, '1 000 N'), (6, '1500 U/min')) v(i, t),
+     LATERAL (SELECT parse_quantity(t, 'de') AS q)
+ORDER BY i;
+```
+
+| text               | lo     | unit  | bound    |
+|--------------------|-------:|-------|----------|
+| mind. 6 cm         | 0.06   | m     | at_least |
+| ab 6 cm            | 0.06   | m     | at_least |
+| kleiner gleich 8 A | 8.0    | A     | at_most  |
+| unter 40 dB(A)     | 40.0   | dB(A) | at_most  |
+| 1 000 N            | 1000.0 | N     | NULL     |
+| 1500 U/min         | 25.0   | Hz    | NULL     |
+
+A space (also a non-breaking one) between groups of three digits is a thousands separator.
+Wordings outside these lists parse without a bound and without an error; to find them in a
+batch, look for rows whose text has a word before the number and whose `bound` is NULL.
 
 `quantity_units()` lists the built-in units (SI with prefixes, time, temperature, dB(A), percent,
 counts, currencies). Pass your own units as a list of structs in `unit_table`.
@@ -102,6 +127,25 @@ ORDER BY module;
 | `equals v` | within 2 % of v |
 | none (point) | the provided value is about the same (±1 % linear) |
 | `gate` | different or unknown dimensions, or different currencies: score 0 |
+
+`within` means the offer must cover the whole required range, as for an adjustment travel of
+22 to 26 cm. A single value inside the range covers only part of it. If the range is a band of
+acceptable values ("weight between 4 and 5 kg"), store it as two limits, `at_least` and `at_most`:
+
+```sql
+SELECT offer,
+       round(value_satisfies(parse_quantity('von 22 bis 26 cm', 'de'), parse_quantity(offer, 'de')).score, 3) AS as_range,
+       least(value_satisfies(parse_quantity('mindestens 22 cm', 'de'), parse_quantity(offer, 'de')).score,
+             value_satisfies(parse_quantity('höchstens 26 cm', 'de'), parse_quantity(offer, 'de')).score) AS as_limits
+FROM (VALUES (1, '25 cm'), (2, '20 bis 28 cm'), (3, '30 cm')) t(i, offer)
+ORDER BY i;
+```
+
+| offer        | as_range | as_limits |
+|--------------|---------:|----------:|
+| 25 cm        | 0.51     | 1.0       |
+| 20 bis 28 cm | 1.0      | 1.0       |
+| 30 cm        | 0.0      | 0.0       |
 
 Units never mix. Volts never satisfy amps, and USD never satisfies EUR:
 
@@ -231,6 +275,7 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | Pitfall | Solution |
 |---|---|
 | `2.500` read as 2.5 | Pass the document's `lang`. |
+| A value inside a `von ... bis` range scores below 1 | `within` asks for the whole range. Store an acceptable band as two limits. |
 | Named arguments in the wrong order | On DuckDB 1.5.6 scalars bind by position: `(requirement, provided, scale, tol, soft_band, default_bound)`. |
 | A bare value never matches | Use `default_bound` or `default_bounds := 'catalogue'`. |
 | `IP65` does not satisfy `at_least IP54` | Add a row to `compatibility_rules`. |

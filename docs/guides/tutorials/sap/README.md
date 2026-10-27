@@ -6,7 +6,7 @@ Learn to use **anofox-similarity** with SAP ERP data using standard SAP table st
 
 This guide series uses real SAP manufacturing data:
 
-| SAP Table | Records | Description |
+| SAP Table | Rows in the extract this track was written on | Description |
 |-----------|---------|-------------|
 | **MARA** | 1,023,632 | Material Master (material IDs, types, groups) |
 | **MAKT** | 7,352,217 | Material Descriptions (multi-language) |
@@ -94,7 +94,7 @@ STPO (BOM Items)
 
 ## Key Differences from AdventureWorks
 
-| Feature | AdventureWorks | SAP |
+| Feature | AdventureWorks | SAP (the original extract) |
 |---------|---------------|-----|
 | **Scale** | 325 materials | 1,023,632 materials |
 | **BOM edges** | 2,576 | 14,079,161 |

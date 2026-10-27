@@ -123,7 +123,7 @@ SELECT lsh_bands(weighted_minhash(MAP {'a': 1.0}, 64), 16);
 
 *Table function*
 
-Builds a weighted-MinHash index of a feature multiset (feature_table, default 'feature_multiset'; entity_col/feature_col/weight_col as in find_covering_entities; weight_col := NULL for unit weights): one row per entity with total_weight, its size partition (partitions quantiles, default 4), signature (num_hashes, a multiple of 8, default 128; seed default 7), band_hashes for 1, 2, 4 and 8 rows per band (concatenated), num_hashes and seed. Store it as a table; find_covering_entities_lsh searches it.
+Builds a weighted-MinHash index of a feature multiset (feature_table, default 'feature_multiset'; entity_col/feature_col/weight_col as in find_covering_entities; weight_col := NULL for unit weights, where duplicate rows count once): one row per entity with total_weight, its size partition (partitions quantiles, default 4), signature (num_hashes, a multiple of 8, default 128; seed default 7), band_hashes for 1, 2, 4 and 8 rows per band (concatenated), num_hashes and seed. Store it as a table; find_covering_entities_lsh searches it.
 
 ```sql
 minhash_index(feature_table, num_hashes, seed, partitions, entity_col, feature_col, weight_col)

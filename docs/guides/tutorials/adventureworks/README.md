@@ -73,7 +73,7 @@ These bikes share all components except the frame (which differs by size), givin
 
 ## Prerequisites
 
-- DuckDB 1.0.0+
+- DuckDB 1.5.6 or 2.0
 - anofox-similarity extension installed
 - AdventureWorks test data (included in repository at `test/data/adventureworks/`)
 

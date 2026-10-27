@@ -70,7 +70,14 @@ matters; the extension does not ship language models.
 ## Installation
 
 The extension is not yet published in the DuckDB community repository or in DataZoo's
-repository (`INSTALL anofox_similarity FROM community` returns 404). Build it from source:
+repository (`INSTALL anofox_similarity FROM community` returns 404). Build it from source.
+You need Git, CMake, Ninja and a C++17 compiler:
+
+| OS | Install the prerequisites |
+|---|---|
+| Debian, Ubuntu | `sudo apt install git cmake ninja-build build-essential` |
+| macOS | `xcode-select --install && brew install cmake ninja` |
+| Windows | Visual Studio 2022 with C++, then `winget install Kitware.CMake Ninja-build.Ninja` |
 
 ```bash
 git clone --recurse-submodules https://github.com/DataZooDE/anofox-similarity.git
@@ -141,7 +148,7 @@ Predecessor detection needs dense weekly history; sparse movements return no row
 
 A request asks for a set of items with values; past programmes provide items with values. Which
 programme covers the request, and what is missing? This runs on the small fixture in the
-repository:
+repository (run it from the repository root):
 
 ```sql
 CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
@@ -164,7 +171,8 @@ ORDER BY req_node_id, attr_name;
 -- Q1.3 | height travel | at_least 0.06 m | 0.05 m | 0.0
 ```
 
-`mu := 0.0` switches off the attribute-name discount, which needs name vectors to be meaningful.
+`n_gaps` counts the requirements that fall short (S2: heating and headrest); the trace lists each
+failing attribute. `mu := 0.0` switches off the attribute-name discount, which needs name vectors to be meaningful.
 The [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,
 alternatives and large archives; the [examples](examples/coverage_matching/) run the full
 seating benchmark.
@@ -180,7 +188,9 @@ seating benchmark.
 | **[Background](docs/background/)** | Design notes and research (not the product contract) |
 
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position: give them in the
-documented order. Table functions bind by name. Everything works on a read-only database.
+documented order. Table functions bind by name. All functions work on a read-only database; only
+the embedding tables are not created there. Run the SQL in the guides and examples from the
+repository root: their data paths (`test/data/...`) are relative to it.
 
 ## 🌍 Multi-Language Support
 
