@@ -52,13 +52,13 @@ vector<UnitDef> SeedUnits() {
 	vector<UnitDef> u;
 	// length
 	u.push_back({"m", {}, "length", 1.0, 0});
-	u.push_back({"km", {}, "length", 1e3, 0});
-	u.push_back({"cm", {}, "length", 1e-2, 0});
-	u.push_back({"mm", {}, "length", 1e-3, 0});
+	u.push_back({"km", {"KM"}, "length", 1e3, 0});
+	u.push_back({"cm", {"CM"}, "length", 1e-2, 0});
+	u.push_back({"mm", {"MM"}, "length", 1e-3, 0});
 	u.push_back({"µm", {"um"}, "length", 1e-6, 0});
 	u.push_back({"nm", {}, "length", 1e-9, 0});
 	// mass
-	u.push_back({"kg", {}, "mass", 1.0, 0});
+	u.push_back({"kg", {"KG"}, "mass", 1.0, 0});
 	u.push_back({"g", {}, "mass", 1e-3, 0});
 	u.push_back({"mg", {}, "mass", 1e-6, 0});
 	u.push_back({"t", {}, "mass", 1e3, 0});
@@ -118,7 +118,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"%", {"percent", "Prozent"}, "percent", 1.0, 0});
 	u.push_back({"ppm", {}, "percent", 1e-4, 0});
 	// counts
-	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück"}, "count", 1.0, 0});
+	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück", "ST", "PC", "STK", "Stk", "EA"}, "count", 1.0, 0});
 	// data
 	u.push_back({"B", {"byte", "bytes"}, "data", 1.0, 0});
 	u.push_back({"bit", {"bits"}, "data", 0.125, 0});
@@ -596,6 +596,15 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	ReplaceAll(s, "μ", "µ"); // Greek mu -> micro sign
 	ReplaceAll(s, "Ω", "Ω"); // ohm sign -> Greek omega
 	ReplaceAll(s, "+/-", "±");
+	// protection classes written with a space are still one code: "IP 54" -> "IP54"
+	for (auto code : {"IP ", "IK "}) {
+		for (auto pos = s.find(code); pos != string::npos; pos = s.find(code, pos + 2)) {
+			bool word_start = pos == 0 || s[pos - 1] == ' ';
+			if (word_start && pos + 3 < s.size() && IsDigit(s[pos + 3])) {
+				s.erase(pos + 2, 1);
+			}
+		}
+	}
 	auto numbers = FindNumbers(s, primary);
 	if (!numbers.empty() && std::isnan(numbers[0].value)) {
 		return q; // malformed digit groups: not a number
