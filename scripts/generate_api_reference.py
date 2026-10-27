@@ -8,12 +8,17 @@ Run from the repository root after a release build:
     python3 scripts/generate_api_reference.py          # rewrite the generated blocks
     python3 scripts/generate_api_reference.py --check  # exit 1 if a block is out of date
 
+--check also fails when a function of the extension is on no page, or a listed function is not
+registered. The extension's functions are those of the build's shell minus those of a plain DuckDB
+shell (DUCKDB_BASELINE, default: `duckdb` on PATH); without one, that part is skipped with a note.
+
 Each page keeps its hand-written guide text; only the part between the markers
 <!-- generated:functions:start --> and <!-- generated:functions:end --> is replaced.
 """
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -92,6 +97,29 @@ def metadata(names):
         r["examples"] = r["examples"].split("\x1e") if r.get("examples") else []
         by_name.setdefault(r["function_name"], []).append(r)
     return by_name
+
+
+def function_names(shell):
+    env = dict(os.environ, DATAZOO_DISABLE_TELEMETRY="1")
+    env.pop("AI_AGENT", None)
+    env.pop("CLAUDECODE", None)
+    out = subprocess.run([shell, "-noheader", "-list", "-c", "SELECT DISTINCT function_name FROM duckdb_functions()"],
+                         capture_output=True, text=True, env=env, check=True).stdout
+    return set(out.split())
+
+
+def coverage_problems(by_name):
+    listed = [n for names in PAGES.values() for n in names]
+    problems = [f"listed but not registered: {n}" for n in listed if n not in by_name]
+    baseline = os.environ.get("DUCKDB_BASELINE") or shutil.which("duckdb")
+    if not baseline:
+        print("note: no plain DuckDB shell found (set DUCKDB_BASELINE); skipped the check for unlisted functions")
+        return problems
+    # the build also links the vss extension
+    ours = {n for n in function_names(DUCKDB) - function_names(baseline)
+            if not n.startswith(("hnsw_", "pragma_hnsw_", "vss_"))}
+    problems += [f"on no page: {n} (add it to PAGES)" for n in sorted(ours - set(listed))]
+    return problems
 
 
 def signature(row):
@@ -197,8 +225,12 @@ def main():
             stale.append("API_REFERENCE.md")
             if not check:
                 open(index_path, "w").write(new_index)
-    if check and stale:
-        print("out of date: " + ", ".join(stale))
+    problems = coverage_problems(by_name) if check else []
+    for p in problems:
+        print(p)
+    if check and (stale or problems):
+        if stale:
+            print("out of date: " + ", ".join(stale))
         sys.exit(1)
     print(("checked " if check else "updated ") + f"{len(PAGES)} pages" + (f", rewrote {len(stale)}" if stale and not check else ""))
 

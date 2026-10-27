@@ -6,9 +6,10 @@
 #   scripts/run_examples.sh quantities      # only folders whose name contains "quantities"
 #   DUCKDB=/path/to/duckdb scripts/run_examples.sh
 #
-# A file fails when the shell exits non-zero or its output contains "Error"
-# (DuckDB prints e.g. "Binder Error:" and keeps going in a script). The
-# script prints one line per file and a summary, and exits 1 on any failure.
+# A file fails when the shell exits non-zero, its output contains "Error" (DuckDB prints e.g.
+# "Binder Error:" and keeps going in a script), or a number of its "-- Expected:" comments is not in
+# its output (scripts/check_expected.py). The script prints one line per file and a summary, and
+# exits 1 on any failure.
 
 set -uo pipefail
 
@@ -58,11 +59,13 @@ for file in "${files[@]}"; do
     status=$?
     elapsed=$(awk -v s="$start" -v e="$(date +%s.%N)" 'BEGIN { printf "%.1f", e - s }')
 
-    if [[ $status -ne 0 ]] || grep -qE "Error|exception_type" <<< "$output"; then
+    expected_check=$(python3 scripts/check_expected.py "$file" <(printf '%s' "$output") 2>&1)
+    if [[ $status -ne 0 ]] || grep -qE "Error|exception_type" <<< "$output" || [[ -n "$expected_check" ]]; then
         failed=$((failed + 1))
         failed_files+=("$file")
         printf 'FAIL  %-60s %6ss\n' "$file" "$elapsed"
         grep -n -m 5 "Error" <<< "$output" | sed 's/^/      /'
+        [[ -n "$expected_check" ]] && echo "      $expected_check"
     else
         passed=$((passed + 1))
         printf 'ok    %-60s %6ss\n' "$file" "$elapsed"
@@ -71,6 +74,10 @@ done
 
 echo
 echo "Examples: $((passed + failed)) run, $passed passed, $failed failed"
+if [[ $((passed + failed)) -eq 0 ]]; then
+    echo "No example matched '$FILTER'" >&2
+    exit 1
+fi
 if [[ $failed -gt 0 ]]; then
     printf '  failed: %s\n' "${failed_files[@]}"
     exit 1

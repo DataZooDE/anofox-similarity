@@ -69,7 +69,7 @@ SELECT count(*) AS full_covers
 FROM find_covering_entities_for(
        MAP {'seat_heating': 2, 'massage': 4, 'headrest_powered': 2, 'memory_module': 1}, 300,
        feature_table := 'programme_classes', min_score := 1.0);
--- Expected: 49 of the 300 programmes contain the whole request
+-- Expected: 49   (of the 300 programmes, these contain the whole request)
 
 .print ''
 .print '>>> 6. The directional scalars behind it'
