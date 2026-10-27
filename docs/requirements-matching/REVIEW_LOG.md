@@ -529,4 +529,7 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | F1–F5 | med | Unknown query id / no classes silently empty; missing column error unclear; empty MAP rejected; ties ordered randomly; cold start without first usage | Fixed with regression tests (`test/sql/hardening/user_review_regressions.test`) |
 | F9 | med | classify_to_catalogue centred tiny sources on themselves | `min_source_items` (default 10): source mean, else batch mean, else none; dimension mismatch is an error |
 | F10 | low | parse_quantity missed ERP unit spellings and 'IP 54' | KG, MM, CM, KM, ST/PC/STK/EA; 'IP 54'/'IK 08' normalised |
+| E1 | high | infer_predecessors listed the newer material as the older one's predecessor (found while writing the examples) | Fixed: a predecessor's first usage lies before the successor's start; regression test |
+| E2 | med | find_similar_materials_wl_kernel returned k zero-similarity rows for an unknown id | Fixed: no rows, as documented and as the Jaccard search; regression test |
+| E3 | low | Table-function arguments cannot be subqueries | Documented in conventions (SET VARIABLE pattern) |
 | F6, F7, F8, F11, F12, F16, F19, F21 | low | Banner hint text (submodule); LOAD writes tables; quoted identifiers; 1.5.6 positional named args; mu without name vectors; compat rules table; BOM macros; uniform k validation | Deferred; documented where users meet them |
