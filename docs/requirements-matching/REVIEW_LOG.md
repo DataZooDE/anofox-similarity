@@ -507,3 +507,26 @@ ICWS signature is seed-independent (test changed), `precision` must be quoted in
 
 Also found while doing this: the Windows builds on DuckDB 1.5.6 (PR #25 CI) overflowed the 1 MB
 stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
+
+## UR-1 — 2026-10-27 — README/docs review and exploratory user testing (user request)
+
+- **Docs crew** (usability, design, pragmatist, testing; anofox-forecast's README and docs as
+  the gold standard). Verdict: REQUEST_CHANGES.
+- **Exploratory crew** (four members using the extension like users: material similarity,
+  coverage matching, classification, edge cases). No crash; 21 findings. Reports in
+  `docs/dev/exploratory/`.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| D1 | high | README quick start broken; install command returns 404 | README rewritten on the anofox-forecast outline; source build as the one install path; quick starts pinned by `test/sql/extension/readme_quickstart.test` |
+| D2 | high | License stated wrongly (Apache after 4 years) | README states BSL 1.1 → MPL 2.0 as in LICENSE; LICENSE's own 4-vs-5-year inconsistency raised with the user |
+| D3 | high | Coverage matching had no quick start, guide or example | README quick start, `docs/guides/04-coverage-matching.md`, `examples/coverage_matching/` |
+| D4 | med | API reference a monolith; missing functions; wrong kinds; k default | `docs/api/` by topic + generated per-function reference (`scripts/generate_api_reference.py`, all 79 functions); index in API_REFERENCE.md |
+| D5 | med | Stale read-only note; LOAD side effects undocumented | Rewritten in `docs/api/06-infrastructure.md` (verified on a read-only file) |
+| D6 | med | Textual embeddings advertised but a placeholder | Warning on the embeddings page and in the README |
+| D7 | med | Orphan tutorials, private SAP data, design docs mixed with reference | `docs/guides/tutorials/` (SAP: bring your own extract); `docs/background/` with a banner |
+| D8 | low | Internal requirement IDs in user docs and function descriptions | Removed from descriptions and pages |
+| F1–F5 | med | Unknown query id / no classes silently empty; missing column error unclear; empty MAP rejected; ties ordered randomly; cold start without first usage | Fixed with regression tests (`test/sql/hardening/user_review_regressions.test`) |
+| F9 | med | classify_to_catalogue centred tiny sources on themselves | `min_source_items` (default 10): source mean, else batch mean, else none; dimension mismatch is an error |
+| F10 | low | parse_quantity missed ERP unit spellings and 'IP 54' | KG, MM, CM, KM, ST/PC/STK/EA; 'IP 54'/'IK 08' normalised |
+| F6, F7, F8, F11, F12, F16, F19, F21 | low | Banner hint text (submodule); LOAD writes tables; quoted identifiers; 1.5.6 positional named args; mu without name vectors; compat rules table; BOM macros; uniform k validation | Deferred; documented where users meet them |
