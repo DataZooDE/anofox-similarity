@@ -133,7 +133,7 @@ SELECT * FROM bootstrap_ci('per_request', 'maker', metrics := ['hit', 'regret'])
 Fits the kernel weights on reviewed matches: for every grid point of label_weights (lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs, n_unresolved (reviewed pairs whose trees are missing) and rank (best first). At most 20 values per axis. The trees and options are given as for tree_coverage. The classifier's beta and tau are tuned with classify_to_catalogue and eval_ranking instead.
 
 ```sql
-fit_coverage_weights(reviewed_matches, label_weights, mus, nodes_table, attrs_table, candidate_nodes_table, candidate_attrs_table, overrides_table, label_table, labels, assignment, partition_gate, count_gate, default_bounds, templates_table, rules_table, name_vectors, name_floor)
+fit_coverage_weights(reviewed_matches, label_weights, mus, nodes_table, attrs_table, candidate_nodes_table, candidate_attrs_table, overrides_table, label_table, labels, assignment, partition_gate, count_gate, default_bounds, templates_table, rules_table, name_vectors, name_floor, tol, soft_band)
 ```
 
 **Examples**

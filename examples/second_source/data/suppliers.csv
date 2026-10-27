@@ -1,0 +1,16 @@
+supplier_id,name,country,status
+SUP-ALPEN,Alpenguss AG,AT,approved
+SUP-BALTIC,Baltic Castings UAB,LT,approved
+SUP-BRANDT,Gießerei Brandt GmbH,DE,approved
+SUP-BRANDT2,Giesserei Brandt,DE,approved
+SUP-HART,Hartmann Gusstechnik GmbH,DE,exiting
+SUP-HESSEN,Hessische Feinguss GmbH,DE,approved
+SUP-KOVACS,Kovács Öntöde Kft.,HU,approved
+SUP-LOIRE,Fonderie de la Loire SAS,FR,approved
+SUP-MORAVA,Morava Slévárna s.r.o.,CZ,approved
+SUP-NORDGUSS,Nordguss Werk Emden GmbH,DE,approved
+SUP-NOVA,Novaguss GmbH,DE,not_approved
+SUP-RHEIN,Rheintal Eisenguss GmbH,DE,approved
+SUP-SILESIA,Odlewnia Śląska Sp. z o.o.,PL,approved
+SUP-TAURUS,Taurus Döküm A.Ş.,TR,approved
+SUP-VENETO,Fonderia Veneta S.r.l.,IT,approved

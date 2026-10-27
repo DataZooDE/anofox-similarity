@@ -1,0 +1,280 @@
+{
+ "tree_id": "RFQ-2026-014",
+ "source": "Molkerei Bergblick Demo eG",
+ "lang": "de",
+ "root": {
+  "node_id": "RFQ-2026-014",
+  "kind": "container",
+  "label": "Lastenheft Becherabfüll- und Siegellinie (RFQ-2026-014)",
+  "children": [
+   {
+    "node_id": "RFQ-2026-014.D",
+    "kind": "container",
+    "label": "Dosierstation",
+    "children": [
+     {
+      "node_id": "RFQ-2026-014.D1",
+      "kind": "item",
+      "label": "Dosierzone Joghurt",
+      "count": 4,
+      "attributes": [
+       {
+        "attr_id": "stroke",
+        "name": "Dosierhub",
+        "text": "mind 60 mm"
+       },
+       {
+        "attr_id": "volume",
+        "name": "Dosiervolumen",
+        "text": "mind. 150 ml"
+       },
+       {
+        "attr_id": "accuracy",
+        "name": "Dosiergenauigkeit",
+        "text": "± 0,5 g"
+       }
+      ],
+      "class_id": "dosing_zone"
+     },
+     {
+      "node_id": "RFQ-2026-014.D2",
+      "kind": "item",
+      "label": "Dosierantrieb Hauptdosierung",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "power",
+        "name": "Antriebsleistung",
+        "text": "mind. 90 W"
+       },
+       {
+        "attr_id": "torque",
+        "name": "Drehmoment",
+        "text": "mind. 1,2 Nm"
+       }
+      ],
+      "class_id": "dosing_drive"
+     },
+     {
+      "node_id": "RFQ-2026-014.D3",
+      "kind": "item",
+      "label": "Dosierantrieb Fruchtdosierung",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "power",
+        "name": "Antriebsleistung",
+        "text": "mind. 10 W"
+       },
+       {
+        "attr_id": "torque",
+        "name": "Drehmoment",
+        "text": "mind. 0,2 Nm"
+       }
+      ],
+      "class_id": "dosing_drive"
+     }
+    ]
+   },
+   {
+    "node_id": "RFQ-2026-014.S",
+    "kind": "container",
+    "label": "Siegelstation",
+    "children": [
+     {
+      "node_id": "RFQ-2026-014.S1",
+      "kind": "item",
+      "label": "Siegelstation",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "temperature",
+        "name": "Siegeltemperatur",
+        "text": "mindestens 200 °C"
+       },
+       {
+        "attr_id": "current",
+        "name": "Stromaufnahme Heizung",
+        "text": "höchstens 7,5 A"
+       },
+       {
+        "attr_id": "maintenance",
+        "name": "Wartungsintervall",
+        "text": "mind. 2.500 h"
+       },
+       {
+        "attr_id": "noise",
+        "name": "Schalldruckpegel",
+        "text": "72 dB(A)"
+       }
+      ],
+      "class_id": "sealing_unit"
+     }
+    ]
+   },
+   {
+    "node_id": "RFQ-2026-014.F",
+    "kind": "container",
+    "label": "Becherzufuhr und Förderer",
+    "children": [
+     {
+      "node_id": "RFQ-2026-014.F1",
+      "kind": "item",
+      "label": "Becherförderer",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "speed",
+        "name": "Bandgeschwindigkeit",
+        "text": "mindestens 0,5 m/s"
+       },
+       {
+        "attr_id": "width",
+        "name": "Bandbreite",
+        "text": "mind. 300 mm"
+       },
+       {
+        "attr_id": "noise",
+        "name": "Schalldruckpegel",
+        "text": "nicht über 75 dB(A)"
+       }
+      ],
+      "class_id": "conveyor"
+     },
+     {
+      "node_id": "RFQ-2026-014.F2",
+      "kind": "item",
+      "label": "Becherentstapler",
+      "count": 2,
+      "attributes": [
+       {
+        "attr_id": "stack_height",
+        "name": "Stapelhöhe",
+        "text": "mind. 600 mm"
+       }
+      ],
+      "class_id": "cup_denester"
+     }
+    ]
+   },
+   {
+    "node_id": "RFQ-2026-014.C",
+    "kind": "container",
+    "label": "Reinigung (CIP)",
+    "children": [
+     {
+      "node_id": "RFQ-2026-014.C1",
+      "kind": "item",
+      "label": "Kompaktaggregat Hygiene",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "flow",
+        "name": "Volumenstrom",
+        "text": "mind. 120 l/min"
+       },
+       {
+        "attr_id": "temperature",
+        "name": "Reinigungstemperatur",
+        "text": "mind. 85 °C"
+       },
+       {
+        "attr_id": "pressure",
+        "name": "Betriebsdruck",
+        "text": "not to exceed 5 bar"
+       },
+       {
+        "attr_id": "pressure_class",
+        "name": "Druckstufe",
+        "text": "PN 16"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "node_id": "RFQ-2026-014.L",
+    "kind": "container",
+    "label": "Linie, Steuerung, Etikettierung",
+    "children": [
+     {
+      "node_id": "RFQ-2026-014.L1",
+      "kind": "item",
+      "label": "Schaltschrank",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "protection",
+        "name": "Schutzart",
+        "text": "IP65 oder besser"
+       },
+       {
+        "attr_id": "voltage",
+        "name": "Anschlussspannung",
+        "text": "400 V"
+       }
+      ],
+      "class_id": "control_cabinet"
+     },
+     {
+      "node_id": "RFQ-2026-014.L2",
+      "kind": "item",
+      "label": "Maschinengestell",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "length",
+        "name": "Aufstelllänge",
+        "text": "max. 12 m"
+       },
+       {
+        "attr_id": "cycle_time",
+        "name": "Taktzeit",
+        "text": "max. 1,2 s"
+       },
+       {
+        "attr_id": "output",
+        "name": "Ausbringung",
+        "text": "mind. 1.400 Becher/min"
+       }
+      ],
+      "class_id": "line_frame"
+     },
+     {
+      "node_id": "RFQ-2026-014.L3",
+      "kind": "item",
+      "label": "Labelling unit (EN annex)",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "speed",
+        "name": "label speed",
+        "text": "at least 0.8 m/s"
+       },
+       {
+        "attr_id": "protection",
+        "name": "protection class",
+        "text": "IP54 or better"
+       }
+      ],
+      "class_id": "label_applicator"
+     },
+     {
+      "node_id": "RFQ-2026-014.L4",
+      "kind": "item",
+      "label": "Bedienpanel",
+      "count": 1,
+      "attributes": [
+       {
+        "attr_id": "screen",
+        "name": "Bildschirmdiagonale",
+        "text": "mind. 15 Zoll"
+       }
+      ],
+      "class_id": "operator_panel"
+     }
+    ]
+   }
+  ]
+ }
+}

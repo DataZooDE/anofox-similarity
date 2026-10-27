@@ -1,0 +1,11 @@
+class_id,kind,dimension,bound,ladder,description
+cert_level,category,cert_level,,ordinal,inspection certificate EN 10204 (2.2 < 3.1 < 3.2)
+envelope_1,numeric,length,at_least,,largest raw-part dimension (flask must be at least as long)
+envelope_2,numeric,length,at_least,,middle raw-part dimension
+envelope_3,numeric,length,at_least,,smallest raw-part dimension
+lot_size,numeric,count,at_most,,supplier minimum lot must not exceed the part's lot
+material_grade,category,,,nominal,"cast iron grade EN 1563 / EN 1561, without elongation"
+piece_weight,numeric,mass,at_least,,supplier maximum casting weight must reach the part weight
+pressure_class,category,pressure_class,,ordinal,pressure test PN (PN10 < PN16 < PN25 < PN40)
+roughness,numeric,length,at_most,,achievable Ra must not exceed the drawing's Ra
+tolerance,numeric,length,at_most,,achievable general tolerance (half-width)

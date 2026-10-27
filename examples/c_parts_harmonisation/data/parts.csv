@@ -1,0 +1,92 @@
+part_id,supplier,description,standard_raw,thread_raw,length_raw,grade_raw,unit_price_eur
+CP-B01-1,Nordtal Technik,Sechskantschraube M6,DIN 933,M6,20 mm,A2-70,0.207
+CP-B01-2,Elster Industrie,hex bolt M 6,ISO 4017,M 6,2 cm,A2-70,0.292
+CP-B02-1,Elster Industrie,Sechskantschraube M8,DIN 933,M8,25 mm,A2-70,0.224
+CP-B02-2,Morgenwerk,hex bolt M 8,ISO 4017,M 8,"2,5 cm",A2-70,0.336
+CP-B03-1,Morgenwerk,Sechskantschraube M10,DIN 933,M10,30 mm,A4-70,0.241
+CP-B03-2,Falken Handel,hex bolt M 10,ISO 4017,M 10,3 cm,A4-70,0.383
+CP-B04-1,Falken Handel,Sechskantschraube M12,DIN 933,M12,35 mm,A2-70,0.258
+CP-B04-2,Nordtal Technik,hex bolt M 12,ISO 4017,M 12,"3,5 cm",A2-70,0.341
+CP-B05-1,Nordtal Technik,Sechskantschraube M14,DIN 933,M14,15 mm,A2-70,0.275
+CP-B05-2,Elster Industrie,hex bolt M 14,ISO 4017,M 14,"1,5 cm",A2-70,0.388
+CP-B06-1,Elster Industrie,Sechskantschraube M16,DIN 933,M16,20 mm,A4-70,0.292
+CP-B06-2,Morgenwerk,hex bolt M 16,ISO 4017,M 16,2 cm,A4-70,0.438
+CP-B07-1,Morgenwerk,Sechskantschraube M18,DIN 933,M18,25 mm,A2-70,0.309
+CP-B07-2,Falken Handel,hex blot M 18,ISO 4017,M 18,"2,5 cm",A2-70,0.491
+CP-B08-1,Falken Handel,Sechskantschraube M20,DIN 933,M20,30 mm,A2-70,0.326
+CP-B08-2,Nordtal Technik,hex bolt M 20,ISO 4017,M 20,3 cm,A2-70,0.43
+CP-B09-1,Nordtal Technik,Sechskantschraube M22,DIN 933,M22,35 mm,A4-70,0.343
+CP-B09-2,Elster Industrie,hex bolt M 22,ISO 4017,M 22,"3,5 cm",A4-70,0.484
+CP-B10-1,Elster Industrie,Sechskantschraube M24,DIN 933,M24,15 mm,A2-70,0.36
+CP-B10-2,Morgenwerk,hex bolt M 24,ISO 4017,M 24,"1,5 cm",A2-70,0.54
+CP-B11-1,Morgenwerk,Sechskantschraube M26,DIN 933,M26,20 mm,A2-70,0.377
+CP-B11-2,Falken Handel,hex bolt M 26,ISO 4017,M 26,2 cm,A2-70,0.599
+CP-B12-1,Falken Handel,Sechskantschraube M28,DIN 933,M28,25 mm,A4-70,0.394
+CP-B12-2,Nordtal Technik,hex bolt M 28,ISO 4017,M 28,"2,5 cm",A4-70,0.52
+CP-B13-1,Nordtal Technik,Sechskantschraube M30,DIN 933,M30,30 mm,A2-70,0.411
+CP-B13-2,Elster Industrie,hex bolt M 30,ISO 4017,M 30,3 cm,A2-70,0.58
+CP-B14-1,Elster Industrie,Sechskantschraube M32,DIN 933,M32,35 mm,A2-70,0.428
+CP-B14-2,Morgenwerk,hex bolt M 32,ISO 4017,M 32,"3,5 cm",A2-70,0.642
+CP-B15-1,Morgenwerk,Sechskantschraube M34,DIN 933,M34,15 mm,A4-70,0.445
+CP-B15-2,Falken Handel,hex bolt M 34,ISO 4017,M 34,"1,5 cm",A4-70,0.708
+CP-B16-1,Falken Handel,Sechskantschraube M36,DIN 933,M36,20 mm,A2-70,0.462
+CP-B16-2,Nordtal Technik,hex bolt M 36,ISO 4017,M 36,2 cm,A2-70,0.61
+CP-B17-1,Nordtal Technik,Sechskantschraube M38,DIN 933,M38,25 mm,A2-70,0.479
+CP-B17-2,Elster Industrie,hex bolt M 38,ISO 4017,M 38,"2,5 cm",A2-70,0.675
+CP-B18-1,Elster Industrie,Sechskantschraube M40,DIN 933,M40,30 mm,A4-70,0.496
+CP-B18-2,Morgenwerk,hex bolt M 40,ISO 4017,M 40,3 cm,A4-70,0.744
+CP-B19-1,Morgenwerk,Sechskantschraube M42,DIN 933,M42,35 mm,A2-70,0.513
+CP-B19-2,Falken Handel,hex bolt M 42,ISO 4017,M 42,"3,5 cm",A2-70,0.816
+CP-B20-1,Falken Handel,Sechskantschraube M44,DIN 933,M44,15 mm,A2-70,0.53
+CP-B20-2,Nordtal Technik,hex bolt M 44,ISO 4017,M 44,"1,5 cm",A2-70,0.7
+CP-N01-1,Nordtal Technik,Sechskantmutter M6,DIN 934,M6,,A2-70,0.097
+CP-N01-2,Elster Industrie,hex nut M 6,ISO 4032,M 6,,A2-70,0.137
+CP-N02-1,Elster Industrie,Sechskantmutter M8,DIN 934,M8,,A2-70,0.114
+CP-N02-2,Morgenwerk,hex nut M 8,ISO 4032,M 8,,A2-70,0.171
+CP-N03-1,Morgenwerk,Sechskantmutter M10,DIN 934,M10,,A4-70,0.131
+CP-N03-2,Falken Handel,hex nut M 10,ISO 4032,M 10,,A4-70,0.208
+CP-N04-1,Falken Handel,Sechskantmutter M12,DIN 934,M12,,A2-70,0.148
+CP-N04-2,Nordtal Technik,hex nut M 12,ISO 4032,M 12,,A2-70,0.195
+CP-N05-1,Nordtal Technik,Sechskantmutter M14,DIN 934,M14,,A2-70,0.165
+CP-N05-2,Elster Industrie,hex nut M 14,ISO 4032,M 14,,A2-70,0.233
+CP-N06-1,Elster Industrie,Sechskantmutter M16,DIN 934,M16,,A4-70,0.182
+CP-N06-2,Morgenwerk,hex nut M 16,ISO 4032,M 16,,A4-70,0.273
+CP-N07-1,Morgenwerk,Sechskantmutter M18,DIN 934,M18,,A2-70,0.199
+CP-N07-2,Falken Handel,hex nut M 18,ISO 4032,M 18,,A2-70,0.316
+CP-N08-1,Falken Handel,Sechskantmutter M20,DIN 934,M20,,A2-70,0.216
+CP-N08-2,Nordtal Technik,hex nut M 20,ISO 4032,M 20,,A2-70,0.285
+CP-N09-1,Nordtal Technik,Sechskantmutter M22,DIN 934,M22,,A4-70,0.233
+CP-N09-2,Elster Industrie,hex nut M 22,ISO 4032,M 22,,A4-70,0.329
+CP-N10-1,Elster Industrie,Sechskantmutter M24,DIN 934,M24,,A2-70,0.25
+CP-N10-2,Morgenwerk,hex nut M 24,ISO 4032,M 24,,A2-70,0.375
+CP-S01,Falken Handel,Sonder-Schraube,DIN 933,M8,41 mm,A2-70,0.31
+CP-S02,Nordtal Technik,Sonder-Schraube,DIN 933,M8,42 mm,A2-70,0.323
+CP-S03,Elster Industrie,Sonder-Schraube,DIN 933,M8,43 mm,A2-70,0.336
+CP-S04,Morgenwerk,Sonder-Schraube,DIN 933,M8,44 mm,A2-70,0.349
+CP-S05,Falken Handel,Sonder-Schraube,DIN 933,M8,45 mm,A2-70,0.362
+CP-S06,Nordtal Technik,Sonder-Schraube,DIN 933,M8,46 mm,A2-70,0.375
+CP-S07,Elster Industrie,Sonder-Schraube,DIN 933,M8,47 mm,A2-70,0.388
+CP-S08,Morgenwerk,Sonder-Schraube,DIN 933,M8,48 mm,A2-70,0.401
+CP-W01-1,Nordtal Technik,Unterlegscheibe M6,DIN 125,M6,,A2-70,0.097
+CP-W01-2,Elster Industrie,plain washer M 6,ISO 7089,M 6,,A2-70,0.137
+CP-W02-1,Elster Industrie,Unterlegscheibe M8,DIN 125,M8,,A2-70,0.114
+CP-W02-2,Morgenwerk,plain washer M 8,ISO 7089,M 8,,A2-70,0.171
+CP-W03-1,Morgenwerk,Unterlegscheibe M10,DIN 125,M10,,A4-70,0.131
+CP-W03-2,Falken Handel,plain washer M 10,ISO 7089,M 10,,A4-70,0.208
+CP-W04-1,Falken Handel,Unterlegscheibe M12,DIN 125,M12,,A2-70,0.148
+CP-W04-2,Nordtal Technik,plain washer M 12,ISO 7089,M 12,,A2-70,0.195
+CP-W05-1,Nordtal Technik,Unterlegscheibe M14,DIN 125,M14,,A2-70,0.165
+CP-W05-2,Elster Industrie,plain washer M 14,ISO 7089,M 14,,A2-70,0.233
+CP-W06-1,Elster Industrie,Unterlegscheibe M16,DIN 125,M16,,A4-70,0.182
+CP-W06-2,Morgenwerk,plain washer M 16,ISO 7089,M 16,,A4-70,0.273
+CP-W07-1,Morgenwerk,Unterlegscheibe M18,DIN 125,M18,,A2-70,0.199
+CP-W07-2,Falken Handel,plain washer M 18,ISO 7089,M 18,,A2-70,0.316
+CP-W08-1,Falken Handel,Unterlegscheibe M20,DIN 125,M20,,A2-70,0.216
+CP-W08-2,Nordtal Technik,plain washer M 20,ISO 7089,M 20,,A2-70,0.285
+CP-W09-1,Nordtal Technik,Unterlegscheibe M22,DIN 125,M22,,A4-70,0.233
+CP-W09-2,Elster Industrie,plain washer M 22,ISO 7089,M 22,,A4-70,0.329
+CP-W10-1,Elster Industrie,Unterlegscheibe M24,DIN 125,M24,,A2-70,0.25
+CP-W10-2,Morgenwerk,plain washer M 24,ISO 7089,M 24,,A2-70,0.375
+CP-X25,Talberg Supply,Sechskantschr. M8x25; darf 25 mm nicht überschreiten,DIN 931,M8,25 mm,A2-70,0.42
+CP-X30,Talberg Supply,hex bolt M8x30; length must not exceed 30 mm,DIN 931,M8,30 mm,A2-70,0.42
+CP-XUNK,Talberg Supply,hex bolt M8; length not supplied,DIN 931,M8,,A2-70,0.42

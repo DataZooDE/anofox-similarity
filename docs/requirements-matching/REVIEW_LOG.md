@@ -602,3 +602,29 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | H4 | med | A bare `± 0,02 mm` had no bound | Fixed: `at_most` on the half-width |
 | E1–E16 | — | Evaluation: SAP scale tutorial queried AdventureWorks ids; embed_text cross-language recipe; unvalidated forecasting claims; placeholder described as semantic; api/13 vs guide 04; api/16 vs guide 08; README telemetry and counts; error texts named query_material_id | Fixed (docs and C++ descriptions; reference regenerated) |
 | — | low | "Please report it" suffix on input errors | Deferred: comes from the shared datazoo-banner submodule (all extensions) |
+
+## UR-4 — 2026-10-27 — typical scenarios, discussed by the crew, built as example folders (user request)
+
+- **Scenario research** (review mode, two rounds; members argued as a bid engineer, a
+  procurement lead, an MRO data engineer and a demand planner, then challenged each other's
+  scenarios). Agreed folders: `tender_reuse`, `alternate_part`, `second_source`,
+  `planner_launch_phaseout` and the optional `c_parts_harmonisation`. Its parser findings were
+  fixed before the build (UR-3 H1–H4).
+- **Build** (implement mode, one folder per member; two members re-run after Muse quota
+  errors): each folder has a deterministic generator in `scripts/src/scripts/examples/`,
+  data under 200 KB with planted traps and a gold file, a README in the house style, SQL
+  scripts whose `-- Expected:` numbers `run_examples.sh` checks, and a real-user report in
+  `docs/dev/exploratory/round4-*.md`.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| R1 | high | An exact point scored 0 against itself with `tol 0, soft_band 0` (the hard-limit recipe caused false rejects) | Fixed: a point widens by tol/2 on both scales (the old 0.01 decades = the default), a zero-width requirement is met when the offer contains it |
+| R2 | high | `tree_coverage(_trace)` had no `tol` / `soft_band` (a 37 kg pour covered a 38 kg part) | Fixed: named parameters, passed into the kernel options; second_source and tender_reuse use them instead of re-checks |
+| R4-U1 | high | The catalogue template's `scale` column was ignored (87 W passed `mind. 90 W` on a log scale) | Fixed: the template scale decides log or linear; benchmark KPIs unchanged |
+| R4 | med | `Werkstoff 1.4404`, `Werkszeugnis 2.2`, `grade 8.8` read as counts | Fixed: numbers after material and certificate words are designations |
+| R5 | med | No warning for a category without a dimension | Fixed: `category_without_dimension` in `validate_trees` |
+| R7 | med | `0.75 in` had no unit | Fixed: `in` is an inch as the last word only (`3 in 1` stays a word) |
+| R6 | med | A bound in the text always overrides the template (drawing wording describes the part, not the capability) | Deferred: needs an option; second_source's loader takes the bound from its class table |
+| R9 | med | `cluster_matches` closes chains across a missing attribute | Example guard re-checks every whole cluster; an optional conflict check is backlog |
+| R10, S6, S7 | low | Trace tie keeps the first value; OR variants scored per requirement item; base units in the trace; no per-attribute gap flag | Backlog; examples show the workarounds |
+| S8 | med | `infer_predecessors` misses the clean cut-over (0.356 < 0.5) | Known (UR-2 D-2); planner folder shows the recipe |

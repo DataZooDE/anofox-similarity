@@ -1,0 +1,74 @@
+part_id,attr_key,kind,value_text
+ALT-101,bore,quantity,0.75 in
+ALT-101,certificate,category,3.1 Zeugnis
+ALT-101,material,category,1.4404
+ALT-101,nominal_diameter,category,DN50
+ALT-101,pressure_class,category,PN16
+ALT-101,pressure_limit,quantity,"4,8 bar"
+ALT-101,runout,quantity,"± 0,02 mm"
+ALT-101,thread,category,"M8x1,25"
+ALT-102,bore,quantity,19.05 mm
+ALT-102,certificate,category,EN 10204 3.2
+ALT-102,material,category,1.4404
+ALT-102,nominal_diameter,category,DN 50
+ALT-102,pressure_class,category,PN40
+ALT-102,pressure_limit,quantity,5 bar
+ALT-102,runout,quantity,"± 0,05 mm"
+ALT-102,thread,category,"M8x1,25"
+ALT-201,bore,quantity,19.05 mm
+ALT-201,certificate,category,3.1
+ALT-201,material,category,1.4404
+ALT-201,nominal_diameter,category,DN50
+ALT-201,pressure_class,category,PN16
+ALT-201,pressure_limit,quantity,4 bar
+ALT-201,runout,quantity,"± 0,03 mm"
+ALT-201,thread,category,"M10x1,25"
+ALT-202,bore,quantity,19.05 mm
+ALT-202,certificate,category,3.1
+ALT-202,material,category,1.4404
+ALT-202,nominal_diameter,category,DN50
+ALT-202,pressure_class,category,PN10
+ALT-202,pressure_limit,quantity,4 bar
+ALT-202,runout,quantity,"± 0,03 mm"
+ALT-202,thread,category,"M8x1,25"
+ALT-203,bore,quantity,18.9 mm
+ALT-203,certificate,category,3.1
+ALT-203,material,category,1.4404
+ALT-203,nominal_diameter,category,DN50
+ALT-203,pressure_class,category,PN16
+ALT-203,pressure_limit,quantity,4 bar
+ALT-203,runout,quantity,"± 0,03 mm"
+ALT-203,thread,category,"M8x1,25"
+ALT-204,bore,quantity,19.05 mm
+ALT-204,certificate,category,3.1
+ALT-204,material,category,1.4404
+ALT-204,nominal_diameter,category,DN50
+ALT-204,pressure_class,category,PN16
+ALT-204,pressure_limit,quantity,6 bar
+ALT-204,runout,quantity,"± 0,03 mm"
+ALT-204,thread,category,"M8x1,25"
+ALT-301,bore,quantity,19.05 mm
+ALT-301,certificate,category,
+ALT-301,material,category,1.4404
+ALT-301,nominal_diameter,category,DN50
+ALT-301,pressure_class,category,PN16
+ALT-301,pressure_limit,quantity,4 bar
+ALT-301,runout,quantity,"± 0,03 mm"
+ALT-301,thread,category,"M8x1,25"
+ALT-302,bore,quantity,19.05 mm
+ALT-302,certificate,category,3.1
+ALT-302,material,category,1.4404
+ALT-302,nominal_diameter,category,DN50
+ALT-302,pressure_class,category,PN16
+ALT-302,pressure_limit,quantity,4 bar
+ALT-302,runout,quantity,"± 0,03 mm"
+ALT-302,thread,category,"M10x1,25"
+ALT-302,thread,category,"M8x1,25"
+RW-PUMP-50,bore,quantity,at least 19.05 mm
+RW-PUMP-50,certificate,category,EN 10204 3.1
+RW-PUMP-50,material,category,1.4404
+RW-PUMP-50,nominal_diameter,category,DN50
+RW-PUMP-50,pressure_class,category,PN 16
+RW-PUMP-50,pressure_limit,quantity,not to exceed 5 bar
+RW-PUMP-50,runout,quantity,"± 0,05 mm"
+RW-PUMP-50,thread,category,"M8x1,25"

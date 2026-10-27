@@ -1,0 +1,10 @@
+part_id,role,supplier,designation
+ALT-101,candidate,Fiktivwerk 101,Ersatzsitz DN50 A4-70
+ALT-102,candidate,Fiktivwerk 102,Ersatzsitz DN50 A4-70
+ALT-201,candidate,Fiktivwerk 201,Ersatzsitz DN50 A4-70
+ALT-202,candidate,Fiktivwerk 202,Ersatzsitz DN50 A4-70
+ALT-203,candidate,Fiktivwerk 203,Ersatzsitz DN50 A4-70
+ALT-204,candidate,Fiktivwerk 204,Ersatzsitz DN50 A4-70
+ALT-301,candidate,Fiktivwerk 301,Ersatzsitz DN50 A4-70
+ALT-302,candidate,Fiktivwerk 302,Ersatzsitz DN50 A4-70
+RW-PUMP-50,request,Rheinwerk Ersatzteile,"Pumpensitz M8x1,25 A4-70"

@@ -1,0 +1,34 @@
+candidate_id,clause_id,must_should,reason
+PAST-CUSTOM-2021,C-01,must,count 2 of 4
+PAST-CUSTOM-2021,C-42,should,value
+PAST-FAST-2024,C-39,should,missing item
+PAST-FAST-2024,C-40,should,missing item
+PAST-FAST-2024,C-41,should,missing item
+PAST-FAST-2024,C-42,should,value
+PAST-LEAN-2019,C-42,should,value
+PAST-NOCIP-2015,C-25,must,missing item
+PAST-NOCIP-2015,C-26,must,missing item
+PAST-NOCIP-2015,C-27,must,missing item
+PAST-NOCIP-2015,C-28,must,missing item
+PAST-NOCIP-2015,C-29,must,missing item
+PAST-NOCIP-2015,C-42,should,value
+PAST-NOISY-2020,C-21,must,value
+PAST-NOISY-2020,C-42,should,value
+PAST-OLD-2012,C-16,must,value
+PAST-OLD-2012,C-19,must,value
+PAST-OLD-2012,C-32,must,value
+PAST-OLD-2012,C-33,must,value
+PAST-OLD-2012,C-41,should,value
+PAST-OLD-2012,C-42,should,value
+PAST-PN10-2016,C-27,must,value
+PAST-PN10-2016,C-29,must,value
+PAST-PN10-2016,C-42,should,value
+PAST-RICH-2022,C-42,should,value
+PAST-SHORT-2017,C-02,must,value
+PAST-SHORT-2017,C-23,must,count 1 of 2
+PAST-SHORT-2017,C-42,should,value
+PAST-SWAP-2018,C-42,should,value
+PAST-TOL-2023,C-07,must,value
+PAST-TOL-2023,C-14,must,value
+PAST-TOL-2023,C-42,should,value
+PAST-UNIT-2021,C-42,should,value

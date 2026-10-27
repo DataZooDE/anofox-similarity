@@ -16,6 +16,21 @@ step in comments and states the expected output next to each query.
 | [`evaluation/`](evaluation/) | Score a pipeline against ground truth; tune the kernel weights | `eval_ranking`, `eval_calibration`, `threshold_at_precision`, `bootstrap_ci`, `fit_coverage_weights` |
 | [`dedup_and_lsh/`](dedup_and_lsh/) | Cluster duplicate records; MinHash/LSH candidate search | `cluster_matches`, `minhash_index`, `minhash_bands`, `find_covering_entities_lsh` |
 
+## Scenarios
+
+End-to-end workflows of one user role each, on generated data with planted traps (dirty units,
+German/English text, duplicates, designations, negated limits). Each folder has a README with
+the business story, a deterministic generator (`cd scripts && uv run python -m
+scripts.examples.<folder>`) and a gold file the scripts check themselves against.
+
+| Folder | Who and what | Main functions |
+|--------|--------------|----------------|
+| [`tender_reuse/`](tender_reuse/) | Bid engineering: answer a 42-clause RFQ from 12 past lines and 10 module variants; parse audit, must clauses, signable deviation list | `tree_from_json`, `validate_trees`, `tree_coverage`, `tree_coverage_trace`, `value_satisfies` |
+| [`alternate_part/`](alternate_part/) | MRO / procurement: qualify alternates with strict numeric limits, approved category upgrades, and review gates | `parse_quantity`, `value_satisfies`, `compat_score` |
+| [`second_source/`](second_source/) | Sourcing: a foundry closes; rank approved foundries per cast part by capability class, gap list, hard limits, recall@3 against gold | `parse_quantity`, `tree_coverage`, `tree_coverage_trace`, `validate_trees` |
+| [`planner_launch_phaseout/`](planner_launch_phaseout/) | Demand planning: a charger launch, a cable cut-over and a component shortage, with movement-density checks | `cold_start_analogs`, `infer_predecessors`, `bom_where_used`, `bom_common_components`, `find_covering_entities` |
+| [`c_parts_harmonisation/`](c_parts_harmonisation/) | Master data: harmonise C-parts catalogues with reviewed standard synonyms, whole-cluster guards, and price spread | `cluster_matches` |
+
 A suggested reading order for coverage matching: `quantities` → `coverage_matching` →
 `classification_review` → `evaluation`.
 
