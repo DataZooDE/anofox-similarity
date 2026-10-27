@@ -23,6 +23,20 @@ if [[ ! -x "$DUCKDB" ]]; then
 fi
 
 export DATAZOO_DISABLE_TELEMETRY=1
+# DuckDB 2.0's shell switches to "agent mode" output when it detects an AI agent
+unset AI_AGENT CLAUDECODE
+
+# The DuckDB 1.5.6 shell built here has the extension linked in; the 2.0 shell does not, so
+# load the extension built next to it.
+SHELL_ARGS=()
+if ! "$DUCKDB" -noheader -list -c "SELECT 1 FROM duckdb_functions() WHERE function_name = 'tree_coverage' LIMIT 1" 2>/dev/null | grep -q 1; then
+    EXT="$(dirname "$DUCKDB")/extension/anofox_similarity/anofox_similarity.duckdb_extension"
+    if [[ ! -f "$EXT" ]]; then
+        echo "The shell at $DUCKDB has no anofox_similarity and $EXT does not exist" >&2
+        exit 1
+    fi
+    SHELL_ARGS=(-unsigned -cmd "LOAD '$EXT'")
+fi
 
 passed=0
 failed=0
@@ -40,11 +54,11 @@ for file in "${files[@]}"; do
         continue
     fi
     start=$(date +%s.%N)
-    output=$("$DUCKDB" < "$file" 2>&1)
+    output=$("$DUCKDB" "${SHELL_ARGS[@]}" < "$file" 2>&1)
     status=$?
     elapsed=$(awk -v s="$start" -v e="$(date +%s.%N)" 'BEGIN { printf "%.1f", e - s }')
 
-    if [[ $status -ne 0 ]] || grep -q "Error" <<< "$output"; then
+    if [[ $status -ne 0 ]] || grep -qE "Error|exception_type" <<< "$output"; then
         failed=$((failed + 1))
         failed_files+=("$file")
         printf 'FAIL  %-60s %6ss\n' "$file" "$elapsed"
