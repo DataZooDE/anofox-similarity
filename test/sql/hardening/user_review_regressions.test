@@ -1,0 +1,123 @@
+# name: test/sql/hardening/user_review_regressions.test
+# description: Bugs found by exploratory user testing (docs/dev/exploratory/): silent empty
+#              coverage results, small-source centring, unclear errors, unstable tie order,
+#              empty maps, analogs without history.
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# ---------------------------------------------------------------- coverage: no silent empty results
+
+# an unknown query id is an error, not an empty result
+statement error
+SELECT * FROM tree_coverage('NOPE', k := 5);
+----
+query tree 'NOPE' is not in nodes_table
+
+statement error
+SELECT * FROM coverage_recall(['Q1', 'NOPE'], k := 5);
+----
+query tree 'NOPE' is not in nodes_table
+
+# a query whose items have no class cannot be matched: the error says how to give classes
+statement ok
+CREATE TABLE unlabelled AS SELECT * EXCLUDE (class_id), NULL::VARCHAR AS class_id FROM tree_nodes;
+
+statement error
+SELECT * FROM tree_coverage('Q1', k := 5, nodes_table := 'unlabelled', candidate_nodes_table := 'tree_nodes');
+----
+query tree 'Q1' has no classified items (give class_id, overrides_table or label_table)
+
+statement error
+SELECT * FROM tree_coverage_trace('Q1', candidates := ['S1'], nodes_table := 'unlabelled', candidate_nodes_table := 'tree_nodes');
+----
+has no classified items
+
+# ---------------------------------------------------------------- classifier: small sources
+
+# per-source centring needs enough items: a source below min_source_items (default 10) is centred
+# with the mean over all items, or not at all when the whole batch is that small. A single item
+# equal to the pump vector is a pump, not a uniform guess
+statement ok
+CREATE TABLE cat3 AS SELECT * FROM (VALUES ('pump', [1.0, 0.0, 0.0]), ('motor', [0.0, 1.0, 0.0]), ('valve', [0.0, 0.0, 1.0]))
+    t(class_id, vec);
+
+statement ok
+CREATE TABLE single AS SELECT * FROM (VALUES ('a', 's1', [1.0, 0.0, 0.0])) t(node_id, source, vec);
+
+query T
+SELECT class_id FROM classify_to_catalogue(items_table := 'single', catalogue_table := 'cat3', top := 1);
+----
+pump
+
+# two near-identical pumps in one small source stay pumps
+statement ok
+CREATE TABLE two_pumps AS SELECT * FROM (VALUES ('a', 's1', [1.0, 0.05, 0.0]), ('b', 's1', [1.0, 0.0, 0.05])) t(node_id, source, vec);
+
+query TT
+SELECT node_id, class_id FROM classify_to_catalogue(items_table := 'two_pumps', catalogue_table := 'cat3', top := 1) ORDER BY node_id;
+----
+a	pump
+b	pump
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'single', catalogue_table := 'cat3', min_source_items := 0);
+----
+min_source_items must be at least 1
+
+# vectors of a different dimension than the catalogue are an error naming both dimensions
+statement ok
+CREATE TABLE flat2 AS SELECT * FROM (VALUES ('a', [1.0, 0.0])) t(node_id, vec);
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'flat2', catalogue_table := 'cat3', center_by_source := false);
+----
+item vectors have dimension 2, catalogue vectors 3
+
+# ---------------------------------------------------------------- clear column errors
+
+statement ok
+CREATE TABLE p2 AS SELECT 'x' AS l, 'y' AS r, 0.9 AS s;
+
+statement error
+SELECT * FROM cluster_matches('p2', left_col := 'a');
+----
+cluster_matches: pairs_table 'p2' has no column 'a' (left_col)
+
+# ---------------------------------------------------------------- weighted measures accept empty maps
+
+query RR
+SELECT weighted_jaccard(MAP {}, MAP {}), weighted_containment(MAP {'a': 1.0}, MAP {});
+----
+0.0	0.0
+
+# ---------------------------------------------------------------- material search: stable ties, analogs with history
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM (VALUES
+    ('Q', 'c1'), ('Q', 'c2'), ('M3', 'c1'), ('M1', 'c1'), ('M2', 'c1'), ('M4', 'c2')) t(parent_id, child_id);
+
+# M1..M4 all score 0.5 against Q: ties come in material id order
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('Q', 10);
+----
+M1	0.5
+M2	0.5
+M3	0.5
+M4	0.5
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM (VALUES ('M1', DATE '2024-01-01', 5.0), ('M1', DATE '2024-03-01', 4.0))
+    t(material_id, movement_date, quantity);
+
+# an analog needs consumption history; materials without movements are not analogs
+query T
+SELECT list(material_id ORDER BY material_id) FROM cold_start_analogs('Q', 10, min_history_months := 0);
+----
+[M1]
