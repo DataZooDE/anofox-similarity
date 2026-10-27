@@ -214,7 +214,7 @@ SELECT * FROM bom_where_used('COMPONENT-X');
 SELECT * FROM bom_common_components('PRODUCT-A', 'PRODUCT-B');
 ```
 
-See the [API Reference](../../docs/API_REFERENCE.md#bom-traversal) for full function signatures.
+See the [API Reference](../../../api/03-bom-traversal.md) for full function signatures.
 
 ## Variations
 
@@ -251,4 +251,4 @@ LIMIT 10;
 
 - **[Guide 04: Quality Tiers](04_quality_tiers.md)** - Understand HL/ML/LL component differences
 - **[Guide 02: Product Families](02_product_families.md)** - Use BOM insights to validate families
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full BOM function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full BOM function documentation

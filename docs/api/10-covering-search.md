@@ -9,9 +9,9 @@
 Asymmetric, explainable matching of a **request** (a specification, a BOM to source, a
 profile) against **offers** (products, past solutions, modules). It answers "does B
 satisfy what A asks for?", where the similarity functions above answer "how alike are A
-and B?". Design: [requirements-matching/HLD.md](requirements-matching/HLD.md) (§11 lists
+and B?". Design: [requirements-matching/HLD.md](../requirements-matching/HLD.md) (§11 lists
 the amendments decided during implementation). Test dataset:
-[test/data/coverage](../test/data/coverage/README.md).
+[test/data/coverage](../../test/data/coverage/README.md).
 
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position (the table functions
 bind by name on both lines). For `tversky_similarity` and `weighted_tversky`, pass both `alpha`

@@ -339,4 +339,4 @@ COPY (
 
 - **[Guide 01: Cold-Start Forecasting](01_cold_start_forecasting.md)** - Apply validated similarity to forecasting
 - **[Guide 02: Product Families](02_product_families.md)** - Use accuracy insights for family detection
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full function documentation

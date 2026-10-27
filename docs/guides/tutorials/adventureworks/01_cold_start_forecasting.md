@@ -166,4 +166,4 @@ ORDER BY similarity DESC;
 
 - **[Guide 02: Product Families](02_product_families.md)** - Systematically identify all variant clusters
 - **[Guide 03: BOM Navigation](03_bom_navigation.md)** - Explore the full component hierarchy
-- **[API Reference](../../docs/API_REFERENCE.md)** - Complete function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Complete function documentation

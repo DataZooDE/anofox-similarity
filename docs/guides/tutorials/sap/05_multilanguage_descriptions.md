@@ -427,4 +427,4 @@ CREATE INDEX mm_type_idx ON materials_multilang_mat (material_type);
 
 - **[Guide 01: Data Transformation](01_data_transformation.md)** - Review ETL basics
 - **[Guide 04: Similarity at Scale](04_similarity_at_scale.md)** - Efficient search with embeddings
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full function documentation

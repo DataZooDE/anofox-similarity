@@ -269,4 +269,4 @@ If Jaccard is high but WL Kernel is lower, products share components but assembl
 
 - **[Guide 05: Accuracy Validation](05_accuracy_validation.md)** - Validate tier detection accuracy
 - **[Guide 02: Product Families](02_product_families.md)** - See how tiers affect family clustering
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full similarity function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full similarity function documentation

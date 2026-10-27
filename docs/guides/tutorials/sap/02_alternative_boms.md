@@ -244,4 +244,4 @@ When a component becomes unavailable:
 
 - **[Guide 03: Point-in-Time Analysis](03_point_in_time_analysis.md)** - Track BOM changes over time
 - **[Guide 04: Similarity at Scale](04_similarity_at_scale.md)** - Efficient search across 1M+ materials
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full function documentation

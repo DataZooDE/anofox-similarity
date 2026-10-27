@@ -28,6 +28,15 @@ SELECT * FROM macro_name(
 )
 ```
 
+Arguments of table functions must be constants: DuckDB rejects a subquery there ("Table
+function cannot contain subqueries"), and table parameters take a table name, not a query.
+Compute a value first and pass it with a variable, or materialise the rows as a table:
+
+```sql
+SET VARIABLE floor = (SELECT floor FROM cosine_floor('name_vectors', 'vec'));
+SELECT * FROM tree_coverage('Q1', k := 5, name_floor := getvariable('floor'));
+```
+
 ---
 
 ## Parameter Reference

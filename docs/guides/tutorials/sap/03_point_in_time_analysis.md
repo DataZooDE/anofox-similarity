@@ -252,4 +252,4 @@ For regulatory compliance:
 
 - **[Guide 04: Similarity at Scale](04_similarity_at_scale.md)** - Efficient search across 1M+ materials
 - **[Guide 05: Multi-Language Descriptions](05_multilanguage_descriptions.md)** - Work with localized text
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full function documentation

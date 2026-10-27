@@ -15,7 +15,7 @@ down the tree, add across AND siblings and never add across OR alternatives.
 
 | Function | Purpose |
 |---|---|
-| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node |
+| `tree_from_json(json [, tree_id [, lang [, unit_table]]])` | Scalar. Turns an extracted tree (JSON, [schema](../requirements-matching/tree.schema.json)) into a LIST of node STRUCTs with normalised, keyed attributes. Works over many documents: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM read_text('specs/*.json'))`. Structured value fields win over the text; text-only values are parsed with `parse_quantity`. Errors name the node |
 | `tree_anchors(nodes_table [, attrs_table], overrides_table, label_table, tree_ids)` | One row per item: class, reviewed, `effective_count`, `depth`, `anchor_path` (ancestors), `variant_path` (OR choices, the item included), `n_attributes` |
 | `tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)` | `(entity_id, feature_id, weight, reviewed)` for stage 1; the elementwise maximum across OR alternatives (an optimistic bound) |
 | `tree_multiset(nodes LIST)` | The scalar behind it, for custom pipelines |

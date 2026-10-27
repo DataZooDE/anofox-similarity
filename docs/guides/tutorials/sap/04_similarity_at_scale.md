@@ -426,4 +426,4 @@ ORDER BY affected, similarity DESC;
 
 - **[Guide 05: Multi-Language Descriptions](05_multilanguage_descriptions.md)** - Work with localized text
 - **[Guide 01: Data Transformation](01_data_transformation.md)** - Review ETL workflow
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full function documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full function documentation

@@ -223,4 +223,4 @@ WHERE parent_id IN (
 
 - **[Guide 02: Alternative BOMs](02_alternative_boms.md)** - Compare different manufacturing approaches
 - **[Guide 03: Point-in-Time Analysis](03_point_in_time_analysis.md)** - Track BOM changes over time
-- **[API Reference](../../docs/API_REFERENCE.md)** - Full SAP transformation documentation
+- **[API Reference](../../../API_REFERENCE.md)** - Full SAP transformation documentation
