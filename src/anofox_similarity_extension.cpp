@@ -177,8 +177,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 		anofox::InitializeDuckPGQIntegration(conn);
 
 		// Embedding Storage: Create tables and HNSW indexes for vector search
-		anofox::CreateEmbeddingTables(conn);
-		anofox::CreateHNSWIndexes(conn);
+		if (anofox::CreateEmbeddingTables(conn)) {
+			anofox::CreateHNSWIndexes(conn);
+		}
 
 		// Similarity-search helper macros and inference macros
 

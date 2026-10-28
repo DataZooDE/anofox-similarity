@@ -1,0 +1,26 @@
+class_id,attr_key,name_en,name_de,dimension,base_unit,bound,scale
+cip_unit,flow,flow rate,Volumenstrom,volume_flow,m3/s,at_least,linear
+cip_unit,pressure,operating pressure,Betriebsdruck,pressure,Pa,at_most,linear
+cip_unit,pressure_class,pressure rating,Druckstufe,pressure_class,,at_least,linear
+cip_unit,temperature,cleaning temperature,Reinigungstemperatur,temperature,K,at_least,linear
+control_cabinet,protection,protection class,Schutzart,protection_class,,at_least,linear
+control_cabinet,voltage,supply voltage,Anschlussspannung,voltage,V,equals,linear
+conveyor,noise,sound pressure level,Schalldruckpegel,sound_level,dB(A),at_most,linear
+conveyor,speed,belt speed,Bandgeschwindigkeit,speed,m/s,at_least,linear
+conveyor,width,belt width,Bandbreite,length,m,at_least,linear
+cup_denester,stack_height,stack height,Stapelhöhe,length,m,at_least,linear
+dosing_drive,power,drive power,Antriebsleistung,power,W,at_least,linear
+dosing_drive,torque,torque,Drehmoment,torque,N*m,at_least,linear
+dosing_zone,accuracy,dosing accuracy,Dosiergenauigkeit,mass,kg,at_most,linear
+dosing_zone,stroke,dosing stroke,Dosierhub,length,m,at_least,linear
+dosing_zone,volume,dose volume,Dosiervolumen,volume,m3,at_least,linear
+label_applicator,protection,protection class,protection class,protection_class,,at_least,linear
+label_applicator,speed,label speed,label speed,speed,m/s,at_least,linear
+line_frame,cycle_time,cycle time,Taktzeit,time,s,at_most,linear
+line_frame,length,installed length,Aufstelllänge,length,m,at_most,linear
+line_frame,output,output,Ausbringung,frequency,Hz,at_least,linear
+operator_panel,screen,screen size,Bildschirmdiagonale,length,m,at_least,linear
+sealing_unit,current,heater current,Stromaufnahme Heizung,current,A,at_most,linear
+sealing_unit,maintenance,service interval,Wartungsintervall,time,s,at_least,linear
+sealing_unit,noise,sound pressure level,Schalldruckpegel,sound_level,dB(A),at_most,linear
+sealing_unit,temperature,sealing temperature,Siegeltemperatur,temperature,K,at_least,linear

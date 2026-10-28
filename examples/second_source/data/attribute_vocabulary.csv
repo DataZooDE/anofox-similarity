@@ -1,0 +1,35 @@
+wording,side,class_id
+Allgemeintoleranz,part,tolerance
+Druckprüfung,part,pressure_class
+Druckprüfung bis,supplier,pressure_class
+Formkastengröße,supplier,envelope
+Losgröße,part,lot_size
+Mindestlosgröße,supplier,lot_size
+Oberfläche,part,roughness
+Prüfbescheinigung,part,cert_level
+Rohgewicht,part,piece_weight
+Rohteilmaß,part,envelope
+Stückgewicht,part,piece_weight
+Toleranzklasse,supplier,tolerance
+Werkstoff,part,material_grade
+Werkstoffe,supplier,material_grade
+Zeugnis,part,cert_level
+Zeugnisse,supplier,cert_level
+achievable roughness,supplier,roughness
+achievable tolerance,supplier,tolerance
+casting weight,part,piece_weight
+certificates,supplier,cert_level
+erreichbare Rauheit,supplier,roughness
+inspection certificate,part,cert_level
+lot size,part,lot_size
+material,part,material_grade
+max. Gussgewicht,supplier,piece_weight
+max. casting weight,supplier,piece_weight
+max. flask size,supplier,envelope
+minimum lot,supplier,lot_size
+piece weight,part,piece_weight
+pressure test,part,pressure_class
+pressure test up to,supplier,pressure_class
+raw part envelope,part,envelope
+surface roughness,part,roughness
+tolerance,part,tolerance

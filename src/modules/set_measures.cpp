@@ -57,7 +57,7 @@ public:
 			auto &entries = StructVector::GetEntries(child);
 			keys = &duckdb_compat::StructChild(entries[0]);
 			auto &values = duckdb_compat::StructChild(entries[1]);
-			if (!values.GetType().IsNumeric()) {
+			if (!values.GetType().IsNumeric() && values.GetType().id() != LogicalTypeId::SQLNULL) {
 				throw InvalidInputException("weights must be numeric, got %s", values.GetType().ToString());
 			}
 			weights = make_uniq<Vector>(LogicalType::DOUBLE, MaxValue<idx_t>(size, 1));
@@ -142,9 +142,6 @@ WeightMap QueryWeights(const Elements &q, idx_t row) {
 
 Overlap Compare(const WeightMap &query, const Elements &c, idx_t row) {
 	Overlap o;
-	for (auto &kv : query) {
-		o.query_total += kv.second;
-	}
 	auto &entry = c.Entry(row);
 	string key;
 	if (c.weighted) {
@@ -155,14 +152,29 @@ Overlap Compare(const WeightMap &query, const Elements &c, idx_t row) {
 				candidate[key] += c.Weight(i);
 			}
 		}
+		// the measures are scale-invariant; dividing by the largest weight keeps huge finite
+		// weights (1e308) from overflowing the sums to inf and the ratio to NaN
+		double scale = 0;
+		for (const WeightMap *m : {&query, static_cast<const WeightMap *>(&candidate)}) {
+			for (auto &kv : *m) {
+				scale = MaxValue(scale, std::fabs(kv.second));
+			}
+		}
+		scale = scale > 1e100 && std::isfinite(scale) ? scale : 1.0;
+		for (auto &kv : query) {
+			o.query_total += kv.second / scale;
+		}
 		for (auto &kv : candidate) {
-			o.candidate_total += kv.second;
+			o.candidate_total += kv.second / scale;
 			auto it = query.find(kv.first);
 			if (it != query.end()) {
-				o.shared += std::min(it->second, kv.second);
+				o.shared += std::min(it->second, kv.second) / scale;
 			}
 		}
 	} else {
+		for (auto &kv : query) {
+			o.query_total += kv.second;
+		}
 		std::unordered_set<string> seen;
 		for (idx_t j = 0; j < entry.length; j++) {
 			if (c.Key(entry.offset + j, key) && seen.insert(key).second) {

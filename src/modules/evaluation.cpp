@@ -21,7 +21,7 @@ EvalInput ReadEvalInput(const CoverageParamReader &p, TableFunctionBindInput &in
 	auto column = [&](const char *param, const char *fallback) -> string {
 		auto v = p.Get(param);
 		if (v && !v->IsNull()) {
-			return p.Column(e.results, param, fallback);
+			return p.Column(e.results, param, fallback, "results");
 		}
 		if (v || !p.Has(e.results, fallback)) {
 			return string();
@@ -280,7 +280,7 @@ void RegisterEvaluationFunctions(ExtensionLoader &loader) {
 	RegisterCoverageTableFunction(
 	    loader, "eval_ranking", {vc, vc}, {"results", "gold"}, EvalRankingBindReplace,
 	    {{"k", LogicalType::LIST(LogicalType::BIGINT)}, {"rank_col", vc}, {"score_col", vc}},
-	    "Ranking quality against gold coverage (HLD §4.8). results: query_id, candidate_id and a rank (rank_col, "
+	    "Ranking quality against gold coverage. results: query_id, candidate_id and a rank (rank_col, "
 	    "default 'rank') or a score (score_col, default 'coverage', highest first); gold: query_id, candidate_id, "
 	    "true_coverage. The best candidates of a query are all gold candidates within 1e-9 of its gold best; a ranked "
 	    "candidate without gold counts as 0. Per k (default 1, 5, 10, 20): n_queries, top_k_accuracy (share of "
@@ -309,7 +309,7 @@ void RegisterEvaluationFunctions(ExtensionLoader &loader) {
 	     {"n", LogicalType::BIGINT},
 	     {"seed", LogicalType::BIGINT},
 	     {"level", LogicalType::DOUBLE}},
-	    "Cluster bootstrap intervals (BR-51): resamples the clusters (cluster_col) with replacement n times (default "
+	    "Cluster bootstrap intervals: resamples the clusters (cluster_col) with replacement n times (default "
 	    "1000, seeded) and reports per metric the pooled mean (estimate) and the percentile interval lo/hi at level "
 	    "(default 0.95), with n_boot and n_clusters. metrics defaults to every other numeric column.",
 	    {"SELECT * FROM bootstrap_ci('per_request', 'maker', metrics := ['hit', 'regret']);"}, categories);

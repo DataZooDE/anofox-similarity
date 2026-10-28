@@ -707,3 +707,13 @@ precedence over the text above.
 14. **Tree depth limit (CI, Windows).** `MAX_TREE_DEPTH` is 256 levels, not 1000: the
     recursive JSON reader and tree builder must stay within a 1 MB thread stack (Windows), and
     specification trees are typically 4–20 levels deep. Every function shares the limit.
+15. **Exploratory user testing (2026-10-27).**
+    - `tree_coverage`, `tree_coverage_trace` and `coverage_recall` raise an error, rather
+      than returning no rows, for an unknown query id or a query whose items have no class.
+      The message names the three class sources.
+    - `classify_to_catalogue` centres a source with its own mean only when it has at least
+      `min_source_items` items (default 10). A smaller source uses the batch mean, and a batch
+      below that size is not centred. This revises §11.12, where a single-item source centred
+      to zero and got a uniform p. Item and catalogue vectors must share one dimension.
+    - `cold_start_analogs` returns only materials with consumption history.
+      `find_similar_materials_*` and `cold_start_analogs` break ties by material id.

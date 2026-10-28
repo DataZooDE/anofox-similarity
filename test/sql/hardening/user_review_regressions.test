@@ -1,0 +1,413 @@
+# name: test/sql/hardening/user_review_regressions.test
+# description: Bugs found by exploratory user testing (docs/dev/exploratory/): silent empty
+#              coverage results, small-source centring, unclear errors, unstable tie order,
+#              empty maps, analogs without history.
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+# ---------------------------------------------------------------- coverage: no silent empty results
+
+# an unknown query id is an error, not an empty result
+statement error
+SELECT * FROM tree_coverage('NOPE', k := 5);
+----
+query tree 'NOPE' is not in nodes_table
+
+statement error
+SELECT * FROM coverage_recall(['Q1', 'NOPE'], k := 5);
+----
+query tree 'NOPE' is not in nodes_table
+
+# a query whose items have no class cannot be matched: the error says how to give classes
+statement ok
+CREATE TABLE unlabelled AS SELECT * EXCLUDE (class_id), NULL::VARCHAR AS class_id FROM tree_nodes;
+
+statement error
+SELECT * FROM tree_coverage('Q1', k := 5, nodes_table := 'unlabelled', attrs_table := 'tree_attributes',
+                            candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes');
+----
+query tree 'Q1' has no classified items (give class_id, overrides_table or label_table)
+
+statement error
+SELECT * FROM tree_coverage_trace('Q1', candidates := ['S1'], nodes_table := 'unlabelled', attrs_table := 'tree_attributes',
+                                  candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes');
+----
+has no classified items
+
+# ---------------------------------------------------------------- classifier: small sources
+
+# per-source centring needs enough items: a source below min_source_items (default 10) is centred
+# with the mean over all items, or not at all when the whole batch is that small. A single item
+# equal to the pump vector is a pump, not a uniform guess
+statement ok
+CREATE TABLE cat3 AS SELECT * FROM (VALUES ('pump', [1.0, 0.0, 0.0]), ('motor', [0.0, 1.0, 0.0]), ('valve', [0.0, 0.0, 1.0]))
+    t(class_id, vec);
+
+statement ok
+CREATE TABLE single AS SELECT * FROM (VALUES ('a', 's1', [1.0, 0.0, 0.0])) t(node_id, source, vec);
+
+query T
+SELECT class_id FROM classify_to_catalogue(items_table := 'single', catalogue_table := 'cat3', top := 1);
+----
+pump
+
+# two near-identical pumps in one small source stay pumps
+statement ok
+CREATE TABLE two_pumps AS SELECT * FROM (VALUES ('a', 's1', [1.0, 0.05, 0.0]), ('b', 's1', [1.0, 0.0, 0.05])) t(node_id, source, vec);
+
+query TT
+SELECT node_id, class_id FROM classify_to_catalogue(items_table := 'two_pumps', catalogue_table := 'cat3', top := 1) ORDER BY node_id;
+----
+a	pump
+b	pump
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'single', catalogue_table := 'cat3', min_source_items := 0);
+----
+min_source_items must be at least 1
+
+# vectors of a different dimension than the catalogue are an error naming both dimensions
+statement ok
+CREATE TABLE flat2 AS SELECT * FROM (VALUES ('a', [1.0, 0.0])) t(node_id, vec);
+
+statement error
+SELECT * FROM classify_to_catalogue(items_table := 'flat2', catalogue_table := 'cat3', center_by_source := false);
+----
+item vectors have dimension 2, catalogue vectors 3
+
+# ---------------------------------------------------------------- clear column errors
+
+statement ok
+CREATE TABLE p2 AS SELECT 'x' AS l, 'y' AS r, 0.9 AS s;
+
+statement error
+SELECT * FROM cluster_matches('p2', left_col := 'a');
+----
+cluster_matches: pairs_table 'p2' has no column 'a' (left_col)
+
+# ---------------------------------------------------------------- weighted measures accept empty maps
+
+query RR
+SELECT weighted_jaccard(MAP {}, MAP {}), weighted_containment(MAP {'a': 1.0}, MAP {});
+----
+0.0	0.0
+
+# ---------------------------------------------------------------- material search: stable ties, analogs with history
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM (VALUES
+    ('Q', 'c1'), ('Q', 'c2'), ('M3', 'c1'), ('M1', 'c1'), ('M2', 'c1'), ('M4', 'c2')) t(parent_id, child_id);
+
+# M1..M4 all score 0.5 against Q: ties come in material id order
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('Q', 10);
+----
+M1	0.5
+M2	0.5
+M3	0.5
+M4	0.5
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM (VALUES ('M1', DATE '2024-01-01', 5.0), ('M1', DATE '2024-03-01', 4.0))
+    t(material_id, movement_date, quantity);
+
+# an analog needs consumption history; materials without movements are not analogs
+query T
+SELECT list(material_id ORDER BY material_id) FROM cold_start_analogs('Q', 10, min_history_months := 0);
+----
+[M1]
+
+# ---------------------------------------------------------------- parse_quantity: ERP spellings
+
+# upper-case units as ERP extracts write them, and piece units
+query TRTRTR
+SELECT parse_quantity('5 KG').dimension, parse_quantity('5 KG').lo, parse_quantity('3 MM').dimension,
+       parse_quantity('3 MM').lo, parse_quantity('2 ST').dimension, parse_quantity('12 PCS').lo;
+----
+mass	5.0	length	0.003	count	12.0
+
+# a protection class written with a space is still a class
+query TT
+SELECT parse_quantity('IP 54 or better').category, parse_quantity('IP 54 or better').bound;
+----
+IP54	at_least
+
+# infer_predecessors respects direction: a predecessor was in use before the successor started,
+# so the newer material is never reported as the predecessor of the older one
+statement ok
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
+  ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
+
+statement ok
+CREATE OR REPLACE TABLE goods_movements AS
+SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date, 200.0 - 5 * w AS quantity
+FROM range(0, 40) t(w)
+UNION ALL
+SELECT 'NEW-PUMP', DATE '2023-01-02' + 7 * w::INTEGER, 5.0 * w - 50
+FROM range(10, 52) t(w);
+
+query T
+SELECT predecessor_id FROM infer_predecessors('NEW-PUMP');
+----
+OLD-PUMP
+
+query I
+SELECT count(*) FROM infer_predecessors('OLD-PUMP');
+----
+0
+
+# an unknown material id gives an empty result in both searches (as documented)
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('NOPE', 5);
+----
+0
+
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('NOPE', 5);
+----
+0
+
+# an unweighted feature table (a BOM) gets the same unit-weights hint from minhash_index as from
+# find_covering_entities, and weight_col := NULL indexes it
+statement ok
+CREATE OR REPLACE TABLE plain_bom (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO plain_bom VALUES ('A', 'x'), ('A', 'y'), ('B', 'x'), ('B', 'y'), ('B', 'z');
+
+statement error
+SELECT * FROM minhash_index(feature_table := 'plain_bom', entity_col := 'parent_id', feature_col := 'child_id');
+----
+weight_col := NULL for unit weights
+
+query I
+SELECT count(*) FROM minhash_index(feature_table := 'plain_bom', entity_col := 'parent_id', feature_col := 'child_id', weight_col := NULL);
+----
+2
+
+# unit weights are set semantics in the LSH path, as in find_covering_entities: a duplicate BOM
+# line does not double a component
+statement ok
+CREATE OR REPLACE TABLE dup_bom (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO dup_bom VALUES ('A', 'x'), ('A', 'x'), ('A', 'y'), ('B', 'x'), ('B', 'y');
+
+statement ok
+CREATE OR REPLACE TABLE dup_index AS
+SELECT * FROM minhash_index(feature_table := 'dup_bom', entity_col := 'parent_id', feature_col := 'child_id', weight_col := NULL);
+
+query TR
+SELECT entity_id, total_weight FROM dup_index ORDER BY entity_id;
+----
+A	2.0
+B	2.0
+
+statement ok
+CREATE OR REPLACE TABLE dup_queries AS SELECT * FROM (VALUES ('q', 'x'), ('q', 'x'), ('q', 'y')) t(query_id, feature_id);
+
+query TR
+SELECT entity_id, estimate FROM find_covering_entities_lsh('dup_queries', 'dup_index', k := 2) ORDER BY entity_id;
+----
+A	1.0
+B	1.0
+
+# German bound words that hand-written specs use
+query TT
+SELECT w, parse_quantity(w, 'de').bound FROM (VALUES
+  ('mind. 50.000 Zyklen'), ('ab 5 °C'), ('über 20 N'), ('größer 20 N'), ('größer als 20 N'),
+  ('größer gleich 20 N'), ('mehr als 3 Stk'), ('bis 5 A'), ('unter 40 dB(A)'), ('kleiner 40 dB(A)'),
+  ('kleiner als 40 dB(A)'), ('kleiner gleich 40 dB(A)'), ('weniger als 2 kg'), ('5 bis 10 A')) t(w);
+----
+mind. 50.000 Zyklen	at_least
+ab 5 °C	at_least
+über 20 N	at_least
+größer 20 N	at_least
+größer als 20 N	at_least
+größer gleich 20 N	at_least
+mehr als 3 Stk	at_least
+bis 5 A	at_most
+unter 40 dB(A)	at_most
+kleiner 40 dB(A)	at_most
+kleiner als 40 dB(A)	at_most
+kleiner gleich 40 dB(A)	at_most
+weniger als 2 kg	at_most
+5 bis 10 A	within
+
+query R
+SELECT value_satisfies(parse_quantity('mind. 50.000 Zyklen', 'de'), parse_quantity('100.000 Zyklen', 'de')).score;
+----
+1.0
+
+# SAP's upper-case unit codes for metre and gram
+query TT
+SELECT parse_quantity('3 M').dimension, parse_quantity('5 G').dimension;
+----
+length	mass
+
+query TT
+SELECT w, parse_quantity(w).bound FROM (VALUES ('not less than 5 A'), ('nicht weniger als 5 A'),
+  ('not more than 5 A'), ('nicht mehr als 5 A'), ('less than 5 A'), ('more than 5 A')) t(w);
+----
+not less than 5 A	at_least
+nicht weniger als 5 A	at_least
+not more than 5 A	at_most
+nicht mehr als 5 A	at_most
+less than 5 A	at_most
+more than 5 A	at_least
+
+# a non-positive count is rejected when the tree is loaded, naming the node
+statement error
+SELECT tree_from_json('{"root": {"node_id": "a", "kind": "item", "class_id": "x", "count": 0}}');
+----
+node 'a': count must be positive
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "a", "kind": "item", "class_id": "x", "count": -2}}');
+----
+count must be positive
+
+# a space (also NBSP, narrow NBSP) as thousands separator (DIN 1333, SI style)
+query IRT
+SELECT i, parse_quantity(t, 'de').lo, parse_quantity(t, 'de').dimension FROM (VALUES
+  (1, '1 000 N'), (2, 'mind. 50 000 Zyklen'), (3, '1 000,5 N'), (4, '12 345 678 mm'),
+  (5, '1' || chr(160) || '000 N'), (6, '1' || chr(8239) || '000 N')) v(i, t) ORDER BY i;
+----
+1	1000.0	force
+2	50000.0	count
+3	1000.5	force
+4	12345.678	length
+5	1000.0	force
+6	1000.0	force
+
+# ranges keep working next to the new bound words and separators
+query TT
+SELECT t, parse_quantity(t, 'de').bound FROM (VALUES
+  ('von 22 bis 26 cm'), ('20 bis 28 cm'), ('zwischen 4 und 5 kg'), ('from 22 to 26 cm'), ('2 000 bis 3 000 N')) v(t);
+----
+von 22 bis 26 cm	within
+20 bis 28 cm	within
+zwischen 4 und 5 kg	within
+from 22 to 26 cm	within
+2 000 bis 3 000 N	within
+
+query RR
+SELECT parse_quantity('2 000 bis 3 000 N', 'de').lo, parse_quantity('2 000 bis 3 000 N', 'de').hi;
+----
+2000.0	3000.0
+
+# an explicit nodes table without its attributes table is an error, not a silent read of
+# tree_attributes (or of the query's attributes for the candidates)
+statement ok
+CREATE OR REPLACE TABLE my_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE OR REPLACE TABLE my_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+statement error
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes');
+----
+nodes_table 'my_nodes' is given but attrs_table is not
+
+statement error
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes', attrs_table := 'my_attrs', candidate_nodes_table := 'tree_nodes');
+----
+candidate_nodes_table 'tree_nodes' is given but candidate_attrs_table is not
+
+statement ok
+SELECT * FROM tree_coverage('Q1', nodes_table := 'my_nodes', attrs_table := 'my_attrs');
+
+# stage 1 alone needs no attributes
+statement ok
+SELECT * FROM coverage_recall('Q1', nodes_table := 'my_nodes');
+
+# a movement date stored as text (SAP BUDAT) gets an error that names the column and the fix
+statement ok
+CREATE OR REPLACE TABLE text_movements AS SELECT 'OLD-PUMP' AS material_id, '20240101' AS movement_date, 5.0 AS quantity;
+
+statement error
+SELECT * FROM cold_start_analogs('NEW-PUMP', 5, movements_table := 'text_movements');
+----
+movements_table 'text_movements': column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+statement error
+SELECT * FROM infer_predecessors('NEW-PUMP', movements_table := 'text_movements');
+----
+column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+statement ok
+CREATE OR REPLACE VIEW text_movements_v AS SELECT * FROM text_movements;
+
+statement error
+SELECT * FROM cold_start_analogs('NEW-PUMP', 5, movements_table := 'text_movements_v');
+----
+column movement_date is VARCHAR, expected DATE or TIMESTAMP
+
+# units from German and imperial specs
+query TRT
+SELECT t, round(parse_quantity(t, 'de').lo, 4), parse_quantity(t, 'de').dimension FROM (VALUES
+  ('10 Sek.'), ('1500 U/min'), ('3000 rpm'), ('3 Zoll'), ('2 inch'), ('4 "')) v(t);
+----
+10 Sek.	10.0	time
+1500 U/min	25.0	frequency
+3000 rpm	50.0	frequency
+3 Zoll	0.0762	length
+2 inch	0.0508	length
+4 "	0.1016	length
+
+# a misspelt key would drop a subtree silently: near-misses of known keys are errors, other
+# keys (metadata) are ignored
+statement error
+SELECT tree_from_json('{"root": {"node_id": "r", "childs": [{"node_id": "a", "class_id": "x"}]}}');
+----
+node 'r': unknown key 'childs' (did you mean 'children'?)
+
+statement error
+SELECT tree_from_json('{"root": {"node_id": "r", "class_id": "x", "attributes": [{"name": "noise", "txt": "max. 38 dB(A)"}]}}');
+----
+unknown key 'txt' (did you mean 'text'?)
+
+statement error
+SELECT tree_from_json('{"tree": "T1", "root": {"node_id": "r", "class_id": "x"}}');
+----
+unknown key 'tree' (did you mean 'tree_id'?)
+
+query I
+SELECT len(tree_from_json('{"root": {"node_id": "r", "class_id": "x", "comment": "from page 3"}}'));
+----
+1
+
+# --- UR-3: third round of user testing --------------------------------------------------
+
+# "mind" without the period is the same at-least bound as "mind." (a 7 cm offer meets "mind 6 cm")
+query TT
+SELECT (parse_quantity('mind 6 cm')).bound, (parse_quantity('Breite mind 6 cm')).bound;
+----
+at_least	at_least
+
+query R
+SELECT (value_satisfies(parse_quantity('mind 6 cm'), parse_quantity('7 cm'))).score;
+----
+1.0
+
+# a NULL element in a stored signature is corrupt data, not a hash value of 0
+statement error
+SELECT minhash_similarity([NULL::UBIGINT], [0::UBIGINT]);
+----
+minhash_similarity: signature element 1 is NULL
+
+statement error
+SELECT lsh_bands([1::UBIGINT, NULL::UBIGINT], 1);
+----
+lsh_bands: signature element 2 is NULL

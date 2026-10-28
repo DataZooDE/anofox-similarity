@@ -1,0 +1,83 @@
+# name: test/sql/extension/readme_quickstart.test
+# description: The README quick starts, run in order in one connection, give the documented
+#              results (keeps README.md from drifting).
+# group: [extension]
+
+require anofox_similarity
+
+query R
+SELECT jaccard_similarity(['A', 'B', 'C'], ['A', 'B', 'D']);
+----
+0.5
+
+# ---------------------------------------------------------------- similar materials
+
+statement ok
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('PUMP-A', 'SEAL-001'), ('PUMP-A', 'BEARING-X'), ('PUMP-A', 'MOTOR-M1'),
+  ('PUMP-B', 'SEAL-001'), ('PUMP-B', 'BEARING-X'), ('PUMP-B', 'MOTOR-M1'), ('PUMP-B', 'GASKET-Y'),
+  ('PUMP-C', 'FILTER-F1'), ('PUMP-C', 'VALVE-V2');
+
+query TRII
+SELECT material_id, similarity, shared_components, total_components
+FROM find_similar_materials_jaccard('PUMP-A', 3);
+----
+PUMP-B	0.75	3	4
+PUMP-C	0.0	0	5
+
+statement ok
+CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('OLD-PUMP', 'SEAL-001'), ('OLD-PUMP', 'BEARING-X'), ('OLD-PUMP', 'MOTOR-M1'),
+  ('NEW-PUMP', 'SEAL-001'), ('NEW-PUMP', 'BEARING-X'), ('NEW-PUMP', 'MOTOR-M1');
+
+statement ok
+CREATE OR REPLACE TABLE goods_movements AS
+SELECT 'OLD-PUMP' AS material_id, DATE '2023-01-02' + 7 * w::INTEGER AS movement_date, 200.0 - 5 * w AS quantity
+FROM range(0, 40) t(w)
+UNION ALL
+SELECT 'NEW-PUMP', DATE '2023-01-02' + 7 * w::INTEGER, 5.0 * w - 50
+FROM range(10, 52) t(w);
+
+query TRRI
+SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
+FROM infer_predecessors('NEW-PUMP');
+----
+OLD-PUMP	0.79	-1.0	38
+
+query TRITT
+SELECT material_id, similarity, history_months, first_usage, last_usage
+FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 6);
+----
+OLD-PUMP	1.0	9	2023-01-02	2023-10-02
+
+# ---------------------------------------------------------------- coverage matching
+
+statement ok
+CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+
+query TRII
+SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
+FROM tree_coverage('Q1', k := 3, mu := 0.0);
+----
+S1	1.0	4	0
+S6	1.0	4	0
+S2	0.5	4	2
+
+query TTTTR
+SELECT req_node_id, attr_name, req_value, prov_value, value_score
+FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
+WHERE is_gap
+ORDER BY req_node_id, attr_name;
+----
+Q1.1	current draw	at_most 8 A	9 A	0.0
+Q1.1	time to 37 °C	at_most 180 s	240 s	0.0
+Q1.3	height travel	at_least 0.06 m	0.05 m	0.0

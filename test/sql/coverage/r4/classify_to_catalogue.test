@@ -45,12 +45,14 @@ A	1
 # ---------------------------------------------------------------- per-source centring
 
 # two items of one source share the boilerplate [1,0]: a = [1,1], b = [1,-1]. Raw, a ties A and
-# B; centred (minus the source mean [1,0]) a = [0,1] is clearly B (0.998304)
+# B; centred (minus the source mean [1,0]) a = [0,1] is clearly B (0.998304). Per-source centring
+# needs min_source_items items (default 10); these hand cases lower it to 1
 statement ok
 CREATE TABLE src_items AS SELECT * FROM (VALUES ('a', 's', [1.0, 1.0]), ('b', 's', [1.0, -1.0])) t(node_id, source, vec);
 
 query TTR
-SELECT node_id, class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat')
+SELECT node_id, class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat',
+                                                                  min_source_items := 1)
 WHERE rank = 1 AND node_id = 'a';
 ----
 a	B	0.998304
@@ -65,7 +67,7 @@ B	0.4998
 
 # the output carries the item's source and a NULL tree_id when the items have none
 query TT
-SELECT DISTINCT source, tree_id FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat');
+SELECT DISTINCT source, tree_id FROM classify_to_catalogue(items_table := 'src_items', catalogue_table := 'cat', min_source_items := 1);
 ----
 s	NULL
 
@@ -179,12 +181,13 @@ label
 
 # ---------------------------------------------------------------- edge cases (red review R4-1)
 
-# a source with a single item centres to the zero vector: no evidence, a uniform distribution
+# with min_source_items := 1 a single-item source centres to the zero vector: no evidence, a
+# uniform distribution (why the default needs 10 items per source)
 statement ok
 CREATE TABLE lonely AS SELECT * FROM (VALUES ('l1', 'solo', [1.0, 0.0])) t(node_id, source, vec);
 
 query TR
-SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'lonely', catalogue_table := 'cat') ORDER BY rank;
+SELECT class_id, round(p, 6) FROM classify_to_catalogue(items_table := 'lonely', catalogue_table := 'cat', min_source_items := 1) ORDER BY rank;
 ----
 A	0.333333
 B	0.333333
@@ -197,7 +200,7 @@ CREATE TABLE two_src AS SELECT * FROM (VALUES
     t(node_id, source, vec);
 
 query TT
-SELECT node_id, class_id FROM classify_to_catalogue(items_table := 'two_src', catalogue_table := 'cat')
+SELECT node_id, class_id FROM classify_to_catalogue(items_table := 'two_src', catalogue_table := 'cat', min_source_items := 1)
 WHERE rank = 1 AND node_id IN ('a1', 'b1') ORDER BY node_id;
 ----
 a1	B

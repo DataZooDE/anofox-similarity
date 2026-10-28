@@ -1,0 +1,9 @@
+part_id,verdict,reason
+ALT-101,ACCEPT,all eight attributes meet the request
+ALT-102,ACCEPT,approved PN40 and 3.2 upgrades
+ALT-201,REJECT,thread mismatch
+ALT-202,REJECT,PN10 is not approved for PN16
+ALT-203,REJECT,bore mismatch
+ALT-204,REJECT,pressure exceeds the hard limit
+ALT-301,REVIEW,certificate missing
+ALT-302,REVIEW,conflicting duplicate thread key

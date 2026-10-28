@@ -59,7 +59,13 @@ void InitializeVSSIntegration(Connection &conn) {
 	CheckQueryResult(vss_result, "enable HNSW persistence", FailureMode::OPTIONAL);
 }
 
-void CreateEmbeddingTables(Connection &conn) {
+bool CreateEmbeddingTables(Connection &conn) {
+	// the system catalog macros (current_schema()) are not bound yet while the extension loads
+	bool existed = false;
+	try {
+		existed = conn.TableInfo("material_embeddings") != nullptr;
+	} catch (std::exception &) {
+	}
 	// Create main embeddings table with Phase 3 schema (structural + textual + transactional)
 	auto schema_result = conn.Query(R"(
 		CREATE TABLE IF NOT EXISTS material_embeddings (
@@ -121,7 +127,7 @@ void CreateEmbeddingTables(Connection &conn) {
 	)");
 	if (!migration_check || migration_check->HasError()) {
 		CheckQueryResult(migration_check, "check wl_embedding migration state", FailureMode::OPTIONAL);
-		return;
+		return !existed;
 	}
 
 	if (duckdb_compat::ResultValue(*migration_check, 0, 0).GetValue<int64_t>() > 0) {
@@ -138,6 +144,7 @@ void CreateEmbeddingTables(Connection &conn) {
 		)");
 		CheckQueryResult(drop_result, "drop old wl_embedding column", FailureMode::OPTIONAL);
 	}
+	return !existed;
 }
 
 void CreateHNSWIndexes(Connection &conn) {

@@ -1,0 +1,43 @@
+clause_id,page,must_should,kind,node_id,attr_id,text
+C-01,14,must,item,RFQ-2026-014.D1,,4 x Dosierzone Joghurt
+C-02,14,must,value,RFQ-2026-014.D1,stroke,Dosierhub: mind 60 mm
+C-03,14,must,value,RFQ-2026-014.D1,volume,Dosiervolumen: mind. 150 ml
+C-04,14,must,value,RFQ-2026-014.D1,accuracy,"Dosiergenauigkeit: ± 0,5 g"
+C-05,14,must,manual,RFQ-2026-014.D1,certificate,Abnahmeprüfzeugnis EN 10204 3.1
+C-06,15,must,item,RFQ-2026-014.D2,,1 x Dosierantrieb Hauptdosierung
+C-07,15,must,value,RFQ-2026-014.D2,power,Antriebsleistung: mind. 90 W
+C-08,15,must,value,RFQ-2026-014.D2,torque,"Drehmoment: mind. 1,2 Nm"
+C-09,15,must,item,RFQ-2026-014.D3,,1 x Dosierantrieb Fruchtdosierung
+C-10,15,must,value,RFQ-2026-014.D3,power,Antriebsleistung: mind. 10 W
+C-11,15,must,value,RFQ-2026-014.D3,torque,"Drehmoment: mind. 0,2 Nm"
+C-12,22,must,item,RFQ-2026-014.S1,,1 x Siegelstation
+C-13,22,must,value,RFQ-2026-014.S1,temperature,Siegeltemperatur: mindestens 200 °C
+C-14,22,must,value,RFQ-2026-014.S1,current,"Stromaufnahme Heizung: höchstens 7,5 A"
+C-15,22,must,value,RFQ-2026-014.S1,maintenance,Wartungsintervall: mind. 2.500 h
+C-16,22,must,value,RFQ-2026-014.S1,noise,Schalldruckpegel: 72 dB(A)
+C-17,22,must,manual,RFQ-2026-014.S1,material,Werkstoff produktberührt 1.4404
+C-18,27,must,item,RFQ-2026-014.F1,,1 x Becherförderer
+C-19,27,must,value,RFQ-2026-014.F1,speed,"Bandgeschwindigkeit: mindestens 0,5 m/s"
+C-20,27,must,value,RFQ-2026-014.F1,width,Bandbreite: mind. 300 mm
+C-21,27,must,value,RFQ-2026-014.F1,noise,Schalldruckpegel: nicht über 75 dB(A)
+C-22,27,must,manual,RFQ-2026-014.F1,fasteners,"Verbindungselemente M8x1,25 aus A4-70"
+C-23,28,must,item,RFQ-2026-014.F2,,2 x Becherentstapler
+C-24,28,must,value,RFQ-2026-014.F2,stack_height,Stapelhöhe: mind. 600 mm
+C-25,33,must,item,RFQ-2026-014.C1,,1 x Kompaktaggregat Hygiene
+C-26,33,must,value,RFQ-2026-014.C1,flow,Volumenstrom: mind. 120 l/min
+C-27,33,must,value,RFQ-2026-014.C1,temperature,Reinigungstemperatur: mind. 85 °C
+C-28,33,must,value,RFQ-2026-014.C1,pressure,Betriebsdruck: not to exceed 5 bar
+C-29,33,must,value,RFQ-2026-014.C1,pressure_class,Druckstufe: PN 16
+C-30,33,must,manual,RFQ-2026-014.C1,hygienic_design,Hygienic design to EN 1672-2
+C-31,41,must,item,RFQ-2026-014.L1,,1 x Schaltschrank
+C-32,41,must,value,RFQ-2026-014.L1,protection,Schutzart: IP65 oder besser
+C-33,41,must,value,RFQ-2026-014.L1,voltage,Anschlussspannung: 400 V
+C-34,42,must,item,RFQ-2026-014.L2,,1 x Maschinengestell
+C-35,42,must,value,RFQ-2026-014.L2,length,Aufstelllänge: max. 12 m
+C-36,42,must,value,RFQ-2026-014.L2,cycle_time,"Taktzeit: max. 1,2 s"
+C-37,43,must,item,RFQ-2026-014.L4,,1 x Bedienpanel
+C-38,43,should,value,RFQ-2026-014.L4,screen,Bildschirmdiagonale: mind. 15 Zoll
+C-39,58,should,item,RFQ-2026-014.L3,,1 x Labelling unit (EN annex)
+C-40,58,should,value,RFQ-2026-014.L3,speed,label speed: at least 0.8 m/s
+C-41,58,should,value,RFQ-2026-014.L3,protection,protection class: IP54 or better
+C-42,61,should,value,RFQ-2026-014.L2,output,Ausbringung: mind. 1.400 Becher/min

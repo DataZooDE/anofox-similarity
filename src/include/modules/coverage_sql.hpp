@@ -148,13 +148,15 @@ struct CoverageParamReader {
 		return TableHasColumn(context, table, column);
 	}
 	//! A validated plain column name, quoted.
-	string Column(const string &table, const char *name, const string &fallback) const {
+	string Column(const string &table, const char *name, const string &fallback, const char *table_param) const {
 		auto column = Str(name, fallback);
 		if (column.empty() || column.find('.') != string::npos) {
 			throw BinderException("%s: %s must be a column name", fn, name);
 		}
 		ValidateSQLIdentifierPath(column, name);
-		ValidateTableColumns(context, table, {column}, name);
+		if (!TableHasColumn(context, table, column)) {
+			throw BinderException("%s: %s '%s' has no column '%s' (%s)", fn, table_param, table, column, name);
+		}
 		return QuotedIdentifier(column);
 	}
 };

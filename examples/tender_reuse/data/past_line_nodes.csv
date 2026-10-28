@@ -1,0 +1,279 @@
+tree_id,node_id,parent_id,node_kind,edge_type,label,context,class_id,count,source
+PAST-CUSTOM-2021,PAST-CUSTOM-2021,,container,AND,PAST-CUSTOM-2021 Becherlinie,,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.C,PAST-CUSTOM-2021,container,AND,Reinigung (CIP),,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.C1,PAST-CUSTOM-2021.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.D,PAST-CUSTOM-2021,container,AND,Dosierstation,,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.D1,PAST-CUSTOM-2021.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,2,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.D2,PAST-CUSTOM-2021.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.D3,PAST-CUSTOM-2021.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.F,PAST-CUSTOM-2021,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.F1,PAST-CUSTOM-2021.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.F2,PAST-CUSTOM-2021.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.L,PAST-CUSTOM-2021,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.L1,PAST-CUSTOM-2021.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.L2,PAST-CUSTOM-2021.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.L3,PAST-CUSTOM-2021.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.L4,PAST-CUSTOM-2021.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.S,PAST-CUSTOM-2021,container,AND,Siegelstation,,,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.S1,PAST-CUSTOM-2021.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X01,PAST-CUSTOM-2021,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X02,PAST-CUSTOM-2021,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X03,PAST-CUSTOM-2021,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X04,PAST-CUSTOM-2021,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X05,PAST-CUSTOM-2021,item,AND,Datumsdrucker,,date_coder,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X06,PAST-CUSTOM-2021,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X07,PAST-CUSTOM-2021,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-CUSTOM-2021,PAST-CUSTOM-2021.X08,PAST-CUSTOM-2021,item,AND,Schutztür,,guard_door,1,internal
+PAST-FAST-2024,PAST-FAST-2024,,container,AND,PAST-FAST-2024 Becherlinie,,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.C,PAST-FAST-2024,container,AND,Reinigung (CIP),,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.C1,PAST-FAST-2024.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-FAST-2024,PAST-FAST-2024.D,PAST-FAST-2024,container,AND,Dosierstation,,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.D1,PAST-FAST-2024.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-FAST-2024,PAST-FAST-2024.D2,PAST-FAST-2024.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-FAST-2024,PAST-FAST-2024.D3,PAST-FAST-2024.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-FAST-2024,PAST-FAST-2024.F,PAST-FAST-2024,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.F1,PAST-FAST-2024.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-FAST-2024,PAST-FAST-2024.F2,PAST-FAST-2024.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-FAST-2024,PAST-FAST-2024.L,PAST-FAST-2024,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.L1,PAST-FAST-2024.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-FAST-2024,PAST-FAST-2024.L2,PAST-FAST-2024.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-FAST-2024,PAST-FAST-2024.L4,PAST-FAST-2024.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-FAST-2024,PAST-FAST-2024.S,PAST-FAST-2024,container,AND,Siegelstation,,,1,internal
+PAST-FAST-2024,PAST-FAST-2024.S1,PAST-FAST-2024.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X01,PAST-FAST-2024,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X02,PAST-FAST-2024,item,AND,Ausschleusung,,reject_station,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X03,PAST-FAST-2024,item,AND,Schutztür,,guard_door,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X04,PAST-FAST-2024,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X05,PAST-FAST-2024,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X06,PAST-FAST-2024,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X07,PAST-FAST-2024,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X08,PAST-FAST-2024,item,AND,Ausschleusung,,reject_station,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X09,PAST-FAST-2024,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-FAST-2024,PAST-FAST-2024.X10,PAST-FAST-2024,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019,,container,AND,PAST-LEAN-2019 Becherlinie,,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.C,PAST-LEAN-2019,container,AND,Reinigung (CIP),,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.C1,PAST-LEAN-2019.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.D,PAST-LEAN-2019,container,AND,Dosierstation,,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.D1,PAST-LEAN-2019.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-LEAN-2019,PAST-LEAN-2019.D2,PAST-LEAN-2019.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.D3,PAST-LEAN-2019.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.F,PAST-LEAN-2019,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.F1,PAST-LEAN-2019.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.F2,PAST-LEAN-2019.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-LEAN-2019,PAST-LEAN-2019.L,PAST-LEAN-2019,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.L1,PAST-LEAN-2019.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.L2,PAST-LEAN-2019.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.L3,PAST-LEAN-2019.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.L4,PAST-LEAN-2019.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.S,PAST-LEAN-2019,container,AND,Siegelstation,,,1,internal
+PAST-LEAN-2019,PAST-LEAN-2019.S1,PAST-LEAN-2019.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015,,container,AND,PAST-NOCIP-2015 Becherlinie,,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.C,PAST-NOCIP-2015,container,AND,Reinigung (CIP),,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.D,PAST-NOCIP-2015,container,AND,Dosierstation,,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.D1,PAST-NOCIP-2015.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.D2,PAST-NOCIP-2015.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.D3,PAST-NOCIP-2015.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.F,PAST-NOCIP-2015,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.F1,PAST-NOCIP-2015.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.F2,PAST-NOCIP-2015.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.L,PAST-NOCIP-2015,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.L1,PAST-NOCIP-2015.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.L2,PAST-NOCIP-2015.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.L3,PAST-NOCIP-2015.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.L4,PAST-NOCIP-2015.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.S,PAST-NOCIP-2015,container,AND,Siegelstation,,,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.S1,PAST-NOCIP-2015.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.X01,PAST-NOCIP-2015,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.X02,PAST-NOCIP-2015,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.X03,PAST-NOCIP-2015,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.X04,PAST-NOCIP-2015,item,AND,Schutztür,,guard_door,1,internal
+PAST-NOCIP-2015,PAST-NOCIP-2015.X05,PAST-NOCIP-2015,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020,,container,AND,PAST-NOISY-2020 Becherlinie,,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.C,PAST-NOISY-2020,container,AND,Reinigung (CIP),,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.C1,PAST-NOISY-2020.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.D,PAST-NOISY-2020,container,AND,Dosierstation,,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.D1,PAST-NOISY-2020.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-NOISY-2020,PAST-NOISY-2020.D2,PAST-NOISY-2020.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.D3,PAST-NOISY-2020.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.F,PAST-NOISY-2020,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.F1,PAST-NOISY-2020.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.F2,PAST-NOISY-2020.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-NOISY-2020,PAST-NOISY-2020.L,PAST-NOISY-2020,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.L1,PAST-NOISY-2020.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.L2,PAST-NOISY-2020.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.L3,PAST-NOISY-2020.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.L4,PAST-NOISY-2020.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.S,PAST-NOISY-2020,container,AND,Siegelstation,,,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.S1,PAST-NOISY-2020.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.X01,PAST-NOISY-2020,item,AND,Ausschleusung,,reject_station,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.X02,PAST-NOISY-2020,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.X03,PAST-NOISY-2020,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.X04,PAST-NOISY-2020,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-NOISY-2020,PAST-NOISY-2020.X05,PAST-NOISY-2020,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-OLD-2012,PAST-OLD-2012,,container,AND,PAST-OLD-2012 Becherlinie,,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.C,PAST-OLD-2012,container,AND,Reinigung (CIP),,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.C1,PAST-OLD-2012.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-OLD-2012,PAST-OLD-2012.D,PAST-OLD-2012,container,AND,Dosierstation,,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.D1,PAST-OLD-2012.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-OLD-2012,PAST-OLD-2012.D2,PAST-OLD-2012.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-OLD-2012,PAST-OLD-2012.D3,PAST-OLD-2012.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-OLD-2012,PAST-OLD-2012.F,PAST-OLD-2012,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.F1,PAST-OLD-2012.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-OLD-2012,PAST-OLD-2012.F2,PAST-OLD-2012.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-OLD-2012,PAST-OLD-2012.L,PAST-OLD-2012,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.L1,PAST-OLD-2012.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-OLD-2012,PAST-OLD-2012.L2,PAST-OLD-2012.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-OLD-2012,PAST-OLD-2012.L3,PAST-OLD-2012.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-OLD-2012,PAST-OLD-2012.L4,PAST-OLD-2012.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-OLD-2012,PAST-OLD-2012.S,PAST-OLD-2012,container,AND,Siegelstation,,,1,internal
+PAST-OLD-2012,PAST-OLD-2012.S1,PAST-OLD-2012.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-OLD-2012,PAST-OLD-2012.X01,PAST-OLD-2012,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-OLD-2012,PAST-OLD-2012.X02,PAST-OLD-2012,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-OLD-2012,PAST-OLD-2012.X03,PAST-OLD-2012,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-PN10-2016,PAST-PN10-2016,,container,AND,PAST-PN10-2016 Becherlinie,,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.C,PAST-PN10-2016,container,AND,Reinigung (CIP),,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.C1,PAST-PN10-2016.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-PN10-2016,PAST-PN10-2016.D,PAST-PN10-2016,container,AND,Dosierstation,,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.D1,PAST-PN10-2016.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-PN10-2016,PAST-PN10-2016.D2,PAST-PN10-2016.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-PN10-2016,PAST-PN10-2016.D3,PAST-PN10-2016.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-PN10-2016,PAST-PN10-2016.F,PAST-PN10-2016,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.F1,PAST-PN10-2016.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-PN10-2016,PAST-PN10-2016.F2,PAST-PN10-2016.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-PN10-2016,PAST-PN10-2016.L,PAST-PN10-2016,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.L1,PAST-PN10-2016.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-PN10-2016,PAST-PN10-2016.L2,PAST-PN10-2016.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-PN10-2016,PAST-PN10-2016.L3,PAST-PN10-2016.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-PN10-2016,PAST-PN10-2016.L4,PAST-PN10-2016.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-PN10-2016,PAST-PN10-2016.S,PAST-PN10-2016,container,AND,Siegelstation,,,1,internal
+PAST-PN10-2016,PAST-PN10-2016.S1,PAST-PN10-2016.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X01,PAST-PN10-2016,item,AND,Ausschleusung,,reject_station,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X02,PAST-PN10-2016,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X03,PAST-PN10-2016,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X04,PAST-PN10-2016,item,AND,Schutztür,,guard_door,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X05,PAST-PN10-2016,item,AND,Datumsdrucker,,date_coder,1,internal
+PAST-PN10-2016,PAST-PN10-2016.X06,PAST-PN10-2016,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-RICH-2022,PAST-RICH-2022,,container,AND,PAST-RICH-2022 Becherlinie,,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.C,PAST-RICH-2022,container,AND,Reinigung (CIP),,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.C1,PAST-RICH-2022.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-RICH-2022,PAST-RICH-2022.D,PAST-RICH-2022,container,AND,Dosierstation,,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.D1,PAST-RICH-2022.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-RICH-2022,PAST-RICH-2022.D2,PAST-RICH-2022.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-RICH-2022,PAST-RICH-2022.D3,PAST-RICH-2022.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-RICH-2022,PAST-RICH-2022.F,PAST-RICH-2022,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.F1,PAST-RICH-2022.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-RICH-2022,PAST-RICH-2022.F2,PAST-RICH-2022.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-RICH-2022,PAST-RICH-2022.L,PAST-RICH-2022,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.L1,PAST-RICH-2022.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-RICH-2022,PAST-RICH-2022.L2,PAST-RICH-2022.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-RICH-2022,PAST-RICH-2022.L3,PAST-RICH-2022.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-RICH-2022,PAST-RICH-2022.L4,PAST-RICH-2022.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-RICH-2022,PAST-RICH-2022.S,PAST-RICH-2022,container,AND,Siegelstation,,,1,internal
+PAST-RICH-2022,PAST-RICH-2022.S1,PAST-RICH-2022.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X01,PAST-RICH-2022,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X02,PAST-RICH-2022,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X03,PAST-RICH-2022,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X04,PAST-RICH-2022,item,AND,Datumsdrucker,,date_coder,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X05,PAST-RICH-2022,item,AND,Ausschleusung,,reject_station,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X06,PAST-RICH-2022,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X07,PAST-RICH-2022,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X08,PAST-RICH-2022,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X09,PAST-RICH-2022,item,AND,Schutztür,,guard_door,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X10,PAST-RICH-2022,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X11,PAST-RICH-2022,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X12,PAST-RICH-2022,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X13,PAST-RICH-2022,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X14,PAST-RICH-2022,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X15,PAST-RICH-2022,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-RICH-2022,PAST-RICH-2022.X16,PAST-RICH-2022,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017,,container,AND,PAST-SHORT-2017 Becherlinie,,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.C,PAST-SHORT-2017,container,AND,Reinigung (CIP),,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.C1,PAST-SHORT-2017.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.D,PAST-SHORT-2017,container,AND,Dosierstation,,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.D1,PAST-SHORT-2017.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-SHORT-2017,PAST-SHORT-2017.D2,PAST-SHORT-2017.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.D3,PAST-SHORT-2017.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.F,PAST-SHORT-2017,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.F1,PAST-SHORT-2017.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.F2,PAST-SHORT-2017.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.L,PAST-SHORT-2017,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.L1,PAST-SHORT-2017.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.L2,PAST-SHORT-2017.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.L3,PAST-SHORT-2017.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.L4,PAST-SHORT-2017.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.S,PAST-SHORT-2017,container,AND,Siegelstation,,,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.S1,PAST-SHORT-2017.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.X01,PAST-SHORT-2017,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.X02,PAST-SHORT-2017,item,AND,Schutztür,,guard_door,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.X03,PAST-SHORT-2017,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-SHORT-2017,PAST-SHORT-2017.X04,PAST-SHORT-2017,item,AND,Schutztür,,guard_door,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018,,container,AND,PAST-SWAP-2018 Becherlinie,,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.C,PAST-SWAP-2018,container,AND,Reinigung (CIP),,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.C1,PAST-SWAP-2018.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.D,PAST-SWAP-2018,container,AND,Dosierstation,,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.D1,PAST-SWAP-2018.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-SWAP-2018,PAST-SWAP-2018.D2,PAST-SWAP-2018.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.D3,PAST-SWAP-2018.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.F,PAST-SWAP-2018,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.F1,PAST-SWAP-2018.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.F2,PAST-SWAP-2018.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-SWAP-2018,PAST-SWAP-2018.L,PAST-SWAP-2018,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.L1,PAST-SWAP-2018.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.L2,PAST-SWAP-2018.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.L3,PAST-SWAP-2018.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.L4,PAST-SWAP-2018.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.S,PAST-SWAP-2018,container,AND,Siegelstation,,,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.S1,PAST-SWAP-2018.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X01,PAST-SWAP-2018,item,AND,Datumsdrucker,,date_coder,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X02,PAST-SWAP-2018,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X03,PAST-SWAP-2018,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X04,PAST-SWAP-2018,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X05,PAST-SWAP-2018,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-SWAP-2018,PAST-SWAP-2018.X06,PAST-SWAP-2018,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-TOL-2023,PAST-TOL-2023,,container,AND,PAST-TOL-2023 Becherlinie,,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.C,PAST-TOL-2023,container,AND,Reinigung (CIP),,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.C1,PAST-TOL-2023.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-TOL-2023,PAST-TOL-2023.D,PAST-TOL-2023,container,AND,Dosierstation,,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.D1,PAST-TOL-2023.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-TOL-2023,PAST-TOL-2023.D2,PAST-TOL-2023.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-TOL-2023,PAST-TOL-2023.D3,PAST-TOL-2023.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-TOL-2023,PAST-TOL-2023.F,PAST-TOL-2023,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.F1,PAST-TOL-2023.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-TOL-2023,PAST-TOL-2023.F2,PAST-TOL-2023.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-TOL-2023,PAST-TOL-2023.L,PAST-TOL-2023,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.L1,PAST-TOL-2023.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-TOL-2023,PAST-TOL-2023.L2,PAST-TOL-2023.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-TOL-2023,PAST-TOL-2023.L3,PAST-TOL-2023.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-TOL-2023,PAST-TOL-2023.L4,PAST-TOL-2023.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-TOL-2023,PAST-TOL-2023.S,PAST-TOL-2023,container,AND,Siegelstation,,,1,internal
+PAST-TOL-2023,PAST-TOL-2023.S1,PAST-TOL-2023.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X01,PAST-TOL-2023,item,AND,Deckelaufsetzer,,lid_applicator,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X02,PAST-TOL-2023,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X03,PAST-TOL-2023,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X04,PAST-TOL-2023,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X05,PAST-TOL-2023,item,AND,Kontrollwaage,,check_weigher,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X06,PAST-TOL-2023,item,AND,Schutztür,,guard_door,1,internal
+PAST-TOL-2023,PAST-TOL-2023.X07,PAST-TOL-2023,item,AND,Becherdrucker,,cup_printer,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021,,container,AND,PAST-UNIT-2021 Becherlinie,,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.C,PAST-UNIT-2021,container,AND,Reinigung (CIP),,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.C1,PAST-UNIT-2021.C,item,AND,CIP-Anlage,Reinigung (CIP),cip_unit,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.D,PAST-UNIT-2021,container,AND,Dosierstation,,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.D1,PAST-UNIT-2021.D,item,AND,Dosierkolben,Dosierstation,dosing_zone,4,internal
+PAST-UNIT-2021,PAST-UNIT-2021.D2,PAST-UNIT-2021.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.D3,PAST-UNIT-2021.D,item,AND,Servoantrieb Dosierung,Dosierstation,dosing_drive,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.F,PAST-UNIT-2021,container,AND,Becherzufuhr und Förderer,,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.F1,PAST-UNIT-2021.F,item,AND,Becherförderer,Becherzufuhr und Förderer,conveyor,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.F2,PAST-UNIT-2021.F,item,AND,Entstapler,Becherzufuhr und Förderer,cup_denester,2,internal
+PAST-UNIT-2021,PAST-UNIT-2021.L,PAST-UNIT-2021,container,AND,"Linie, Steuerung, Etikettierung",,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.L1,PAST-UNIT-2021.L,item,AND,Schaltschrank,"Linie, Steuerung, Etikettierung",control_cabinet,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.L2,PAST-UNIT-2021.L,item,AND,Grundgestell,"Linie, Steuerung, Etikettierung",line_frame,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.L3,PAST-UNIT-2021.L,item,AND,Etikettierer,"Linie, Steuerung, Etikettierung",label_applicator,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.L4,PAST-UNIT-2021.L,item,AND,HMI-Panel,"Linie, Steuerung, Etikettierung",operator_panel,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.S,PAST-UNIT-2021,container,AND,Siegelstation,,,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.S1,PAST-UNIT-2021.S,item,AND,Siegelkopf,Siegelstation,sealing_unit,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X01,PAST-UNIT-2021,item,AND,Lichtgitter,,light_curtain,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X02,PAST-UNIT-2021,item,AND,Stickstoffbegasung,,nitrogen_flush,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X03,PAST-UNIT-2021,item,AND,Hygieneverkleidung,,hygiene_enclosure,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X04,PAST-UNIT-2021,item,AND,Datumsdrucker,,date_coder,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X05,PAST-UNIT-2021,item,AND,UV-Entkeimung,,uv_sterilizer,1,internal
+PAST-UNIT-2021,PAST-UNIT-2021.X06,PAST-UNIT-2021,item,AND,Schutztür,,guard_door,1,internal

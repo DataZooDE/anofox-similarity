@@ -223,4 +223,4 @@ CREATE TABLE other_idx AS SELECT * FROM minhash_index(feature_table := 'raw_voca
 statement error
 SELECT * FROM find_covering_entities_lsh('raw_q', 'other_idx', bands_table := 'raw_bands');
 ----
-bands_table was built from another index
+bands_table does not match index_table

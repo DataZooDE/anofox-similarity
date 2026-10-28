@@ -568,6 +568,10 @@ INSERT INTO nb VALUES ('A','B'),('A','C'),('X','B');
 statement ok
 CREATE TABLE nb_mv(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
 
+# an analog needs consumption history (cold_start_analogs skips materials without movements)
+statement ok
+INSERT INTO nb_mv VALUES ('X', DATE '2024-01-01', 1.0);
+
 query I
 SELECT COUNT(*) FROM find_similar_materials_jaccard('A', 5, min_similarity := NULL, bom_table := 'nb');
 ----

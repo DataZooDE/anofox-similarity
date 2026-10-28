@@ -75,6 +75,8 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	}
 	movements_table = ValidateSQLIdentifierPath(movements_table, "movements_table");
 	ValidateTableColumns(context, movements_table, {"material_id", "movement_date", "quantity"}, "movements_table");
+	ValidateDateColumn(context, movements_table, "movement_date", "movements_table");
+	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	// Fail fast, with an actionable message, when the anofox-forecast dependency is missing.
 	// Without this guard the inner extract_ts_features() call resolves anofox_fcst_ts_features()
@@ -334,8 +336,8 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
 	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
 	FunctionDescription desc;
-	desc.description = "Computes 128-dimensional transactional embeddings from goods movement data and upserts "
-	                   "them into material_embeddings. Features include demand velocity, seasonality, frequency, "
+	desc.description = "Computes 128-dimensional transactional embeddings from goods movement data and returns "
+	                   "them (it does not write to material_embeddings). Features include demand velocity, seasonality, frequency, "
 	                   "and quantity statistics normalized against transactional_embedding_statistics. "
 	                   "Supports batched computation via batch_size and batch_offset.";
 	desc.examples    = {"SELECT * FROM compute_transactional_embeddings();",

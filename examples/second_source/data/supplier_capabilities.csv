@@ -1,0 +1,112 @@
+supplier_id,capability,value_text,lang
+SUP-ALPEN,max. casting weight,300 kg,en
+SUP-ALPEN,max. flask size,600 x 500 x 400 mm,en
+SUP-ALPEN,Werkstoffe,GJS-500 … GJS-800,de
+SUP-ALPEN,pressure test up to,PN40,en
+SUP-ALPEN,certificates,"EN 10204 2.2, 3.1, 3.2",en
+SUP-ALPEN,Mindestlosgröße,ab 10 Stk,de
+SUP-ALPEN,achievable roughness,Ra 1.6 µm,en
+SUP-ALPEN,achievable tolerance,+/- 0.02 mm,en
+SUP-BALTIC,max. Gussgewicht,max. 1.200 kg,de
+SUP-BALTIC,Formkastengröße,1.200 x 900 x 600 mm,de
+SUP-BALTIC,Werkstoffe,EN-GJL-200 bis EN-GJL-300; EN-GJS-400 bis EN-GJS-450,de
+SUP-BALTIC,Druckprüfung bis,PN 16,de
+SUP-BALTIC,minimum lot,20 pcs,en
+SUP-BALTIC,erreichbare Rauheit,"Ra 6,3 µm",de
+SUP-BALTIC,Toleranzklasse,"± 0,1 mm",de
+SUP-BRANDT,max. Gussgewicht,max. 1.800 kg,de
+SUP-BRANDT,Formkastengröße,1.200 x 1.000 x 600 mm,de
+SUP-BRANDT,Werkstoffe,GJS-400 … GJS-700; GJL-200 … GJL-300,de
+SUP-BRANDT,pressure test up to,PN40,en
+SUP-BRANDT,Zeugnisse,2.2 / 3.1,de
+SUP-BRANDT,minimum lot,20 pcs,en
+SUP-BRANDT,achievable roughness,Ra 3.2 µm,en
+SUP-BRANDT,achievable tolerance,+/- 0.05 mm,en
+SUP-BRANDT2,max. Gussgewicht,"bis 1,8 t",de
+SUP-BRANDT2,Formkastengröße,1.000 x 600 x 1.200 mm,de
+SUP-BRANDT2,Werkstoffe,EN-GJS-400 bis EN-GJS-700; GJL-200 … GJL-300,de
+SUP-BRANDT2,pressure test up to,PN40,en
+SUP-BRANDT2,Zeugnisse,2.2 / 3.1,de
+SUP-BRANDT2,Mindestlosgröße,ab 20 Stk,de
+SUP-BRANDT2,achievable roughness,Ra 3.2 µm,en
+SUP-BRANDT2,achievable tolerance,+/- 0.05 mm,en
+SUP-HESSEN,max. casting weight,25 kg,en
+SUP-HESSEN,max. flask size,300 x 250 x 200 mm,en
+SUP-HESSEN,Werkstoffe,GJS-400 … GJS-700,de
+SUP-HESSEN,Druckprüfung bis,PN 40,de
+SUP-HESSEN,certificates,"EN 10204 3.1, 3.2",en
+SUP-HESSEN,Mindestlosgröße,ab 50 Stk,de
+SUP-HESSEN,erreichbare Rauheit,"Ra 0,8 µm",de
+SUP-HESSEN,achievable tolerance,+/- 0.01 mm,en
+SUP-KOVACS,max. Gussgewicht,bis 500 kg,de
+SUP-KOVACS,Formkastengröße,800 x 600 x 400 mm,de
+SUP-KOVACS,Werkstoffe,GJL-150 … GJL-350; EN-GJS-400 bis EN-GJS-500,de
+SUP-KOVACS,pressure test up to,PN16,en
+SUP-KOVACS,certificates,"EN 10204 2.2, 3.1",en
+SUP-KOVACS,Mindestlosgröße,ab 50 Stk,de
+SUP-KOVACS,achievable roughness,Ra 6.3 µm,en
+SUP-KOVACS,Toleranzklasse,"± 0,1 mm",de
+SUP-LOIRE,max. casting weight,150 kg,en
+SUP-LOIRE,Formkastengröße,500 x 400 x 300 mm,de
+SUP-LOIRE,Werkstoffe,GJS-400 … GJS-700; GJL-250,de
+SUP-LOIRE,Druckprüfung bis,PN 40,de
+SUP-LOIRE,Zeugnisse,3.1,de
+SUP-LOIRE,minimum lot,50 pcs,en
+SUP-LOIRE,achievable roughness,Ra 1.6 µm,en
+SUP-LOIRE,Toleranzklasse,"± 0,02 mm",de
+SUP-MORAVA,max. casting weight,800 kg,en
+SUP-MORAVA,Formkastengröße,900 x 700 x 500 mm,de
+SUP-MORAVA,Werkstoffe,EN-GJS-400 bis EN-GJS-600,de
+SUP-MORAVA,Druckprüfung bis,PN 25,de
+SUP-MORAVA,certificates,"EN 10204 2.2, 3.1",en
+SUP-MORAVA,Mindestlosgröße,ab 30 Stk,de
+SUP-MORAVA,achievable roughness,Ra 3.2 µm,en
+SUP-MORAVA,achievable tolerance,+/- 0.05 mm,en
+SUP-NORDGUSS,max. Gussgewicht,bis 5 t,de
+SUP-NORDGUSS,max. flask size,2.500 x 1.800 x 1.200 mm,en
+SUP-NORDGUSS,Werkstoffe,GJS-400 … GJS-600; GJL-200 … GJL-300,de
+SUP-NORDGUSS,pressure test up to,PN25,en
+SUP-NORDGUSS,Zeugnisse,2.2 / 3.1,de
+SUP-NORDGUSS,Mindestlosgröße,ab 1 Stk,de
+SUP-NORDGUSS,erreichbare Rauheit,"Ra 6,3 µm",de
+SUP-NORDGUSS,achievable tolerance,+/- 0.2 mm,en
+SUP-NOVA,max. Gussgewicht,max. 8.000 kg,de
+SUP-NOVA,Formkastengröße,3.000 x 2.000 x 1.500 mm,de
+SUP-NOVA,Werkstoffe,GJS-350 … GJS-800; GJL-150 … GJL-350,de
+SUP-NOVA,pressure test up to,PN40,en
+SUP-NOVA,Zeugnisse,2.2 / 3.1 / 3.2,de
+SUP-NOVA,minimum lot,1 pcs,en
+SUP-NOVA,erreichbare Rauheit,"Ra 0,8 µm",de
+SUP-NOVA,Toleranzklasse,"± 0,01 mm",de
+SUP-RHEIN,max. Gussgewicht,max. 2.000 kg,de
+SUP-RHEIN,Formkastengröße,1.500 x 1.200 x 800 mm,de
+SUP-RHEIN,Werkstoffe,EN-GJL-200 bis EN-GJL-350; EN-GJS-400 bis EN-GJS-500,de
+SUP-RHEIN,pressure test up to,PN16,en
+SUP-RHEIN,Zeugnisse,2.2 / 3.1,de
+SUP-RHEIN,minimum lot,5 pcs,en
+SUP-RHEIN,achievable roughness,Ra 3.2 µm,en
+SUP-RHEIN,Toleranzklasse,"± 0,05 mm",de
+SUP-SILESIA,max. Gussgewicht,max. 1.000 kg,de
+SUP-SILESIA,Formkastengröße,1.000 x 800 x 500 mm,de
+SUP-SILESIA,Werkstoffe,EN-GJL-150 bis EN-GJL-300,de
+SUP-SILESIA,pressure test up to,PN10,en
+SUP-SILESIA,Zeugnisse,2.2,de
+SUP-SILESIA,Mindestlosgröße,ab 100 Stk,de
+SUP-SILESIA,erreichbare Rauheit,"Ra 6,3 µm",de
+SUP-SILESIA,Toleranzklasse,"± 0,1 mm",de
+SUP-TAURUS,max. Gussgewicht,bis 3 t,de
+SUP-TAURUS,max. flask size,2.000 x 1.500 x 1.000 mm,en
+SUP-TAURUS,Werkstoffe,GJL-200 … GJL-300; EN-GJS-400 bis EN-GJS-500,de
+SUP-TAURUS,Druckprüfung bis,PN 16,de
+SUP-TAURUS,Zeugnisse,2.2 / 3.1,de
+SUP-TAURUS,Mindestlosgröße,ab 100 Stk,de
+SUP-TAURUS,achievable roughness,Ra 6.3 µm,en
+SUP-TAURUS,achievable tolerance,+/- 0.2 mm,en
+SUP-VENETO,max. Gussgewicht,bis 37 kg,de
+SUP-VENETO,max. flask size,450 x 350 x 250 mm,en
+SUP-VENETO,Werkstoffe,GJS-400 … GJS-500; GJL-250,de
+SUP-VENETO,Druckprüfung bis,PN 16,de
+SUP-VENETO,certificates,"EN 10204 2.2, 3.1, 3.2",en
+SUP-VENETO,minimum lot,200 pcs,en
+SUP-VENETO,erreichbare Rauheit,"Ra 3,2 µm",de
+SUP-VENETO,achievable tolerance,+/- 0.05 mm,en

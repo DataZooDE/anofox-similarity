@@ -507,3 +507,124 @@ ICWS signature is seed-independent (test changed), `precision` must be quoted in
 
 Also found while doing this: the Windows builds on DuckDB 1.5.6 (PR #25 CI) overflowed the 1 MB
 stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
+
+## UR-1 — 2026-10-27 — README/docs review and exploratory user testing (user request)
+
+- **Docs crew** (usability, design, pragmatist, testing; anofox-forecast's README and docs as
+  the gold standard). Verdict: REQUEST_CHANGES.
+- **Exploratory crew** (four members using the extension like users: material similarity,
+  coverage matching, classification, edge cases). No crash; 21 findings. Reports in
+  `docs/dev/exploratory/`.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| D1 | high | README quick start broken; install command returns 404 | README rewritten on the anofox-forecast outline; source build as the one install path; quick starts pinned by `test/sql/extension/readme_quickstart.test` |
+| D2 | high | License stated wrongly (Apache after 4 years) | README states BSL 1.1 → MPL 2.0 as in LICENSE; LICENSE's own 4-vs-5-year inconsistency raised with the user |
+| D3 | high | Coverage matching had no quick start, guide or example | README quick start, `docs/guides/04-coverage-matching.md`, `examples/coverage_matching/` |
+| D4 | med | API reference a monolith; missing functions; wrong kinds; k default | `docs/api/` by topic + generated per-function reference (`scripts/generate_api_reference.py`, all 79 functions); index in API_REFERENCE.md |
+| D5 | med | Stale read-only note; LOAD side effects undocumented | Rewritten in `docs/api/06-infrastructure.md` (verified on a read-only file) |
+| D6 | med | Textual embeddings advertised but a placeholder | Warning on the embeddings page and in the README |
+| D7 | med | Orphan tutorials, private SAP data, design docs mixed with reference | `docs/guides/tutorials/` (SAP: bring your own extract); `docs/background/` with a banner |
+| D8 | low | Internal requirement IDs in user docs and function descriptions | Removed from descriptions and pages |
+| F1–F5 | med | Unknown query id / no classes silently empty; missing column error unclear; empty MAP rejected; ties ordered randomly; cold start without first usage | Fixed with regression tests (`test/sql/hardening/user_review_regressions.test`) |
+| F9 | med | classify_to_catalogue centred tiny sources on themselves | `min_source_items` (default 10): source mean, else batch mean, else none; dimension mismatch is an error |
+| F10 | low | parse_quantity missed ERP unit spellings and 'IP 54' | KG, MM, CM, KM, ST/PC/STK/EA; 'IP 54'/'IK 08' normalised |
+| E1 | high | infer_predecessors listed the newer material as the older one's predecessor (found while writing the examples) | Fixed: a predecessor's first usage lies before the successor's start; regression test |
+| E2 | med | find_similar_materials_wl_kernel returned k zero-similarity rows for an unknown id | Fixed: no rows, as documented and as the Jaccard search; regression test |
+| E3 | low | Table-function arguments cannot be subqueries | Documented in conventions (SET VARIABLE pattern) |
+| F6, F7, F8, F11, F12, F16, F19, F21 | low | Banner hint text (submodule); LOAD writes tables; quoted identifiers; 1.5.6 positional named args; mu without name vectors; compat rules table; BOM macros; uniform k validation | Deferred; documented where users meet them |
+
+## UR-2 — 2026-10-27 — second round of user testing and a docs evaluation (user request)
+
+- **User-testing crew** (usability, correctness, performance, testing): four users with goals
+  (planner, bid engineer, data scientist at 10k–100k rows, sceptical reviewer comparing every
+  documented output on 1.5.6 and 2.0). Reports in `docs/dev/exploratory/round2-*.md`. Every
+  documented output matched both shells; no crash.
+- **Evaluation crew** (usability, design, pragmatist, maintainability; anofox-forecast as the
+  standard): REQUEST_CHANGES. README ~8/10; structure forecast-grade; contradictions between
+  generated and hand-written API text; broken moved tutorials; no drift guard.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| G1 | high | German bound words (mind., ab, über, größer, kleiner, bis X) parsed without a bound: met requirements shown as gaps | Fixed; one test per word, negations and ranges pinned |
+| G2 | high | '1 000 N' read as the count 1 | Fixed: space / NBSP / narrow NBSP thousands separator |
+| G3 | high | Generated API text repeated wrong C++ descriptions (bom_usage, upserts, sap_to_materials, full_text) | Descriptions corrected; reference regenerated |
+| G4 | high | Moved tutorials broken (LOAD line, nonexistent HNSW functions) | Fixed; SAP scale track rewritten on exact search + LSH, verified on AdventureWorks |
+| G5 | med | LSH counted duplicate BOM lines as weights (estimate 0.80 vs containment 0.93) | Fixed: unit weights are a set, as in the exact search (found while verifying the tutorial) |
+| G6 | med | tree_coverage silently read another table's attributes | Fixed: an explicit nodes table needs its attributes table |
+| G7 | med | tree_from_json ignored typo'd keys (childs) and count ≤ 0 | Fixed: near-miss keys and non-positive counts are errors |
+| G8 | med | Text movement_date gave an internal date_part error | Fixed: error names the column and the strptime conversion |
+| G9 | med | Guide 08 claimed LSH beats exact search for batches | Corrected with measurements: a batched exact join is ~10× faster up to 100k BOMs |
+| G10 | med | No drift guard; --check could not see a missing function | run_examples checks `-- Expected:` numbers; --check diffs the extension's functions against the pages |
+| G11 | med | Conventions page stale (87 functions, unverified fallbacks and complexity) | Rewritten from tested behaviour; glossary; timings labelled with their source |
+| G12 | low | Missing units (Sek., U/min, Zoll, SAP M/G) | Added |
+| D-1 | med | classify_to_catalogue centring mislabels a large single-class source | Deferred: product decision (shrinkage vs documented assumption) |
+| D-2 | med | infer_predecessors misses clean cut-overs | Deferred: needs a cut-over signal; guide 03 has a recipe |
+| D-3 | med | A partly classified request reads like real gaps | Deferred: an n_unclassified column changes the output; guide 04 shows the check |
+| D-4 | low | `within` requires the whole range; history_months semantics; threshold_at_precision denominator; empty-set convention; 2.0 binder message; one bad id fails a batch | Deferred; documented where users meet them |
+| D-5 | — | CI job for the doc checks | Not added: the user prefers minimal CI; the checks run locally before a PR, readme_quickstart.test runs in CI |
+
+## UR-3 — 2026-10-27 — third round of user testing and a docs evaluation (user request)
+
+- **User-testing crew** with new angles: adversarial inputs over all 79 functions, a data
+  engineer running a nightly pipeline on a database file, property-based checks of the math
+  (thousands of generated cases), and a Dynamics 365 newcomer with 30 minutes. Reports in
+  `docs/dev/exploratory/round3-*.md`. No crash, no INTERNAL error. The set measures, value
+  monotonicity and unit invariance, trace bookkeeping, evaluation metrics and clustering held
+  on every generated case. UR-2 fixes held beyond their regression inputs.
+- **Evaluation crew** (reader-advocate, consistency-auditor, pragmatist): REQUEST_CHANGES,
+  consensus about 8/10. Remaining issues sat in tutorials and hand-written API prose.
+- **Scenario research** (UR-4 preparation, review mode with a discussion round) re-probed the
+  parser with procurement and tender text; its parser findings are fixed here (H1–H4).
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Negated bound words reversed: `nicht über 38 dB(A)` accepted 45 dB(A) | Fixed: the phrase closest to the number decides, a negation before it flips it; English comparatives added |
+| F2 | high | Partition assigned same-class items by node id, ignoring values: false gaps, rank depended on ids | Fixed: moves and swaps between tied requirements while the score sum rises. 109 of 1 600 benchmark pairs score higher (mean +0.004), rankings unchanged; MAE 0.0356 → 0.0358 |
+| F3 | med | `jaccard_similarity` compares typed values, `tversky`/`containment` text: mixed-type lists disagree | Deferred: one comparison rule changes existing output; documented in api/01 |
+| F4 | low | A value exactly at the tolerance scored below 1 in mm, 1 in m | Fixed: epsilon at the tolerance |
+| F5 | low | `weighted_jaccard` gave NaN for weights near 1e308 | Fixed: weights scaled by the largest one |
+| F6 | low | `1 00 N` read as the count 1 | Fixed: unparsed trailing digits give the unknown-unit form |
+| U3-1 | high | `mind 6 cm` (no period) had no bound | Fixed |
+| A1 | med | NULL signature elements compared as 0 (false MinHash matches) | Fixed: an error naming the element |
+| A2 | med | A prepared `getvariable()` search keeps the old input on 1.5.6 | DuckDB 1.5.6 behaviour; `$1` parameters documented in api/00 |
+| A3 | low | `cosine_floor` of identical vectors is 1.0, which `calibrated_cosine` rejects | Documented (cap with `LEAST(floor, 0.999)`) |
+| DE1 | med | HNSW indexes recreated on every load (a dropped index came back; file growth) | Fixed: indexes only with a new `material_embeddings` |
+| DE2 | med | A stale `minhash_bands` table went undetected | Fixed: fingerprint of every entity's first band hash |
+| DE4 | med | `validate_trees` missed duplicate attribute rows and NULL keys | Fixed: `duplicate_attribute`, `null_key` |
+| DE8 | low | `vocabulary_review_queue` empty when no decision matched a node | Fixed: an error (a `sources` filter may still empty it) |
+| DE9 | low | VARCHAR `quantity` gave a raw binder error | Fixed: error names the column and the conversion |
+| DE3, DE6, DE7 | med | `filter_recent_movements` on text dates; TIMESTAMPTZ without ICU on the built shell; 2.0 without vss | Documented in guide 09 |
+| DE5 | med | `classify_to_catalogue` centring depends on the batch (incremental runs differ) | Deferred: needs stored source means; documented in guides 06 and 09 |
+| H1 | high | `not to exceed`, `nicht zu überschreiten`, trailing `nicht überschreiten` | Fixed |
+| H2 | high | Designations read as numbers (`M8x1,25` → 25, `A4-70`, `EN-GJS-400-15`, `EN 10204`) | Fixed: refuse to guess (empty parse); `PN 16`/`DN 50` are categories like `IP 65` |
+| H3 | med | Categories parsed from text have no dimension, so the kernel missed their rules (compat_score did not) | Fixed: a rule for the pair is used when every dimension agrees on it |
+| H4 | med | A bare `± 0,02 mm` had no bound | Fixed: `at_most` on the half-width |
+| E1–E16 | — | Evaluation: SAP scale tutorial queried AdventureWorks ids; embed_text cross-language recipe; unvalidated forecasting claims; placeholder described as semantic; api/13 vs guide 04; api/16 vs guide 08; README telemetry and counts; error texts named query_material_id | Fixed (docs and C++ descriptions; reference regenerated) |
+| — | low | "Please report it" suffix on input errors | Deferred: comes from the shared datazoo-banner submodule (all extensions) |
+
+## UR-4 — 2026-10-27 — typical scenarios, discussed by the crew, built as example folders (user request)
+
+- **Scenario research** (review mode, two rounds; members argued as a bid engineer, a
+  procurement lead, an MRO data engineer and a demand planner, then challenged each other's
+  scenarios). Agreed folders: `tender_reuse`, `alternate_part`, `second_source`,
+  `planner_launch_phaseout` and the optional `c_parts_harmonisation`. Its parser findings were
+  fixed before the build (UR-3 H1–H4).
+- **Build** (implement mode, one folder per member; two members re-run after Muse quota
+  errors): each folder has a deterministic generator in `scripts/src/scripts/examples/`,
+  data under 200 KB with planted traps and a gold file, a README in the house style, SQL
+  scripts whose `-- Expected:` numbers `run_examples.sh` checks, and a real-user report in
+  `docs/dev/exploratory/round4-*.md`.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| R1 | high | An exact point scored 0 against itself with `tol 0, soft_band 0` (the hard-limit recipe caused false rejects) | Fixed: a point widens by tol/2 on both scales (the old 0.01 decades = the default), a zero-width requirement is met when the offer contains it |
+| R2 | high | `tree_coverage(_trace)` had no `tol` / `soft_band` (a 37 kg pour covered a 38 kg part) | Fixed: named parameters, passed into the kernel options; second_source and tender_reuse use them instead of re-checks |
+| R4-U1 | high | The catalogue template's `scale` column was ignored (87 W passed `mind. 90 W` on a log scale) | Fixed: the template scale decides log or linear; benchmark KPIs unchanged |
+| R4 | med | `Werkstoff 1.4404`, `Werkszeugnis 2.2`, `grade 8.8` read as counts | Fixed: numbers after material and certificate words are designations |
+| R5 | med | No warning for a category without a dimension | Fixed: `category_without_dimension` in `validate_trees` |
+| R7 | med | `0.75 in` had no unit | Fixed: `in` is an inch as the last word only (`3 in 1` stays a word) |
+| R6 | med | A bound in the text always overrides the template (drawing wording describes the part, not the capability) | Deferred: needs an option; second_source's loader takes the bound from its class table |
+| R9 | med | `cluster_matches` closes chains across a missing attribute | Example guard re-checks every whole cluster; an optional conflict check is backlog |
+| R10, S6, S7 | low | Trace tie keeps the first value; OR variants scored per requirement item; base units in the trace; no per-attribute gap flag | Backlog; examples show the workarounds |
+| S8 | med | `infer_predecessors` misses the clean cut-over (0.356 < 0.5) | Known (UR-2 D-2); planner folder shows the recipe |

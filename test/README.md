@@ -127,8 +127,8 @@ Tests are organized by **functionality** (what is tested), not by tier or implem
 
 - **`functions/`**: SQL function tests (jaccard_similarity, find_similar_materials, etc.)
 - **`algorithms/`**: Algorithm implementation tests (jaccard, wl_kernel, predecessor)
-- **`scenarios/`**: Test scenarios S1-S12 from CONCEPT.md Section 9.2
-- **`data_structures/`**: Schema, transformations, embeddings, graph queries per DATA-STRUCTURES.md
+- **`scenarios/`**: Test scenarios S1-S12 from [CONCEPT.md](../docs/background/CONCEPT.md) Section 9.2
+- **`data_structures/`**: Schema, transformations, embeddings, graph queries per [DATA-STRUCTURES.md](../docs/background/DATA-STRUCTURES.md)
 - **`indexing/`**: VSS/HNSW indexing tests
 - **`accuracy/`**: Accuracy metrics (not tied to a specific tier)
 - **`datasets/`**: Dataset-specific validation (synthetic, figshare, sap)

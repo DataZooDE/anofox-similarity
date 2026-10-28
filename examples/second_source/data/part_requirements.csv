@@ -1,0 +1,232 @@
+part_id,req_id,attr_name,value_text,lang
+P-1001,P-1001-01,Stückgewicht,"max. 1,5 t",de
+P-1001,P-1001-02,Rohteilmaß,max. 2.800 x 900 x 500 mm,de
+P-1001,P-1001-03,Werkstoff,EN-GJL-250,de
+P-1001,P-1001-04,lot size,5 pcs,en
+P-1002,P-1002-01,Stückgewicht,"max. 10,5 kg",de
+P-1002,P-1002-02,raw part envelope,360 x 130 x 270 mm,en
+P-1002,P-1002-03,Werkstoff,EN-GJS-450-10,de
+P-1002,P-1002-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.2 nach EN 10204,de
+P-1002,P-1002-05,lot size,2000 pcs,en
+P-1003,P-1003-01,piece weight,max. 122 kg,en
+P-1003,P-1003-02,Rohteilmaß,max. 360 x 220 x 140 mm,de
+P-1003,P-1003-03,Werkstoff,EN-GJS-400-15,de
+P-1003,P-1003-04,inspection certificate,3.1 acc. to EN 10204,en
+P-1003,P-1003-05,Losgröße,250 Stk,de
+P-1003,P-1003-06,Härte,180-220 HB,de
+P-1003,P-1003-07,Wärmebehandlung,spannungsarm geglüht,de
+P-1004,P-1004-01,Rohgewicht,"ca. 12,1 kg",de
+P-1004,P-1004-02,Rohteilmaß,max. 90 x 130 x 160 mm,de
+P-1004,P-1004-03,material,GJS-450-10,en
+P-1004,P-1004-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.2 nach EN 10204,de
+P-1004,P-1004-05,Losgröße,150 Stk,de
+P-1004,P-1004-06,Härte,180-220 HB,de
+P-1004,P-1004-07,Wärmebehandlung,spannungsarm geglüht,de
+P-1005,P-1005-01,Rohgewicht,ca. 400 kg,de
+P-1005,P-1005-02,raw part envelope,700 x 380 x 520 mm,en
+P-1005,P-1005-03,material,GJS-500-7,en
+P-1005,P-1005-04,pressure test,PN 40,en
+P-1005,P-1005-05,Zeugnis,EN 10204-3.2,de
+P-1005,P-1005-06,Losgröße,20 Stk,de
+P-1005,P-1005-07,surface roughness,Ra 6.3 µm,en
+P-1005,P-1005-08,Allgemeintoleranz,"± 0,1 mm",de
+P-1006,P-1006-01,Stückgewicht,"max. 10,6 kg",de
+P-1006,P-1006-02,raw part envelope,90 x 130 x 160 mm,en
+P-1006,P-1006-03,material,GJS-450-10,en
+P-1006,P-1006-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.1 nach EN 10204,de
+P-1006,P-1006-05,lot size,150 pcs,en
+P-1007,P-1007-01,piece weight,max. 13.6 kg,en
+P-1007,P-1007-02,Rohteilmaß,max. 140 x 180 x 250 mm,de
+P-1007,P-1007-03,Werkstoff,EN-GJL-250,de
+P-1007,P-1007-04,Prüfbescheinigung,Werkszeugnis 2.2,de
+P-1007,P-1007-05,Losgröße,600 Stk,de
+P-1008,P-1008-01,piece weight,max. 13 kg,en
+P-1008,P-1008-02,Rohteilmaß,max. 200 x 150 x 160 mm,de
+P-1008,P-1008-03,material,GJS-600-3,en
+P-1008,P-1008-04,lot size,500 pcs,en
+P-1009,P-1009-01,Rohgewicht,"ca. 6,5 kg",de
+P-1009,P-1009-02,raw part envelope,180 x 110 x 230 mm,en
+P-1009,P-1009-03,Werkstoff,EN-GJS-500-7,de
+P-1009,P-1009-04,inspection certificate,3.1 acc. to EN 10204,en
+P-1009,P-1009-05,lot size,600 pcs,en
+P-1009,P-1009-06,Oberfläche,"Ra 12,5 µm",de
+P-1009,P-1009-07,Allgemeintoleranz,"± 0,5 mm",de
+P-1009,P-1009-08,casting weight,max. 6.5 kg,en
+P-1010,P-1010-01,Stückgewicht,max. 38 kg,de
+P-1010,P-1010-02,Rohteilmaß,max. 240 x 320 x 420 mm,de
+P-1010,P-1010-03,Werkstoff,EN-GJS-450-10,de
+P-1010,P-1010-04,pressure test,PN 16,en
+P-1010,P-1010-05,Zeugnis,EN 10204-3.2,de
+P-1010,P-1010-06,Losgröße,200 Stk,de
+P-1010,P-1010-07,surface roughness,Ra 3.2 µm,en
+P-1010,P-1010-08,Allgemeintoleranz,"± 0,05 mm",de
+P-1011,P-1011-01,Stückgewicht,max. 110 kg,de
+P-1011,P-1011-02,raw part envelope,160 x 160 x 220 mm,en
+P-1011,P-1011-03,Werkstoff,EN-GJS-600-3,de
+P-1011,P-1011-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.1 nach EN 10204,de
+P-1011,P-1011-05,Losgröße,150 Stk,de
+P-1012,P-1012-01,Stückgewicht,max. 223 kg,de
+P-1012,P-1012-02,Rohteilmaß,max. 170 x 290 x 420 mm,de
+P-1012,P-1012-03,material,GJL-150,en
+P-1012,P-1012-04,Prüfbescheinigung,Werkszeugnis 2.2,de
+P-1012,P-1012-05,lot size,150 pcs,en
+P-1012,P-1012-06,surface roughness,Ra 12.5 µm,en
+P-1012,P-1012-07,Allgemeintoleranz,"± 0,5 mm",de
+P-1013,P-1013-01,piece weight,max. 7.7 kg,en
+P-1013,P-1013-02,Rohteilmaß,max. 210 x 110 x 150 mm,de
+P-1013,P-1013-03,material,GJS-600-3,en
+P-1013,P-1013-04,lot size,150 pcs,en
+P-1013,P-1013-05,surface roughness,Ra 12.5 µm,en
+P-1013,P-1013-06,Allgemeintoleranz,"± 0,5 mm",de
+P-1014,P-1014-01,Stückgewicht,"max. 13,2 kg",de
+P-1014,P-1014-02,Rohteilmaß,max. 200 x 260 x 130 mm,de
+P-1014,P-1014-03,Werkstoff,GGG-50,de
+P-1014,P-1014-04,Zeugnis,EN 10204-3.1,de
+P-1014,P-1014-05,lot size,150 pcs,en
+P-1015,P-1015-01,piece weight,max. 4.6 kg,en
+P-1015,P-1015-02,raw part envelope,130 x 200 x 170 mm,en
+P-1015,P-1015-03,Werkstoff,EN-GJS-450-10,de
+P-1015,P-1015-04,Zeugnis,EN 10204-3.1,de
+P-1015,P-1015-05,lot size,150 pcs,en
+P-1016,P-1016-01,Stückgewicht,max. 6 t,de
+P-1016,P-1016-02,Rohteilmaß,max. 1.100 x 1.600 x 2.200 mm,de
+P-1016,P-1016-03,Werkstoff,EN-GJS-400-15,de
+P-1016,P-1016-04,pressure test,PN 16,en
+P-1016,P-1016-05,Prüfbescheinigung,Abnahmeprüfzeugnis 3.1 nach EN 10204,de
+P-1016,P-1016-06,lot size,2 pcs,en
+P-1016,P-1016-07,surface roughness,Ra 12.5 µm,en
+P-1016,P-1016-08,tolerance,+/- 0.5 mm,en
+P-1017,P-1017-01,Rohgewicht,"ca. 18,8 kg",de
+P-1017,P-1017-02,raw part envelope,130 x 200 x 220 mm,en
+P-1017,P-1017-03,material,GJS-700-2,en
+P-1017,P-1017-04,Zeugnis,EN 10204-3.2,de
+P-1017,P-1017-05,lot size,150 pcs,en
+P-1018,P-1018-01,Stückgewicht,max. 243 kg,de
+P-1018,P-1018-02,raw part envelope,320 x 430 x 530 mm,en
+P-1018,P-1018-03,Werkstoff,EN-GJL-250,de
+P-1018,P-1018-04,Druckprüfung,PN 10,de
+P-1018,P-1018-05,Prüfbescheinigung,Werkszeugnis 2.2,de
+P-1018,P-1018-06,Losgröße,500 Stk,de
+P-1018,P-1018-07,Oberfläche,"Ra 12,5 µm",de
+P-1018,P-1018-08,Allgemeintoleranz,"± 0,5 mm",de
+P-1019,P-1019-01,Stückgewicht,"max. 3,248 t",de
+P-1019,P-1019-02,raw part envelope,1.760 x 560 x 1.090 mm,en
+P-1019,P-1019-03,Werkstoff,GGG-50,de
+P-1019,P-1019-04,Prüfbescheinigung,Werkszeugnis 2.2,de
+P-1019,P-1019-05,lot size,2 pcs,en
+P-1019,P-1019-06,surface roughness,Ra 12.5 µm,en
+P-1019,P-1019-07,Allgemeintoleranz,"± 0,5 mm",de
+P-1020,P-1020-01,Stückgewicht,"max. 10,9 kg",de
+P-1020,P-1020-02,Rohteilmaß,max. 90 x 220 x 210 mm,de
+P-1020,P-1020-03,Werkstoff,EN-GJS-450-10,de
+P-1020,P-1020-04,inspection certificate,3.2 acc. to EN 10204,en
+P-1020,P-1020-05,lot size,500 pcs,en
+P-1021,P-1021-01,Rohgewicht,ca. 66 kg,de
+P-1021,P-1021-02,Rohteilmaß,max. 230 x 160 x 250 mm,de
+P-1021,P-1021-03,material,GJS-500-7,en
+P-1021,P-1021-04,Zeugnis,EN 10204-3.1,de
+P-1021,P-1021-05,lot size,500 pcs,en
+P-1022,P-1022-01,piece weight,max. 200 kg,en
+P-1022,P-1022-02,Rohteilmaß,max. 500 x 500 x 250 mm,de
+P-1022,P-1022-03,Werkstoff,EN-GJS-500-7,de
+P-1022,P-1022-04,Zeugnis,EN 10204-3.1,de
+P-1022,P-1022-05,lot size,50 pcs,en
+P-1022,P-1022-06,surface roughness,Ra 0.8 µm,en
+P-1022,P-1022-07,tolerance,+/- 0.05 mm,en
+P-1023,P-1023-01,Rohgewicht,"ca. 9,8 kg",de
+P-1023,P-1023-02,raw part envelope,140 x 190 x 260 mm,en
+P-1023,P-1023-03,Werkstoff,EN-GJL-250,de
+P-1023,P-1023-04,inspection certificate,3.1 acc. to EN 10204,en
+P-1023,P-1023-05,Losgröße,600 Stk,de
+P-1024,P-1024-01,piece weight,max. 6 kg,en
+P-1024,P-1024-02,raw part envelope,110 x 350 x 140 mm,en
+P-1024,P-1024-03,material,GJL-250,en
+P-1024,P-1024-04,Druckprüfung,PN10,de
+P-1024,P-1024-05,Zeugnis,EN 10204-3.2,de
+P-1024,P-1024-06,Losgröße,2.000 Stk,de
+P-1024,P-1024-07,Oberfläche,"Ra 12,5 µm",de
+P-1024,P-1024-08,tolerance,+/- 0.5 mm,en
+P-1025,P-1025-01,piece weight,max. 19.6 kg,en
+P-1025,P-1025-02,raw part envelope,190 x 230 x 90 mm,en
+P-1025,P-1025-03,Werkstoff,EN-GJS-450-10,de
+P-1025,P-1025-04,Losgröße,150 Stk,de
+P-1026,P-1026-01,piece weight,max. 63 kg,en
+P-1026,P-1026-02,raw part envelope,390 x 200 x 180 mm,en
+P-1026,P-1026-03,Werkstoff,EN-GJS-500-7,de
+P-1026,P-1026-04,inspection certificate,3.1 acc. to EN 10204,en
+P-1026,P-1026-05,lot size,250 pcs,en
+P-1027,P-1027-01,piece weight,max. 13.9 kg,en
+P-1027,P-1027-02,Rohteilmaß,max. 180 x 140 x 200 mm,de
+P-1027,P-1027-03,material,GJS-600-3,en
+P-1027,P-1027-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.1 nach EN 10204,de
+P-1027,P-1027-05,lot size,150 pcs,en
+P-1027,P-1027-06,casting weight,max. 13.9 kg,en
+P-1028,P-1028-01,piece weight,max. 11.3 kg,en
+P-1028,P-1028-02,Rohteilmaß,max. 130 x 170 x 330 mm,de
+P-1028,P-1028-03,material,GJS-500-7,en
+P-1028,P-1028-04,inspection certificate,3.2 acc. to EN 10204,en
+P-1028,P-1028-05,lot size,600 pcs,en
+P-1029,P-1029-01,Rohgewicht,ca. 48 kg,de
+P-1029,P-1029-02,Rohteilmaß,max. 310 x 350 x 140 mm,de
+P-1029,P-1029-03,material,GJS-500-7,en
+P-1029,P-1029-04,inspection certificate,3.1 acc. to EN 10204,en
+P-1029,P-1029-05,Losgröße,150 Stk,de
+P-1030,P-1030-01,Rohgewicht,"ca. 29,5 kg",de
+P-1030,P-1030-02,raw part envelope,180 x 270 x 200 mm,en
+P-1030,P-1030-03,Werkstoff,EN-GJL-250,de
+P-1030,P-1030-04,inspection certificate,3.2 acc. to EN 10204,en
+P-1030,P-1030-05,lot size,400 pcs,en
+P-1031,P-1031-01,piece weight,max. 500 kg,en
+P-1031,P-1031-02,raw part envelope,300 x 800 x 800 mm,en
+P-1031,P-1031-03,Werkstoff,EN-GJS-800-2,de
+P-1031,P-1031-04,Zeugnis,EN 10204-3.1,de
+P-1031,P-1031-05,lot size,20 pcs,en
+P-1031,P-1031-06,Oberfläche,"Ra 3,2 µm",de
+P-1031,P-1031-07,tolerance,+/- 0.1 mm,en
+P-1032,P-1032-01,Stückgewicht,"max. 17,5 kg",de
+P-1032,P-1032-02,Rohteilmaß,max. 100 x 280 x 370 mm,de
+P-1032,P-1032-03,material,GJS-450-10,en
+P-1032,P-1032-04,lot size,2000 pcs,en
+P-1032,P-1032-05,Oberfläche,"Ra 12,5 µm",de
+P-1032,P-1032-06,Allgemeintoleranz,"± 0,5 mm",de
+P-1033,P-1033-01,Stückgewicht,"max. 15,1 kg",de
+P-1033,P-1033-02,raw part envelope,200 x 110 x 160 mm,en
+P-1033,P-1033-03,Werkstoff,EN-GJS-400-15,de
+P-1033,P-1033-04,Zeugnis,EN 10204-3.2,de
+P-1033,P-1033-05,Losgröße,250 Stk,de
+P-1034,P-1034-01,piece weight,max. 10.4 kg,en
+P-1034,P-1034-02,Rohteilmaß,max. 210 x 240 x 110 mm,de
+P-1034,P-1034-03,material,GJS-450-10,en
+P-1034,P-1034-04,Zeugnis,EN 10204-3.2,de
+P-1034,P-1034-05,lot size,250 pcs,en
+P-1035,P-1035-01,Stückgewicht,"max. 21,2 kg",de
+P-1035,P-1035-02,Rohteilmaß,max. 160 x 150 x 160 mm,de
+P-1035,P-1035-03,material,GJS-700-2,en
+P-1035,P-1035-04,Zeugnis,EN 10204-3.1,de
+P-1035,P-1035-05,Losgröße,150 Stk,de
+P-1036,P-1036-01,piece weight,max. 13.5 kg,en
+P-1036,P-1036-02,raw part envelope,190 x 180 x 210 mm,en
+P-1036,P-1036-03,Werkstoff,EN-GJS-400-18,de
+P-1036,P-1036-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.1 nach EN 10204,de
+P-1036,P-1036-05,lot size,1000 pcs,en
+P-1037,P-1037-01,Rohgewicht,"ca. 17,1 kg",de
+P-1037,P-1037-02,raw part envelope,130 x 90 x 190 mm,en
+P-1037,P-1037-03,material,GJS-600-3,en
+P-1037,P-1037-04,lot size,500 pcs,en
+P-1038,P-1038-01,piece weight,max. 28.9 kg,en
+P-1038,P-1038-02,Rohteilmaß,max. 150 x 200 x 150 mm,de
+P-1038,P-1038-03,Werkstoff,EN-GJS-450-10,de
+P-1038,P-1038-04,Prüfbescheinigung,Abnahmeprüfzeugnis 3.2 nach EN 10204,de
+P-1038,P-1038-05,Losgröße,2.000 Stk,de
+P-1039,P-1039-01,Stückgewicht,max. 120 kg,de
+P-1039,P-1039-02,raw part envelope,300 x 400 x 650 mm,en
+P-1039,P-1039-03,Werkstoff,EN-GJS-500-7,de
+P-1039,P-1039-04,Druckprüfung,PN 25,de
+P-1039,P-1039-05,Prüfbescheinigung,Abnahmeprüfzeugnis 3.2 nach EN 10204,de
+P-1039,P-1039-06,Losgröße,50 Stk,de
+P-1039,P-1039-07,Oberfläche,"Ra 3,2 µm",de
+P-1039,P-1039-08,tolerance,+/- 0.05 mm,en
+P-1040,P-1040-01,Stückgewicht,"max. 26,5 kg",de
+P-1040,P-1040-02,raw part envelope,210 x 180 x 380 mm,en
+P-1040,P-1040-03,Werkstoff,EN-GJL-250,de
+P-1040,P-1040-04,Losgröße,400 Stk,de

@@ -51,19 +51,20 @@ void AddPrefixed(vector<UnitDef> &out, const string &base, const string &dimensi
 vector<UnitDef> SeedUnits() {
 	vector<UnitDef> u;
 	// length
-	u.push_back({"m", {}, "length", 1.0, 0});
-	u.push_back({"km", {}, "length", 1e3, 0});
-	u.push_back({"cm", {}, "length", 1e-2, 0});
-	u.push_back({"mm", {}, "length", 1e-3, 0});
+	u.push_back({"m", {"M"}, "length", 1.0, 0}); // M, G, KG, MM: SAP unit codes
+	u.push_back({"km", {"KM"}, "length", 1e3, 0});
+	u.push_back({"cm", {"CM"}, "length", 1e-2, 0});
+	u.push_back({"mm", {"MM"}, "length", 1e-3, 0});
 	u.push_back({"µm", {"um"}, "length", 1e-6, 0});
 	u.push_back({"nm", {}, "length", 1e-9, 0});
+	u.push_back({"inch", {"inches", "Zoll", "IN", "\""}, "length", 0.0254, 0}); // "in" only at the end, see UnitAfter
 	// mass
-	u.push_back({"kg", {}, "mass", 1.0, 0});
-	u.push_back({"g", {}, "mass", 1e-3, 0});
+	u.push_back({"kg", {"KG"}, "mass", 1.0, 0});
+	u.push_back({"g", {"G"}, "mass", 1e-3, 0});
 	u.push_back({"mg", {}, "mass", 1e-6, 0});
 	u.push_back({"t", {}, "mass", 1e3, 0});
 	// time
-	u.push_back({"s", {"sec", "second", "seconds", "Sekunde", "Sekunden"}, "time", 1.0, 0});
+	u.push_back({"s", {"sec", "second", "seconds", "Sek", "Sekunde", "Sekunden"}, "time", 1.0, 0});
 	u.push_back({"ms", {}, "time", 1e-3, 0});
 	u.push_back({"µs", {"us"}, "time", 1e-6, 0});
 	u.push_back({"min", {"minute", "minutes", "Minute", "Minuten"}, "time", 60.0, 0});
@@ -79,6 +80,7 @@ vector<UnitDef> SeedUnits() {
 	AddPrefixed(u, "Ω", "resistance", {{"m", 1e-3}, {"k", 1e3}, {"M", 1e6}}, {"Ohm", "ohm"});
 	AddPrefixed(u, "F", "capacitance", {{"m", 1e-3}, {"µ", 1e-6}, {"n", 1e-9}, {"p", 1e-12}});
 	AddPrefixed(u, "Hz", "frequency", {{"k", 1e3}, {"M", 1e6}, {"G", 1e9}});
+	u.push_back({"rpm", {"U/min", "1/min", "min-1", "RPM"}, "frequency", 1.0 / 60.0, 0});
 	// energy
 	AddPrefixed(u, "J", "energy", {{"k", 1e3}, {"M", 1e6}});
 	u.push_back({"Wh", {}, "energy", 3600.0, 0});
@@ -118,7 +120,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"%", {"percent", "Prozent"}, "percent", 1.0, 0});
 	u.push_back({"ppm", {}, "percent", 1e-4, 0});
 	// counts
-	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück"}, "count", 1.0, 0});
+	u.push_back({"1", {"cycles", "cycle", "Zyklen", "Zyklus", "pcs", "Stück", "ST", "PC", "STK", "Stk", "EA"}, "count", 1.0, 0});
 	// data
 	u.push_back({"B", {"byte", "bytes"}, "data", 1.0, 0});
 	u.push_back({"bit", {"bits"}, "data", 0.125, 0});
@@ -175,7 +177,6 @@ bool AffineDimension(const string &dimension) {
 
 const double AFFINE_TOL = 1.0;  // K
 const double AFFINE_BAND = 2.5; // K
-const double POINT_WIDEN = 0.01; // decades
 
 } // namespace
 
@@ -459,6 +460,41 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 				break;
 			}
 		}
+		// a space (or NBSP, narrow NBSP) between groups of three digits is a thousands separator
+		// (DIN 1333, SI style): 1 000 N, 12 345 678 mm
+		bool spaced = false;
+		if (j - i <= 3 && std::all_of(s.begin() + i, s.begin() + j, IsDigit)) {
+			auto space_width = [&](idx_t p) -> idx_t {
+				if (p < s.size() && s[p] == ' ') {
+					return 1;
+				}
+				if (p + 1 < s.size() && (unsigned char)s[p] == 0xC2 && (unsigned char)s[p + 1] == 0xA0) {
+					return 2;
+				}
+				if (p + 2 < s.size() && (unsigned char)s[p] == 0xE2 && (unsigned char)s[p + 1] == 0x80 &&
+				    (unsigned char)s[p + 2] == 0xAF) {
+					return 3;
+				}
+				return 0;
+			};
+			while (auto w = space_width(j)) {
+				idx_t d = j + w;
+				if (d + 3 <= s.size() && IsDigit(s[d]) && IsDigit(s[d + 1]) && IsDigit(s[d + 2]) &&
+				    (d + 3 == s.size() || !IsDigit(s[d + 3]))) {
+					j = d + 3;
+					spaced = true;
+				} else {
+					break;
+				}
+			}
+			// a decimal part after the last group: 1 000,5
+			if (spaced && j + 1 < s.size() && (s[j] == '.' || s[j] == ',') && IsDigit(s[j + 1])) {
+				j++;
+				while (j < s.size() && IsDigit(s[j])) {
+					j++;
+				}
+			}
+		}
 		// scientific notation: 1e-3, 2.5E6
 		if (j < s.size() && (s[j] == 'e' || s[j] == 'E')) {
 			idx_t k = j + 1;
@@ -473,6 +509,15 @@ vector<NumberToken> FindNumbers(const string &s, const string &primary_lang) {
 			}
 		}
 		auto raw = s.substr(begin, j - begin);
+		if (spaced) {
+			string digits_only;
+			for (auto c : raw) {
+				if (c != ' ' && (unsigned char)c < 0x80) {
+					digits_only += c; // drops the spaces and the bytes of NBSP / narrow NBSP
+				}
+			}
+			raw = digits_only;
+		}
 		out.push_back({begin, j, ParseNumberText(raw, primary_lang), minus});
 		i = j;
 	}
@@ -524,6 +569,115 @@ bool HasWord(const string &words, std::initializer_list<const char *> phrases) {
 	return false;
 }
 
+//! A number that belongs to a designation rather than a value: joined by '-', 'x' or '/' to a
+//! word with letters (M8x1,25, A4-70, EN-GJS-400-15), or after a standard's prefix (EN 10204,
+//! DIN 933, ISO 4017). Guessing a value there would compare a thread pitch or a standard's
+//! number as a count.
+bool IsCodeNumber(const string &s, idx_t begin) {
+	idx_t word_start = s.rfind(' ', begin == 0 ? 0 : begin - 1);
+	word_start = word_start == string::npos || begin == 0 ? 0 : word_start + 1;
+	if (begin > word_start) {
+		char joint = s[begin - 1];
+		// the scanner skips digits glued to letters, so "M8x1,25" reaches here at "25"
+		bool after_glued_digits = (joint == ',' || joint == '.') && begin >= 2 && IsDigit(s[begin - 2]);
+		if (joint == '-' || joint == 'x' || joint == 'X' || joint == '/' || after_glued_digits) {
+			for (idx_t i = word_start; i + 1 < begin; i++) {
+				if (IsAsciiAlpha(s[i])) {
+					return true;
+				}
+			}
+		}
+	}
+	if (word_start >= 2) {
+		auto prev_end = word_start - 1;
+		auto prev_start = s.rfind(' ', prev_end - 1);
+		prev_start = prev_start == string::npos ? 0 : prev_start + 1;
+		auto prev = s.substr(prev_start, prev_end - prev_start);
+		for (auto standard : {"EN", "DIN", "ISO", "IEC", "VDE", "VDI", "ASTM", "SAE", "JIS", "BS", "NF"}) {
+			if (prev == standard) {
+				return true;
+			}
+		}
+		// a material or certificate number: Werkstoff 1.4404, Werkszeugnis 2.2, Material-Nr. 1.0038
+		auto lower = AsciiLower(prev);
+		for (auto word : {"werkstoff", "werkstoffnummer", "werkstoff-nr.", "werkstoff-nr", "werkstoffnr.",
+		                  "material-nr.", "material-nr", "materialnummer", "werkszeugnis", "abnahmeprüfzeugnis",
+		                  "zeugnis", "certificate", "material", "grade", "werkstoffgüte"}) {
+			if (lower == word) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+//! The bound a phrase before or after the number states. The phrase closest to the number
+//! wins, and a negation right before it flips the direction: "nicht über 38 dB(A)" and
+//! "must not exceed" are at_most, "no less than" is at_least.
+string BoundFromWords(const string &pw, const string &sw) {
+	static const std::pair<const char *, const char *> prefix_words[] = {
+	    {"at most", "at_most"},     {"max.", "at_most"},        {"max", "at_most"},
+	    {"maximum", "at_most"},     {"maximal", "at_most"},     {"höchstens", "at_most"},
+	    {"bis zu", "at_most"},      {"bis", "at_most"},         {"up to", "at_most"},
+	    {"unter", "at_most"},       {"kleiner", "at_most"},     {"kleiner als", "at_most"},
+	    {"weniger als", "at_most"}, {"niedriger als", "at_most"}, {"below", "at_most"},
+	    {"less than", "at_most"},   {"lower than", "at_most"},  {"smaller than", "at_most"},
+	    {"under", "at_most"},       {"more than", "at_least"},  {"mehr als", "at_least"},
+	    {"at least", "at_least"},   {"min.", "at_least"},       {"min", "at_least"},
+	    {"minimum", "at_least"},    {"minimal", "at_least"},    {"mindestens", "at_least"},
+	    {"mind.", "at_least"},      {"mind", "at_least"},       {"ab", "at_least"},
+	    {"über", "at_least"},       {"ueber", "at_least"},      {"größer", "at_least"},
+	    {"größer als", "at_least"}, {"groesser", "at_least"},   {"groesser als", "at_least"},
+	    {"höher als", "at_least"},  {"above", "at_least"},      {"from", "at_least"},
+	    {"greater than", "at_least"}, {"higher than", "at_least"}, {"over", "at_least"},
+	    {"exceeding", "at_least"},  {"exceed", "at_least"},     {"exceeds", "at_least"},
+	    {"überschreiten", "at_least"}, {"unterschreiten", "at_most"}};
+	static const char *negations[] = {"not", "no", "never", "nicht", "kein", "keine", "nie"};
+	string bound;
+	idx_t best_end = 0, best_len = 0, best_start = 0;
+	for (auto &w : prefix_words) {
+		auto needle = " " + string(w.first) + " ";
+		for (auto pos = pw.find(needle); pos != string::npos; pos = pw.find(needle, pos + 1)) {
+			auto end = pos + needle.size();
+			if (end > best_end || (end == best_end && needle.size() > best_len)) {
+				best_end = end;
+				best_len = needle.size();
+				best_start = pos;
+				bound = w.second;
+			}
+		}
+	}
+	if (!bound.empty()) {
+		// a negation right before the phrase ("must not exceed", "darf nicht über")
+		auto before = pw.substr(0, best_start + 1);
+		for (auto filler : {"", "to ", "zu ", "be "}) { // "not to exceed", "nicht zu überschreiten"
+			for (auto n : negations) {
+				auto tail = " " + string(n) + " " + filler;
+				if (before.size() >= tail.size() &&
+				    before.compare(before.size() - tail.size(), tail.size(), tail) == 0) {
+					return bound == "at_least" ? "at_most" : "at_least";
+				}
+			}
+		}
+		return bound;
+	}
+	// a limit verb after the number: "38 dB(A) nicht überschreiten", "24 cm nicht unterschreiten"
+	if (HasWord(sw, {"nicht überschreiten", "not exceed", "not to exceed", "nicht zu überschreiten"})) {
+		return "at_most";
+	}
+	if (HasWord(sw, {"nicht unterschreiten", "nicht zu unterschreiten"})) {
+		return "at_least";
+	}
+	if (HasWord(sw, {"max.", "max", "maximum", "or less", "oder weniger", "or lower", "or smaller", "oder kleiner"})) {
+		return "at_most";
+	}
+	if (HasWord(sw, {"min.", "min", "minimum", "or better", "oder besser", "or more", "oder mehr", "or greater",
+	                 "or higher", "und mehr", "oder größer", "oder höher"})) {
+		return "at_least";
+	}
+	return "";
+}
+
 bool IsConnectorWord(const string &lower) {
 	return lower == "to" || lower == "and" || lower == "bis" || lower == "und" || lower == "or" || lower == "oder";
 }
@@ -544,6 +698,18 @@ const UnitDef *UnitAfter(const string &s, idx_t pos, const UnitTable &units, str
 		token = s.substr(pos, matched);
 		end = pos + matched;
 		return unit;
+	}
+	// "in" is an inch only as the last word ("0.75 in"); elsewhere it is a preposition ("3 in 1")
+	if (s.compare(pos, 2, "in") == 0) {
+		auto rest = pos + 2;
+		while (rest < s.size() && (s[rest] == ' ' || s[rest] == '.' || s[rest] == ')')) {
+			rest++;
+		}
+		if (rest >= s.size()) {
+			token = "in";
+			end = pos + 2;
+			return units.Find("inch");
+		}
 	}
 	// an unknown word right after the number: keep it, never guess; operators, tolerance
 	// signs and connectors are not units
@@ -596,9 +762,21 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	ReplaceAll(s, "μ", "µ"); // Greek mu -> micro sign
 	ReplaceAll(s, "Ω", "Ω"); // ohm sign -> Greek omega
 	ReplaceAll(s, "+/-", "±");
+	// protection classes written with a space are still one code: "IP 54" -> "IP54"
+	for (auto code : {"IP ", "IK ", "PN ", "DN "}) {
+		for (auto pos = s.find(code); pos != string::npos; pos = s.find(code, pos + 2)) {
+			bool word_start = pos == 0 || s[pos - 1] == ' ';
+			if (word_start && pos + 3 < s.size() && IsDigit(s[pos + 3])) {
+				s.erase(pos + 2, 1);
+			}
+		}
+	}
 	auto numbers = FindNumbers(s, primary);
 	if (!numbers.empty() && std::isnan(numbers[0].value)) {
 		return q; // malformed digit groups: not a number
+	}
+	if (!numbers.empty() && IsCodeNumber(s, numbers[0].begin)) {
+		return q; // part of a designation (M8x1,25, A4-70, EN 10204): not a value
 	}
 
 	if (numbers.empty()) {
@@ -709,6 +887,12 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 			lo_unit = hi_unit = currency;
 		}
 	}
+	// digits right after the number that no thousands grouping consumed ("1 00 N", "24 1000 N"):
+	// the value is unclear, so it gets the unknown-unit form (no dimension) instead of a count
+	if (!lo_unit && token.empty() && !range && !tolerance && numbers.size() >= 2 &&
+	    Trim(s.substr(first.end, numbers[1].begin - first.end)).empty()) {
+		token = Trim(s.substr(first.end));
+	}
 	q.source_unit = token;
 
 	if (lo_unit || hi_unit) {
@@ -752,16 +936,12 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	} else if (ends_with(trimmed_prefix, "<=") || ends_with(trimmed_prefix, "≤") ||
 	           ends_with(trimmed_prefix, "<")) {
 		q.bound = "at_most";
+	} else if (!tolerance && (ends_with(trimmed_prefix, "±") || ends_with(trimmed_prefix, "+/-"))) {
+		q.bound = "at_most"; // a tolerance class without a nominal (± 0,02 mm): the half-width is a limit
 	} else if (tolerance || ends_with(trimmed_prefix, "=") || HasWord(pw, {"nominal", "nennwert"})) {
 		q.bound = "equals";
-	} else if (HasWord(pw, {"at most", "max.", "max", "maximum", "maximal", "höchstens", "bis zu", "up to",
-	                        "not more than", "nicht mehr als"}) ||
-	           HasWord(sw, {"max.", "max", "maximum", "or less", "oder weniger"})) {
-		q.bound = "at_most";
-	} else if (HasWord(pw, {"at least", "min.", "min", "minimum", "minimal", "mindestens", "not less than",
-	                        "nicht weniger als"}) ||
-	           HasWord(sw, {"min.", "min", "minimum", "or better", "oder besser", "or more", "oder mehr"})) {
-		q.bound = "at_least";
+	} else {
+		q.bound = BoundFromWords(pw, sw);
 	}
 	return q;
 }
@@ -820,7 +1000,7 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 	log_scale = log_scale && r_lo > 0 && p_lo > 0;
 	double tol_rel = log_scale ? 1.0 - std::pow(10.0, -options.tol) : options.tol;
 	auto soften_with = [&](double d, double tol) {
-		if (d <= tol) {
+		if (d <= tol + 1e-12) { // exactly at the tolerance passes in every unit (98 mm vs at least 100 mm)
 			return 1.0;
 		}
 		return options.soft_band <= 0 ? 0.0 : MaxValue(0.0, 1.0 - (d - tol) / options.soft_band);
@@ -847,9 +1027,9 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		bool point = bound.empty();
 		double a, b, c, e;
 		if (log_scale) {
-			if (point) {
-				r_lo *= std::pow(10.0, -POINT_WIDEN);
-				r_hi *= std::pow(10.0, POINT_WIDEN);
+			if (point) { // half the tolerance each side, as on the linear scale (0.01 decades by default)
+				r_lo *= std::pow(10.0, -options.tol / 2);
+				r_hi *= std::pow(10.0, options.tol / 2);
 			}
 			a = std::log10(r_lo);
 			b = std::log10(r_hi);
@@ -867,7 +1047,8 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		}
 		double width = b - a;
 		double inter = MaxValue(0.0, MinValue(b, e) - MaxValue(a, c));
-		r.score = width > 0 ? inter / width : ((c <= a && a <= e) ? 1.0 : 0.0);
+		// a zero-width requirement (a point with tol 0) is met when the offer contains it
+		r.score = width > 1e-12 ? inter / width : ((c <= a + 1e-12 && a <= e + 1e-12) ? 1.0 : 0.0);
 		r.distance = 1.0 - r.score;
 	}
 	r.rule = bound.empty() ? "point" : bound;
@@ -1231,7 +1412,8 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, "
 	    "equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators "
 	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, dimension, factor, "
-	    "offset) that extends or overrides the seed (see quantity_units()). A bare number is a count; an unknown unit "
+	    "offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator "
+	    "('1 000 N'). A bare number is a count; an unknown unit "
 	    "keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).",
 	    {{{vc}, {"text"}, {"SELECT parse_quantity('max. 38 dB(A)');"}},
 	     {{vc, vc}, {"text", "lang"}, {"SELECT parse_quantity('65.000 Zyklen', 'de');"}},
@@ -1297,7 +1479,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	         .Describe("Compatibility of a provided category with a required one for an ordinal or categorical "
 	                   "dimension (protection class, certification level, qualifier), looked up in a curated rules "
 	                   "table (dimension, required, provided, score). Without a rule: 1 if equal, else 0. Text "
-	                   "similarity is never used (BR-15).")
+	                   "similarity is never used.")
 	         .Example("SELECT compat_score('protection_class', 'IP54', 'IP65')")
 	         .Example("SELECT compat_score('cert_level', 'silver', 'gold', rules_table := 'my_rules')")},
 	    {"coverage", "quantity"});

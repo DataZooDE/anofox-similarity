@@ -1,0 +1,384 @@
+# name: test/sql/hardening/ur3_regressions.test
+# description: Bugs found by the third round of user testing (docs/dev/exploratory/round3-*.md):
+#              negated bound words, value-blind partition, unit-dependent tolerance boundary,
+#              weight overflow, malformed digit groups, dirty trees, stale band tables.
+# group: [hardening]
+
+require anofox_similarity
+
+# --- negated and comparative bound words keep their direction (round3-correctness F1) ----
+
+query TT
+SELECT t, parse_quantity(t).bound FROM (VALUES
+  ('nicht über 38 dB(A)'), ('nicht unter 24 cm'), ('nicht größer als 24 cm'), ('nicht kleiner als 24 cm'),
+  ('no more than 24 cm'), ('no less than 24 cm'), ('not more than 24 cm'), ('nicht weniger als 24 cm'),
+  ('must not exceed 38 dB(A)'), ('not exceeding 5 A'), ('greater than 24 cm'), ('over 24 cm'),
+  ('under 5 A'), ('lower than 5 A'), ('24 cm or greater'), ('5 A or lower'), ('höher als 3 kN')) v(t)
+ORDER BY t;
+----
+24 cm or greater	at_least
+5 A or lower	at_most
+greater than 24 cm	at_least
+höher als 3 kN	at_least
+lower than 5 A	at_most
+must not exceed 38 dB(A)	at_most
+nicht größer als 24 cm	at_most
+nicht kleiner als 24 cm	at_least
+nicht unter 24 cm	at_least
+nicht weniger als 24 cm	at_least
+nicht über 38 dB(A)	at_most
+no less than 24 cm	at_least
+no more than 24 cm	at_most
+not exceeding 5 A	at_most
+not more than 24 cm	at_most
+over 24 cm	at_least
+under 5 A	at_most
+
+# a louder offer no longer passes a negated limit, a longer one no longer fails
+query RR
+SELECT value_satisfies(parse_quantity('nicht über 38 dB(A)'), parse_quantity('45 dB(A)')).score,
+       value_satisfies(parse_quantity('nicht unter 24 cm'), parse_quantity('30 cm')).score;
+----
+0.0	1.0
+
+# the phrase closest to the number decides: a label word further left does not
+query T
+SELECT parse_quantity('Geräuschpegel über alles max. 40 dB(A)').bound;
+----
+at_most
+
+# --- partition assignment looks at values (round3-correctness F2) ------------------------
+
+statement ok
+CREATE TABLE rq AS SELECT * FROM (VALUES
+ ('RQ','RQ',NULL,'container','AND','spec',NULL,1.0),
+ ('RQ','RQ.a','RQ','item','AND','motor small','motor',1.0),
+ ('RQ','RQ.b','RQ','item','AND','motor big','motor',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE rqa AS SELECT * FROM (VALUES
+ ('RQ','RQ.a','p','power','power','W',10.0,10.0,'at_least',NULL),
+ ('RQ','RQ.b','p','power','power','W',90.0,90.0,'at_least',NULL)) t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE pg AS SELECT * FROM (VALUES
+ ('PG','PG',NULL,'container','AND','prog',NULL,1.0),
+ ('PG','PG.x','PG','item','AND','motor','motor',1.0),
+ ('PG','PG.y','PG','item','AND','motor','motor',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE pga AS SELECT * FROM (VALUES
+ ('PG','PG.x','p','power','power','W',95.0,95.0,NULL,NULL),
+ ('PG','PG.y','p','power','power','W',20.0,20.0,NULL,NULL)) t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+# the 95 W motor serves the 90 W requirement, the 20 W motor the 10 W one: no gap
+query TRI
+SELECT assignment_used, coverage, n_gaps FROM tree_coverage('RQ', candidates := ['PG'], nodes_table := 'rq',
+       attrs_table := 'rqa', candidate_nodes_table := 'pg', candidate_attrs_table := 'pga');
+----
+partition	1.0	0
+
+query TTR
+SELECT req_node_id, matched_node_id, value_score FROM tree_coverage_trace('RQ', candidates := ['PG'],
+       nodes_table := 'rq', attrs_table := 'rqa', candidate_nodes_table := 'pg', candidate_attrs_table := 'pga')
+ORDER BY req_node_id;
+----
+RQ.a	PG.y	1.0
+RQ.b	PG.x	1.0
+
+# the same offer with the values on the other item ids scores the same
+statement ok
+UPDATE pga SET lo = 115 - lo, hi = 115 - hi;
+
+query RI
+SELECT coverage, n_gaps FROM tree_coverage('RQ', candidates := ['PG'], nodes_table := 'rq', attrs_table := 'rqa',
+       candidate_nodes_table := 'pg', candidate_attrs_table := 'pga');
+----
+1.0	0
+
+# partition still forbids substitution: one 95 W motor cannot serve both requirements
+statement ok
+DELETE FROM pg WHERE node_id = 'PG.x';
+
+query RI
+SELECT coverage, n_gaps FROM tree_coverage('RQ', candidates := ['PG'], nodes_table := 'rq', attrs_table := 'rqa',
+       candidate_nodes_table := 'pg', candidate_attrs_table := 'pga');
+----
+0.5	1
+
+# --- a value exactly at the tolerance passes in every unit (round3-correctness F4) ----------
+
+query RRR
+SELECT value_satisfies(parse_quantity('at least 100 mm'), parse_quantity('98 mm'), 'linear').score,
+       value_satisfies(parse_quantity('at least 100 cm'), parse_quantity('98 cm'), 'linear').score,
+       value_satisfies(parse_quantity('at least 100 m'),  parse_quantity('98 m'),  'linear').score;
+----
+1.0	1.0	1.0
+
+# --- huge finite weights do not overflow to NaN (round3-correctness F5) --------------------
+
+query RRR
+SELECT weighted_jaccard(MAP {'a': 1e308, 'b': 1e308}, MAP {'a': 1e308, 'b': 1e308}),
+       weighted_containment(MAP {'a': 1e308, 'b': 1e308}, MAP {'a': 1e308}),
+       weighted_tversky(MAP {'a': 1e308}, MAP {'a': 1e308, 'b': 1e308});
+----
+1.0	0.5	0.5
+
+# --- malformed digit groups are not read as a count (round3-correctness F6) ----------------
+
+query TTT
+SELECT t, parse_quantity(t).dimension, parse_quantity(t).unit FROM (VALUES ('1 00 N'), ('24 1000 N')) v(t) ORDER BY t;
+----
+1 00 N	NULL	00 N
+24 1000 N	NULL	1000 N
+
+# well-formed groups still parse
+query RT
+SELECT parse_quantity('1 000 N').lo, parse_quantity('1 000 N').dimension;
+----
+1000.0	force
+
+# --- validate_trees: duplicate attribute rows and NULL keys (round3-user-data-engineer F4) -
+
+statement ok
+CREATE TABLE pga_dup AS SELECT * FROM pga UNION ALL SELECT 'PG', 'PG.y', 'p', 'power', 'power', 'W', 500.0, 500.0, NULL, NULL;
+
+query TTTT
+SELECT tree_id, node_id, attr_id, issue FROM validate_trees('pg', 'pga_dup') WHERE issue = 'duplicate_attribute';
+----
+PG	PG.y	p	duplicate_attribute
+
+statement ok
+CREATE TABLE pg_null AS SELECT * FROM pg UNION ALL SELECT NULL, 'PG.z', 'PG', 'item', 'AND', 'motor', 'motor', 1.0;
+
+query TT
+SELECT node_id, issue FROM validate_trees('pg_null') WHERE issue = 'null_key';
+----
+PG.z	null_key
+
+# --- an empty review queue because nothing joins is an error (round3-user-data-engineer F8)
+
+statement ok
+CREATE TABLE decided AS SELECT 'X' AS tree_id, 'X.1' AS node_id, 'motor' AS class_id, 0.6 AS p;
+
+statement error
+SELECT * FROM vocabulary_review_queue(trees_table := 'pg', decisions := 'decided');
+----
+no decision matches an item node or wording of trees_table
+
+# --- a text quantity column is named (round3-user-data-engineer F9) ------------------------
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM (VALUES ('A','x',1.0), ('B','x',1.0)) t(parent_id, child_id, quantity);
+
+statement ok
+CREATE TABLE mv AS SELECT 'A' AS material_id, DATE '2024-01-01' AS movement_date, '1,5' AS quantity;
+
+statement error
+SELECT * FROM infer_predecessors('A', movements_table := 'mv');
+----
+column quantity is VARCHAR, expected a number
+
+# --- a stale band table is detected (round3-user-data-engineer F2) -------------------------
+
+statement ok
+CREATE TABLE fm AS SELECT * FROM (VALUES ('E1','a'), ('E1','b'), ('E2','a'), ('E3','c')) t(entity_id, feature_id);
+
+statement ok
+CREATE TABLE fm_index AS SELECT * FROM minhash_index(feature_table := 'fm', weight_col := NULL, num_hashes := 32);
+
+statement ok
+CREATE TABLE fm_bands AS SELECT * FROM minhash_bands('fm_index');
+
+statement ok
+CREATE TABLE q AS SELECT 'Q' AS query_id, 'a' AS feature_id;
+
+statement ok
+SELECT * FROM find_covering_entities_lsh('q', 'fm_index', bands_table := 'fm_bands');
+
+# same number of entities, one replaced: the old band table no longer matches
+statement ok
+CREATE OR REPLACE TABLE fm AS SELECT * FROM (VALUES ('E1','a'), ('E1','b'), ('E2','a'), ('E9','a')) t(entity_id, feature_id);
+
+statement ok
+CREATE OR REPLACE TABLE fm_index AS SELECT * FROM minhash_index(feature_table := 'fm', weight_col := NULL, num_hashes := 32);
+
+statement error
+SELECT * FROM find_covering_entities_lsh('q', 'fm_index', bands_table := 'fm_bands');
+----
+bands_table does not match index_table
+
+# --- UR-4 scenario research: parser traps of procurement and tender text ------------------
+
+# limit verbs with "to"/"zu" and after the number
+query TT
+SELECT t, parse_quantity(t).bound FROM (VALUES ('not to exceed 5 bar'), ('nicht zu überschreiten 5 bar'),
+  ('darf 38 dB(A) nicht überschreiten'), ('darf 24 cm nicht unterschreiten')) v(t) ORDER BY t;
+----
+darf 24 cm nicht unterschreiten	at_least
+darf 38 dB(A) nicht überschreiten	at_most
+nicht zu überschreiten 5 bar	at_most
+not to exceed 5 bar	at_most
+
+# a louder or higher-pressure offer fails a negated limit
+query RR
+SELECT value_satisfies(parse_quantity('not to exceed 5 bar'), parse_quantity('6 bar')).score,
+       value_satisfies(parse_quantity('darf 38 dB(A) nicht überschreiten'), parse_quantity('45 dB(A)')).score;
+----
+0.0	0.0
+
+# designations are not values: no lo, no dimension, no bound
+query TTTT
+SELECT t, parse_quantity(t).lo, parse_quantity(t).dimension, parse_quantity(t).bound FROM (VALUES
+  ('M8x1,25'), ('A4-70'), ('EN-GJS-400-15'), ('EN 10204'), ('DIN 933 M8'), ('ISO 4017')) v(t) ORDER BY t;
+----
+A4-70	NULL	NULL	NULL
+DIN 933 M8	NULL	NULL	NULL
+EN 10204	NULL	NULL	NULL
+EN-GJS-400-15	NULL	NULL	NULL
+ISO 4017	NULL	NULL	NULL
+M8x1,25	NULL	NULL	NULL
+
+# ordinary values next to letters still parse
+query TRT
+SELECT t, parse_quantity(t).lo, parse_quantity(t).dimension FROM (VALUES ('max.5 mm'), ('-5 °C'), ('U 230 V')) v(t) ORDER BY t;
+----
+-5 °C	268.15	temperature
+U 230 V	230.0	voltage
+max.5 mm	0.005	length
+
+# PN and DN with a space are categories, like IP 65
+query TT
+SELECT parse_quantity('PN 16').category, parse_quantity('DN 50').category;
+----
+PN16	DN50
+
+# a tolerance class without a nominal is a limit on the half-width
+query TR
+SELECT parse_quantity('± 0,02 mm').bound, value_satisfies(parse_quantity('± 0,05 mm'), parse_quantity('± 0,02 mm')).score;
+----
+at_most	1.0
+
+# --- categories parsed from text use the rules table in the kernel, as compat_score does -
+
+statement ok
+CREATE TABLE vq AS SELECT * FROM (VALUES
+ ('VQ','VQ',NULL,'container','AND','spec',NULL,1.0),
+ ('VQ','VQ.1','VQ','item','AND','valve','valve',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE vqa AS SELECT 'VQ' AS tree_id, 'VQ.1' AS node_id, 'pn' AS attr_id, 'Druckstufe' AS name,
+  NULL::VARCHAR AS dimension, NULL::VARCHAR AS unit, NULL::DOUBLE AS lo, NULL::DOUBLE AS hi, NULL::VARCHAR AS bound,
+  parse_quantity('PN 16').category AS category;
+
+statement ok
+CREATE TABLE vc AS SELECT * FROM (VALUES
+ ('VC','VC',NULL,'container','AND','offer',NULL,1.0),
+ ('VC','VC.1','VC','item','AND','valve','valve',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE vca AS SELECT 'VC' AS tree_id, 'VC.1' AS node_id, 'pn' AS attr_id, 'Druckstufe' AS name,
+  NULL::VARCHAR AS dimension, NULL::VARCHAR AS unit, NULL::DOUBLE AS lo, NULL::DOUBLE AS hi, NULL::VARCHAR AS bound,
+  'PN40' AS category;
+
+statement ok
+CREATE TABLE pn_rules AS SELECT * FROM (VALUES ('pressure_class','PN16','PN40',1.0), ('pressure_class','PN40','PN16',0.0))
+  t(dimension, required, provided, score);
+
+query RR
+SELECT (SELECT coverage FROM tree_coverage('VQ', candidates := ['VC'], nodes_table := 'vq', attrs_table := 'vqa',
+          candidate_nodes_table := 'vc', candidate_attrs_table := 'vca', rules_table := 'pn_rules', mu := 0.0)),
+       compat_score('pressure_class', 'PN16', 'PN40', 'pn_rules');
+----
+1.0	1.0
+
+# --- UR-4 example building: strict limits and designations --------------------------------
+
+# an exact point meets itself with tol 0 and no soft band; a different value does not
+query RRR
+SELECT value_satisfies(parse_quantity('19 mm'), parse_quantity('19 mm'), NULL, 0.0, 0.0).score,
+       value_satisfies(parse_quantity('19 mm'), parse_quantity('19.2 mm'), NULL, 0.0, 0.0).score,
+       value_satisfies(parse_quantity('19 mm'), parse_quantity('19.2 mm')).score;
+----
+1.0	0.0	1.0
+
+# tree_coverage takes tol and soft_band: a 37 kg capability does not cover 38 kg under hard limits
+statement ok
+CREATE TABLE wq AS SELECT * FROM (VALUES ('WQ','WQ',NULL,'container','AND','part',NULL,1.0),
+ ('WQ','WQ.1','WQ','item','AND','casting','casting',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wqa AS SELECT 'WQ' AS tree_id, 'WQ.1' AS node_id, 'w' AS attr_id, 'weight' AS name, 'mass' AS dimension,
+  'kg' AS unit, 38.0 AS lo, 38.0 AS hi, 'at_least' AS bound, NULL::VARCHAR AS category;
+
+statement ok
+CREATE TABLE wc AS SELECT * FROM (VALUES ('WC','WC',NULL,'container','AND','foundry',NULL,1.0),
+ ('WC','WC.1','WC','item','AND','casting','casting',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wca AS SELECT 'WC' AS tree_id, 'WC.1' AS node_id, 'w' AS attr_id, 'weight' AS name, 'mass' AS dimension,
+  'kg' AS unit, 0.0 AS lo, 37.0 AS hi, NULL::VARCHAR AS bound, NULL::VARCHAR AS category;
+
+query RRI
+SELECT (SELECT coverage FROM tree_coverage('WQ', candidates := ['WC'], nodes_table := 'wq', attrs_table := 'wqa',
+          candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', mu := 0.0)) > 0.8,
+       (SELECT coverage FROM tree_coverage('WQ', candidates := ['WC'], nodes_table := 'wq', attrs_table := 'wqa',
+          candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', mu := 0.0, tol := 0.0, soft_band := 0.0)),
+       (SELECT count(*) FILTER (WHERE is_gap) FROM tree_coverage_trace('WQ', candidates := ['WC'], nodes_table := 'wq',
+          attrs_table := 'wqa', candidate_nodes_table := 'wc', candidate_attrs_table := 'wca', tol := 0.0, soft_band := 0.0));
+----
+true	0.0	1
+
+statement error
+SELECT * FROM tree_coverage('WQ', nodes_table := 'wq', attrs_table := 'wqa', tol := -1.0);
+----
+tol and soft_band must be finite and not negative
+
+# a category without a dimension is flagged
+query TT
+SELECT node_id, issue FROM validate_trees('vq', 'vqa') WHERE severity = 'warning';
+----
+VQ.1	category_without_dimension
+
+# material and certificate numbers are designations
+query TT
+SELECT t, parse_quantity(t).dimension FROM (VALUES ('Werkstoff 1.4404'), ('Werkszeugnis 2.2'), ('grade 8.8')) v(t) ORDER BY t;
+----
+Werkstoff 1.4404	NULL
+Werkszeugnis 2.2	NULL
+grade 8.8	NULL
+
+# "in" is an inch as the last word only
+query TTR
+SELECT parse_quantity('0.75 in').dimension, parse_quantity('3 in 1').dimension, parse_quantity('0.75 in').lo;
+----
+length	NULL	0.01905
+
+# the template's scale column decides log or linear comparison (round4-usability R4-U1)
+statement ok
+CREATE TABLE sq AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','spec',NULL,1.0),
+  ('Q','Q.1','Q','item','AND','drive','drive',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE sqa AS SELECT * FROM (VALUES ('Q','Q.1','power','power','power','W',90.0,90.0,NULL,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE sc AS SELECT * FROM (VALUES ('C','C',NULL,'container','AND','offer',NULL,1.0),
+  ('C','C.1','C','item','AND','drive','drive',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE sca AS SELECT * FROM (VALUES ('C','C.1','power','power','power','W',87.0,87.0,NULL,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE stpl AS SELECT * FROM (VALUES ('drive','power','power','Leistung','power','W','at_least','linear'))
+  t(class_id,attr_key,name_en,name_de,dimension,base_unit,bound,scale);
+
+# power defaults to a log scale (87 W passes at_least 90 W); the template says linear
+query TR
+SELECT req_value, round(value_score, 4) FROM tree_coverage_trace('Q', candidates := ['C'],
+  nodes_table := 'sq', attrs_table := 'sqa', candidate_nodes_table := 'sc', candidate_attrs_table := 'sca',
+  mu := 0.0, default_bounds := 'catalogue', templates_table := 'stpl');
+----
+at_least 90 W	0.7333
