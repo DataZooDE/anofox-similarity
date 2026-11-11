@@ -1,6 +1,7 @@
 #include "modules/aas/semantic_key.hpp"
 
 #include <cctype>
+#include <vector>
 
 namespace duckdb {
 namespace anofox {
@@ -124,42 +125,52 @@ bool ParseCompoundIrdi(const std::string &s, bool keep_version, std::string &out
 	return true;
 }
 
-//! ECLASS IRI: an eclass host whose last path segment is the IRDI with '-' for '#':
-//! 0173-1-02-AAC895-008 -> 0173-1#02-AAC895#008.
+//! ECLASS IRI: an eclass host whose last path segment is the IRDI with '-' for '#', read from the
+//! right: [version] (digits), item code, code space (two digits), and the registration authority
+//! with the rest (it may contain dashes: 0173-1---BASIC_1_1).
+//!   0173-1-02-AAC895-008            -> 0173-1#02-AAC895#008
+//!   0173-1-02-AAC895                -> 0173-1#02-AAC895
+//!   0173-1---BASIC_1_1-01-AAN431-007 -> 0173-1---BASIC_1_1#01-AAN431#007
 bool ParseEclassIri(const std::string &host, const std::string &path, bool keep_version, std::string &out) {
 	if (Lower(host).find("eclass") == std::string::npos) {
 		return false;
 	}
-	auto end = path.size();
-	while (end > 0 && path[end - 1] == '/') {
-		end--;
+	auto end = path.find_first_of("?#");
+	auto clean = path.substr(0, end);
+	while (!clean.empty() && clean.back() == '/') {
+		clean.pop_back();
 	}
-	auto slash = path.rfind('/', end == 0 ? 0 : end - 1);
-	auto seg = path.substr(slash == std::string::npos ? 0 : slash + 1, end - (slash == std::string::npos ? 0 : slash + 1));
-	// RAI (dddd-d) - code space (dd) - item code - version
-	std::string parts[5];
-	size_t n = 0;
+	auto slash = clean.rfind('/');
+	auto seg = slash == std::string::npos ? clean : clean.substr(slash + 1);
+	std::vector<std::string> parts;
 	size_t start = 0;
 	for (size_t i = 0; i <= seg.size(); i++) {
 		if (i == seg.size() || seg[i] == '-') {
-			if (n == 5) {
-				return false;
-			}
-			parts[n++] = seg.substr(start, i - start);
+			parts.push_back(seg.substr(start, i - start));
 			start = i + 1;
 		}
 	}
-	if (n != 5 || parts[0].size() != 4 || !AllDigits(parts[0]) || !AllDigits(parts[1]) || !AllDigits(parts[2]) ||
-	    parts[3].empty() || !AllDigits(parts[4])) {
+	std::string version;
+	if (parts.size() >= 4 && AllDigits(parts.back()) && !AllDigits(parts[parts.size() - 2])) {
+		version = parts.back();
+		parts.pop_back();
+	}
+	if (parts.size() < 3) {
 		return false;
 	}
-	for (char c : parts[3]) {
-		if (!IsAlnum(c)) {
-			return false;
-		}
+	auto item = parts.back();
+	parts.pop_back();
+	auto code_space = parts.back();
+	parts.pop_back();
+	if (code_space.size() != 2 || !AllDigits(code_space) || item.empty()) {
+		return false;
 	}
-	out = Irdi(parts[0] + "-" + parts[1], parts[2] + "-" + parts[3], parts[4], keep_version);
-	return true;
+	std::string rai;
+	for (auto &p : parts) {
+		rai += (rai.empty() ? "" : "-") + p;
+	}
+	auto irdi = rai + "#" + code_space + "-" + item + (version.empty() ? "" : "#" + version);
+	return ParseIrdi(irdi, keep_version, out);
 }
 
 //! scheme://host/path or scheme:rest. Returns false when s is not a URI.

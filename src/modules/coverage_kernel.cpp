@@ -44,7 +44,8 @@ struct KAttr {
 	string bound;
 	string default_bound;
 	string scale; // the template's 'log' or 'linear'; empty: per dimension
-	string category;
+	string category; // canonical (semantic_key): an IRDI and the IRI of one enumeration value agree
+	string text;     // value_text as written, for the trace
 	string key; // canonical attr_key (semantic_key without version); empty: not keyed
 	string bound_source; // explicit | text | range | level_type | constraint (where bound came from)
 	vector<double> name_vec;
@@ -258,7 +259,8 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.bound = FieldText(a, "bound");
 		k.default_bound = FieldText(a, "default_bound");
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
-		k.category = FieldText(a, "category");
+		k.category = SemanticKey(FieldText(a, "category")).key;
+		k.text = FieldText(a, "value_text");
 		k.key = SemanticKey(FieldText(a, "attr_key")).key;
 		k.bound_source = FieldText(a, "bound_source");
 		auto vec = Field(a, "name_vec");
@@ -513,7 +515,8 @@ Options LoadOptions(const Value &v) {
 		for (auto &r : ListValue::GetChildren(*rules)) {
 			double score = 0;
 			if (!r.IsNull() && FieldNumber(r, "score", score)) {
-				auto required = FieldText(r, "required"), provided = FieldText(r, "provided");
+				auto required = SemanticKey(FieldText(r, "required")).key;
+				auto provided = SemanticKey(FieldText(r, "provided")).key;
 				o.rules[std::make_tuple(FieldText(r, "dimension"), required, provided)] = score;
 				auto key = std::make_pair(required, provided);
 				auto any = o.rules_any_dimension.find(key);
@@ -627,7 +630,9 @@ string ValueText(const KAttr &a, bool requirement, const string &bound) {
 		s += " ";
 	}
 	if (!a.category.empty()) {
-		return s + a.category;
+		// a coded value (an enumeration IRDI) reads as its text: "PROFINET (0173-1#07-AAZ002)"
+		bool coded = a.category.find('#') != string::npos || a.category.find("://") != string::npos;
+		return s + (coded && !a.text.empty() && a.text != a.category ? a.text + " (" + a.category + ")" : a.category);
 	}
 	if (!a.has_lo && !a.has_hi) {
 		return s + "?";
@@ -685,12 +690,17 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	best.bound = !x.bound.empty() ? x.bound : x.default_bound;
 	best.rule = "gate";
 	bool exact_key = HasKeyedCounterpart(x, c);
-	bool key_gated = false;
+	const KAttr *key_conflict = nullptr; // a different dictionary property of the same kind
 	const KAttr *same_key_gated = nullptr; // the requirement's own property, stopped by the dimension gate
 	for (auto &y : c.attrs) {
 		auto relation = KeyRelationOf(x, y);
 		if (relation == KeyRelation::DIFFERENT) {
-			key_gated = true; // a different dictionary property: a hard gate, like the dimension
+			// a different dictionary property: a hard gate, like the dimension
+			bool comparable = x.category.empty() ? y.category.empty() && !x.dimension.empty() && x.dimension == y.dimension
+			                                     : !y.category.empty();
+			if (comparable && !key_conflict) {
+				key_conflict = &y;
+			}
 			continue;
 		}
 		if (exact_key && relation == KeyRelation::UNKEYED) {
@@ -770,8 +780,11 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 		best.prov = same_key_gated;
 		best.rule = !same_key_gated->has_lo && !same_key_gated->has_hi && same_key_gated->category.empty() ? "missing"
 		                                                                                                 : "gate";
-	} else if (best.gate && key_gated) {
+	} else if (best.gate && key_conflict) {
+		best.prov = key_conflict; // shown, so the gap list names the property the offer has instead
 		best.rule = "key_mismatch";
+	} else if (best.gate && !x.key.empty()) {
+		best.rule = "missing"; // the offer does not state the property
 	}
 	return best;
 }
@@ -1503,14 +1516,15 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	string base = StringUtil::Format(
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
-	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source, %s AS value_text FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
 	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
 	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
 	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
 	    CastOrNullSQL(has("hi"), "hi", "DOUBLE", "a"), CastOrNullSQL(has("bound"), "bound", "VARCHAR", "a"),
 	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"),
 	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"),
-	    CastOrNullSQL(has("bound_source"), "bound_source", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("bound_source"), "bound_source", "VARCHAR", "a"),
+	    CastOrNullSQL(has("value_text"), "value_text", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string scale = "NULL::VARCHAR";
@@ -1537,7 +1551,7 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
 	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, attr_key := x.attr_key, "
-	    "bound_source := x.bound_source, "
+	    "bound_source := x.bound_source, value_text := x.value_text, "
 	    "default_bound := %s, "
 	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",

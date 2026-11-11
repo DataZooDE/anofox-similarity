@@ -1,6 +1,7 @@
 // AAS environment -> property-tree rows (GitHub #27). See aas_tree_mapper.hpp and docs/api/17-aas.md
 // for the mapping table.
 #include "modules/aas/aas_tree_mapper.hpp"
+#include "modules/aas/aas_values.hpp"
 #include "modules/aas/semantic_key.hpp"
 #include "modules/quantity.hpp"
 
@@ -25,42 +26,11 @@ bool Contains(const std::string &s, const char *part) {
 }
 
 std::string Trim(const std::string &s) {
-	size_t b = 0, e = s.size();
-	while (b < e && std::isspace(static_cast<unsigned char>(s[b]))) {
-		b++;
-	}
-	while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1]))) {
-		e--;
-	}
-	return s.substr(b, e - b);
+	return AasTrim(s);
 }
 
-std::string Lower(std::string s) {
-	for (auto &c : s) {
-		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-	}
-	return s;
-}
-
-//! A strict xs:decimal / xs:double literal: the whole text is one finite number.
-bool ParseXsdNumber(const std::string &text, double &out) {
-	auto t = Trim(text);
-	if (t.empty()) {
-		return false;
-	}
-	errno = 0;
-	char *end = nullptr;
-	out = std::strtod(t.c_str(), &end);
-	return end == t.c_str() + t.size() && errno == 0 && std::isfinite(out);
-}
-
-bool IsNumericType(const std::string &value_type) {
-	static const std::unordered_set<std::string> NUMERIC {
-	    "xs:double",          "xs:float",           "xs:decimal",         "xs:integer",        "xs:int",
-	    "xs:long",            "xs:short",           "xs:byte",            "xs:unsignedint",    "xs:unsignedlong",
-	    "xs:unsignedshort",   "xs:unsignedbyte",    "xs:nonnegativeinteger", "xs:positiveinteger",
-	    "xs:negativeinteger", "xs:nonpositiveinteger"};
-	return NUMERIC.count(Lower(value_type)) > 0;
+std::string Lower(const std::string &s) {
+	return AasLower(s);
 }
 
 // IDTA-02020 Capability Description structure (semanticId path segments, any version)
@@ -107,8 +77,88 @@ std::string DictionaryId(const AasElement &e) {
 }
 
 bool Truthy(const std::string &v) {
-	auto t = Lower(Trim(v));
-	return t == "true" || t == "1";
+	bool value = false;
+	return ParseXsdBoolean(v, value) && value;
+}
+
+//! The longest text value compared as a category (an unkeyed or longer text is descriptive).
+constexpr size_t MAX_TEXT_CATEGORY = 64;
+
+//------------------------------------------------------------------------------
+// ConceptDescriptions: the IEC 61360 dictionary entries of an environment
+//------------------------------------------------------------------------------
+
+//! Finds the dictionary entry of an id: the exact release first; any release (the id without its
+//! version) only when all releases in the input agree on unit and unitId, since a property may
+//! change its unit between releases (mA in #002, A in #001).
+class ConceptDictionary {
+public:
+	explicit ConceptDictionary(const std::vector<AasConceptDescription> &cds) {
+		for (auto &cd : cds) {
+			if (!cd.has_data_spec) {
+				continue;
+			}
+			auto exact_key = SemanticKey(cd.id, true).key;
+			if (!exact_key.empty()) {
+				exact.emplace(exact_key, &cd.data_spec);
+				by_concept[SemanticKey(cd.id).key].push_back(&cd.data_spec);
+			}
+		}
+	}
+
+	//! nullptr when unknown; ambiguous is set when releases disagree and none matches exactly.
+	const AasIec61360 *Find(const std::string &id, bool &ambiguous) const {
+		auto e = exact.find(SemanticKey(id, true).key);
+		if (e != exact.end()) {
+			return e->second;
+		}
+		auto c = by_concept.find(SemanticKey(id).key);
+		if (c == by_concept.end()) {
+			return nullptr;
+		}
+		for (auto spec : c->second) {
+			if (spec->unit != c->second[0]->unit || spec->unit_id != c->second[0]->unit_id) {
+				ambiguous = true;
+				return nullptr;
+			}
+		}
+		return c->second[0];
+	}
+
+private:
+	std::unordered_map<std::string, const AasIec61360 *> exact;
+	std::unordered_map<std::string, std::vector<const AasIec61360 *>> by_concept;
+};
+
+//! The dictionary entry of a value: the element's embedded specification, completed field by field
+//! from the ConceptDescription (an embedded spec with only a name does not hide the unit).
+struct ResolvedSpec {
+	bool found = false;
+	bool ambiguous = false;
+	AasIec61360 spec;
+};
+
+void Complete(AasIec61360 &into, const AasIec61360 &from) {
+	if (into.preferred_name.empty()) {
+		into.preferred_name = from.preferred_name;
+	}
+	if (into.definition.empty()) {
+		into.definition = from.definition;
+	}
+	if (into.unit.empty() && into.unit_id.empty()) {
+		into.unit = from.unit;
+		into.unit_id = from.unit_id;
+	}
+	if (into.data_type.empty()) {
+		into.data_type = from.data_type;
+	}
+	if (!into.has_level_type && from.has_level_type) {
+		into.has_level_type = true;
+		into.level_min = from.level_min;
+		into.level_nom = from.level_nom;
+		into.level_typ = from.level_typ;
+		into.level_max = from.level_max;
+	}
 }
 
 //! IDTA-02020 CapabilityRoleQualifier: required | provided | empty (NotAssigned or none).
@@ -140,29 +190,24 @@ std::string CapabilityRole(const AasElement &capability) {
 class TreeBuilder {
 public:
 	TreeBuilder(const AasEnvironment &env, const AasMapOptions &options, AasMapping &out)
-	    : env(env), options(options), units(*options.units), out(out) {
-		for (auto &cd : env.concept_descriptions) {
-			auto key = SemanticKey(cd.id).key;
-			if (!key.empty() && cd.has_data_spec) {
-				cds.emplace(key, &cd.data_spec);
-			}
-		}
+	    : env(env), options(options), units(*options.units), out(out), cds(env.concept_descriptions) {
 	}
 
 	void Build() {
+		for (auto &note : env.notes) {
+			Issue("", "", note.issue.c_str(), "warning", note.detail);
+		}
+		if (env.shells.empty() && env.submodels.empty()) {
+			Issue("", "", "no_shell_or_submodel", "warning", "the input holds no shell and no submodel");
+			return;
+		}
 		std::unordered_map<std::string, const AasSubmodel *> by_id;
 		for (auto &sm : env.submodels) {
 			by_id.emplace(sm.id, &sm);
 		}
 		std::unordered_set<std::string> used;
-		idx_t n_trees = env.shells.size();
-		for (auto &sm : env.submodels) {
-			if (!Referenced(sm.id)) {
-				n_trees++;
-			}
-		}
 		for (auto &shell : env.shells) {
-			auto tree_id = TreeId(shell.id, shell.id_short, n_trees);
+			auto tree_id = TreeId(shell.id, shell.id_short);
 			StartTree(tree_id, shell.id_short.empty() ? shell.id : shell.id_short);
 			for (auto &sm_id : shell.submodel_ids) {
 				auto it = by_id.find(sm_id);
@@ -179,7 +224,7 @@ public:
 			if (used.count(sm.id)) {
 				continue;
 			}
-			auto tree_id = TreeId(sm.id, sm.id_short, n_trees);
+			auto tree_id = TreeId(sm.id, sm.id_short);
 			StartTree(tree_id, sm.id_short.empty() ? sm.id : sm.id_short);
 			MapSubmodel(sm);
 		}
@@ -190,7 +235,9 @@ private:
 	const AasMapOptions &options;
 	const UnitTable &units;
 	AasMapping &out;
-	std::unordered_map<std::string, const AasIec61360 *> cds; // semantic_key -> IEC 61360 content
+	ConceptDictionary cds;
+	std::unordered_set<std::string> tree_ids;
+	bool in_template = false; // a submodel of kind Template: structure without values
 	std::string tree_id;
 	std::string root_id;
 	std::unordered_set<std::string> node_ids;
@@ -221,22 +268,28 @@ private:
 	std::unordered_map<std::string, idx_t> capability_nodes;
 	std::unordered_set<std::string> class_edges; // dedupe "child\x1fparent"
 
-	bool Referenced(const std::string &submodel_id) const {
-		for (auto &s : env.shells) {
-			for (auto &id : s.submodel_ids) {
-				if (id == submodel_id) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	std::string TreeId(const std::string &id, const std::string &id_short, idx_t n_trees) const {
+	//! The tree id: the shell (or submodel) id, or the given tree_id for the first tree of the input;
+	//! further trees get the given id plus their idShort (their id when idShorts collide).
+	std::string TreeId(const std::string &id, const std::string &id_short) {
+		std::string result;
 		if (options.tree_id.empty()) {
-			return id.empty() ? id_short : id;
+			result = id.empty() ? id_short : id;
+		} else if (tree_ids.empty()) {
+			result = options.tree_id;
+		} else {
+			result = options.tree_id + "/" + (id_short.empty() ? id : id_short);
+			if (tree_ids.count(result)) {
+				result = options.tree_id + "/" + id;
+			}
+			Issue(result, "", "tree_id_suffixed", "info",
+			      "the input holds several trees; '" + options.tree_id + "' is the first, this one is '" + result + "'");
 		}
-		return n_trees <= 1 ? options.tree_id : options.tree_id + "/" + (id_short.empty() ? id : id_short);
+		auto base = result;
+		for (idx_t n = 2; tree_ids.count(result); n++) {
+			result = base + "~" + std::to_string(n);
+		}
+		tree_ids.insert(result);
+		return result;
 	}
 
 	void StartTree(const std::string &id, const std::string &label) {
@@ -251,11 +304,15 @@ private:
 		Add(std::move(root));
 	}
 
-	//! Adds a node with a unique node id and returns its index.
+	//! Adds a node with a unique node id and returns its index. A clash (two siblings with one
+	//! idShort) is renamed X~2 so the rows stay unique, and reported.
 	idx_t Add(TreeNodeRow node) {
 		auto base = node.node_id;
 		for (idx_t n = 2; node_ids.count(node.node_id); n++) {
 			node.node_id = base + "~" + std::to_string(n);
+		}
+		if (node.node_id != base) {
+			Issue(tree_id, base, "duplicate_id_short", "warning", "a second element with this path, kept as " + node.node_id);
 		}
 		node_ids.insert(node.node_id);
 		out.nodes.push_back(std::move(node));
@@ -267,21 +324,44 @@ private:
 		out.issues.push_back({tree, path, issue, severity, detail});
 	}
 
-	//! The dictionary entry of an element: its own IEC 61360 content, else the ConceptDescription
-	//! of its semanticId or of a supplementalSemanticId.
-	const AasIec61360 *Spec(const AasElement &e) const {
-		if (e.has_data_spec) {
-			return &e.data_spec;
-		}
-		std::vector<std::string> ids {e.semantic_id};
-		ids.insert(ids.end(), e.supplemental_ids.begin(), e.supplemental_ids.end());
-		for (auto &id : ids) {
-			auto it = cds.find(SemanticKey(id).key);
-			if (!id.empty() && it != cds.end()) {
-				return it->second;
+	//! The dictionary entry of a value element (and of the element that names it, owner): the
+	//! embedded specification first, completed from the ConceptDescription of a semanticId or a
+	//! supplementalSemanticId.
+	ResolvedSpec Spec(const AasElement &e, const AasElement *owner) const {
+		ResolvedSpec r;
+		for (auto el : {&e, owner}) {
+			if (el && el->has_data_spec) {
+				if (!r.found) {
+					r.spec = el->data_spec;
+				} else {
+					Complete(r.spec, el->data_spec);
+				}
+				r.found = true;
 			}
 		}
-		return nullptr;
+		for (auto el : {&e, owner}) {
+			if (!el) {
+				continue;
+			}
+			std::vector<std::string> ids {el->semantic_id};
+			ids.insert(ids.end(), el->supplemental_ids.begin(), el->supplemental_ids.end());
+			for (auto &id : ids) {
+				if (id.empty()) {
+					continue;
+				}
+				auto cd = cds.Find(id, r.ambiguous);
+				if (cd) {
+					if (!r.found) {
+						r.spec = *cd;
+					} else {
+						Complete(r.spec, *cd);
+					}
+					r.found = true;
+					return r;
+				}
+			}
+		}
+		return r;
 	}
 
 	//! A quantity written as text ("24 V DC", "max. 38 dB(A)"). A bare number in a string is an
@@ -292,11 +372,33 @@ private:
 		return q.has_value && !q.dimension.empty() && !q.source_unit.empty();
 	}
 
-	//! A Property or Range that yields an attribute: a number, a range, an enumeration value, a
-	//! boolean or a quantity written as text. Descriptive text (a manufacturer name) is not one.
-	bool IsValueLeaf(const AasElement &e) const {
+	//! A text value compared as a category: a code such as IP65 (parse_quantity), or a short text of
+	//! a property with a dictionary id ("EtherCAT").
+	bool TextCategory(const AasElement &e, const AasElement *owner, std::string &category) const {
+		Quantity q;
+		auto text = Trim(e.value);
+		q = ParseQuantity(text, vector<string>(options.langs.begin(), options.langs.end()), units);
+		if (!q.category.empty() && !q.has_value) {
+			category = q.category;
+			return true;
+		}
+		bool keyed = !DictionaryId(e).empty() || (owner && !DictionaryId(*owner).empty());
+		if (keyed && !text.empty() && text.size() <= MAX_TEXT_CATEGORY && text.find('\n') == std::string::npos) {
+			category = text;
+			return true;
+		}
+		return false;
+	}
+
+	//! A Property or Range that yields an attribute: a number (also an absent or unparseable one,
+	//! so a requirement shows up as a gap), a range, an enumeration value, a boolean, a quantity
+	//! written as text or a coded text. Descriptive text (a manufacturer name) is not one, and
+	//! template submodels contribute only stated values.
+	bool IsValueLeaf(const AasElement &e, const AasElement *owner = nullptr) const {
+		bool numeric = IsNumericXsdType(e.value_type);
 		if (e.model_type == "Range") {
-			return (e.has_min && !Trim(e.min).empty()) || (e.has_max && !Trim(e.max).empty());
+			bool stated = (e.has_min && !Trim(e.min).empty()) || (e.has_max && !Trim(e.max).empty());
+			return stated || (numeric && !in_template);
 		}
 		if (e.model_type != "Property") {
 			return false;
@@ -304,15 +406,16 @@ private:
 		if (!e.value_id.empty()) {
 			return true;
 		}
-		if (!e.has_value || Trim(e.value).empty()) {
-			return false;
+		bool stated = e.has_value && !Trim(e.value).empty();
+		if (!stated) {
+			return numeric && !in_template;
 		}
-		auto type = Lower(e.value_type);
-		if (type == "xs:boolean" || IsNumericType(type)) {
-			return true; // an unparseable number is kept, so the requirement shows up as a gap
+		if (Lower(e.value_type) == "xs:boolean" || numeric) {
+			return true;
 		}
 		Quantity q;
-		return TextQuantity(e.value, q);
+		std::string category;
+		return TextQuantity(e.value, q) || TextCategory(e, owner, category);
 	}
 
 	//! A SubmodelElementList of values: one multi-valued property (e.g. the housing materials).
@@ -321,7 +424,7 @@ private:
 			return false;
 		}
 		for (auto &c : e.children) {
-			if (!IsValueLeaf(c)) {
+			if (!IsValueLeaf(c, &e)) {
 				return false;
 			}
 		}
@@ -364,6 +467,7 @@ private:
 			node.class_id = SemanticKey(sm.semantic_id).key;
 		}
 		auto path = node.node_id;
+		in_template = sm.kind == "Template";
 		auto index = Add(std::move(node));
 		attrs_by_path.clear();
 		constraints.clear();
@@ -554,9 +658,6 @@ private:
 				MapCollection(c, parent, child_path, role);
 			} else if (c.model_type == "Capability") {
 				MapCapability(c, parent, child_path);
-			} else if (c.model_type == "Property" && IsNumericType(c.value_type) && c.has_value) {
-				// an empty numeric value: nothing to compare, but worth knowing
-				Issue(tree_id, child_path, "empty_value", "info", "a numeric property without a value");
 			}
 		}
 	}
@@ -663,7 +764,7 @@ private:
 			}
 			return;
 		}
-		if (IsValueLeaf(p)) {
+		if (IsValueLeaf(p, &owner)) {
 			AddAttribute(item, p, &owner, path, attr_id, label, role);
 		}
 	}
@@ -695,10 +796,15 @@ private:
 		for (idx_t n = 2; taken.count(a.attr_id); n++) {
 			a.attr_id = base + "~" + std::to_string(n);
 		}
-		auto spec = Spec(e);
-		if (!spec && owner) {
-			spec = Spec(*owner);
+		if (a.attr_id != base) {
+			Issue(tree_id, path, "duplicate_id_short", "warning", "a second value named " + base + ", kept as " + a.attr_id);
 		}
+		auto resolved = Spec(e, owner);
+		if (resolved.ambiguous && !resolved.found) {
+			Issue(tree_id, path, "ambiguous_concept_description", "warning",
+			      "no ConceptDescription for this release, and the other releases disagree on the unit");
+		}
+		auto spec = resolved.found ? &resolved.spec : nullptr;
 		a.name = spec && !spec->preferred_name.empty() ? spec->preferred_name : label;
 		a.attr_key = DictionaryId(e);
 		if (a.attr_key.empty() && owner) {
@@ -706,9 +812,9 @@ private:
 		}
 		a.role = role;
 		if (e.model_type == "Range") {
-			MapRange(e, spec, path, a);
+			MapRange(e, spec, resolved.ambiguous, path, a);
 		} else {
-			MapProperty(e, spec, path, a);
+			MapProperty(e, owner, spec, resolved.ambiguous, path, a);
 		}
 		node.attrs.push_back(std::move(a));
 		AttrRef ref {node_index, node.attrs.size() - 1};
@@ -723,11 +829,14 @@ private:
 	}
 
 	//! The unit of a numeric value: unitId first, then the unit text. Returns false when unknown.
-	bool ResolveUnit(const AasElement &e, const AasIec61360 *spec, const std::string &path, const UnitDef *&def,
-	                 std::string &written) {
+	bool ResolveUnit(const AasElement &e, const AasIec61360 *spec, bool ambiguous, const std::string &path,
+	                 const UnitDef *&def, std::string &written) {
 		def = nullptr;
 		written.clear();
 		if (!spec) {
+			if (ambiguous) {
+				return false; // reported as ambiguous_concept_description
+			}
 			if (!e.semantic_id.empty() || !e.supplemental_ids.empty()) {
 				Issue(tree_id, path, "missing_concept_description", "warning",
 				      "no ConceptDescription for " + (e.semantic_id.empty() ? e.supplemental_ids[0] : e.semantic_id) +
@@ -750,7 +859,34 @@ private:
 			written = Trim(spec->unit);
 			def = units.FindSymbolOrId(written);
 		}
-		return def != nullptr || (spec->unit.empty() && spec->unit_id.empty());
+		if (spec->unit.empty() && spec->unit_id.empty()) {
+			Issue(tree_id, path, "assumed_dimensionless", "info",
+			      "the dictionary entry states no unit: the value is read as a count");
+			return true;
+		}
+		return def != nullptr;
+	}
+
+	//! Reports a number that is not a valid XSD literal; true when a value was read.
+	bool CheckNumber(const XsdNumber &n, const std::string &text, const std::string &value_type,
+	                 const std::string &path) {
+		switch (n.status) {
+		case XsdNumberStatus::OK:
+			return true;
+		case XsdNumberStatus::DECIMAL_COMMA:
+			Issue(tree_id, path, "decimal_comma", "info", "'" + text + "' read as " + n.read_as);
+			return true;
+		case XsdNumberStatus::AMBIGUOUS:
+			Issue(tree_id, path, "bad_value", "warning",
+			      "'" + text + "' is ambiguous: ',' may be a thousands or a decimal separator");
+			return false;
+		case XsdNumberStatus::NOT_INTEGER:
+			Issue(tree_id, path, "bad_value", "warning", "'" + text + "' is not an integer (" + value_type + ")");
+			return false;
+		default:
+			Issue(tree_id, path, "bad_value", "warning", "'" + text + "' is not a valid " + value_type + " value");
+			return false;
+		}
 	}
 
 	//! Converts lo/hi into the base unit of the resolved unit; without a unit the value is a count.
@@ -772,27 +908,41 @@ private:
 		}
 	}
 
-	void MapRange(const AasElement &e, const AasIec61360 *spec, const std::string &path, TreeAttrRow &a) {
-		double lo = 0, hi = 0;
+	void MapRange(const AasElement &e, const AasIec61360 *spec, bool ambiguous, const std::string &path,
+	              TreeAttrRow &a) {
 		bool has_lo = e.has_min && !Trim(e.min).empty();
 		bool has_hi = e.has_max && !Trim(e.max).empty();
 		a.value_text = (has_lo ? Trim(e.min) : std::string()) + ".." + (has_hi ? Trim(e.max) : std::string());
-		if ((has_lo && !ParseXsdNumber(e.min, lo)) || (has_hi && !ParseXsdNumber(e.max, hi))) {
-			Issue(tree_id, path, "bad_value", "warning", "Range '" + a.value_text + "' is not numeric");
+		if (!has_lo && !has_hi) {
+			a.value_text.clear();
+			Issue(tree_id, path, "empty_value", "warning", "a Range without min and max: nothing to compare");
+			return;
+		}
+		bool integer = IsIntegerXsdType(e.value_type);
+		XsdNumber lo, hi;
+		if (has_lo) {
+			lo = ParseXsdNumber(e.min, integer);
+		}
+		if (has_hi) {
+			hi = ParseXsdNumber(e.max, integer);
+		}
+		if ((has_lo && !CheckNumber(lo, Trim(e.min), e.value_type, path)) ||
+		    (has_hi && !CheckNumber(hi, Trim(e.max), e.value_type, path))) {
 			return;
 		}
 		const UnitDef *def;
 		std::string written;
-		bool known = ResolveUnit(e, spec, path, def, written);
+		bool known = ResolveUnit(e, spec, ambiguous, path, def, written);
 		a.has_value = true;
-		a.lo = has_lo ? lo : hi;
-		a.hi = has_hi ? hi : lo;
+		a.lo = has_lo ? lo.value : hi.value;
+		a.hi = has_hi ? hi.value : lo.value;
 		ApplyUnit(def, known, written, a);
 		a.bound = has_lo && has_hi ? "within" : has_lo ? "at_least" : "at_most";
 		a.bound_source = "range";
 	}
 
-	void MapProperty(const AasElement &e, const AasIec61360 *spec, const std::string &path, TreeAttrRow &a) {
+	void MapProperty(const AasElement &e, const AasElement *owner, const AasIec61360 *spec, bool ambiguous,
+	                 const std::string &path, TreeAttrRow &a) {
 		a.value_text = Trim(e.value);
 		if (!e.value_id.empty()) {
 			a.category = SemanticKey(e.value_id).key; // an enumeration value
@@ -800,33 +950,34 @@ private:
 		}
 		auto type = Lower(e.value_type);
 		if (type == "xs:boolean") {
-			a.category = Truthy(e.value) ? "true" : "false";
+			bool value = false;
+			if (ParseXsdBoolean(e.value, value)) {
+				a.category = value ? "true" : "false";
+			} else {
+				Issue(tree_id, path, "bad_value", "warning", "'" + a.value_text + "' is not an xs:boolean (true, false, 1, 0)");
+			}
 			return;
 		}
-		double v = 0;
-		if (IsNumericType(type)) {
-			if (!ParseXsdNumber(e.value, v)) {
-				auto comma = a.value_text;
-				if (comma.find(',') != std::string::npos && comma.find('.') == std::string::npos) {
-					comma[comma.find(',')] = '.';
-				}
-				if (!ParseXsdNumber(comma, v)) {
-					Issue(tree_id, path, "bad_value", "warning",
-					      "'" + a.value_text + "' is not a valid " + e.value_type + " value");
-					return;
-				}
-				Issue(tree_id, path, "decimal_comma", "info", "'" + a.value_text + "' read as " + comma);
+		if (IsNumericXsdType(type)) {
+			if (a.value_text.empty()) {
+				Issue(tree_id, path, "empty_value", "warning", "a numeric property without a value: nothing to compare");
+				return;
+			}
+			auto n = ParseXsdNumber(e.value, IsIntegerXsdType(type));
+			if (!CheckNumber(n, a.value_text, e.value_type, path)) {
+				return;
 			}
 			const UnitDef *def;
 			std::string written;
-			bool known = ResolveUnit(e, spec, path, def, written);
+			bool known = ResolveUnit(e, spec, ambiguous, path, def, written);
 			a.has_value = true;
-			a.lo = a.hi = v;
+			a.lo = a.hi = n.value;
 			ApplyUnit(def, known, written, a);
 			ApplyLevelType(spec, a);
 			return;
 		}
-		// text: a quantity written out ("24 V DC", "max. 38 dB(A)"); IsValueLeaf admitted nothing else
+		// text: a quantity written out ("24 V DC", "max. 38 dB(A)"), else a code (IsValueLeaf
+		// admitted nothing else)
 		Quantity q;
 		if (TextQuantity(a.value_text, q)) {
 			a.has_value = true;
@@ -838,7 +989,9 @@ private:
 				a.bound = q.bound;
 				a.bound_source = "text";
 			}
+			return;
 		}
+		TextCategory(e, owner, a.category);
 	}
 
 	//! IEC 61360 levelType of a single value: exactly min -> at_least, max -> at_most,

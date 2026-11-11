@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assetAdministrationShell xmlns="https://admin-shell.io/aas/3/0">
+  <idShort>LoneShell</idShort>
+  <id>urn:fx:aas:lone</id>
+  <assetInformation><assetKind>Instance</assetKind></assetInformation>
+</assetAdministrationShell>

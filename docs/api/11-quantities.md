@@ -67,6 +67,11 @@ symbol or alias first, then by identifier; identifiers are compared with
   ```
 - A new unit may bring its own ids (`unit_id` is a VARCHAR or a list). Two units claiming one
   identifier is an error. An entry without dimension whose symbol is unknown is an error.
+- A row for a **known** symbol without a factor only attaches ids and aliases, also when it
+  carries the quantity column (`('mA', '0173-1#05-AAA236#003', 'current')`); with another
+  dimension it is an error. It never redefines the unit with factor 1. An override with a factor
+  but no ids keeps the seed's codes, so `SELECT symbol, alias, unit_id, dimension, factor, "offset"
+  FROM quantity_units()` copied, edited and passed back still resolves `AMP`.
 - Identifiers never take part in free-text parsing: `parse_quantity('5 NEW')` is not 5 newtons.
 - An unknown identifier is never guessed: the value comes back unchanged with `dimension` NULL,
   and `validate_trees` reports `unknown_unit` for such attributes.
@@ -148,7 +153,7 @@ quantity_units()
 
 ```sql
 SELECT * FROM quantity_units() WHERE dimension = 'length';
-CREATE TABLE my_units AS SELECT symbol, alias, dimension, factor, "offset" FROM quantity_units();
+CREATE TABLE my_units AS SELECT symbol, alias, unit_id, dimension, factor, "offset" FROM quantity_units();
 ```
 
 ### `parse_quantity`

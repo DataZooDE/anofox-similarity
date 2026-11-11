@@ -185,9 +185,9 @@ AasElement Element(const XMLElement *x, size_t depth) {
 	e.has_data_spec = ReadIec61360(x, e.data_spec);
 	if (e.model_type == "SubmodelElementCollection" || e.model_type == "SubmodelElementList") {
 		Children(Child(x, "value"), e, depth);
-		if (e.value_type.empty()) {
-			e.value_type = ChildText(x, "valueTypeListElement");
-		}
+		e.semantic_id_list_element = RefValue(x, "semanticIdListElement");
+		e.value_type_list_element = ChildText(x, "valueTypeListElement");
+		AasInheritListElement(e);
 	} else if (e.model_type == "Entity") {
 		Children(Child(x, "statements"), e, depth);
 	} else if (e.model_type == "MultiLanguageProperty") {
@@ -298,8 +298,14 @@ AasEnvironment ReadAasXml(const std::string &text) {
 		ReadList(root, "conceptDescriptions", "conceptDescription", env);
 	} else if (Is(root, "submodel")) {
 		env.submodels.push_back(Submodel(root));
+	} else if (Is(root, "assetAdministrationShell")) {
+		env.shells.push_back(Shell(root));
+	} else if (Is(root, "conceptDescription")) {
+		env.concept_descriptions.push_back(ConceptDescription(root));
 	} else {
-		throw InvalidInputException("AAS XML: expected <environment> or <submodel>, got <%s>", root->Name());
+		throw InvalidInputException(
+		    "AAS XML: expected <environment>, <submodel>, <assetAdministrationShell> or <conceptDescription>, got <%s>",
+		    root->Name());
 	}
 	return env;
 }

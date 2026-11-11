@@ -211,6 +211,9 @@ const double AFFINE_BAND = 2.5; // K
 void UnitTable::Add(UnitDef unit) {
 	for (auto &u : units) {
 		if (u.symbol == unit.symbol) {
+			if (unit.ids.empty()) {
+				unit.ids = u.ids; // an override without ids keeps the codes (quantity_units() copied back)
+			}
 			u = std::move(unit); // a user unit overrides the seed
 			return;
 		}
@@ -316,8 +319,21 @@ UnitTable UnitTable::WithUserUnits(const Value &list) {
 				u.offset = v.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			}
 		}
-		if (!u.symbol.empty() && u.dimension.empty() && !has_factor) {
-			t.Extend(u); // ids and aliases for a known unit, e.g. a licensed ECLASS unit list
+		const UnitDef *known = nullptr;
+		for (auto &existing : t.units) {
+			if (existing.symbol == u.symbol) {
+				known = &existing;
+			}
+		}
+		if (!u.symbol.empty() && !has_factor && (known || u.dimension.empty())) {
+			// ids and aliases for a known unit, e.g. a licensed ECLASS unit list (with or without its
+			// quantity column); never a redefinition with the default factor 1
+			if (known && !u.dimension.empty() && u.dimension != known->dimension) {
+				throw InvalidInputException("unit_table: '%s' is a known %s unit; a row for another dimension needs a "
+				                            "factor",
+				                            u.symbol, known->dimension);
+			}
+			t.Extend(u);
 			continue;
 		}
 		if (u.symbol.empty() || u.dimension.empty()) {
@@ -346,7 +362,9 @@ void UnitTable::Extend(const UnitDef &extra) {
 			return;
 		}
 	}
-	throw InvalidInputException("unit_table: unit '%s' has no dimension and is not a known unit", extra.symbol);
+	throw InvalidInputException("unit_table: unit '%s' has no dimension and is not a known unit (give dimension and "
+	                            "factor to add it)",
+	                            extra.symbol);
 }
 
 const UnitDef *UnitTable::FindById(const string &unit_id) const {
@@ -1549,7 +1567,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 		                   "have factor NULL and are never converted. Copy it into a table to extend it and pass "
 		                   "(SELECT list(u) FROM my_units u) as unit_table.";
 		desc.examples = {"SELECT * FROM quantity_units() WHERE dimension = 'length';",
-		                 "CREATE TABLE my_units AS SELECT symbol, alias, dimension, factor, \"offset\" FROM "
+		                 "CREATE TABLE my_units AS SELECT symbol, alias, unit_id, dimension, factor, \"offset\" FROM "
 		                 "quantity_units();"};
 		desc.categories = {"coverage", "quantity"};
 		CreateTableFunctionInfo info(f);

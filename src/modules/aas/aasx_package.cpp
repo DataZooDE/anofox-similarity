@@ -17,6 +17,10 @@ namespace anofox {
 
 namespace {
 
+//! The largest spec part extracted (uncompressed). Supplier packages are untrusted input; a
+//! zip bomb must not exhaust memory. Spec parts of real packages are well below 10 MB.
+constexpr size_t MAX_SPEC_PART_BYTES = 256u * 1024u * 1024u;
+
 //! A zip archive in memory. Owns the miniz reader state.
 class ZipArchive {
 public:
@@ -36,6 +40,15 @@ public:
 		int index = aasx_zip::mz_zip_reader_locate_file(&zip, name.c_str(), nullptr, 0);
 		if (index < 0) {
 			return false;
+		}
+		aasx_zip::mz_zip_archive_file_stat stat;
+		if (!aasx_zip::mz_zip_reader_file_stat(&zip, static_cast<aasx_zip::mz_uint>(index), &stat)) {
+			throw InvalidInputException("AASX: cannot read the entry '%s'", name);
+		}
+		if (stat.m_uncomp_size > MAX_SPEC_PART_BYTES) {
+			throw InvalidInputException("AASX: '%s' is %llu bytes uncompressed, more than the %llu bytes allowed", name,
+			                            (unsigned long long)stat.m_uncomp_size,
+			                            (unsigned long long)MAX_SPEC_PART_BYTES);
 		}
 		size_t size = 0;
 		void *data = aasx_zip::mz_zip_reader_extract_to_heap(&zip, static_cast<aasx_zip::mz_uint>(index), &size, 0);
@@ -73,12 +86,35 @@ std::string Lower(std::string s) {
 	return s;
 }
 
-//! A part name inside the zip from a relationship target, relative to the source part's folder.
+//! A part name inside the zip from a relationship target, relative to the source part's folder,
+//! with '.' and '..' resolved. A target that climbs above the package root is an error.
 std::string PartName(const std::string &source_dir, const std::string &target) {
-	if (!target.empty() && target[0] == '/') {
-		return target.substr(1);
+	auto path = !target.empty() && target[0] == '/' ? target.substr(1) : source_dir + target;
+	std::vector<std::string> segments;
+	size_t start = 0;
+	for (size_t i = 0; i <= path.size(); i++) {
+		if (i < path.size() && path[i] != '/') {
+			continue;
+		}
+		auto seg = path.substr(start, i - start);
+		start = i + 1;
+		if (seg.empty() || seg == ".") {
+			continue;
+		}
+		if (seg == "..") {
+			if (segments.empty()) {
+				throw InvalidInputException("AASX: the relationship target '%s' leaves the package", target);
+			}
+			segments.pop_back();
+		} else {
+			segments.push_back(seg);
+		}
 	}
-	return source_dir + target;
+	std::string out;
+	for (auto &seg : segments) {
+		out += (out.empty() ? "" : "/") + seg;
+	}
+	return out;
 }
 
 std::string Folder(const std::string &part) {
@@ -150,46 +186,6 @@ AasEnvironment ReadAasx(const std::string &bytes) {
 		env.Append(ReadSpecPart(zip, part));
 	}
 	return env;
-}
-
-void AasEnvironment::Append(AasEnvironment &&other) {
-	for (auto &s : other.shells) {
-		shells.push_back(std::move(s));
-	}
-	for (auto &s : other.submodels) {
-		submodels.push_back(std::move(s));
-	}
-	for (auto &c : other.concept_descriptions) {
-		concept_descriptions.push_back(std::move(c));
-	}
-}
-
-bool AasIsContainer(const std::string &model_type) {
-	return model_type == "SubmodelElementCollection" || model_type == "SubmodelElementList" || model_type == "Entity";
-}
-
-AasEnvironment ReadAas(const std::string &content) {
-	size_t i = 0;
-	if (content.size() >= 3 && static_cast<unsigned char>(content[0]) == 0xEF &&
-	    static_cast<unsigned char>(content[1]) == 0xBB && static_cast<unsigned char>(content[2]) == 0xBF) {
-		i = 3; // UTF-8 byte order mark
-	}
-	if (content.size() >= 4 && content.compare(0, 4, "PK\x03\x04") == 0) {
-		return ReadAasx(content);
-	}
-	while (i < content.size() && std::isspace(static_cast<unsigned char>(content[i]))) {
-		i++;
-	}
-	if (i == content.size()) {
-		throw InvalidInputException("AAS: empty input");
-	}
-	if (content[i] == '<') {
-		return ReadAasXml(content);
-	}
-	if (content[i] == '{' || content[i] == '[') {
-		return ReadAasJson(content.substr(i));
-	}
-	throw InvalidInputException("AAS: expected JSON, XML or an AASX package (zip)");
 }
 
 } // namespace anofox

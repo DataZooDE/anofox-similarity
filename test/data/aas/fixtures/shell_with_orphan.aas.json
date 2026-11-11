@@ -1,0 +1,10 @@
+{
+  "assetAdministrationShells": [{"modelType": "AssetAdministrationShell", "id": "urn:fx:aas:rfq", "idShort": "RFQ",
+    "assetInformation": {"assetKind": "Type"},
+    "submodels": [{"type": "ModelReference", "keys": [{"type": "Submodel", "value": "urn:fx:sm:req"}]}]}],
+  "submodels": [
+    {"modelType": "Submodel", "id": "urn:fx:sm:req", "idShort": "Requirements", "submodelElements": [
+      {"modelType": "Property", "idShort": "Axes", "valueType": "xs:int", "value": "2"}]},
+    {"modelType": "Submodel", "id": "urn:fx:sm:notes", "idShort": "Notes", "submodelElements": []}
+  ]
+}

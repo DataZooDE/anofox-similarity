@@ -75,6 +75,10 @@ struct AasElement {
 	AasReference first; // RelationshipElement
 	AasReference second;
 
+	// SubmodelElementList: what its children leave out (AASd-107, AASd-109)
+	std::string semantic_id_list_element;
+	std::string value_type_list_element;
+
 	std::vector<AasElement> children;
 };
 
@@ -101,13 +105,24 @@ struct AasConceptDescription {
 	AasIec61360 data_spec;
 };
 
+//! A finding of a reader about the document's shape (e.g. a member of the wrong type).
+struct AasReaderNote {
+	std::string issue;
+	std::string detail;
+};
+
 struct AasEnvironment {
 	std::vector<AasShell> shells;
 	std::vector<AasSubmodel> submodels;
 	std::vector<AasConceptDescription> concept_descriptions;
+	std::vector<AasReaderNote> notes;
 
 	void Append(AasEnvironment &&other);
 };
+
+//! Children of a SubmodelElementList take the list's semanticIdListElement and
+//! valueTypeListElement where they state none (AASd-107/109 allow leaving them out).
+void AasInheritListElement(AasElement &list);
 
 //! Model types that hold other elements.
 bool AasIsContainer(const std::string &model_type);

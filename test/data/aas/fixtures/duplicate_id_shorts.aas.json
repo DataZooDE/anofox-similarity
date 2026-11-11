@@ -1,0 +1,12 @@
+{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:dup", "idShort": "TechnicalData",
+    "submodelElements": [{
+      "modelType": "SubmodelElementCollection", "idShort": "Drive",
+      "value": [
+        {"modelType": "Property", "idShort": "Axes", "valueType": "xs:int", "value": "2"},
+        {"modelType": "Property", "idShort": "Axes", "valueType": "xs:int", "value": "4"}
+      ]
+    }]
+  }]
+}

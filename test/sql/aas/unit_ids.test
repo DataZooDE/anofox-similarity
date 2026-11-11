@@ -86,7 +86,7 @@ SELECT n.value, n.unit, n.dimension FROM (SELECT normalize_quantity(5, '0173-1#0
 statement error
 SELECT normalize_quantity(1, 'A', (SELECT list(u) FROM (VALUES ('Amp', 'X1')) u(symbol, unit_id)));
 ----
-unit_table: unit 'Amp' has no dimension and is not a known unit
+unit_table: unit 'Amp' has no dimension and is not a known unit (give dimension and factor to add it)
 
 # Two units claiming the same identifier is an error
 statement error

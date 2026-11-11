@@ -393,14 +393,6 @@ LogicalType TreeNodeType() {
 
 namespace {
 
-LogicalType AttributeType() {
-	return TreeAttributeType();
-}
-
-LogicalType NodeType() {
-	return TreeNodeType();
-}
-
 struct JsonTreeContext {
 	string tree_id;
 	string source;
@@ -635,7 +627,7 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	v.emplace_back("class_id", OptVarchar(JsonString(n.Get("class_id"))));
 	v.emplace_back("count", Value::DOUBLE(count));
 	v.emplace_back("source", OptVarchar(source));
-	v.emplace_back("attributes", Value::LIST(AttributeType(), std::move(attrs)));
+	v.emplace_back("attributes", Value::LIST(TreeAttributeType(), std::move(attrs)));
 	ctx.rows.push_back(Value::STRUCT(std::move(v)));
 	if (children && children->kind == Json::Kind::ARRAY) {
 		for (auto &c : children->items) {
@@ -649,7 +641,7 @@ void TreeFromJsonFun(DataChunk &args, ExpressionState &, Vector &result) {
 	for (idx_t i = 0; i < count; i++) {
 		auto doc = args.data[0].GetValue(i);
 		if (doc.IsNull()) {
-			result.SetValue(i, Value(LogicalType::LIST(NodeType())));
+			result.SetValue(i, Value(LogicalType::LIST(TreeNodeType())));
 			continue;
 		}
 		auto text = doc.ToString();
@@ -700,7 +692,7 @@ void TreeFromJsonFun(DataChunk &args, ExpressionState &, Vector &result) {
 			ctx.units = &user_units;
 		}
 		NodeFromJson(*root, "", ctx, 0);
-		result.SetValue(i, Value::LIST(NodeType(), std::move(ctx.rows)));
+		result.SetValue(i, Value::LIST(TreeNodeType(), std::move(ctx.rows)));
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -1264,7 +1256,7 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 		auto any = LogicalType::ANY;
 		for (auto args : {vector<LogicalType> {vc}, vector<LogicalType> {vc, vc}, vector<LogicalType> {vc, vc, any},
 		                  vector<LogicalType> {vc, vc, any, any}}) {
-			ScalarFunction f(duckdb_compat::FunctionName("tree_from_json"), args, LogicalType::LIST(NodeType()),
+			ScalarFunction f(duckdb_compat::FunctionName("tree_from_json"), args, LogicalType::LIST(TreeNodeType()),
 			                 DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, TreeFromJsonFun),
 			                 compat_anofox::ScalarBind<&TreeFromJsonBind>());
 			duckdb_compat::SetFallible(f);

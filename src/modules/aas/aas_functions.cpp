@@ -9,6 +9,7 @@
 #include "modules/coverage_sql.hpp"
 #include "compat_anofox/scalar_bind.hpp"
 #include "duckdb_compat.hpp"
+#include "duckdb/common/error_data.hpp"
 #include "telemetry.hpp"
 #include "anofox_similarity_banner.hpp"
 
@@ -173,15 +174,30 @@ private:
 	UnitTable unit_table;
 };
 
+//! Malformed input: strict functions (aas_to_trees) raise the reader's error; the audit
+//! (aas_issues) reports it as a parse_error row, so a folder load can name the bad file.
+enum class OnReadError { RAISE, REPORT };
+
 template <class EMIT>
-void ForEachMapping(DataChunk &args, Vector &result, EMIT emit) {
+void ForEachMapping(DataChunk &args, Vector &result, EMIT emit, OnReadError on_error = OnReadError::RAISE) {
 	AasRowMapper mapper;
 	for (idx_t row = 0; row < args.size(); row++) {
 		if (args.data[0].GetValue(row).IsNull()) {
 			result.SetValue(row, Value(result.GetType()));
 			continue;
 		}
-		result.SetValue(row, emit(mapper.Map(args, row)));
+		AasMapping mapping;
+		if (on_error == OnReadError::RAISE) {
+			mapping = mapper.Map(args, row);
+		} else {
+			try {
+				mapping = mapper.Map(args, row);
+			} catch (std::exception &ex) {
+				ErrorData error(ex);
+				mapping.issues.push_back({"", "", "parse_error", "error", error.RawMessage()});
+			}
+		}
+		result.SetValue(row, emit(mapping));
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -199,13 +215,16 @@ void AasToTreesFun(DataChunk &args, ExpressionState &, Vector &result) {
 }
 
 void AasIssuesFun(DataChunk &args, ExpressionState &, Vector &result) {
-	ForEachMapping(args, result, [](const AasMapping &m) {
-		vector<Value> issues;
-		for (auto &i : m.issues) {
-			issues.push_back(IssueValue(i));
-		}
-		return Value::LIST(IssueType(), std::move(issues));
-	});
+	ForEachMapping(
+	    args, result,
+	    [](const AasMapping &m) {
+		    vector<Value> issues;
+		    for (auto &i : m.issues) {
+			    issues.push_back(IssueValue(i));
+		    }
+		    return Value::LIST(IssueType(), std::move(issues));
+	    },
+	    OnReadError::REPORT);
 }
 
 LogicalType ClassEdgeType() {
@@ -289,11 +308,12 @@ void RegisterAasReader(ExtensionLoader &loader) {
 	    LogicalType::LIST(IssueType()),
 	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasIssuesFun),
 	    compat_anofox::ScalarBind<&AasIssuesBind>(),
-	    "Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). Issues: "
-	    "bad_value (a value that does not parse as its valueType), decimal_comma (read with ',' as decimal separator), "
-	    "missing_concept_description and no_unit_information (the unit of a value is unknown), unknown_unit_id "
-	    "(falls back to the unit text), capability_missing, missing_submodel, empty_value. path is the idShort path, "
-	    "submodel first. Same arguments as aas_to_trees.",
+	    "Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). It never "
+	    "raises on malformed input: a broken file gives one parse_error row with the reader's message, so "
+	    "SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for "
+	    "the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, "
+	    "ambiguous_concept_description, unknown_unit_id, assumed_dimensionless, duplicate_id_short, ...). path is "
+	    "the idShort path, submodel first. Same arguments as aas_to_trees.",
 	    AAS_CATEGORIES};
 	issues.special_null_handling = true;
 	RegisterCoverageScalar(loader, issues, ContentOverloads("aas_issues"));

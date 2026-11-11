@@ -184,7 +184,7 @@ TITLES = {
     "14-classification-and-review.md": "Classification onto a catalogue and vocabulary review",
     "15-evaluation.md": "Evaluation and tuning",
     "16-lsh-and-clustering.md": "Sub-linear recall (LSH) and entity clustering",
-    "17-aas.md": "Asset Administration Shell (AAS): read, match on dictionary keys, write",
+    "17-aas.md": "Asset Administration Shell (AAS): read, match on dictionary keys",
 }
 
 

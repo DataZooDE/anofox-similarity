@@ -172,9 +172,9 @@ AasElement Element(const Json &j, size_t depth) {
 		if (v != j.end()) {
 			Children(*v, e, depth);
 		}
-		if (e.value_type.empty()) {
-			e.value_type = Str(j, "valueTypeListElement");
-		}
+		e.semantic_id_list_element = RefValue(j, "semanticIdListElement");
+		e.value_type_list_element = Str(j, "valueTypeListElement");
+		AasInheritListElement(e);
 	} else if (e.model_type == "Entity") {
 		auto v = j.find("statements");
 		if (v != j.end()) {
@@ -261,11 +261,16 @@ AasConceptDescription ConceptDescription(const Json &j) {
 
 void ReadArray(const Json &doc, const char *key, AasEnvironment &env) {
 	auto it = doc.find(key);
-	if (it == doc.end() || !it->is_array()) {
+	if (it == doc.end() || it->is_null()) {
+		return;
+	}
+	if (!it->is_array()) {
+		env.notes.push_back({"malformed_member", "'" + std::string(key) + "' must be a list"});
 		return;
 	}
 	for (auto &x : *it) {
 		if (!x.is_object()) {
+			env.notes.push_back({"malformed_member", "an entry of '" + std::string(key) + "' is not an object"});
 			continue;
 		}
 		if (std::string(key) == "assetAdministrationShells") {

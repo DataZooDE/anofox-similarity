@@ -57,14 +57,15 @@ Kessler_KSD_10	0.625	2
 Driventa_DS_12	0.372	2
 
 # The gap list says why. Driventa states a peak current, another dictionary property: a key
-# mismatch, not partial credit for shared IRDI tokens
+# mismatch, shown with the value it offers instead, not partial credit for shared IRDI tokens.
+# Coded values read as their text
 query TTTT
 SELECT attr_id, req_value, prov_value, rule
 FROM trace JOIN shells s USING (candidate_id) WHERE s.offer = 'Driventa_DS_12' AND attr_score < 0.99 ORDER BY attr_id;
 ----
 AmbientTemperature	at_least 318.15 K	313.15 K	at_least
-Protocol	point 0173-1#07-AAZ001	0173-1#07-AAZ002	compat
-RatedCurrent	at_least 7.6 A	NULL	key_mismatch
+Protocol	point EtherCAT (0173-1#07-AAZ001)	PROFINET (0173-1#07-AAZ002)	compat
+RatedCurrent	at_least 7.6 A	12 A	key_mismatch
 SafeTorqueOff	point true	false	compat
 SupplyVoltage	within 380..480 V	400..480 V	within
 
@@ -87,4 +88,4 @@ key
 query TT
 SELECT prov_value, rule FROM trace JOIN shells s USING (candidate_id) WHERE s.offer = 'Orbitec_OX_6' AND attr_id = 'Protocol';
 ----
-0173-1#07-AAZ001	compat
+EtherCAT (0173-1#07-AAZ001)	compat

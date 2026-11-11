@@ -34,6 +34,8 @@ set(EXTENSION_SOURCES
     src/modules/coverage_kernel.cpp
     src/modules/aas/semantic_key.cpp
     src/modules/aas/aas_functions.cpp
+    src/modules/aas/aas_model.cpp
+    src/modules/aas/aas_values.cpp
     src/modules/aas/aas_json_reader.cpp
     src/modules/aas/aas_xml_reader.cpp
     src/modules/aas/aasx_package.cpp
