@@ -101,6 +101,7 @@ Value AttributeValue(const TreeNodeRow &n, const TreeAttrRow &a) {
 	v.emplace_back("qualifier", Text(a.qualifier));
 	v.emplace_back("category", Text(a.category));
 	v.emplace_back("attr_key", Text(a.attr_key));
+	v.emplace_back("bound_source", Text(a.bound_source));
 	return Value::STRUCT(std::move(v));
 }
 

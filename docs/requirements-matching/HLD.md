@@ -717,3 +717,32 @@ precedence over the text above.
       to zero and got a uniform p. Item and catalogue vectors must share one dimension.
     - `cold_start_analogs` returns only materials with consumption history.
       `find_similar_materials_*` and `cold_start_analogs` break ties by material id.
+
+## 12. AAS integration (2026-11-11)
+
+Epic [#37](https://github.com/DataZooDE/anofox-similarity/issues/37). AAS v3.x and IDTA-02020
+(Capability Description) standardise how requirements and offers are written down, but not how
+they are matched. These decisions take precedence over the text above.
+
+1. **Dictionary keys decide when both sides have them** (#28). An optional `attr_key` column
+   holds the semanticId. Keys are compared after `semantic_key` (#29), which strips the release
+   suffix. Equal keys give `name_sim = 1`. Different keys are a hard gate (`rule =
+   'key_mismatch'`), like a dimension mismatch, not a `mu` discount. When only one side has a
+   key, names are compared as before. If an item has an attribute with the requirement's key,
+   only keyed attributes may answer that requirement.
+2. **Role is informational** (#31). `tree_coverage` reads the query tree as the requirement and
+   the candidates as offers, whatever `role` says. The reader still fills `role` from the
+   IDTA-02020 `CapabilityRoleQualifier` (Required → `required`, Offered → `provided`), and
+   `validate_trees` warns (`mixed_roles`) when one tree mixes both. Enforcing the role was
+   rejected: the same offer tree serves as candidate in one ranking and as query in another
+   (§4.6, request → past solution), and an error would block exactly that reuse.
+3. **Bounds are derived and traced** (#31). A one-sided `Range` gives `at_least` / `at_most`,
+   a two-sided one `within`. A single value with an IEC 61360 `levelType` of exactly min, max
+   or nom gives `at_least`, `at_most` or `equals`; `typ` or several levels give none. An
+   IDTA-02020 `BasicConstraint` (`<= 1 ms`) is read like a quantity text and applied to the
+   properties its `ConstraintHasProperty` relations name; it overrides the Range bound.
+   `bound_source` (`explicit`, `text`, `range`, `level_type`, `constraint`; `template` for a
+   catalogue default) is kept on the attribute and shown in the trace.
+4. **Unit identifiers are resolved before the unit text** (#30), and never in free text. The seed
+   carries UN/ECE Rec 20 codes; ECLASS unit IRDIs are licensed content and come from the user's
+   `unit_table`.

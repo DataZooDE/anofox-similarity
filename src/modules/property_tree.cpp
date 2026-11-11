@@ -376,7 +376,8 @@ LogicalType TreeAttributeType() {
 	                             {"unit", LogicalType::VARCHAR},     {"lo", LogicalType::DOUBLE},
 	                             {"hi", LogicalType::DOUBLE},        {"role", LogicalType::VARCHAR},
 	                             {"bound", LogicalType::VARCHAR},    {"qualifier", LogicalType::VARCHAR},
-	                             {"category", LogicalType::VARCHAR}, {"attr_key", LogicalType::VARCHAR}};
+	                             {"category", LogicalType::VARCHAR}, {"attr_key", LogicalType::VARCHAR},
+	                             {"bound_source", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -473,6 +474,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		role = ctx.role;
 	}
 	string bound = JsonString(a.Get("bound"));
+	string bound_source = bound.empty() ? "" : "explicit";
 	double lo = 0, hi = 0;
 	bool has_lo = JsonNumber(a.Get("lo"), lo);
 	bool has_hi = JsonNumber(a.Get("hi"), hi);
@@ -504,6 +506,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		}
 		if (bound.empty() && !text.empty()) {
 			bound = ParseQuantity(text, ctx.langs, units).bound; // the text states the bound
+			bound_source = bound.empty() ? "" : "text";
 		}
 	} else if (category.empty() && !text.empty()) {
 		auto q = ParseQuantity(text, ctx.langs, units);
@@ -517,6 +520,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		category = q.category;
 		if (bound.empty()) {
 			bound = q.bound; // the text states the bound when the extraction gave none
+			bound_source = bound.empty() ? "" : "text";
 		}
 	}
 	child_list_t<Value> v;
@@ -534,6 +538,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 	v.emplace_back("qualifier", OptVarchar(JsonString(a.Get("qualifier"))));
 	v.emplace_back("category", OptVarchar(category));
 	v.emplace_back("attr_key", OptVarchar(JsonString(a.Get("attr_key"))));
+	v.emplace_back("bound_source", OptVarchar(bound_source));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -1062,15 +1067,16 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		bool has_category = TableHasColumn(context, src.attrs_table, "category");
 		bool has_bound = TableHasColumn(context, src.attrs_table, "bound");
 		bool has_attr_key = TableHasColumn(context, src.attrs_table, "attr_key");
+		bool has_role = TableHasColumn(context, src.attrs_table, "role");
 		auto a = StringUtil::Format(
 		    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 		    "CAST(attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS lo, %s AS hi, %s AS category, "
-		    "%s AS bound, %s AS attr_key FROM %s",
+		    "%s AS bound, %s AS attr_key, %s AS role FROM %s",
 		    CastOrNullSQL(has_name, "name", "VARCHAR"),
 		    CastOrNullSQL(has_dimension, "dimension", "VARCHAR"), CastOrNullSQL(has_lo, "lo", "DOUBLE"),
 		    CastOrNullSQL(has_hi, "hi", "DOUBLE"), CastOrNullSQL(has_category, "category", "VARCHAR"),
 		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), CastOrNullSQL(has_attr_key, "attr_key", "VARCHAR"),
-		    QuotedIdentifier(src.attrs_table) + TreeFilter(src));
+		    CastOrNullSQL(has_role, "role", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'null_key', 'error', 'an attribute row without tree_id or node_id'
@@ -1094,6 +1100,11 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			SELECT tree_id, node_id, attr_id, 'category_without_dimension', 'warning',
 			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair'
 			FROM a WHERE category IS NOT NULL AND dimension IS NULL AND attr_key IS NULL
+			UNION ALL
+			SELECT tree_id, NULL, NULL, 'mixed_roles', 'warning',
+			       'the tree has required and provided attributes; role is informational: tree_coverage reads the '
+			       || 'query tree as the requirement and the candidates as offers'
+			FROM a WHERE role IN ('required', 'provided') GROUP BY tree_id HAVING count(DISTINCT role) > 1
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'bad_interval', 'error', 'lo is greater than hi'
 			FROM a WHERE lo > hi
@@ -1329,7 +1340,8 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, "
 	                  "attribute_on_container, orphan_attribute, "
 	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension (not for "
-	                  "attributes with an attr_key: the key identifies the property), mixed_dimensions (one "
+	                  "attributes with an attr_key: the key identifies the property), mixed_roles (required and provided "
+	                  "attributes in one tree; role is informational), mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source).",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }

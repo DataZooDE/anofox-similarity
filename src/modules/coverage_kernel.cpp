@@ -46,6 +46,7 @@ struct KAttr {
 	string scale; // the template's 'log' or 'linear'; empty: per dimension
 	string category;
 	string key; // canonical attr_key (semantic_key without version); empty: not keyed
+	string bound_source; // explicit | text | range | level_type | constraint (where bound came from)
 	vector<double> name_vec;
 };
 
@@ -259,6 +260,7 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
 		k.category = FieldText(a, "category");
 		k.key = SemanticKey(FieldText(a, "attr_key")).key;
+		k.bound_source = FieldText(a, "bound_source");
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -795,7 +797,7 @@ LogicalType TraceType() {
 	    {"rule", LogicalType::VARCHAR},         {"attr_score", LogicalType::DOUBLE},
 	    {"count_needed", LogicalType::DOUBLE},  {"count_available", LogicalType::DOUBLE},
 	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN},
-	    {"name_rule", LogicalType::VARCHAR}};
+	    {"name_rule", LogicalType::VARCHAR},    {"bound_source", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -986,6 +988,15 @@ void ImprovePartition(vector<ReqResult> &results, vector<vector<const KItem *>> 
 	}
 }
 
+//! Where the bound of a requirement came from: its own bound_source, 'template' for a catalogue
+//! default bound (default_bounds := 'catalogue'), empty for an unqualified value.
+string BoundSource(const KAttr &x) {
+	if (!x.bound.empty()) {
+		return x.bound_source.empty() ? "explicit" : x.bound_source;
+	}
+	return x.default_bound.empty() ? string() : "template";
+}
+
 //! One trace row: a requirement and one of its attributes (or none).
 Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	child_list_t<Value> v;
@@ -1008,6 +1019,7 @@ Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	v.emplace_back("req_score", Value::DOUBLE(r.score));
 	v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
 	v.emplace_back("name_rule", m && !m->gate ? TextOrNull(m->name_rule) : Value(LogicalType::VARCHAR));
+	v.emplace_back("bound_source", m ? TextOrNull(BoundSource(*m->req)) : Value(LogicalType::VARCHAR));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -1395,13 +1407,14 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	string base = StringUtil::Format(
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
-	    "%s AS bound, %s AS category, %s AS attr_key FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
 	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
 	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
 	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
 	    CastOrNullSQL(has("hi"), "hi", "DOUBLE", "a"), CastOrNullSQL(has("bound"), "bound", "VARCHAR", "a"),
 	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"),
-	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"),
+	    CastOrNullSQL(has("bound_source"), "bound_source", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string scale = "NULL::VARCHAR";
@@ -1428,6 +1441,7 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
 	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, attr_key := x.attr_key, "
+	    "bound_source := x.bound_source, "
 	    "default_bound := %s, "
 	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
@@ -1534,7 +1548,8 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 	auto sql = KernelSQL(context, p, true) + R"(
 		SELECT query_id, candidate_id, t.req_node_id, t.matched_node_id, t.matched_path, t.label_sim, t.attr_id,
 		       t.attr_name, t.req_value, t.prov_value, t.gate, t.name_sim, t.value_score, t.distance, t.rule,
-		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap, t.name_rule
+		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap, t.name_rule,
+		       t.bound_source
 		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
@@ -1710,9 +1725,11 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "The explanation of tree_coverage: one row per request item and required attribute with the matched "
 	    "candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, "
 	    "attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a "
-	    "value below 1) and name_rule (how the names were compared: key when both attributes carry the same attr_key, "
-	    "vector, exact or tokens). rule is the value rule, gate for a dimension or unit mismatch, or key_mismatch when "
-	    "both attributes carry different attr_keys. Same parameters as tree_coverage." +
+	    "value below 1), name_rule (how the names were compared: key when both attributes carry the same attr_key, "
+	    "vector, exact or tokens) and bound_source (where the requirement's bound came from: explicit, text, range, "
+	    "level_type, constraint or template). rule is the value rule; gate for a dimension or unit mismatch; "
+	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
+	    "different attr_keys. Same parameters as tree_coverage." +
 	        common,
 	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
 	RegisterCoverageTable(

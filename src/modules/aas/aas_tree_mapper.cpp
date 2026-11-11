@@ -68,6 +68,22 @@ const char *CAPABILITY_CONTAINER = "/CapabilityDescription/CapabilityContainer/"
 const char *PROPERTY_SET = "/CapabilityDescription/PropertySet/";
 const char *PROPERTY_CONTAINER = "/CapabilityDescription/PropertyContainer/";
 const char *ROLE_QUALIFIER = "/CapabilityDescription/CapabilityRoleQualifier/";
+const char *PROPERTY_CONSTRAINT_CONTAINER = "/CapabilityDescription/PropertyConstraintContainer/";
+const char *BASIC_CONSTRAINT = "/PropertyConstraintType/BasicConstraint/";
+const char *CONSTRAINT_HAS_PROPERTY = "/CapabilityDescription/ConstraintHasProperty/";
+
+//! An idShort path in one spelling for lookups: list indices as path segments (a[0] -> a.0).
+std::string NormalPath(const std::string &path) {
+	std::string out;
+	for (char c : path) {
+		if (c == '[') {
+			out += '.';
+		} else if (c != ']') {
+			out += c;
+		}
+	}
+	return out;
+}
 
 //! Template semanticIds name the structure of a template, not a dictionary property.
 bool IsStructuralId(const std::string &id) {
@@ -176,6 +192,21 @@ private:
 	std::string tree_id;
 	std::string root_id;
 	std::unordered_set<std::string> node_ids;
+
+	//! An attribute by position: out.nodes[node].attrs[attr].
+	struct AttrRef {
+		idx_t node;
+		idx_t attr;
+	};
+	//! Attributes of the current submodel by element path (NormalPath), for ConstraintHasProperty.
+	std::unordered_map<std::string, std::vector<AttrRef>> attrs_by_path;
+	//! An IDTA-02020 BasicConstraint waiting for the whole submodel to be mapped.
+	struct PendingConstraint {
+		std::string constraint_path;
+		std::string expression;
+		AasReference target;
+	};
+	std::vector<PendingConstraint> constraints;
 
 	bool Referenced(const std::string &submodel_id) const {
 		for (auto &s : env.shells) {
@@ -321,7 +352,92 @@ private:
 		}
 		auto path = node.node_id;
 		auto index = Add(std::move(node));
+		attrs_by_path.clear();
+		constraints.clear();
 		MapChildren(sm.elements, index, path, false, "");
+		ApplyConstraints();
+	}
+
+	//------------------------------------------------------------------------------
+	// IDTA-02020 property constraints: a BasicConstraint ("<= 1 ms", ">= 7.6 A") and the
+	// ConstraintHasProperty relations that name the constrained properties.
+	//------------------------------------------------------------------------------
+
+	void CollectConstraints(const AasElement &e, const std::string &path) {
+		for (idx_t i = 0; i < e.children.size(); i++) {
+			auto &c = e.children[i];
+			auto child_path = ChildPath(path, c, i, e.model_type == "SubmodelElementList");
+			if (Contains(c.semantic_id, PROPERTY_CONSTRAINT_CONTAINER)) {
+				CollectConstraintContainer(c, child_path);
+			} else if (AasIsContainer(c.model_type)) {
+				CollectConstraints(c, child_path);
+			}
+		}
+	}
+
+	void CollectConstraintContainer(const AasElement &container, const std::string &path) {
+		std::string expression;
+		std::vector<AasReference> targets;
+		std::vector<const AasElement *> stack {&container};
+		while (!stack.empty()) {
+			auto e = stack.back();
+			stack.pop_back();
+			for (auto &c : e->children) {
+				if (c.model_type == "Property" && Contains(c.semantic_id, BASIC_CONSTRAINT)) {
+					expression = Trim(c.value);
+				} else if (Contains(c.semantic_id, CONSTRAINT_HAS_PROPERTY)) {
+					targets.push_back(c.second);
+				} else if (AasIsContainer(c.model_type)) {
+					stack.push_back(&c);
+				}
+			}
+		}
+		if (expression.empty()) {
+			return; // OCL, operation or custom constraints: not evaluated
+		}
+		for (auto &t : targets) {
+			constraints.push_back({path, expression, t});
+		}
+	}
+
+	//! The element path a ModelReference names: the submodel's idShort, then the idShorts (or list
+	//! indices) of its keys.
+	std::string ReferencePath(const AasReference &r) const {
+		std::string path;
+		for (auto &k : r.keys) {
+			if (k.first == "Submodel") {
+				for (auto &sm : env.submodels) {
+					if (sm.id == k.second) {
+						path = sm.id_short;
+					}
+				}
+			} else if (k.first != "AssetAdministrationShell") {
+				path += (path.empty() ? "" : ".") + k.second;
+			}
+		}
+		return NormalPath(path);
+	}
+
+	void ApplyConstraints() {
+		for (auto &c : constraints) {
+			auto it = attrs_by_path.find(ReferencePath(c.target));
+			if (it == attrs_by_path.end()) {
+				Issue(tree_id, c.constraint_path, "unresolved_constraint", "warning",
+				      "ConstraintHasProperty names " + c.target.Last() + ", which is not a mapped property");
+				continue;
+			}
+			auto q = ParseQuantity(c.expression, vector<string>(options.langs.begin(), options.langs.end()), units);
+			if (q.bound.empty()) {
+				Issue(tree_id, c.constraint_path, "unparsed_constraint", "info",
+				      "BasicConstraint '" + c.expression + "' states no bound");
+				continue;
+			}
+			for (auto &ref : it->second) {
+				auto &a = out.nodes[ref.node].attrs[ref.attr];
+				a.bound = q.bound;
+				a.bound_source = "constraint";
+			}
+		}
 	}
 
 	void MapChildren(const std::vector<AasElement> &children, idx_t parent, const std::string &path, bool in_list,
@@ -415,6 +531,7 @@ private:
 				MapPropertySet(c, index, ChildPath(path, c, 0, false), role);
 			}
 		}
+		CollectConstraints(e, path);
 	}
 
 	void MapPropertySet(const AasElement &set, idx_t item, const std::string &path, const std::string &role) {
@@ -493,6 +610,15 @@ private:
 			MapProperty(e, spec, path, a);
 		}
 		node.attrs.push_back(std::move(a));
+		AttrRef ref {node_index, node.attrs.size() - 1};
+		attrs_by_path[NormalPath(path)].push_back(ref);
+		if (owner) {
+			// a constraint may name the PropertyContainer (or the list) instead of the value element
+			auto dot = NormalPath(path).rfind('.');
+			if (dot != std::string::npos) {
+				attrs_by_path[NormalPath(path).substr(0, dot)].push_back(ref);
+			}
+		}
 	}
 
 	//! The unit of a numeric value: unitId first, then the unit text. Returns false when unknown.
@@ -596,6 +722,7 @@ private:
 			a.has_value = true;
 			a.lo = a.hi = v;
 			ApplyUnit(def, known, written, a);
+			ApplyLevelType(spec, a);
 			return;
 		}
 		// text: a quantity written out ("24 V DC", "max. 38 dB(A)"); IsValueLeaf admitted nothing else
@@ -611,6 +738,20 @@ private:
 				a.bound_source = "text";
 			}
 		}
+	}
+
+	//! IEC 61360 levelType of a single value: exactly min -> at_least, max -> at_most,
+	//! nom -> equals. typ or several levels state no direction.
+	static void ApplyLevelType(const AasIec61360 *spec, TreeAttrRow &a) {
+		if (!spec || !spec->has_level_type || !a.bound.empty()) {
+			return;
+		}
+		int n = int(spec->level_min) + int(spec->level_max) + int(spec->level_nom) + int(spec->level_typ);
+		if (n != 1 || spec->level_typ) {
+			return;
+		}
+		a.bound = spec->level_min ? "at_least" : spec->level_max ? "at_most" : "equals";
+		a.bound_source = "level_type";
 	}
 };
 
