@@ -771,3 +771,9 @@ they are matched. These decisions take precedence over the text above.
      variants) is gone.
    - A generalized item counts towards a required count relative to the best match (L / L(best)),
      so superclass items cannot hide a count shortfall.
+8. **Writing AAS** (#34). `trees_to_aas` is the inverse of the reader: idShort paths come from the
+   node ids, so a tree read from AAS reads back unchanged (except `value_text`, written in base
+   units). Items with a role, and items without attributes, are written as IDTA-02020
+   CapabilityContainers; ComposedOf parts next to their composite with relations. The gap list is a
+   `CoverageResult` submodel in the `https://data-zoo.de/anofox/aas/` namespace. The output validates
+   against the AAS v3.2 JSON schema and opens in Eclipse BaSyx.

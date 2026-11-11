@@ -1,6 +1,7 @@
 # Asset Administration Shell (AAS)
 
-> Read AAS data into property trees, match on dictionary keys, and explain the gaps.
+> Read AAS data into property trees, match on dictionary keys, explain the gaps, and write
+> trees and results back as AAS.
 
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
@@ -164,6 +165,63 @@ SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_text('c
 SELECT * FROM tree_coverage('RFQ-2026-204', candidates := ['https://varipack.example/aas/vp-9'],
                             labels := 'hard', class_hierarchy := 'class_hierarchy', generalization_credit := 0.5);
 ```
+
+## Write AAS: trees_to_aas, aas_export, aas_coverage_result
+
+```sql
+-- every tree of the tables as an AAS Environment, one row per tree
+SELECT tree_id, aas_json FROM aas_export(catalogue_table := 'capability_catalogue');
+
+-- write one to a file (the CSV writer with quoting off writes the text unchanged)
+COPY (SELECT aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']))
+TO 'rfq_2026_117.aas.json' (FORMAT csv, HEADER false, QUOTE '', ESCAPE '', DELIMITER '\x1f');
+
+-- the gap list of a ranking as a CoverageResult submodel per query and candidate
+CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := getvariable('offers'));
+SELECT candidate_id, aas_json FROM aas_coverage_result('trace');
+```
+
+**`trees_to_aas(nodes [, catalogue])`** → VARCHAR, an AAS v3 Environment in Part 1 JSON. `nodes` is
+a LIST of node STRUCTs as `aas_to_trees` and `tree_from_json` produce them. It is the inverse of
+the reader: a tree read from AAS is written with the same idShort paths, so
+`aas_to_trees(trees_to_aas(t))` gives `t` again: node ids, parents, kinds, OR edges, classes,
+counts, attribute keys, values, units, bounds, roles and categories. The one difference is
+`value_text`: the writer writes values in base units, so 45 °C comes back as 318.15.
+
+| Tree | AAS |
+|---|---|
+| tree (root) | AssetAdministrationShell, `id` = tree id |
+| nodes below the root | Submodels (`semanticId` = class of an item) |
+| item whose attributes carry a role, or an item without attributes | IDTA-02020 CapabilityContainer: Capability (`supplementalSemanticId` = class, role qualifiers Required / Offered / NotAssigned), PropertySet with one PropertyContainer per attribute |
+| other item | SubmodelElementCollection (`semanticId` = class) with its Property / Range elements |
+| container, `[i]` children | SubmodelElementCollection, SubmodelElementList |
+| `variant_group`, `count` ≠ 1 | qualifiers `anofox:VariantGroup`, `anofox:Count` ([profile](../guides/10-aas-profile.md)) |
+| a capability's children | written next to it, with `CapabilityComposedOf` relations |
+| attribute `at_least` / `at_most` / `within` | Range with min / max / both |
+| `equals`; an ordinal category with a bound (`IP40 or better`) | Property with IEC 61360 `levelType` nom; min / max |
+| category | Property; an identifier-like category as `valueId`; `true` / `false` as `xs:boolean` |
+| attribute without value | Property `xs:double` without value (reads back as `empty_value`) |
+| `attr_key` | semanticId (or supplementalSemanticId for IDTA-02020), and a ConceptDescription with IEC 61360 name and unit |
+
+`catalogue` (LIST of STRUCT(class_id, label, definition)) adds ConceptDescriptions for classes.
+A number whose unit is unknown is written without a dictionary entry, so it reads back as unknown,
+not as a count.
+
+**`aas_export(nodes_table := 'tree_nodes', attrs_table := 'tree_attributes', catalogue_table, tree_ids)`**
+→ `tree_id, aas_json`: `trees_to_aas` over tables.
+
+**`aas_coverage_result(trace_table)`** → `query_id, candidate_id, aas_json`: a Submodel
+`CoverageResult` per ranking (`coverage_result_to_aas` does one): `Query`, `Candidate`, `Coverage`
+(mean requirement score), `GapCount` and a list of `Requirements`, each with the matched node and
+path, label similarity and rule, counts, score, `IsGap` and the `Attributes` with required and
+offered value, rule, name rule, bound source and score. The semanticIds are in the
+`https://data-zoo.de/anofox/aas/CoverageResult/` namespace until a standard template exists. The
+result is AAS itself: `aas_to_trees` reads it back.
+
+**Validation.** The output validates against the official AAS v3.2 JSON schema
+(`scripts/tests/test_aas_schema.py`, schema in `test/data/aas/schema/`). It opens in Eclipse BaSyx
+(`scripts/aas_basyx_smoke.sh`: upload, list the shells, fetch a submodel over REST and read it back
+unchanged). AASX Package Explorer, a Windows application, has not been tried.
 
 ## Query loaded AAS by value: attrs_satisfying
 
@@ -351,6 +409,73 @@ attrs_satisfying(attr_key, requirement, attrs_table, tol, soft_band, scale, defa
 
 ```sql
 SELECT tree_id, node_id, value FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens 7637,1 mA', 'de')) WHERE satisfied;
+```
+
+### `trees_to_aas`
+
+*Scalar function*
+
+Writes property trees as an AAS v3 Environment (Part 1 JSON): one shell per tree_id, the level below the root as submodels, collections below. nodes is a LIST of node STRUCTs as aas_to_trees and tree_from_json produce them. Items whose attributes carry a role (required, provided) become IDTA-02020 CapabilityContainers (Required / Offered, class as supplementalSemanticId, properties as PropertyRange / PropertyProperty); other items SubmodelElementCollections with their Property / Range elements. Bounds become ranges (at_least: min only, at_most: max only), equals a levelType nom; variant groups and counts use the DataZoo AAS profile; ComposedOf parts are written next to their composite with CapabilityComposedOf relations. Every attr_key becomes a ConceptDescription (IEC 61360 name and unit); catalogue (LIST of STRUCT(class_id, label, definition)) adds class entries. A tree read from AAS reads back the same: aas_to_trees(trees_to_aas(t)).
+
+```sql
+trees_to_aas(nodes ANY) → VARCHAR
+trees_to_aas(nodes ANY, catalogue ANY) → VARCHAR
+```
+
+**Examples**
+
+```sql
+SELECT trees_to_aas(aas_to_trees(content)) FROM read_text('offer.aas.json');
+SELECT trees_to_aas(aas_to_trees(content), (SELECT list(c) FROM catalogue c)) FROM read_text('offer.aas.json');
+```
+
+### `aas_export`
+
+*Table function*
+
+Exports property trees as AAS: one row per tree with tree_id and aas_json, an AAS v3 Environment (Part 1 JSON) as trees_to_aas writes it. Trees come from nodes_table / attrs_table (default 'tree_nodes' / 'tree_attributes'), tree_ids selects some; catalogue_table (class_id[, label | name][, definition]) adds ConceptDescriptions for the classes.
+
+```sql
+aas_export(nodes_table, attrs_table, catalogue_table, tree_ids)
+```
+
+**Examples**
+
+```sql
+SELECT tree_id, aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']);
+```
+
+### `aas_coverage_result`
+
+*Table function*
+
+The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a 'CoverageResult' Submodel (coverage_result_to_aas). coverage is the mean requirement score of the trace.
+
+```sql
+aas_coverage_result(trace_table)
+```
+
+**Examples**
+
+```sql
+CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := ['OFF-A']);
+SELECT aas_json FROM aas_coverage_result('trace');
+```
+
+### `coverage_result_to_aas`
+
+*Scalar function*
+
+The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult': Query, Candidate, Coverage, GapCount and a list of Requirements with matched node and path, label similarity and rule, counts, score, IsGap and per attribute the required and offered value, rule and score. semanticIds in the https://data-zoo.de/anofox/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); aas_coverage_result builds them from a trace table.
+
+```sql
+coverage_result_to_aas(query_id VARCHAR, candidate_id VARCHAR, coverage DOUBLE, rows ANY) → VARCHAR
+```
+
+**Examples**
+
+```sql
+SELECT * FROM aas_coverage_result('trace');
 ```
 
 <!-- generated:functions:end -->

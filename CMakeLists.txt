@@ -41,6 +41,7 @@ set(EXTENSION_SOURCES
     src/modules/aas/aasx_package.cpp
     src/modules/aas/aasx_miniz.cpp
     src/modules/aas/aas_tree_mapper.cpp
+    src/modules/aas/aas_writer.cpp
     src/modules/pivot_classifier.cpp
     src/modules/vocabulary_review.cpp
     src/modules/evaluation.cpp

@@ -398,7 +398,7 @@ private:
 		}
 		bool keyed = !DictionaryId(e).empty() || (owner && !DictionaryId(*owner).empty());
 		if (keyed && !text.empty() && text.size() <= MAX_TEXT_CATEGORY && text.find('\n') == std::string::npos) {
-			category = text;
+			category = SemanticKey(text).key; // canonical like valueId categories; plain text stays as it is
 			return true;
 		}
 		return false;
@@ -1090,6 +1090,7 @@ private:
 		a.value_text = Trim(e.value);
 		if (!e.value_id.empty()) {
 			a.category = SemanticKey(e.value_id).key; // an enumeration value
+			ApplyLevelType(spec, a);                  // an ordinal value: "IP54 or better"
 			return;
 		}
 		auto type = Lower(e.value_type);
@@ -1135,7 +1136,9 @@ private:
 			}
 			return;
 		}
-		TextCategory(e, owner, a.category);
+		if (TextCategory(e, owner, a.category)) {
+			ApplyLevelType(spec, a);
+		}
 	}
 
 	//! IEC 61360 levelType of a single value: exactly min -> at_least, max -> at_most,

@@ -1,0 +1,170 @@
+# name: test/sql/aas/uc_08_export_offers_and_trace_round_trip.test
+# description: After the ranking the buyer hands the result to the supplier portal, which speaks
+#              AAS. The RFQ, the offers and the gap list are written back as AAS v3 JSON: required
+#              and offered capabilities as IDTA-02020, variants and counts with the DataZoo
+#              profile, the coverage trace as a CoverageResult submodel. Read back, every tree is
+#              the same tree. (Schema validation: scripts/tests/test_aas_schema.py.)
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE files AS SELECT filename, content FROM read_blob([
+    'test/data/aas/scenario/rfq_2026_117.aas.json', 'test/data/aas/scenario/offers/*',
+    'test/data/aas/scenario/sealing/*.json', 'test/data/aas/scenario/sealing/offers/*',
+    'test/data/aas/scenario/io_profile/*', 'test/data/aas/idta/IDTA_02003_Sample_TechnicalData_2_0_4.aasx']);
+
+statement ok
+CREATE TABLE once AS SELECT filename, unnest(aas_to_trees(content)) AS n FROM files;
+
+statement ok
+CREATE TABLE twice AS SELECT filename, unnest(aas_to_trees(trees_to_aas(aas_to_trees(content)))) AS n FROM files;
+
+# Every node of every tree comes back: ids, parents, kinds, OR edges, classes, counts, labels
+query III
+SELECT (SELECT count(*) FROM once),
+       (SELECT count(*) FROM (SELECT filename, n.* EXCLUDE (attributes) FROM once EXCEPT ALL SELECT filename, n.* EXCLUDE (attributes) FROM twice)),
+       (SELECT count(*) FROM (SELECT filename, n.* EXCLUDE (attributes) FROM twice EXCEPT ALL SELECT filename, n.* EXCLUDE (attributes) FROM once));
+----
+98	0	0
+
+# Every attribute comes back with key, value, unit, bound, role and category; value_text is the
+# value as written, and the writer writes base units (45 °C comes back as 318.15)
+statement ok
+CREATE TABLE once_a AS SELECT * EXCLUDE (value_text) FROM (SELECT filename, unnest(n.attributes, recursive := true) FROM once);
+
+statement ok
+CREATE TABLE twice_a AS SELECT * EXCLUDE (value_text) FROM (SELECT filename, unnest(n.attributes, recursive := true) FROM twice);
+
+query III
+SELECT (SELECT count(*) FROM once_a),
+       (SELECT count(*) FROM (SELECT * FROM once_a EXCEPT ALL SELECT * FROM twice_a)),
+       (SELECT count(*) FROM (SELECT * FROM twice_a EXCEPT ALL SELECT * FROM once_a));
+----
+86	0	0
+
+# The written JSON uses IDTA-02020 and the profile: Required / Offered roles, ComposedOf, the
+# variant group and counts
+statement ok
+CREATE TABLE written AS SELECT split_part(filename, '/', -1) AS f, trees_to_aas(aas_to_trees(content)) AS j FROM files;
+
+query TTTT
+SELECT f, j LIKE '%"type": "Required",%"value": "true"%', j LIKE '%CapabilityComposedOf%', j LIKE '%"anofox:VariantGroup"%'
+FROM written WHERE f IN ('rfq_2026_117.aas.json', 'rfq_2026_204.aas.json', 'ostwald_ios.aas.json') ORDER BY 1;
+----
+ostwald_ios.aas.json	false	false	true
+rfq_2026_117.aas.json	true	false	false
+rfq_2026_204.aas.json	true	true	false
+
+query T
+SELECT j LIKE '%"type": "anofox:Count",%"value": "2"%' FROM written WHERE f = 'ostwald_ios.aas.json';
+----
+true
+
+# Every attribute key becomes a ConceptDescription with its unit (IEC 61360)
+query T
+SELECT j LIKE '%"id": "0173-1#02-BAA120#008",%"unit": "A"%' FROM written WHERE f = 'rfq_2026_117.aas.json';
+----
+true
+
+#------------------------------------------------------------------------------
+# aas_export over tables, and the gap list as an AAS CoverageResult
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
+UNION ALL
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM read_csv('test/data/aas/scenario/eclass_units.csv') u)))
+FROM read_blob('test/data/aas/scenario/offers/*');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+statement ok
+CREATE TABLE capability_catalogue AS SELECT * FROM (VALUES
+    ('https://vocab.machinery.example/capability/PositionControlledMotion', 'Position-controlled motion', 'Moving an axis to a commanded position under closed-loop control.'),
+    ('https://vocab.machinery.example/capability/FieldbusCommunication', 'Fieldbus communication', 'Exchanging cyclic process data over an industrial fieldbus.')
+) t(class_id, label, definition);
+
+query TT
+SELECT tree_id, aas_json LIKE '%"definition": [%Exchanging cyclic process data%'
+FROM aas_export(tree_ids := ['RFQ-2026-117'], catalogue_table := 'capability_catalogue');
+----
+RFQ-2026-117	true
+
+# One row per tree; the export of the tables reads back as the tables
+query I
+SELECT count(*) FROM aas_export();
+----
+5
+
+query I
+SELECT count(*) FROM (
+    SELECT n.tree_id, n.node_id, n.parent_id, n.class_id, n.count FROM (SELECT unnest(aas_to_trees(aas_json, tree_id)) AS n FROM aas_export())
+    EXCEPT ALL SELECT tree_id, node_id, parent_id, class_id, count FROM tree_nodes);
+----
+0
+
+statement ok
+SET VARIABLE offers = (SELECT list(DISTINCT tree_id ORDER BY tree_id) FROM tree_nodes WHERE tree_id <> 'RFQ-2026-117');
+
+statement ok
+CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := getvariable('offers'), labels := 'hard');
+
+statement ok
+CREATE TABLE results AS SELECT * FROM aas_coverage_result('trace');
+
+query I
+SELECT count(*) FROM results;
+----
+4
+
+# The CoverageResult is AAS itself: the reader reads its coverage and gap count back
+query TRR
+SELECT split_part(r.candidate_id, '/', 3), a.lo AS coverage, g.lo AS gaps
+FROM results r,
+     LATERAL (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(r.aas_json)) AS n)) c(a),
+     LATERAL (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(r.aas_json)) AS n)) d(g)
+WHERE a.attr_id = 'Coverage' AND g.attr_id = 'GapCount'
+ORDER BY coverage DESC;
+----
+lenvaro.example	1.0	0.0
+orbitec.example	0.75	1.0
+kessler-antriebe.example	0.625	2.0
+driventa.example	0.372	2.0
+
+# It carries the gap list: the requirement, the offered value, the rule
+query T
+SELECT aas_json LIKE '%"value": "RatedCurrent"%"value": "at_least 7.6 A"%"value": "12 A"%"value": "key_mismatch"%'
+FROM results WHERE candidate_id LIKE '%driventa%';
+----
+true
+
+#------------------------------------------------------------------------------
+# Trees that never were AAS (tree_from_json) export too: classes, values and bounds survive
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE spec AS SELECT unnest(tree_from_json(content, 'R01')) AS n FROM read_text('test/data/coverage/requests_json/R01.json');
+
+statement ok
+CREATE TABLE spec_back AS SELECT unnest(aas_to_trees(trees_to_aas((SELECT list(n) FROM spec)), 'R01')) AS n;
+
+query I
+SELECT count(*) FROM (
+    SELECT n.class_id, n.count FROM spec WHERE n.node_kind = 'item'
+    EXCEPT ALL SELECT n.class_id, n.count FROM spec_back WHERE n.node_kind = 'item');
+----
+0
+
+query I
+SELECT count(*) FROM (
+    SELECT a.name, a.dimension, round(a.lo, 9), round(a.hi, 9), a.bound FROM (SELECT unnest(n.attributes) AS a FROM spec)
+    EXCEPT ALL
+    SELECT a.name, a.dimension, round(a.lo, 9), round(a.hi, 9), a.bound FROM (SELECT unnest(n.attributes) AS a FROM spec_back));
+----
+0

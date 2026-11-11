@@ -85,5 +85,5 @@ block counts once and the configurations are siblings: coverage 0.2.
   variant group (`alternatives := 'joint'`, the default): in the example both inputs and outputs
   come from `Config16DI8DO`. `alternatives := 'per_requirement'` lets each requirement pick its
   own alternative, e.g. to see what a mix would give.
-- The writer (`trees_to_aas` / `aas_export`, issue #34) will write the markers back, so a tree
-  round-trips.
+- The writer (`trees_to_aas`, `aas_export`) writes the markers back, so a tree round-trips:
+  `aas_to_trees(trees_to_aas(aas_to_trees(content)))` gives the same variant groups and counts.

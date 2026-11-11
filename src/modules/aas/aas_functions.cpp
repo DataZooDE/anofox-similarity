@@ -3,6 +3,7 @@
 #include "modules/aas/aas_functions.hpp"
 #include "modules/aas/aas_model.hpp"
 #include "modules/aas/aas_tree_mapper.hpp"
+#include "modules/aas/aas_writer.hpp"
 #include "modules/aas/semantic_key.hpp"
 #include "modules/property_tree.hpp"
 #include "modules/quantity.hpp"
@@ -406,6 +407,327 @@ void RegisterAasIdB64Url(ExtensionLoader &loader) {
 }
 
 //------------------------------------------------------------------------------
+// Writers: trees_to_aas(nodes [, catalogue]), aas_export(...), aas_coverage_result(trace_table)
+//------------------------------------------------------------------------------
+
+//! A STRUCT field by name (case-insensitive), or nullptr.
+const Value *StructField(const Value &v, const char *name) {
+	if (v.IsNull() || v.type().id() != LogicalTypeId::STRUCT) {
+		return nullptr;
+	}
+	auto &types = StructType::GetChildTypes(v.type());
+	auto &values = StructValue::GetChildren(v);
+	for (idx_t i = 0; i < types.size(); i++) {
+		if (StringUtil::CIEquals(types[i].first, name)) {
+			return &values[i];
+		}
+	}
+	return nullptr;
+}
+
+string FieldString(const Value &v, const char *name) {
+	auto f = StructField(v, name);
+	return f && !f->IsNull() ? f->ToString() : string();
+}
+
+bool FieldDouble(const Value &v, const char *name, double &out) {
+	auto f = StructField(v, name);
+	if (!f || f->IsNull()) {
+		return false;
+	}
+	out = f->DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+	return true;
+}
+
+//! A node STRUCT as aas_to_trees and tree_from_json produce it (missing fields are empty).
+TreeNodeRow NodeRowFrom(const Value &v) {
+	TreeNodeRow n;
+	n.tree_id = FieldString(v, "tree_id");
+	n.node_id = FieldString(v, "node_id");
+	n.parent_id = FieldString(v, "parent_id");
+	n.node_kind = FieldString(v, "node_kind");
+	n.edge_type = FieldString(v, "edge_type");
+	n.label = FieldString(v, "label");
+	n.context = FieldString(v, "context");
+	n.class_id = FieldString(v, "class_id");
+	if (!FieldDouble(v, "count", n.count)) {
+		n.count = 1;
+	}
+	auto attrs = StructField(v, "attributes");
+	if (attrs && !attrs->IsNull()) {
+		for (auto &a : ListValue::GetChildren(*attrs)) {
+			if (a.IsNull()) {
+				continue;
+			}
+			TreeAttrRow r;
+			r.attr_id = FieldString(a, "attr_id");
+			r.name = FieldString(a, "name");
+			r.value_text = FieldString(a, "value_text");
+			r.dimension = FieldString(a, "dimension");
+			r.unit = FieldString(a, "unit");
+			bool has_lo = FieldDouble(a, "lo", r.lo), has_hi = FieldDouble(a, "hi", r.hi);
+			r.has_value = has_lo || has_hi;
+			if (!has_lo) {
+				r.lo = r.hi;
+			}
+			if (!has_hi) {
+				r.hi = r.lo;
+			}
+			r.role = FieldString(a, "role");
+			r.bound = FieldString(a, "bound");
+			r.bound_source = FieldString(a, "bound_source");
+			r.qualifier = FieldString(a, "qualifier");
+			r.category = FieldString(a, "category");
+			r.attr_key = FieldString(a, "attr_key");
+			n.attrs.push_back(std::move(r));
+		}
+	}
+	return n;
+}
+
+void TreesToAasFun(DataChunk &args, ExpressionState &, Vector &result) {
+	for (idx_t row = 0; row < args.size(); row++) {
+		auto nodes = args.data[0].GetValue(row);
+		if (nodes.IsNull()) {
+			result.SetValue(row, Value(LogicalType::VARCHAR));
+			continue;
+		}
+		if (nodes.type().id() != LogicalTypeId::LIST) {
+			throw InvalidInputException("trees_to_aas: nodes must be a LIST of node STRUCTs (aas_to_trees output)");
+		}
+		vector<TreeNodeRow> rows;
+		for (auto &n : ListValue::GetChildren(nodes)) {
+			if (!n.IsNull()) {
+				rows.push_back(NodeRowFrom(n));
+			}
+		}
+		vector<CatalogueEntry> catalogue;
+		if (args.ColumnCount() > 1) {
+			auto list = args.data[1].GetValue(row);
+			if (!list.IsNull() && list.type().id() == LogicalTypeId::LIST) {
+				for (auto &c : ListValue::GetChildren(list)) {
+					auto label = FieldString(c, "label");
+					catalogue.push_back({FieldString(c, "class_id"), label.empty() ? FieldString(c, "name") : label,
+					                     FieldString(c, "definition")});
+				}
+			}
+		}
+		result.SetValue(row, Value(WriteTreesAsAas(rows, catalogue)));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+unique_ptr<FunctionData> TreesToAasBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("trees_to_aas");
+	return nullptr;
+}
+
+void CoverageResultToAasFun(DataChunk &args, ExpressionState &, Vector &result) {
+	for (idx_t row = 0; row < args.size(); row++) {
+		auto query = args.data[0].GetValue(row), candidate = args.data[1].GetValue(row);
+		auto coverage = args.data[2].GetValue(row), trace = args.data[3].GetValue(row);
+		if (query.IsNull() || candidate.IsNull() || trace.IsNull()) {
+			result.SetValue(row, Value(LogicalType::VARCHAR));
+			continue;
+		}
+		std::map<string, TraceRequirementEntry> by_req;
+		vector<string> order;
+		for (auto &t : ListValue::GetChildren(trace)) {
+			auto req = FieldString(t, "req_node_id");
+			if (!by_req.count(req)) {
+				order.push_back(req);
+				auto &r = by_req[req];
+				r.req_node_id = req;
+				r.matched_node_id = FieldString(t, "matched_node_id");
+				r.matched_path = FieldString(t, "matched_path");
+				r.label_rule = FieldString(t, "label_rule");
+				FieldDouble(t, "label_sim", r.label_sim);
+				FieldDouble(t, "req_score", r.req_score);
+				FieldDouble(t, "count_needed", r.count_needed);
+				FieldDouble(t, "count_available", r.count_available);
+				auto gap = StructField(t, "is_gap");
+				r.is_gap = gap && !gap->IsNull() && gap->GetValue<bool>();
+			}
+			if (FieldString(t, "attr_id").empty()) {
+				continue;
+			}
+			TraceAttrEntry a;
+			a.attr_id = FieldString(t, "attr_id");
+			a.attr_name = FieldString(t, "attr_name");
+			a.required = FieldString(t, "req_value");
+			a.offered = FieldString(t, "prov_value");
+			a.rule = FieldString(t, "rule");
+			a.name_rule = FieldString(t, "name_rule");
+			a.bound_source = FieldString(t, "bound_source");
+			a.has_score = FieldDouble(t, "attr_score", a.score);
+			by_req[req].attrs.push_back(std::move(a));
+		}
+		vector<TraceRequirementEntry> reqs;
+		for (auto &id : order) {
+			reqs.push_back(std::move(by_req[id]));
+		}
+		double cov = coverage.IsNull() ? 0.0 : coverage.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+		result.SetValue(row, Value(WriteCoverageResult(query.ToString(), candidate.ToString(), cov, reqs)));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+unique_ptr<FunctionData> CoverageResultToAasBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("coverage_result_to_aas");
+	return nullptr;
+}
+
+//! The node STRUCT list of a tree from nodes/attributes tables (optional columns as NULL).
+string PackedTreesSQL(const CoverageParamReader &r, const string &nodes, const string &attrs, const string &filter) {
+	auto n = [&](const char *col, const char *type) { return CastOrNullSQL(r.Has(nodes, col), col, type, "n"); };
+	auto a = [&](const char *col, const char *type) { return CastOrNullSQL(r.Has(attrs, col), col, type, "a"); };
+	string attrs_cte = attrs.empty()
+	                       ? "SELECT NULL::VARCHAR AS tree_id, NULL::VARCHAR AS node_id, NULL AS attributes WHERE false"
+	                       : StringUtil::Format(
+	                             "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
+	                             "list(struct_pack(attr_id := CAST(a.attr_id AS VARCHAR), name := %s, value_text := %s, "
+	                             "dimension := %s, unit := %s, lo := %s, hi := %s, role := %s, bound := %s, "
+	                             "bound_source := %s, category := %s, attr_key := %s) ORDER BY CAST(a.attr_id AS VARCHAR)) "
+	                             "AS attributes FROM %s a GROUP BY ALL",
+	                             a("name", "VARCHAR"), a("value_text", "VARCHAR"), a("dimension", "VARCHAR"),
+	                             a("unit", "VARCHAR"), a("lo", "DOUBLE"), a("hi", "DOUBLE"), a("role", "VARCHAR"),
+	                             a("bound", "VARCHAR"), a("bound_source", "VARCHAR"), a("category", "VARCHAR"),
+	                             a("attr_key", "VARCHAR"), QuotedIdentifier(attrs));
+	return StringUtil::Format(
+	    "WITH packed_attrs AS (%s) "
+	    "SELECT CAST(n.tree_id AS VARCHAR) AS tree_id, list(struct_pack(tree_id := CAST(n.tree_id AS VARCHAR), "
+	    "node_id := CAST(n.node_id AS VARCHAR), parent_id := CAST(n.parent_id AS VARCHAR), node_kind := %s, "
+	    "edge_type := %s, label := %s, class_id := %s, count := %s, attributes := pa.attributes) "
+	    "ORDER BY CAST(n.node_id AS VARCHAR)) AS nodes "
+	    "FROM %s n LEFT JOIN packed_attrs pa ON pa.tree_id = CAST(n.tree_id AS VARCHAR) "
+	    "AND pa.node_id = CAST(n.node_id AS VARCHAR) %s GROUP BY 1",
+	    attrs_cte, n("node_kind", "VARCHAR"), n("edge_type", "VARCHAR"), n("label", "VARCHAR"),
+	    n("class_id", "VARCHAR"), n("count", "DOUBLE"), QuotedIdentifier(nodes), filter);
+}
+
+unique_ptr<TableRef> AasExportBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_export");
+	CoverageParamReader r {context, input.named_parameters, "aas_export"};
+	auto nodes = r.Table("nodes_table", "tree_nodes", {"tree_id", "node_id", "parent_id"});
+	auto attrs = r.Table("attrs_table", "tree_attributes", {"tree_id", "node_id", "attr_id"});
+	auto catalogue = r.Table("catalogue_table", "", {"class_id"});
+	string filter;
+	auto ids = r.Get("tree_ids");
+	if (ids && !ids->IsNull()) {
+		vector<string> list;
+		for (auto &v : ListValue::GetChildren(*ids)) {
+			if (!v.IsNull()) {
+				list.push_back(v.ToString());
+			}
+		}
+		filter = "WHERE list_contains(" + QuotedList(list) + ", CAST(n.tree_id AS VARCHAR))";
+		if (list.empty()) {
+			filter = "WHERE false";
+		}
+	}
+	string catalogue_sql = "NULL";
+	if (!catalogue.empty()) {
+		catalogue_sql = StringUtil::Format(
+		    "(SELECT list(struct_pack(class_id := CAST(class_id AS VARCHAR), label := %s, definition := %s)) FROM %s)",
+		    r.Has(catalogue, "label") ? "CAST(label AS VARCHAR)"
+		                              : (r.Has(catalogue, "name") ? "CAST(name AS VARCHAR)" : "NULL::VARCHAR"),
+		    r.Has(catalogue, "definition") ? "CAST(definition AS VARCHAR)" : "NULL::VARCHAR",
+		    QuotedIdentifier(catalogue));
+	}
+	auto sql = "SELECT tree_id, trees_to_aas(nodes, " + catalogue_sql + ") AS aas_json FROM (" +
+	           PackedTreesSQL(r, nodes, attrs, filter) + ") ORDER BY tree_id";
+	return CoverageSubquery(sql, context, "aas_export");
+}
+
+unique_ptr<TableRef> AasCoverageResultBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_coverage_result");
+	CoverageParamReader r {context, input.named_parameters, "aas_coverage_result"};
+	auto trace = r.Positional(input, 0, "trace_table", {"query_id", "candidate_id", "req_node_id"});
+	auto t = [&](const char *col, const char *type) { return CastOrNullSQL(r.Has(trace, col), col, type, "t"); };
+	auto sql = StringUtil::Format(
+	    "SELECT query_id, candidate_id, coverage_result_to_aas(query_id, candidate_id, "
+	    "(SELECT avg(s) FROM (SELECT any_value(x.req_score) AS s FROM unnest(rows) AS u(x) GROUP BY x.req_node_id)), rows) "
+	    "AS aas_json FROM (SELECT CAST(t.query_id AS VARCHAR) AS query_id, CAST(t.candidate_id AS VARCHAR) AS candidate_id, "
+	    "list(struct_pack(req_node_id := CAST(t.req_node_id AS VARCHAR), matched_node_id := %s, matched_path := %s, "
+	    "label_sim := %s, label_rule := %s, req_score := %s, is_gap := %s, count_needed := %s, count_available := %s, "
+	    "attr_id := %s, attr_name := %s, req_value := %s, prov_value := %s, rule := %s, name_rule := %s, "
+	    "bound_source := %s, attr_score := %s) ORDER BY CAST(t.req_node_id AS VARCHAR), %s) AS rows "
+	    "FROM %s t GROUP BY ALL) ORDER BY query_id, candidate_id",
+	    t("matched_node_id", "VARCHAR"), t("matched_path", "VARCHAR"), t("label_sim", "DOUBLE"),
+	    t("label_rule", "VARCHAR"), t("req_score", "DOUBLE"), t("is_gap", "BOOLEAN"), t("count_needed", "DOUBLE"),
+	    t("count_available", "DOUBLE"), t("attr_id", "VARCHAR"), t("attr_name", "VARCHAR"), t("req_value", "VARCHAR"),
+	    t("prov_value", "VARCHAR"), t("rule", "VARCHAR"), t("name_rule", "VARCHAR"), t("bound_source", "VARCHAR"),
+	    t("attr_score", "DOUBLE"), t("attr_id", "VARCHAR"), QuotedIdentifier(trace));
+	return CoverageSubquery(sql, context, "aas_coverage_result");
+}
+
+void RegisterAasWriters(ExtensionLoader &loader) {
+	auto any = LogicalType::ANY;
+	CoverageScalarSpec trees {
+	    "trees_to_aas",
+	    LogicalType::VARCHAR,
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, TreesToAasFun),
+	    compat_anofox::ScalarBind<&TreesToAasBind>(),
+	    "Writes property trees as an AAS v3 Environment (Part 1 JSON): one shell per tree_id, the level below the root "
+	    "as submodels, collections below. nodes is a LIST of node STRUCTs as aas_to_trees and tree_from_json produce "
+	    "them. Items whose attributes carry a role (required, provided) become IDTA-02020 CapabilityContainers "
+	    "(Required / Offered, class as supplementalSemanticId, properties as PropertyRange / PropertyProperty); other "
+	    "items SubmodelElementCollections with their Property / Range elements. Bounds become ranges (at_least: min "
+	    "only, at_most: max only), equals a levelType nom; variant groups and counts use the DataZoo AAS profile; "
+	    "ComposedOf parts are written next to their composite with CapabilityComposedOf relations. Every attr_key "
+	    "becomes a ConceptDescription (IEC 61360 name and unit); catalogue (LIST of STRUCT(class_id, label, "
+	    "definition)) adds class entries. A tree read from AAS reads back the same: aas_to_trees(trees_to_aas(t)).",
+	    AAS_CATEGORIES};
+	trees.special_null_handling = true;
+	RegisterCoverageScalar(
+	    loader, trees,
+	    {{{any}, {"nodes"}, {"SELECT trees_to_aas(aas_to_trees(content)) FROM read_text('offer.aas.json');"}, ""},
+	     {{any, any},
+	      {"nodes", "catalogue"},
+	      {"SELECT trees_to_aas(aas_to_trees(content), (SELECT list(c) FROM catalogue c)) FROM read_text('offer.aas.json');"},
+	      ""}});
+
+	CoverageScalarSpec result {
+	    "coverage_result_to_aas",
+	    LogicalType::VARCHAR,
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, CoverageResultToAasFun),
+	    compat_anofox::ScalarBind<&CoverageResultToAasBind>(),
+	    "The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult': Query, Candidate, "
+	    "Coverage, GapCount and a list of Requirements with matched node and path, label similarity and rule, counts, "
+	    "score, IsGap and per attribute the required and offered value, rule and score. semanticIds in the "
+	    "https://data-zoo.de/anofox/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); "
+	    "aas_coverage_result builds them from a trace table.",
+	    AAS_CATEGORIES};
+	result.special_null_handling = true;
+	RegisterCoverageScalar(loader, result,
+	                       {{{LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::DOUBLE, any},
+	                         {"query_id", "candidate_id", "coverage", "rows"},
+	                         {"SELECT * FROM aas_coverage_result('trace');"},
+	                         ""}});
+
+	auto vc = LogicalType::VARCHAR;
+	RegisterCoverageTableFunction(
+	    loader, "aas_export", {}, {}, AasExportBindReplace,
+	    {{"nodes_table", vc}, {"attrs_table", vc}, {"catalogue_table", vc}, {"tree_ids", LogicalType::LIST(vc)}},
+	    "Exports property trees as AAS: one row per tree with tree_id and aas_json, an AAS v3 Environment (Part 1 "
+	    "JSON) as trees_to_aas writes it. Trees come from nodes_table / attrs_table (default 'tree_nodes' / "
+	    "'tree_attributes'), tree_ids selects some; catalogue_table (class_id[, label | name][, definition]) adds "
+	    "ConceptDescriptions for the classes.",
+	    {"SELECT tree_id, aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']);"}, AAS_CATEGORIES);
+	RegisterCoverageTableFunction(
+	    loader, "aas_coverage_result", {vc}, {"trace_table"}, AasCoverageResultBindReplace, {},
+	    "The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a "
+	    "'CoverageResult' Submodel (coverage_result_to_aas). coverage is the mean requirement score of the trace.",
+	    {"CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := ['OFF-A']);",
+	     "SELECT aas_json FROM aas_coverage_result('trace');"},
+	    AAS_CATEGORIES);
+}
+
+//------------------------------------------------------------------------------
 // attrs_satisfying(attr_key, requirement): a unit- and direction-aware filter over loaded
 // attributes (GitHub #35), a thin wrapper over value_satisfies
 //------------------------------------------------------------------------------
@@ -486,6 +808,7 @@ void RegisterAasFunctions(ExtensionLoader &loader) {
 	RegisterAasReader(loader);
 	RegisterAasIdB64Url(loader);
 	RegisterAttrsSatisfying(loader);
+	RegisterAasWriters(loader);
 }
 
 } // namespace anofox
