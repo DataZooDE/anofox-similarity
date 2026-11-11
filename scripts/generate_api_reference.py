@@ -68,6 +68,7 @@ PAGES = {
         "weighted_minhash", "minhash_similarity", "lsh_bands", "minhash_index", "minhash_bands",
         "find_covering_entities_lsh", "connected_components", "cluster_matches",
     ],
+    "17-aas.md": ["semantic_key", "aas_to_trees", "aas_issues", "aas_id_b64url"],
 }
 
 KIND = {
@@ -183,6 +184,7 @@ TITLES = {
     "14-classification-and-review.md": "Classification onto a catalogue and vocabulary review",
     "15-evaluation.md": "Evaluation and tuning",
     "16-lsh-and-clustering.md": "Sub-linear recall (LSH) and entity clustering",
+    "17-aas.md": "Asset Administration Shell (AAS): read, match on dictionary keys, write",
 }
 
 

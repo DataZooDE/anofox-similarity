@@ -138,7 +138,7 @@ SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimensi
 
 *Table function*
 
-The built-in, read-only units seed of the quantity layer: symbol, alias (list), dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies have factor NULL and are never converted. Copy it into a table to extend it and pass (SELECT list(u) FROM my_units u) as unit_table.
+The built-in, read-only units seed of the quantity layer: symbol, alias (list), unit_id (UN/ECE Rec 20 codes; no ECLASS content), dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies have factor NULL and are never converted. Copy it into a table to extend it and pass (SELECT list(u) FROM my_units u) as unit_table.
 
 ```sql
 quantity_units()
@@ -155,7 +155,7 @@ CREATE TABLE my_units AS SELECT symbol, alias, dimension, factor, "offset" FROM 
 
 *Scalar function*
 
-Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
+Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
 
 ```sql
 parse_quantity(text VARCHAR) → STRUCT(lo DOUBLE, hi DOUBLE, unit VARCHAR, dimension VARCHAR, bound VARCHAR, raw VARCHAR, source_unit VARCHAR, category VARCHAR)
@@ -179,7 +179,7 @@ SELECT parse_quantity('3 Stk.', ['de'], (SELECT list(u) FROM my_units u));
 
 *Scalar function*
 
-Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit_table extends the seed as in parse_quantity.
+Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit is a symbol, an alias or a unit identifier (UN/ECE Rec 20 code such as 'AMP', or a unit_id from unit_table such as an ECLASS unit IRDI, compared with semantic_key). unit_table extends the seed as in parse_quantity; an entry with only symbol and unit_id attaches identifiers to a known unit.
 
 ```sql
 normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)
