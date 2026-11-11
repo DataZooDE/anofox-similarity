@@ -12,7 +12,7 @@
 -- ============================================================================
 
 .print '>>> 1. Audit first: aas_issues never fails, so a broken file shows up with its name'
-SELECT split_part(filename, '/', -1) AS file, i.issue, i.severity,
+SELECT parse_filename(filename) AS file, i.issue, i.severity,
        split_part(regexp_replace(i.path, '\.Property(Property|Range)$', ''), '.', -1) AS property
 FROM (SELECT filename, unnest(aas_issues(content, NULL, (SELECT list(u) FROM read_csv('examples/aas_capability_matching/data/eclass_units.csv') u))) AS i
       FROM read_blob('examples/aas_capability_matching/data/offers/*'))
@@ -61,7 +61,7 @@ SELECT tree_id, attr_id, issue FROM validate_trees('tree_nodes', 'tree_attribute
 
 .print ''
 .print '>>> 5. Data quality per submodel (Orbitec\'s protocol codes carry a key but no dictionary entry)'
-SELECT split_part(filename, '/', -1) AS file, q.submodel, round(q.semantic_id_share, 2) AS coded,
+SELECT parse_filename(filename) AS file, q.submodel, round(q.semantic_id_share, 2) AS coded,
        q.n_missing_concept_description AS no_dictionary, q.n_unparseable AS unparseable, q.n_mixed_releases AS mixed_releases
 FROM (SELECT filename, unnest(aas_quality(content)) AS q FROM read_blob('examples/aas_capability_matching/data/offers/*'))
 ORDER BY file, q.submodel;

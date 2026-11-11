@@ -46,7 +46,7 @@ SELECT (SELECT count(*) FROM once_a),
 # The written JSON uses IDTA-02020 and the profile: Required / Offered roles, ComposedOf, the
 # variant group and counts
 statement ok
-CREATE TABLE written AS SELECT split_part(filename, '/', -1) AS f, trees_to_aas(aas_to_trees(content)) AS j FROM files;
+CREATE TABLE written AS SELECT parse_filename(filename) AS f, trees_to_aas(aas_to_trees(content)) AS j FROM files;
 
 query TTTT
 SELECT f, j LIKE '%"type": "Required",%"value": "true"%', j LIKE '%CapabilityComposedOf%', j LIKE '%"anofox:VariantGroup"%'

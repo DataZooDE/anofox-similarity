@@ -132,7 +132,7 @@ PoleCount	assumed_dimensionless
 #------------------------------------------------------------------------------
 
 query TTT
-SELECT split_part(filename, '/', -1), i.issue, i.severity
+SELECT parse_filename(filename), i.issue, i.severity
 FROM (SELECT filename, unnest(aas_issues(content)) AS i FROM read_blob('test/data/aas/fixtures/mixed_folder/*'))
 WHERE i.severity = 'error';
 ----

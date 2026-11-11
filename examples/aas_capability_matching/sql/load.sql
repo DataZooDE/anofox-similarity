@@ -5,7 +5,7 @@ CREATE OR REPLACE TABLE raw AS
 SELECT 'rfq_2026_117.aas.json' AS file, unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n
 FROM read_text('examples/aas_capability_matching/data/rfq_2026_117.aas.json')
 UNION ALL
-SELECT split_part(filename, '/', -1), unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)))
+SELECT parse_filename(filename), unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)))
 FROM read_blob('examples/aas_capability_matching/data/offers/*');
 CREATE OR REPLACE TABLE tree_nodes AS SELECT file, n.* EXCLUDE (attributes) FROM raw;
 CREATE OR REPLACE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;

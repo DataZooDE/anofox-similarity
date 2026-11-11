@@ -15,7 +15,7 @@ require anofox_similarity
 #------------------------------------------------------------------------------
 
 query TTIIRIIII
-SELECT split_part(filename, '/', -1), q.submodel, q.n_values, q.n_with_semantic_id, round(q.semantic_id_share, 3),
+SELECT parse_filename(filename), q.submodel, q.n_values, q.n_with_semantic_id, round(q.semantic_id_share, 3),
        q.n_missing_concept_description, q.n_unresolved_units, q.n_unparseable, q.n_mixed_releases
 FROM (SELECT filename, unnest(aas_quality(content)) AS q
       FROM read_blob(['test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json', 'test/data/aas/scenario/offers/*']))
