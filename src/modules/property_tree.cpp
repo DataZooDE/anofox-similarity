@@ -374,7 +374,7 @@ LogicalType AttributeType() {
 	                             {"unit", LogicalType::VARCHAR},     {"lo", LogicalType::DOUBLE},
 	                             {"hi", LogicalType::DOUBLE},        {"role", LogicalType::VARCHAR},
 	                             {"bound", LogicalType::VARCHAR},    {"qualifier", LogicalType::VARCHAR},
-	                             {"category", LogicalType::VARCHAR}};
+	                             {"category", LogicalType::VARCHAR}, {"attr_key", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -446,7 +446,8 @@ void CheckKeys(const Json &object, std::initializer_list<const char *> known, co
 
 Value AttributeFromJson(const Json &a, const string &attr_id, const string &node_id, const JsonTreeContext &ctx) {
 	CheckKeys(a,
-	          {"attr_id", "name", "text", "value_text", "lo", "hi", "unit", "bound", "role", "qualifier", "category"},
+	          {"attr_id", "name", "text", "value_text", "lo", "hi", "unit", "bound", "role", "qualifier", "category",
+	           "attr_key"},
 	          "node '" + node_id + "', attribute '" + attr_id + "'");
 	auto &units = *ctx.units;
 	string text = JsonString(a.Get("text"));
@@ -520,6 +521,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 	v.emplace_back("bound", OptVarchar(bound));
 	v.emplace_back("qualifier", OptVarchar(JsonString(a.Get("qualifier"))));
 	v.emplace_back("category", OptVarchar(category));
+	v.emplace_back("attr_key", OptVarchar(JsonString(a.Get("attr_key"))));
 	return Value::STRUCT(std::move(v));
 }
 

@@ -1,0 +1,98 @@
+# name: test/sql/aas/semantic_key.test
+# description: The same ECLASS / IEC CDD concept arrives as an IRDI, as an ECLASS IRI and with
+#              different version suffixes. semantic_key() turns all of them into one join key.
+# group: [aas]
+
+require anofox_similarity
+
+# ECLASS IRDI: version suffix stripped by default
+query T
+SELECT semantic_key('0173-1#02-AAC895#008');
+----
+0173-1#02-AAC895
+
+# keep_version keeps it
+query T
+SELECT semantic_key('0173-1#02-AAC895#008', true);
+----
+0173-1#02-AAC895#008
+
+# The resolvable ECLASS IRI form maps onto the same key (both host spellings seen in the wild)
+query TT
+SELECT semantic_key('https://api.cdp-eclass.com/0173-1-02-AAC895-008'),
+       semantic_key('https://api.eclass-cdp.com/0173-1-02-AAC895-008', true);
+----
+0173-1#02-AAC895	0173-1#02-AAC895#008
+
+# Lower case, surrounding blanks and an older release give the same key
+query T
+SELECT DISTINCT semantic_key(id) FROM (VALUES
+    ('0173-1#02-AAC895#008'), (' 0173-1#02-aac895#005 '), ('https://api.cdp-eclass.com/0173-1-02-AAC895-005'),
+    ('0173-1#02-AAC895')) t(id);
+----
+0173-1#02-AAC895
+
+# Two different properties never collapse, even though they share the tokens 0173, 1 and 02
+query I
+SELECT semantic_key('0173-1#02-BAA120#008') = semantic_key('0173-1#02-AAB381#005');
+----
+false
+
+# ECLASS classes (01), units (05) and values (07) keep their code space
+query TTT
+SELECT semantic_key('0173-1#01-AGZ376#020'), semantic_key('0173-1#05-AAA480#003'), semantic_key('0173-1#07-CAA016#001');
+----
+0173-1#01-AGZ376	0173-1#05-AAA480	0173-1#07-CAA016
+
+# ECLASS Basic / Advanced registration authority suffixes are kept
+query T
+SELECT semantic_key('0173-1---BASIC_1_1#01-AAN431#007');
+----
+0173-1---BASIC_1_1#01-AAN431
+
+# IEC Common Data Dictionary IRDIs
+query TT
+SELECT semantic_key('0112/2///61360_4#AAA001#001'), semantic_key('0112/2///61987#ABA581#007', true);
+----
+0112/2///61360_4#AAA001	0112/2///61987#ABA581#007
+
+# Other URIs pass through: scheme and host lower-cased, path kept as written (IDTA template ids)
+query TT
+SELECT semantic_key('HTTPS://Admin-Shell.IO/ZVEI/nameplate/2/0/Nameplate'),
+       semantic_key('https://admin-shell.io/idta/CapabilityDescription/Capability/1/0');
+----
+https://admin-shell.io/ZVEI/nameplate/2/0/Nameplate	https://admin-shell.io/idta/CapabilityDescription/Capability/1/0
+
+# A URN is a URI too; only the scheme is lower-cased
+query T
+SELECT semantic_key('URN:Supplier:Drive:MaxCurrent');
+----
+urn:Supplier:Drive:MaxCurrent
+
+# A free-text name is not an identifier and stays as it is (trimmed)
+query T
+SELECT semantic_key('  Rated current ');
+----
+Rated current
+
+# NULL and blank mean "no key"
+query II
+SELECT semantic_key(NULL) IS NULL, semantic_key('   ') IS NULL;
+----
+true	true
+
+# keep_version NULL means the default
+query T
+SELECT semantic_key('0173-1#02-AAC895#008', NULL);
+----
+0173-1#02-AAC895
+
+# Works on a column (vectorised, mixed forms)
+query TT
+SELECT id, semantic_key(id) FROM (VALUES
+    ('0173-1#02-AAO677#002'), ('https://api.eclass-cdp.com/0173-1-02-AAO677-002'), (NULL)) t(id)
+ORDER BY id NULLS LAST;
+----
+0173-1#02-AAO677#002	0173-1#02-AAO677
+https://api.eclass-cdp.com/0173-1-02-AAO677-002	0173-1#02-AAO677
+NULL	NULL

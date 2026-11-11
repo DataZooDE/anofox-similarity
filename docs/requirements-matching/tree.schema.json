@@ -44,6 +44,7 @@
         "bound": {"enum": ["at_least", "at_most", "within", "equals", null]},
         "category": {"type": "string", "description": "Ordinal or categorical value (e.g. IP54) instead of lo/hi."},
         "qualifier": {"type": "string"},
+        "attr_key": {"type": "string", "description": "Dictionary key of the property, e.g. an AAS semanticId (ECLASS IRDI or IRI). When both sides carry one, keys decide the match (compared with semantic_key)."},
         "role": {"type": "string"}
       }
     }

@@ -58,13 +58,36 @@ query tree and the candidate tree are reviewed.
 | `recall_mode` (`mode` in `coverage_recall`) | `'auto'` | `'containment'`, `'jaccard'`, `'auto'` |
 | `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: an unqualified requirement takes the bound of its template with the same class and dimension (none when ambiguous) |
 | `rules_table` | NULL | compatibility rules for categorical attributes (no rule: equal → 1) |
-| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap |
+| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap. Equal `attr_key`s override both (see below) |
 | `candidate_multiset_table` | NULL | a precomputed index of the candidate class multisets (`tree_class_multiset` output: `entity_id, feature_id, weight[, reviewed]`). Stage 1 reads it instead of resolving every candidate tree; the results are the same |
 
 **Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
 value below 1. It does not depend on how soft the labels are. A required attribute that the
 matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
 a share for within and point (also for temperature), and in K for the temperature limit rules.
+
+**Dictionary keys (`attr_key`).** An optional `attr_key` column on the attributes tables
+holds a dictionary identifier, such as an AAS semanticId (ECLASS or IEC CDD IRDI, or ECLASS IRI).
+Keys are compared after [`semantic_key`](17-aas.md), so the IRDI and IRI forms and different
+release suffixes (`#007`, `#008`) are the same key. When **both** attributes carry a key:
+
+- equal keys give `name_sim = 1` (`name_rule = 'key'`);
+- different keys are a hard gate, like a dimension mismatch: score 0 and `rule = 'key_mismatch'`
+  in the trace, not a `mu` discount;
+- if the candidate item has an attribute with the requirement's key, only keyed attributes can
+  answer that requirement. An unkeyed attribute of the same dimension does not stand in.
+
+When only one side has a key, or neither, names are compared as before (`name_rule` = `vector`,
+`exact` or `tokens`). Without `attr_key`, IRDIs used as attribute names are **not** exact: two
+different IRDIs share the tokens `0173`, `1` and `02` and get partial name credit.
+
+```sql
+-- the AAS reader fills attr_key; hand-made tables can add it
+ALTER TABLE tree_attributes ADD COLUMN attr_key VARCHAR;
+UPDATE tree_attributes SET attr_key = name WHERE name LIKE '0173-1#%';
+SELECT attr_id, rule, name_rule, attr_score
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-B']);
+```
 
 **Partition and repeated classes.** The partition first assigns items by class agreement, then
 moves or swaps items between requirements of the same class while that raises the summed score.

@@ -1,6 +1,7 @@
 #include "modules/coverage_kernel.hpp"
 #include "modules/property_tree.hpp"
 #include "modules/coverage_sql.hpp"
+#include "modules/aas/semantic_key.hpp"
 #include "modules/quantity.hpp"
 #include "duckdb_compat.hpp"
 #include "compat_anofox/scalar_bind.hpp"
@@ -44,6 +45,7 @@ struct KAttr {
 	string default_bound;
 	string scale; // the template's 'log' or 'linear'; empty: per dimension
 	string category;
+	string key; // canonical attr_key (semantic_key without version); empty: not keyed
 	vector<double> name_vec;
 };
 
@@ -256,6 +258,7 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.default_bound = FieldText(a, "default_bound");
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
 		k.category = FieldText(a, "category");
+		k.key = SemanticKey(FieldText(a, "attr_key")).key;
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -491,7 +494,14 @@ vector<string> Tokens(const string &name) {
 	return out;
 }
 
-double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
+//! Name agreement of two attributes and how it was decided: vector (calibrated cosine of the
+//! name vectors), exact (same name, case-insensitive) or tokens (token Jaccard).
+struct NameMatch {
+	double sim = 0;
+	const char *rule = "tokens";
+};
+
+NameMatch NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 	if (!x.name_vec.empty() && x.name_vec.size() == y.name_vec.size()) {
 		double dot = 0, nx = 0, ny = 0;
 		for (idx_t i = 0; i < x.name_vec.size(); i++) {
@@ -502,22 +512,22 @@ double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 		if (nx > 0 && ny > 0) {
 			double cos = dot / std::sqrt(nx * ny);
 			double floor = o.name_floor; // validated to [0, 1)
-			return MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor)));
+			return {MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor))), "vector"};
 		}
 	}
-	if (StringUtil::CIEquals(x.name, y.name)) {
-		return x.name.empty() ? 0.0 : 1.0;
+	if (!x.name.empty() && StringUtil::CIEquals(x.name, y.name)) {
+		return {1.0, "exact"};
 	}
 	auto a = Tokens(x.name), b = Tokens(y.name);
 	if (a.empty() || b.empty()) {
-		return 0.0;
+		return {0.0, "tokens"};
 	}
 	std::unordered_set<string> sa(a.begin(), a.end()), sb(b.begin(), b.end());
 	idx_t inter = 0;
 	for (auto &t : sa) {
 		inter += sb.count(t);
 	}
-	return double(inter) / double(sa.size() + sb.size() - inter);
+	return {double(inter) / double(sa.size() + sb.size() - inter), "tokens"};
 }
 
 string FormatNumber(double v) {
@@ -553,9 +563,34 @@ struct AttrMatch {
 	bool has_distance = false;
 	double distance = 0;
 	string rule;
+	string name_rule; // key | vector | exact | tokens (see NameSim)
 	double score = 0;
 	string bound;
 };
+
+//! The attr_key gate (GitHub #28): when both attributes carry a key, the keys decide.
+enum class KeyRelation { UNKEYED, SAME, DIFFERENT };
+
+KeyRelation KeyRelationOf(const KAttr &x, const KAttr &y) {
+	if (x.key.empty() || y.key.empty()) {
+		return KeyRelation::UNKEYED;
+	}
+	return x.key == y.key ? KeyRelation::SAME : KeyRelation::DIFFERENT;
+}
+
+//! True when the item offers an attribute with the requirement's key: then only such
+//! attributes may answer it, whatever an unkeyed attribute of the same dimension offers.
+bool HasKeyedCounterpart(const KAttr &x, const KItem &c) {
+	if (x.key.empty()) {
+		return false;
+	}
+	for (auto &y : c.attrs) {
+		if (y.key == x.key) {
+			return true;
+		}
+	}
+	return false;
+}
 
 //! The best provided attribute for one required attribute.
 AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
@@ -563,7 +598,17 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	best.req = &x;
 	best.bound = !x.bound.empty() ? x.bound : x.default_bound;
 	best.rule = "gate";
+	bool exact_key = HasKeyedCounterpart(x, c);
+	bool key_gated = false;
 	for (auto &y : c.attrs) {
+		auto relation = KeyRelationOf(x, y);
+		if (relation == KeyRelation::DIFFERENT) {
+			key_gated = true; // a different dictionary property: a hard gate, like the dimension
+			continue;
+		}
+		if (exact_key && relation == KeyRelation::UNKEYED) {
+			continue;
+		}
 		AttrMatch m;
 		m.req = &x;
 		m.prov = &y;
@@ -617,11 +662,21 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.rule = r.rule;
 		}
 		m.gate = false;
-		m.name_sim = NameSim(x, y, o);
+		if (relation == KeyRelation::SAME) {
+			m.name_sim = 1.0;
+			m.name_rule = "key";
+		} else {
+			auto name = NameSim(x, y, o);
+			m.name_sim = name.sim;
+			m.name_rule = name.rule;
+		}
 		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
 		if (best.gate || m.score > best.score) {
 			best = m;
 		}
+	}
+	if (best.gate && key_gated) {
+		best.rule = "key_mismatch";
 	}
 	return best;
 }
@@ -730,7 +785,8 @@ LogicalType TraceType() {
 	    {"value_score", LogicalType::DOUBLE},   {"distance", LogicalType::DOUBLE},
 	    {"rule", LogicalType::VARCHAR},         {"attr_score", LogicalType::DOUBLE},
 	    {"count_needed", LogicalType::DOUBLE},  {"count_available", LogicalType::DOUBLE},
-	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN}};
+	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN},
+	    {"name_rule", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -942,6 +998,7 @@ Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	v.emplace_back("count_available", Value::DOUBLE(r.count_available));
 	v.emplace_back("req_score", Value::DOUBLE(r.score));
 	v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
+	v.emplace_back("name_rule", m && !m->gate ? TextOrNull(m->name_rule) : Value(LogicalType::VARCHAR));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -1329,12 +1386,13 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	string base = StringUtil::Format(
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
-	    "%s AS bound, %s AS category FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    "%s AS bound, %s AS category, %s AS attr_key FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
 	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
 	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
 	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
 	    CastOrNullSQL(has("hi"), "hi", "DOUBLE", "a"), CastOrNullSQL(has("bound"), "bound", "VARCHAR", "a"),
-	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"),
+	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string scale = "NULL::VARCHAR";
@@ -1360,7 +1418,8 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	}
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
-	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, default_bound := %s, "
+	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, attr_key := x.attr_key, "
+	    "default_bound := %s, "
 	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
 	    default_bound, scale, vec, base, nodes_cte, templates_join, vec_join);
@@ -1466,7 +1525,7 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 	auto sql = KernelSQL(context, p, true) + R"(
 		SELECT query_id, candidate_id, t.req_node_id, t.matched_node_id, t.matched_path, t.label_sim, t.attr_id,
 		       t.attr_name, t.req_value, t.prov_value, t.gate, t.name_sim, t.value_score, t.distance, t.rule,
-		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap
+		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap, t.name_rule
 		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
@@ -1641,8 +1700,10 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    loader, "tree_coverage_trace", TreeCoverageTraceBindReplace,
 	    "The explanation of tree_coverage: one row per request item and required attribute with the matched "
 	    "candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, "
-	    "attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a "
-	    "value below 1). Same parameters as tree_coverage." +
+	    "attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a "
+	    "value below 1) and name_rule (how the names were compared: key when both attributes carry the same attr_key, "
+	    "vector, exact or tokens). rule is the value rule, gate for a dimension or unit mismatch, or key_mismatch when "
+	    "both attributes carry different attr_keys. Same parameters as tree_coverage." +
 	        common,
 	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
 	RegisterCoverageTable(
