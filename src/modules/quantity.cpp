@@ -1,5 +1,6 @@
 #include "modules/quantity.hpp"
 #include "modules/coverage_sql.hpp"
+#include "modules/aas/semantic_key.hpp"
 #include "duckdb_compat.hpp"
 #include "duckdb_compat/list_vector.hpp"
 #include "duckdb_compat/struct_vector.hpp"
@@ -45,6 +46,28 @@ void AddPrefixed(vector<UnitDef> &out, const string &base, const string &dimensi
 			aliases.push_back("u" + base);
 		}
 		out.push_back({symbol, aliases, dimension, p.factor, 0.0});
+	}
+}
+
+//! UN/ECE Recommendation 20 codes of the seed units (freely published by UNECE). ECLASS unit
+//! IRDIs are licensed content and are not shipped; attach them through unit_table (unit_id).
+void AttachRec20Codes(vector<UnitDef> &units) {
+	static const std::pair<const char *, const char *> CODES[] = {
+	    {"m", "MTR"},    {"km", "KMT"},   {"cm", "CMT"},   {"mm", "MMT"},   {"kg", "KGM"},   {"g", "GRM"},
+	    {"mg", "MGM"},   {"t", "TNE"},    {"s", "SEC"},    {"min", "MIN"},  {"h", "HUR"},    {"d", "DAY"},
+	    {"year", "ANN"}, {"A", "AMP"},    {"mA", "4K"},    {"V", "VLT"},    {"kV", "KVT"},   {"W", "WTT"},
+	    {"kW", "KWT"},   {"MW", "MAW"},   {"Ω", "OHM"},    {"Hz", "HTZ"},   {"kHz", "KHZ"},  {"MHz", "MHZ"},
+	    {"J", "JOU"},    {"kJ", "KJO"},   {"Wh", "WHR"},   {"kWh", "KWH"},  {"N", "NEW"},    {"N*m", "NU"},
+	    {"Pa", "PAL"},   {"kPa", "KPA"},  {"MPa", "MPA"},  {"bar", "BAR"},  {"mbar", "MBR"}, {"m/s", "MTS"},
+	    {"km/h", "KMH"}, {"m2", "MTK"},   {"cm2", "CMK"},  {"mm2", "MMK"},  {"m3", "MTQ"},   {"l", "LTR"},
+	    {"ml", "MLT"},   {"m3/h", "MQH"}, {"K", "KEL"},    {"°C", "CEL"},   {"°F", "FAH"},   {"%", "P1"}};
+	for (auto &code : CODES) {
+		for (auto &u : units) {
+			if (u.symbol == code.first) {
+				u.ids.push_back(code.second);
+				break;
+			}
+		}
 	}
 }
 
@@ -139,6 +162,7 @@ vector<UnitDef> SeedUnits() {
 	u.push_back({"CHF", {}, "currency", NO_FACTOR, 0});
 	u.push_back({"JPY", {"¥"}, "currency", NO_FACTOR, 0});
 	u.push_back({"CNY", {"RMB"}, "currency", NO_FACTOR, 0});
+	AttachRec20Codes(u);
 	return u;
 }
 
@@ -197,6 +221,7 @@ void UnitTable::Add(UnitDef unit) {
 void UnitTable::Index() {
 	by_alias.clear();
 	by_lower_alias.clear();
+	by_id.clear();
 	base_units.clear();
 	max_alias_length = 0;
 	for (idx_t i = 0; i < units.size(); i++) {
@@ -209,6 +234,18 @@ void UnitTable::Index() {
 				by_lower_alias.emplace(AsciiLower(n), i);
 			}
 			max_alias_length = MaxValue<idx_t>(max_alias_length, n.size());
+		}
+		for (auto &id : u.ids) {
+			auto key = SemanticKey(id).key;
+			if (key.empty()) {
+				continue;
+			}
+			auto it = by_id.find(key);
+			if (it != by_id.end() && it->second != i) {
+				throw InvalidInputException("unit_table: unit id '%s' is used by both '%s' and '%s'", id,
+				                            units[it->second].symbol, u.symbol);
+			}
+			by_id[key] = i;
 		}
 		if (!std::isnan(u.factor) && u.factor == 1.0 && u.offset == 0.0 && !base_units.count(u.dimension)) {
 			base_units[u.dimension] = u.symbol;
@@ -244,6 +281,7 @@ UnitTable UnitTable::WithUserUnits(const Value &list) {
 		auto &child_types = StructType::GetChildTypes(entry.type());
 		auto &values = StructValue::GetChildren(entry);
 		UnitDef u {"", {}, "", 1.0, 0.0};
+		bool has_factor = false;
 		for (idx_t i = 0; i < child_types.size(); i++) {
 			auto name = StringUtil::Lower(static_cast<const string &>(child_types[i].first));
 			auto &v = values[i];
@@ -259,13 +297,28 @@ UnitTable UnitTable::WithUserUnits(const Value &list) {
 				} else {
 					u.aliases.push_back(v.ToString());
 				}
+			} else if (name == "unit_id" && !v.IsNull()) {
+				if (v.type().id() == LogicalTypeId::LIST) {
+					for (auto &a : ListValue::GetChildren(v)) {
+						if (!a.IsNull()) {
+							u.ids.push_back(a.ToString());
+						}
+					}
+				} else {
+					u.ids.push_back(v.ToString());
+				}
 			} else if (name == "dimension" && !v.IsNull()) {
 				u.dimension = v.ToString();
 			} else if (name == "factor") {
+				has_factor = has_factor || !v.IsNull();
 				u.factor = v.IsNull() ? NO_FACTOR : v.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			} else if (name == "offset" && !v.IsNull()) {
 				u.offset = v.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 			}
+		}
+		if (!u.symbol.empty() && u.dimension.empty() && !has_factor) {
+			t.Extend(u); // ids and aliases for a known unit, e.g. a licensed ECLASS unit list
+			continue;
 		}
 		if (u.symbol.empty() || u.dimension.empty()) {
 			throw InvalidInputException("unit_table entries need a symbol and a dimension");
@@ -283,6 +336,31 @@ UnitTable UnitTable::WithUserUnits(const Value &list) {
 	}
 	t.Index();
 	return t;
+}
+
+void UnitTable::Extend(const UnitDef &extra) {
+	for (auto &u : units) {
+		if (u.symbol == extra.symbol) {
+			u.aliases.insert(u.aliases.end(), extra.aliases.begin(), extra.aliases.end());
+			u.ids.insert(u.ids.end(), extra.ids.begin(), extra.ids.end());
+			return;
+		}
+	}
+	throw InvalidInputException("unit_table: unit '%s' has no dimension and is not a known unit", extra.symbol);
+}
+
+const UnitDef *UnitTable::FindById(const string &unit_id) const {
+	auto key = SemanticKey(unit_id).key;
+	if (key.empty()) {
+		return nullptr;
+	}
+	auto it = by_id.find(key);
+	return it == by_id.end() ? nullptr : &units[it->second];
+}
+
+const UnitDef *UnitTable::FindSymbolOrId(const string &unit) const {
+	auto def = Find(unit);
+	return def ? def : FindById(unit);
 }
 
 const UnitDef *UnitTable::Find(const string &token) const {
@@ -1183,7 +1261,7 @@ void NormalizeQuantityFun(DataChunk &args, ExpressionState &, Vector &result) {
 		double v = value.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
 		child_list_t<Value> out;
 		const UnitTable &table = units.Get(args, 2, i); // one reference per row: def points into it
-		const UnitDef *def = unit.IsNull() ? nullptr : table.Find(Trim(unit.ToString()));
+		const UnitDef *def = unit.IsNull() ? nullptr : table.FindSymbolOrId(Trim(unit.ToString()));
 		if (!def) {
 			out.emplace_back("value", Value::DOUBLE(v));
 			out.emplace_back("unit", unit.IsNull() ? Value(LogicalType::VARCHAR) : Value(unit.ToString()));
@@ -1245,7 +1323,7 @@ ValueSide SideOf(const Value &v, bool requirement) {
 	// unit or one of another dimension is a gate
 	if (!side.unit.empty()) {
 		auto &seed = UnitTable::Seed();
-		auto def = seed.Find(side.unit);
+		auto def = seed.FindSymbolOrId(side.unit);
 		if (!def || (!side.dimension.empty() && def->dimension != side.dimension)) {
 			side.unit_gate = true;
 		} else if (std::isnan(def->factor)) {
@@ -1375,13 +1453,17 @@ unique_ptr<TableRef> QuantityUnitsBindReplace(ClientContext &context, TableFunct
 		for (auto &a : u.aliases) {
 			aliases += (aliases.empty() ? "" : ", ") + QuoteSQLStringLiteral(a);
 		}
+		string ids;
+		for (auto &id : u.ids) {
+			ids += (ids.empty() ? "" : ", ") + QuoteSQLStringLiteral(id);
+		}
 		auto base = std::isnan(u.factor) ? u.symbol : seed.BaseUnit(u.dimension);
 		rows += (rows.empty() ? "" : ",\n") +
-		        StringUtil::Format("(%s, [%s]::VARCHAR[], %s, %s, %s, %s)", QuoteSQLStringLiteral(u.symbol), aliases,
+		        StringUtil::Format("(%s, [%s]::VARCHAR[], [%s]::VARCHAR[], %s, %s, %s, %s)", QuoteSQLStringLiteral(u.symbol), aliases, ids,
 		                           QuoteSQLStringLiteral(u.dimension), SqlDouble(u.factor), SqlDouble(u.offset),
 		                           QuoteSQLStringLiteral(base));
 	}
-	auto sql = "SELECT * FROM (VALUES " + rows + ") t(symbol, alias, dimension, factor, \"offset\", base_unit)";
+	auto sql = "SELECT * FROM (VALUES " + rows + ") t(symbol, alias, unit_id, dimension, factor, \"offset\", base_unit)";
 	auto statements = duckdb_compat::ParseStatements(context, sql);
 	auto &select_stmt = statements[0]->Cast<SelectStatement>();
 	auto new_stmt = make_uniq<SelectStatement>();
@@ -1411,7 +1493,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, "
 	    "source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, "
 	    "equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators "
-	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, dimension, factor, "
+	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, "
 	    "offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator "
 	    "('1 000 N'). A bare number is a count; an unknown unit "
 	    "keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).",
@@ -1428,8 +1510,10 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	               compat_anofox::ScalarBind<&NormalizeQuantityBind>(),
 	               "Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An "
 	               "unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies "
-	               "keep their value (same-currency comparison only). unit_table extends the seed as in "
-	               "parse_quantity.",
+	               "keep their value (same-currency comparison only). unit is a symbol, an alias or a unit identifier "
+	               "(UN/ECE Rec 20 code such as 'AMP', or a unit_id from unit_table such as an ECLASS unit IRDI, "
+	               "compared with semantic_key). unit_table extends the seed as in parse_quantity; an entry with only "
+	               "symbol and unit_id attaches identifiers to a known unit.",
 	               {{{dbl, vc}, {"value", "unit"}, {"SELECT normalize_quantity(2500, 'mA'); -- 2.5 A"}},
 	                {{dbl, vc, any}, {"value", "unit", "unit_table"},
 	                 {"SELECT normalize_quantity(3, 'lanes', (SELECT list(u) FROM my_units u));"}}});
@@ -1461,7 +1545,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 		f.bind_replace = QuantityUnitsBindReplace;
 		FunctionDescription desc;
 		desc.description = "The built-in, read-only units seed of the quantity layer: symbol, alias (list), "
-		                   "dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies "
+		                   "unit_id (UN/ECE Rec 20 codes; no ECLASS content), dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies "
 		                   "have factor NULL and are never converted. Copy it into a table to extend it and pass "
 		                   "(SELECT list(u) FROM my_units u) as unit_table.";
 		desc.examples = {"SELECT * FROM quantity_units() WHERE dimension = 'length';",

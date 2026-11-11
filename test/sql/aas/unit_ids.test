@@ -1,0 +1,95 @@
+# name: test/sql/aas/unit_ids.test
+# description: In AAS the unit sits in the ConceptDescription as unit (symbol text) and unitId
+#              (an ECLASS unit IRDI or a UN/ECE Rec 20 code). The quantity layer resolves a
+#              value by its unit identifier: Rec 20 codes are in the seed, and a licensed ECLASS
+#              unit list is attached through unit_table without restating any factor.
+# group: [aas]
+
+require anofox_similarity
+
+# UN/ECE Recommendation 20 codes ship with the seed
+query RTT
+SELECT n.value, n.unit, n.dimension FROM (SELECT normalize_quantity(7637.1, '4K') AS n);
+----
+7.6371	A	current
+
+query TTT
+SELECT normalize_quantity(400, 'VLT').dimension, normalize_quantity(1.5, 'KWT').unit, normalize_quantity(20, 'CEL').unit;
+----
+voltage	W	K
+
+query R
+SELECT round(normalize_quantity(20, 'CEL').value, 2);
+----
+293.15
+
+# quantity_units() lists the identifiers
+query TT
+SELECT symbol, unit_id FROM quantity_units() WHERE symbol IN ('A', 'mA', 'N*m') ORDER BY symbol;
+----
+A	[AMP]
+N*m	[NU]
+mA	[4K]
+
+# Codes are identifiers, not words: free text never turns "new" (UN/ECE code NEW = newton) into a force
+query TT
+SELECT (parse_quantity('5 new housings')).dimension, (parse_quantity('5 NEW')).dimension;
+----
+NULL	NULL
+
+# The company's licensed ECLASS unit list: ids only, attached to the seed units (no factors restated)
+statement ok
+CREATE TABLE eclass_units AS SELECT * FROM (VALUES
+    ('A',  '0173-1#05-AAA480#003'),
+    ('mA', '0173-1#05-AAA236#003'),
+    ('V',  '0173-1#05-AAA597#003'),
+    ('°C', '0173-1#05-AAA567#002')
+) t(symbol, unit_id);
+
+# Resolved by IRDI, in any release and in the IRI form
+query RTT
+SELECT n.value, n.unit, n.dimension
+FROM (SELECT normalize_quantity(7637.1, '0173-1#05-AAA236#004', (SELECT list(u) FROM eclass_units u)) AS n);
+----
+7.6371	A	current
+
+query T
+SELECT normalize_quantity(400, 'https://api.eclass-cdp.com/0173-1-05-AAA597-003', (SELECT list(u) FROM eclass_units u)).dimension;
+----
+voltage
+
+# Attaching ids keeps the seed's aliases and codes
+query TT
+SELECT normalize_quantity(2, 'AMP', (SELECT list(u) FROM eclass_units u)).unit,
+       normalize_quantity(2, 'mA', (SELECT list(u) FROM eclass_units u)).value;
+----
+A	0.002
+
+# A user unit may bring its own ids
+statement ok
+CREATE TABLE plant_units AS SELECT * FROM (VALUES
+    ('lane', ['lanes'], ['urn:plant:unit:lane'], 'count', 1.0, 0.0)
+) t(symbol, alias, unit_id, dimension, factor, "offset");
+
+query RT
+SELECT n.value, n.dimension FROM (SELECT normalize_quantity(3, 'urn:plant:unit:lane', (SELECT list(u) FROM plant_units u)) AS n);
+----
+3.0	count
+
+# An unknown identifier is never guessed: value and unit come back unchanged, dimension NULL
+query RTT
+SELECT n.value, n.unit, n.dimension FROM (SELECT normalize_quantity(5, '0173-1#05-ZZZ999#001') AS n);
+----
+5.0	0173-1#05-ZZZ999#001	NULL
+
+# Attaching ids to a unit that does not exist is an error, not a silent no-op
+statement error
+SELECT normalize_quantity(1, 'A', (SELECT list(u) FROM (VALUES ('Amp', 'X1')) u(symbol, unit_id)));
+----
+unit_table: unit 'Amp' has no dimension and is not a known unit
+
+# Two units claiming the same identifier is an error
+statement error
+SELECT normalize_quantity(1, 'A', (SELECT list(u) FROM (VALUES ('V', 'AMP')) u(symbol, unit_id)));
+----
+unit_table: unit id 'AMP' is used by both 'A' and 'V'

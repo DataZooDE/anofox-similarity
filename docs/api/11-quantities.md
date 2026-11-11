@@ -38,13 +38,38 @@ source_unit, category)`
   written and `dimension` is NULL, so every comparison with it is a gate.
 - A category is a single upper-case code with digits and no number in front (`IP54`, `F1`,
   `M8`); `1 F` is one farad.
-- `unit_table` is a LIST of `STRUCT(symbol, alias, dimension, factor, offset)`, e.g.
+- `unit_table` is a LIST of `STRUCT(symbol, alias, unit_id, dimension, factor, offset)` (`unit_id` optional), e.g.
   `(SELECT list(u) FROM my_units u)`. It extends the seed, and a symbol that is already in the
   seed is overridden. The seed itself can be passed back in. Pass `lang` before `unit_table`
   (on 1.5.6 scalar arguments bind by position).
 
 **`normalize_quantity(value, unit [, unit_table])`** → `STRUCT(value, unit, dimension)`: converts
-to the base unit; an unknown unit returns the input unchanged with `dimension` NULL.
+to the base unit; an unknown unit returns the input unchanged with `dimension` NULL. `unit` may
+also be a **unit identifier** (see below).
+
+**Unit identifiers (`unit_id`).** In AAS data the unit sits in the ConceptDescription as `unit`
+(symbol text) and `unitId` (a reference to a unit dictionary entry). Unit fields resolve by
+symbol or alias first, then by identifier; identifiers are compared with
+[`semantic_key`](17-aas.md), so the IRDI and the ECLASS IRI form and any release suffix match.
+
+- The seed carries **UN/ECE Recommendation 20** codes for its common units (`AMP`, `4K`, `VLT`,
+  `KWT`, `NU`, `CEL`, …; see the `unit_id` column of `quantity_units()`). Rec 20 is published
+  freely by UNECE.
+- **ECLASS unit IRDIs are not shipped.** ECLASS content is licensed; the extension redistributes
+  none of it. Attach your licensed unit list through `unit_table`: an entry with only `symbol` and
+  `unit_id` adds identifiers to a known unit, without restating factors:
+
+  ```sql
+  CREATE TABLE eclass_units (symbol VARCHAR, unit_id VARCHAR);  -- from your ECLASS licence
+  INSERT INTO eclass_units VALUES ('mA', '0173-1#05-AAA236#003');
+  SELECT normalize_quantity(7637.1, '0173-1#05-AAA236#004', (SELECT list(u) FROM eclass_units u));
+  -- {'value': 7.6371, 'unit': A, 'dimension': current}
+  ```
+- A new unit may bring its own ids (`unit_id` is a VARCHAR or a list). Two units claiming one
+  identifier is an error. An entry without dimension whose symbol is unknown is an error.
+- Identifiers never take part in free-text parsing: `parse_quantity('5 NEW')` is not 5 newtons.
+- An unknown identifier is never guessed: the value comes back unchanged with `dimension` NULL,
+  and `validate_trees` reports `unknown_unit` for such attributes.
 
 **`value_satisfies(requirement, provided [, scale [, tol, soft_band [, default_bound]]])`** →
 `STRUCT(score, distance, rule)`
