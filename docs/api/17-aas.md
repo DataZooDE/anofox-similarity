@@ -248,6 +248,66 @@ WHERE satisfied;
 - Returns `tree_id, node_id, attr_id, name, attr_key, value, score, distance, rule, satisfied`,
   best first. `satisfied` is score 1; use `tol := 0, soft_band := 0` for hard limits.
 
+## Data quality and enrichment: aas_quality, suggest_semantic_id
+
+Data quality, not tooling, is what holds AAS matching back: semanticIds are optional,
+ConceptDescriptions are often missing, dictionary releases are mixed.
+
+```sql
+SELECT filename, q.submodel, q.semantic_id_share, q.n_missing_concept_description, q.n_unresolved_units,
+       q.n_unparseable, q.n_mixed_releases
+FROM (SELECT filename, unnest(aas_quality(content)) AS q FROM read_blob('offers/*'));
+```
+
+**`aas_quality(content [, unit_table])`** → `LIST(STRUCT(tree_id, submodel_id, submodel, kind,
+n_values, n_with_semantic_id, semantic_id_share, n_missing_concept_description,
+n_unresolved_units, n_unparseable, n_mixed_releases, n_issues))`, one entry per submodel.
+`n_values` counts Property, Range and MultiLanguageProperty elements; list members count with the
+list's key. `n_mixed_releases` counts concepts referenced in more than one dictionary release
+anywhere in the input. The report uses the same reading as `aas_to_trees` and `aas_issues`. It
+does not run the coverage kernel.
+
+**Uncoded attributes and capabilities.** `suggest_semantic_id` proposes dictionary ids from your
+own embeddings, so an engineer confirms them once with the
+[vocabulary review](14-classification-and-review.md):
+
+```sql
+-- the supplier's uncoded names and your dictionary of example phrasings, both with your vectors
+CREATE TABLE suggestions AS
+SELECT * FROM suggest_semantic_id('uncoded_names', 'dictionary_examples', min_similarity := 0.35);
+
+-- confirm what fits; the rest stays in the queue
+CREATE TABLE review AS SELECT wording, top1 AS class_id, 'jr' AS reviewed_by FROM suggestions WHERE fits;
+CREATE TABLE attribute_keys AS SELECT * FROM apply_vocabulary_review('review', overrides_table := NULL);
+
+-- attach the confirmed ids; from now on the supplier is matched by key
+UPDATE tree_attributes SET attr_key = k.class_id
+FROM attribute_keys k WHERE tree_attributes.name = k.wording AND tree_attributes.attr_key IS NULL;
+```
+
+**`suggest_semantic_id(items_table, dictionary_table)`**, named `mode` (`'late_interaction'`
+default, or `'centroid'`), `temperature` (0.1), `center_by_source` (false), `overrides_table`,
+`min_similarity`.
+
+- It runs [`classify_to_catalogue`](14-classification-and-review.md). `items_table` is its item
+  table (`node_id, vec[, tree_id, source, label, tokens]`; the wording is `label`, else
+  `node_id`). `dictionary_table` is its catalogue (`class_id` = the dictionary id, `vec[,
+  exemplar_tokens]`).
+- Prefer **example values and phrasings** over dictionary definitions. On an ECU benchmark,
+  exemplar late interaction reached 95 % top-1 against 74.5 % for a definition pivot, and ECLASS
+  13.0 has definitions for only about 68 % of its classes (arXiv:2604.19664).
+- Returns the columns of `vocabulary_review_queue` (`wording, source, n_occurrences,
+  n_trees_affected, top1, p1, top2, p2, margin, impact`) plus `similarity` and `fits`.
+- **`p1` is relative to the dictionary**: the best of several poor candidates looks certain
+  (p1 0.999 for a wording nothing fits). `similarity` is the raw maxsim (or cosine) of `top1`, an
+  absolute fit; with `min_similarity` a row below it has `fits = false` and goes to the top of the
+  queue (impact = n_trees_affected). Set the floor from your corpus (`cosine_floor`) or from
+  reviewed examples.
+- Reviewed wordings (`overrides_table`) leave the queue. For capability labels, use the
+  confirmed table as `overrides_table` of `tree_coverage`, so the labels resolve to classes.
+- No dictionary content ships with the extension. Bring your licensed ECLASS phrasings and your
+  own vectors.
+
 ## Identifiers: semantic_key
 
 The same dictionary concept arrives in several spellings:
@@ -476,6 +536,44 @@ coverage_result_to_aas(query_id VARCHAR, candidate_id VARCHAR, coverage DOUBLE, 
 
 ```sql
 SELECT * FROM aas_coverage_result('trace');
+```
+
+### `aas_quality`
+
+*Scalar function*
+
+Data quality of an AAS input per submodel, without the coverage kernel: LIST of STRUCT(tree_id, submodel_id, submodel, kind, n_values (Property, Range, MultiLanguageProperty), n_with_semantic_id, semantic_id_share, n_missing_concept_description, n_unresolved_units (numbers whose unit is unknown), n_unparseable (bad_value), n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues). The counts come from the same reading as aas_to_trees and aas_issues. unit_table as in parse_quantity.
+
+```sql
+aas_quality(content BLOB) → STRUCT(tree_id VARCHAR, submodel_id VARCHAR, submodel VARCHAR, kind VARCHAR, n_values BIGINT, n_with_semantic_id BIGINT, semantic_id_share DOUBLE, n_missing_concept_description BIGINT, n_unresolved_units BIGINT, n_unparseable BIGINT, n_mixed_releases BIGINT, n_issues BIGINT)[]
+aas_quality(content VARCHAR) → STRUCT(tree_id VARCHAR, submodel_id VARCHAR, submodel VARCHAR, kind VARCHAR, n_values BIGINT, n_with_semantic_id BIGINT, semantic_id_share DOUBLE, n_missing_concept_description BIGINT, n_unresolved_units BIGINT, n_unparseable BIGINT, n_mixed_releases BIGINT, n_issues BIGINT)[]
+aas_quality(content BLOB, unit_table ANY) → STRUCT(tree_id VARCHAR, submodel_id VARCHAR, submodel VARCHAR, kind VARCHAR, n_values BIGINT, n_with_semantic_id BIGINT, semantic_id_share DOUBLE, n_missing_concept_description BIGINT, n_unresolved_units BIGINT, n_unparseable BIGINT, n_mixed_releases BIGINT, n_issues BIGINT)[]
+aas_quality(content VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, submodel_id VARCHAR, submodel VARCHAR, kind VARCHAR, n_values BIGINT, n_with_semantic_id BIGINT, semantic_id_share DOUBLE, n_missing_concept_description BIGINT, n_unresolved_units BIGINT, n_unparseable BIGINT, n_mixed_releases BIGINT, n_issues BIGINT)[]
+```
+
+**Examples**
+
+```sql
+SELECT filename, unnest(aas_quality(content), recursive := true) FROM read_blob('offers/*');
+SELECT filename, unnest(aas_quality(content), recursive := true) FROM read_text('offers/*.json');
+SELECT unnest(aas_quality(content, (SELECT list(u) FROM eclass_units u)), recursive := true) FROM read_blob('offer.aasx');
+SELECT unnest(aas_quality(content, (SELECT list(u) FROM eclass_units u)), recursive := true) FROM read_text('offer.json');
+```
+
+### `suggest_semantic_id`
+
+*Table function*
+
+Suggests dictionary ids (ECLASS or your own catalogue) for uncoded attribute names or capability labels, as a review queue in the shape of vocabulary_review_queue: wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, similarity (the raw maxsim or cosine of top1: an absolute fit, since p is relative to the dictionary and the best of poor candidates looks certain), fits (similarity >= min_similarity, NULL without one) and impact = n_trees_affected x (1 - margin), or n_trees_affected when fits is false, highest impact first. It runs classify_to_catalogue: items_table (node_id, vec[, tree_id, source, label, tokens]; the wording is label, else node_id) against dictionary_table (class_id = the dictionary id, vec[, exemplar_tokens]). mode 'late_interaction' (default; maxsim of the wording's tokens over example phrasings, the strongest signal) or 'centroid'; temperature default 0.1; center_by_source default false. Wordings in overrides_table (wording[, source], class_id) are reviewed and leave the queue. Confirm suggestions with apply_vocabulary_review and use the result as attr_key or as overrides_table. No dictionary content ships with the extension: bring your own vectors.
+
+```sql
+suggest_semantic_id(items_table, dictionary_table, mode, temperature, center_by_source, overrides_table, min_similarity)
+```
+
+**Examples**
+
+```sql
+SELECT wording, top1, p1, margin FROM suggest_semantic_id('uncoded_names', 'eclass_examples') LIMIT 20;
 ```
 
 <!-- generated:functions:end -->

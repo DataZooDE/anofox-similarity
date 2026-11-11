@@ -4,6 +4,7 @@
 #include "modules/aas/aas_model.hpp"
 #include "modules/aas/aas_tree_mapper.hpp"
 #include "modules/aas/aas_writer.hpp"
+#include "modules/aas/aas_quality.hpp"
 #include "modules/aas/semantic_key.hpp"
 #include "modules/property_tree.hpp"
 #include "modules/quantity.hpp"
@@ -149,14 +150,17 @@ Value IssueValue(const AasIssue &i) {
 //! Reads one row's AAS input and maps it. The unit table is rebuilt only when it changes.
 class AasRowMapper {
 public:
-	AasMapping Map(DataChunk &args, idx_t row) {
+	//! The environment of the last Map call (for reports that need the model as well).
+	AasEnvironment environment;
+
+	AasMapping Map(DataChunk &args, idx_t row, idx_t unit_arg = 2) {
 		AasMapOptions options;
-		if (args.ColumnCount() > 1) {
+		if (args.ColumnCount() > 1 && unit_arg != 1) {
 			auto id = args.data[1].GetValue(row);
 			options.tree_id = id.IsNull() ? string() : id.ToString();
 		}
-		if (args.ColumnCount() > 2) {
-			auto units = args.data[2].GetValue(row);
+		if (args.ColumnCount() > unit_arg) {
+			auto units = args.data[unit_arg].GetValue(row);
 			if (!has_units || !Value::NotDistinctFrom(units, units_value)) {
 				unit_table = UnitTable::WithUserUnits(units);
 				units_value = units;
@@ -166,7 +170,8 @@ public:
 		} else {
 			options.units = &UnitTable::Seed();
 		}
-		return MapAasToTrees(ReadAas(ContentOf(args.data[0].GetValue(row))), options);
+		environment = ReadAas(ContentOf(args.data[0].GetValue(row)));
+		return MapAasToTrees(environment, options);
 	}
 
 private:
@@ -404,6 +409,200 @@ void RegisterAasIdB64Url(ExtensionLoader &loader) {
 	      {"SELECT aas_to_trees(content) FROM read_text('http://localhost:8081/submodels/' || "
 	       "aas_id_b64url('https://example.com/ids/sm/TechnicalData'));"},
 	      ""}});
+}
+
+//------------------------------------------------------------------------------
+// aas_quality(content [, unit_table]): how much of an AAS the matching can use (GitHub #36)
+//------------------------------------------------------------------------------
+
+LogicalType QualityType() {
+	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},
+	                             {"submodel_id", LogicalType::VARCHAR},
+	                             {"submodel", LogicalType::VARCHAR},
+	                             {"kind", LogicalType::VARCHAR},
+	                             {"n_values", LogicalType::BIGINT},
+	                             {"n_with_semantic_id", LogicalType::BIGINT},
+	                             {"semantic_id_share", LogicalType::DOUBLE},
+	                             {"n_missing_concept_description", LogicalType::BIGINT},
+	                             {"n_unresolved_units", LogicalType::BIGINT},
+	                             {"n_unparseable", LogicalType::BIGINT},
+	                             {"n_mixed_releases", LogicalType::BIGINT},
+	                             {"n_issues", LogicalType::BIGINT}};
+	return LogicalType::STRUCT(c);
+}
+
+void AasQualityFun(DataChunk &args, ExpressionState &, Vector &result) {
+	AasRowMapper mapper;
+	for (idx_t row = 0; row < args.size(); row++) {
+		if (args.data[0].GetValue(row).IsNull()) {
+			result.SetValue(row, Value(result.GetType()));
+			continue;
+		}
+		auto mapping = mapper.Map(args, row, 1);
+		vector<Value> rows;
+		for (auto &q : AssessAasQuality(mapper.environment, mapping)) {
+			auto share = q.n_values ? Value::DOUBLE(double(q.n_with_semantic_id) / double(q.n_values))
+			                        : Value(LogicalType::DOUBLE);
+			rows.push_back(Value::STRUCT({{"tree_id", Text(q.tree_id)},
+			                              {"submodel_id", Text(q.submodel_id)},
+			                              {"submodel", Text(q.submodel)},
+			                              {"kind", Text(q.kind)},
+			                              {"n_values", Value::BIGINT(int64_t(q.n_values))},
+			                              {"n_with_semantic_id", Value::BIGINT(int64_t(q.n_with_semantic_id))},
+			                              {"semantic_id_share", share},
+			                              {"n_missing_concept_description", Value::BIGINT(int64_t(q.n_missing_concept_description))},
+			                              {"n_unresolved_units", Value::BIGINT(int64_t(q.n_unresolved_units))},
+			                              {"n_unparseable", Value::BIGINT(int64_t(q.n_unparseable))},
+			                              {"n_mixed_releases", Value::BIGINT(int64_t(q.n_mixed_releases))},
+			                              {"n_issues", Value::BIGINT(int64_t(q.n_issues))}}));
+		}
+		result.SetValue(row, Value::LIST(QualityType(), std::move(rows)));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+unique_ptr<FunctionData> AasQualityBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_quality");
+	return nullptr;
+}
+
+void RegisterAasQuality(ExtensionLoader &loader) {
+	CoverageScalarSpec spec {
+	    "aas_quality",
+	    LogicalType::LIST(QualityType()),
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasQualityFun),
+	    compat_anofox::ScalarBind<&AasQualityBind>(),
+	    "Data quality of an AAS input per submodel, without the coverage kernel: LIST of STRUCT(tree_id, submodel_id, "
+	    "submodel, kind, n_values (Property, Range, MultiLanguageProperty), n_with_semantic_id, semantic_id_share, "
+	    "n_missing_concept_description, n_unresolved_units (numbers whose unit is unknown), n_unparseable (bad_value), "
+	    "n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues). The "
+	    "counts come from the same reading as aas_to_trees and aas_issues. unit_table as in parse_quantity.",
+	    AAS_CATEGORIES};
+	spec.special_null_handling = true;
+	auto any = LogicalType::ANY;
+	vector<CoverageScalarOverload> overloads;
+	for (auto &content : {LogicalType::VARCHAR, LogicalType::BLOB}) {
+		bool text = content == LogicalType::VARCHAR;
+		overloads.push_back({{content},
+		                     {"content"},
+		                     {string("SELECT filename, unnest(aas_quality(content), recursive := true) FROM ") +
+		                      (text ? "read_text('offers/*.json');" : "read_blob('offers/*');")},
+		                     ""});
+		overloads.push_back({{content, any},
+		                     {"content", "unit_table"},
+		                     {string("SELECT unnest(aas_quality(content, (SELECT list(u) FROM eclass_units u)), recursive := "
+		                             "true) FROM ") +
+		                      (text ? "read_text('offer.json');" : "read_blob('offer.aasx');")},
+		                     ""});
+	}
+	RegisterCoverageScalar(loader, spec, overloads);
+}
+
+//------------------------------------------------------------------------------
+// suggest_semantic_id(items_table, dictionary_table): dictionary ids for uncoded wordings,
+// as a review queue (GitHub #36)
+//------------------------------------------------------------------------------
+
+unique_ptr<TableRef> SuggestSemanticIdBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("suggest_semantic_id");
+	CoverageParamReader r {context, input.named_parameters, "suggest_semantic_id"};
+	auto items = r.Positional(input, 0, "items_table", {"node_id", "vec"});
+	auto dictionary = r.Positional(input, 1, "dictionary_table", {"class_id", "vec"});
+	auto overrides = r.Table("overrides_table", "", {"wording", "class_id"});
+	auto mode = StringUtil::Lower(r.Str("mode", "late_interaction"));
+	if (mode != "centroid" && mode != "late_interaction") {
+		throw BinderException("suggest_semantic_id: mode must be 'centroid' or 'late_interaction'");
+	}
+	if (mode == "late_interaction" && (!r.Has(items, "tokens") || !r.Has(dictionary, "exemplar_tokens"))) {
+		throw BinderException("suggest_semantic_id: mode 'late_interaction' needs items_table.tokens and "
+		                      "dictionary_table.exemplar_tokens (or use mode := 'centroid')");
+	}
+	double temperature = r.Dbl("temperature", 0.1);
+	auto min_sim = r.Get("min_similarity");
+	string min_similarity = !min_sim || min_sim->IsNull() ? "NULL::DOUBLE" : DoubleLiteral(r.Dbl("min_similarity", 0));
+	// the absolute fit of a suggestion: the classifier's p is relative to the dictionary, so the best
+	// of only poor candidates looks certain; the raw similarity says whether anything fits
+	string similarity = mode == "late_interaction" ? "maxsim(CAST(i.tokens AS DOUBLE[][]), CAST(d.exemplar_tokens AS DOUBLE[][]))"
+	                                               : "list_cosine_similarity(CAST(i.vec AS DOUBLE[]), CAST(d.vec AS DOUBLE[]))";
+	auto center = r.Get("center_by_source");
+	bool center_by_source = center && !center->IsNull() && center->GetValue<bool>();
+	auto label = r.Has(items, "label") ? "coalesce(CAST(i.label AS VARCHAR), CAST(i.node_id AS VARCHAR))"
+	                                   : "CAST(i.node_id AS VARCHAR)";
+	auto source = CastOrNullSQL(r.Has(items, "source"), "source", "VARCHAR", "i");
+	auto tree = CastOrNullSQL(r.Has(items, "tree_id"), "tree_id", "VARCHAR", "i");
+	string reviewed;
+	if (!overrides.empty()) {
+		reviewed = r.Has(overrides, "source")
+		               ? StringUtil::Format(" WHERE NOT EXISTS (SELECT 1 FROM %s o WHERE CAST(o.wording AS VARCHAR) = "
+		                                    "q.wording AND (o.source IS NULL OR CAST(o.source AS VARCHAR) IS NOT DISTINCT "
+		                                    "FROM q.source))",
+		                                    QuotedIdentifier(overrides))
+		               : StringUtil::Format(" WHERE q.wording NOT IN (SELECT CAST(wording AS VARCHAR) FROM %s)",
+		                                    QuotedIdentifier(overrides));
+	}
+	auto sql = StringUtil::Format(R"(
+		WITH decisions AS (
+			SELECT * FROM classify_to_catalogue(items_table := %s, catalogue_table := %s, mode := %s, top := 2,
+			                                    temperature := %s, center_by_source := %s)),
+		occurrences AS (
+			SELECT %s AS tree_id, CAST(i.node_id AS VARCHAR) AS node_id, %s AS wording, %s AS source FROM %s i),
+		fit AS (
+			SELECT o.wording, o.source, CAST(d.class_id AS VARCHAR) AS class_id, avg(%s) AS similarity
+			FROM occurrences o JOIN %s i ON CAST(i.node_id AS VARCHAR) = o.node_id AND %s IS NOT DISTINCT FROM o.tree_id,
+			     %s d
+			GROUP BY ALL),
+		per_class AS (
+			SELECT o.wording, o.source, d.class_id, avg(d.p) AS p
+			FROM decisions d JOIN occurrences o ON o.node_id = CAST(d.node_id AS VARCHAR)
+			     AND o.tree_id IS NOT DISTINCT FROM CAST(d.tree_id AS VARCHAR)
+			GROUP BY ALL),
+		ranked AS (
+			SELECT *, row_number() OVER (PARTITION BY wording, source ORDER BY p DESC, class_id) AS rank FROM per_class),
+		counts AS (
+			SELECT wording, source, count(*) AS n_occurrences, count(DISTINCT coalesce(tree_id, node_id)) AS n_trees_affected
+			FROM occurrences GROUP BY ALL),
+		q AS (
+			SELECT c.wording, c.source, c.n_occurrences, c.n_trees_affected,
+			       r1.class_id AS top1, r1.p AS p1, r2.class_id AS top2, r2.p AS p2,
+			       r1.p - coalesce(r2.p, 0) AS margin, f.similarity, f.similarity >= %s AS fits
+			FROM counts c
+			JOIN ranked r1 ON r1.wording = c.wording AND r1.source IS NOT DISTINCT FROM c.source AND r1.rank = 1
+			LEFT JOIN ranked r2 ON r2.wording = c.wording AND r2.source IS NOT DISTINCT FROM c.source AND r2.rank = 2
+			LEFT JOIN fit f ON f.wording = c.wording AND f.source IS NOT DISTINCT FROM c.source
+			     AND f.class_id = CAST(r1.class_id AS VARCHAR))
+		SELECT wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, similarity, fits,
+		       CASE WHEN fits = false THEN n_trees_affected ELSE n_trees_affected * (1 - margin) END AS impact
+		FROM q%s
+		ORDER BY impact DESC, wording)",
+	    QuoteSQLStringLiteral(items), QuoteSQLStringLiteral(dictionary), QuoteSQLStringLiteral(mode),
+	    DoubleLiteral(temperature), center_by_source ? "true" : "false", tree, label, source, QuotedIdentifier(items),
+	    similarity, QuotedIdentifier(items), tree, QuotedIdentifier(dictionary), min_similarity, reviewed);
+	return CoverageSubquery(sql, context, "suggest_semantic_id");
+}
+
+void RegisterSuggestSemanticId(ExtensionLoader &loader) {
+	auto vc = LogicalType::VARCHAR;
+	RegisterCoverageTableFunction(
+	    loader, "suggest_semantic_id", {vc, vc}, {"items_table", "dictionary_table"}, SuggestSemanticIdBindReplace,
+	    {{"mode", vc}, {"temperature", LogicalType::DOUBLE}, {"center_by_source", LogicalType::BOOLEAN},
+	     {"overrides_table", vc}, {"min_similarity", LogicalType::DOUBLE}},
+	    "Suggests dictionary ids (ECLASS or your own catalogue) for uncoded attribute names or capability labels, as "
+	    "a review queue in the shape of vocabulary_review_queue: wording, source, n_occurrences, n_trees_affected, "
+	    "top1, p1, top2, p2, margin, similarity (the raw maxsim or cosine of top1: an absolute fit, since p is relative "
+	    "to the dictionary and the best of poor candidates looks certain), fits (similarity >= min_similarity, NULL "
+	    "without one) and impact = n_trees_affected x (1 - margin), or n_trees_affected when fits is false, highest "
+	    "impact first. It runs "
+	    "classify_to_catalogue: items_table (node_id, vec[, tree_id, source, label, tokens]; the wording is label, "
+	    "else node_id) against dictionary_table (class_id = the dictionary id, vec[, exemplar_tokens]). mode "
+	    "'late_interaction' (default; maxsim of the wording's tokens over example phrasings, the strongest signal) "
+	    "or 'centroid'; temperature default 0.1; center_by_source default false. Wordings in overrides_table "
+	    "(wording[, source], class_id) are reviewed and leave the queue. Confirm suggestions with "
+	    "apply_vocabulary_review and use the result as attr_key or as overrides_table. No dictionary content ships "
+	    "with the extension: bring your own vectors.",
+	    {"SELECT wording, top1, p1, margin FROM suggest_semantic_id('uncoded_names', 'eclass_examples') LIMIT 20;"},
+	    AAS_CATEGORIES);
 }
 
 //------------------------------------------------------------------------------
@@ -809,6 +1008,8 @@ void RegisterAasFunctions(ExtensionLoader &loader) {
 	RegisterAasIdB64Url(loader);
 	RegisterAttrsSatisfying(loader);
 	RegisterAasWriters(loader);
+	RegisterAasQuality(loader);
+	RegisterSuggestSemanticId(loader);
 }
 
 } // namespace anofox

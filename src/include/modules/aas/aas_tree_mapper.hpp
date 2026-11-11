@@ -66,6 +66,7 @@ struct AasMapping {
 	std::vector<TreeNodeRow> nodes;
 	std::vector<AasIssue> issues;
 	std::vector<ClassEdge> class_hierarchy;
+	std::vector<std::pair<std::string, std::string>> submodel_trees; // (submodel id, tree id)
 };
 
 struct AasMapOptions {

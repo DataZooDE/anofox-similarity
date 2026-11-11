@@ -1,0 +1,340 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://nordwerk.example/aas/nd-5",
+      "idShort": "Nordwerk_ND_5",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://nordwerk.example/asset/nd-5"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://nordwerk.example/aas/nd-5/sm/technical-data"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://nordwerk.example/aas/nd-5/sm/technical-data",
+      "idShort": "TechnicalData",
+      "kind": "Instance",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/ZVEI/TechnicalData/Submodel/1/2"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "TechnicalProperties",
+          "value": [
+            {
+              "modelType": "Property",
+              "idShort": "Nennstrom",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Nennstrom"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "9",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Nennstrom"
+                      }
+                    ],
+                    "unit": "A"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Ausgangsnennstrom",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Ausgangsnennstrom"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "9",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Ausgangsnennstrom"
+                      }
+                    ],
+                    "unit": "A"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Spitzenstrom3S",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Spitzenstrom (3 s)"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "27",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Spitzenstrom (3 s)"
+                      }
+                    ],
+                    "unit": "A"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Netzspannung",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Netzspannung"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "400",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Netzspannung"
+                      }
+                    ],
+                    "unit": "V"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "UmgebungstemperaturMax",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Umgebungstemperatur max."
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "50",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Umgebungstemperatur max."
+                      }
+                    ],
+                    "unit": "°C"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Zykluszeit",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Zykluszeit"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "0.5",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Zykluszeit"
+                      }
+                    ],
+                    "unit": "ms"
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Feldbusschnittstelle",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Feldbusschnittstelle"
+                }
+              ],
+              "valueType": "xs:string",
+              "value": "EtherCAT"
+            },
+            {
+              "modelType": "Property",
+              "idShort": "SafeTorqueOff",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Safe Torque Off"
+                }
+              ],
+              "valueType": "xs:boolean",
+              "value": "true"
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Schutzart",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Schutzart"
+                }
+              ],
+              "valueType": "xs:string",
+              "value": "IP65"
+            },
+            {
+              "modelType": "Property",
+              "idShort": "Gewicht",
+              "displayName": [
+                {
+                  "language": "de",
+                  "text": "Gewicht"
+                }
+              ],
+              "valueType": "xs:double",
+              "value": "4.2",
+              "embeddedDataSpecifications": [
+                {
+                  "dataSpecification": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                      }
+                    ]
+                  },
+                  "dataSpecificationContent": {
+                    "modelType": "DataSpecificationIec61360",
+                    "preferredName": [
+                      {
+                        "language": "en",
+                        "text": "Gewicht"
+                      }
+                    ],
+                    "unit": "kg"
+                  }
+                }
+              ]
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/ZVEI/TechnicalData/TechnicalProperties/1/1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": []
+}

@@ -1,0 +1,140 @@
+# name: test/sql/aas/uc_09_suggest_ids_for_uncoded_attributes.test
+# description: A new supplier, Nordwerk, sends an AAS without a single semanticId: German names
+#              only. The quality report shows it. suggest_semantic_id proposes dictionary ids
+#              from example phrasings (late interaction over the company's own embeddings, no
+#              ECLASS content shipped). The reviewer confirms them once with the existing
+#              vocabulary review. After that the offer is matched by key and written back as
+#              coded AAS. A wording nothing in the dictionary fits ("Gewicht") goes to the top of
+#              the queue, not into the data.
+# group: [aas]
+
+require anofox_similarity
+
+#------------------------------------------------------------------------------
+# Quality report: what the matching can use, per submodel, without the kernel
+#------------------------------------------------------------------------------
+
+query TTIIRIIII
+SELECT split_part(filename, '/', -1), q.submodel, q.n_values, q.n_with_semantic_id, round(q.semantic_id_share, 3),
+       q.n_missing_concept_description, q.n_unresolved_units, q.n_unparseable, q.n_mixed_releases
+FROM (SELECT filename, unnest(aas_quality(content)) AS q
+      FROM read_blob(['test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json', 'test/data/aas/scenario/offers/*']))
+ORDER BY 1, 2;
+----
+driventa_ds12.aas.xml	CapabilityDescription	6	6	1.0	0	0	0	0
+kessler_ksd10.aasx	CapabilityDescription	6	6	1.0	1	1	1	0
+lenvaro_lx8.aas.json	CapabilityDescription	6	6	1.0	0	0	0	1
+lenvaro_lx8.aas.json	TechnicalData	3	3	1.0	0	0	0	1
+nordwerk_nd5.aas.json	TechnicalData	10	0	0.0	0	0	0	0
+orbitec_ox6.aas.json	CapabilityDescription	7	7	1.0	0	0	0	0
+orbitec_ox6.aas.json	TechnicalData	1	1	1.0	0	0	0	0
+
+# Lenvaro's mixed releases: the rated current as #007 in TechnicalData, #008 in its capabilities
+query T
+SELECT DISTINCT a.attr_key FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_text('test/data/aas/scenario/offers/lenvaro_lx8.aas.json'))) WHERE a.attr_key LIKE '0173-1#02-BAA120%' ORDER BY 1;
+----
+0173-1#02-BAA120#007
+0173-1#02-BAA120#008
+
+#------------------------------------------------------------------------------
+# Suggestions: a review queue, the unfit wording first
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE uncoded_names AS
+SELECT node_id, tree_id, label, vec::DOUBLE[] AS vec, tokens::DOUBLE[][] AS tokens
+FROM read_csv('test/data/aas/scenario/enrichment/uncoded_names.csv');
+
+statement ok
+CREATE TABLE eclass_examples AS
+SELECT class_id, label, vec::DOUBLE[] AS vec, exemplar_tokens::DOUBLE[][] AS exemplar_tokens
+FROM read_csv('test/data/aas/scenario/enrichment/dictionary_examples.csv');
+
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv('test/data/aas/scenario/enrichment/gold_suggestions.csv', all_varchar := true);
+
+statement ok
+CREATE TABLE suggestions AS SELECT * FROM suggest_semantic_id('uncoded_names', 'eclass_examples', min_similarity := 0.35);
+
+# Every wording that has a dictionary entry gets the right one; "Gewicht" (weight) has none
+query II
+SELECT count(*) FILTER (s.top1 = g.semantic_id AND s.fits), count(*) FILTER (g.semantic_id IS NULL AND NOT s.fits)
+FROM suggestions s JOIN gold g USING (wording);
+----
+9	1
+
+# The queue: what needs a human first. The class probability alone would have called "Gewicht"
+# certain (p1 0.999 for "safe torque off"); the raw similarity says nothing fits
+query TTRT
+SELECT wording, top1, round(p1, 3), fits FROM suggestions ORDER BY impact DESC, wording LIMIT 2;
+----
+Gewicht	0173-1#02-AAZ903#001	0.999	false
+Spitzenstrom (3 s)	0173-1#02-BAA121#008	1.0	true
+
+# Centroid mode works too, as with classify_to_catalogue
+query I
+SELECT count(*) FROM suggest_semantic_id('uncoded_names', 'eclass_examples', mode := 'centroid') s JOIN gold g USING (wording)
+WHERE s.top1 = g.semantic_id;
+----
+9
+
+statement error
+SELECT * FROM suggest_semantic_id('uncoded_names', 'eclass_examples', mode := 'late_interaction', center_by_source := true, min_similarity := NULL, temperature := 0, overrides_table := 'nope');
+----
+suggest_semantic_id: overrides_table 'nope' does not exist
+
+#------------------------------------------------------------------------------
+# Review once with the existing workflow, then match by key
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE review AS
+SELECT wording, top1 AS class_id, 'jr' AS reviewed_by, DATE '2026-11-11' AS reviewed_at FROM suggestions WHERE fits;
+
+statement ok
+CREATE TABLE attribute_keys AS SELECT * FROM apply_vocabulary_review('review', overrides_table := NULL);
+
+# Reviewed wordings leave the queue; only the unfit one is left
+query T
+SELECT wording FROM suggest_semantic_id('uncoded_names', 'eclass_examples', overrides_table := 'attribute_keys', min_similarity := 0.35);
+----
+Gewicht
+
+statement ok
+CREATE TABLE raw AS SELECT unnest(aas_to_trees(content)) AS n FROM read_text('test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+statement ok
+UPDATE tree_attributes SET attr_key = k.class_id FROM attribute_keys k WHERE tree_attributes.name = k.wording AND tree_attributes.attr_key IS NULL;
+
+query TT
+SELECT name, attr_key FROM tree_attributes ORDER BY name;
+----
+Ausgangsnennstrom	0173-1#02-BAA120#008
+Gewicht	NULL
+Nennstrom	0173-1#02-BAA120#008
+Netzspannung	0173-1#02-AAB381#005
+Safe Torque Off	0173-1#02-AAZ903#001
+Schutzart	0173-1#02-AAZ904#001
+Spitzenstrom (3 s)	0173-1#02-BAA121#008
+Umgebungstemperatur max.	0173-1#02-BAA039#012
+Zykluszeit	0173-1#02-AAZ901#002
+
+# Now Nordwerk answers the service engineer's query by key (uc_07), in its own words
+query TT
+SELECT name, value FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens 7637,1 mA', 'de')) WHERE satisfied ORDER BY 1;
+----
+Ausgangsnennstrom	9 A
+Nennstrom	9 A
+
+# Written back, the offer is coded AAS: every confirmed key is a semanticId
+query RI
+SELECT round(q.semantic_id_share, 3), q.n_values FROM (SELECT unnest(aas_quality(aas_json)) AS q FROM aas_export());
+----
+0.889	9

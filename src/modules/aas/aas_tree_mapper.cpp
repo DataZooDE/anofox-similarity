@@ -483,6 +483,7 @@ private:
 		auto path = node.node_id;
 		in_template = sm.kind == "Template";
 		submodel_id = sm.id;
+		out.submodel_trees.emplace_back(sm.id, tree_id);
 		auto index = Add(std::move(node));
 		MapChildren(sm.elements, index, path, false, "");
 	}

@@ -68,7 +68,7 @@ PAGES = {
         "weighted_minhash", "minhash_similarity", "lsh_bands", "minhash_index", "minhash_bands",
         "find_covering_entities_lsh", "connected_components", "cluster_matches",
     ],
-    "17-aas.md": ["semantic_key", "aas_to_trees", "aas_issues", "aas_class_hierarchy", "aas_id_b64url", "attrs_satisfying", "trees_to_aas", "aas_export", "aas_coverage_result", "coverage_result_to_aas"],
+    "17-aas.md": ["semantic_key", "aas_to_trees", "aas_issues", "aas_class_hierarchy", "aas_id_b64url", "attrs_satisfying", "trees_to_aas", "aas_export", "aas_coverage_result", "coverage_result_to_aas", "aas_quality", "suggest_semantic_id"],
 }
 
 KIND = {

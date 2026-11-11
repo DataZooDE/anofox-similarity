@@ -25,8 +25,10 @@ Same seed, byte-identical files.
 """
 
 import csv
+import hashlib
 import io
 import json
+import math
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -620,6 +622,115 @@ def io_offer(profile):
     return environment([s], [sm], [concept_description(INPUT_VOLTAGE), concept_description(OUTPUT_CURRENT)])
 
 
+# --------------------------------------------------------------------------------------------
+# Enrichment (GitHub #36): a supplier AAS without semanticIds, a dictionary of example phrasings
+# and the ids a reviewer would confirm. Vectors are hashed character trigrams (deterministic, a
+# lexical stand-in for the sentence encoder a user would bring); no ECLASS content.
+# --------------------------------------------------------------------------------------------
+
+DIM = 64
+DICTIONARY = [  # (id, label, example phrasings: what suppliers actually write, EN and DE)
+    (RATED_CURRENT[0], "rated output current", ["rated current", "rated output current", "Nennstrom",
+                                                "Bemessungsstrom", "continuous output current", "Dauerstrom"]),
+    (PEAK_CURRENT[0], "peak output current", ["peak current", "peak output current", "Spitzenstrom",
+                                              "Maximalstrom", "short-time current"]),
+    (SUPPLY_VOLTAGE[0], "supply voltage", ["supply voltage", "mains voltage", "input voltage", "Versorgungsspannung",
+                                           "Netzspannung", "Anschlussspannung"]),
+    (AMBIENT_TEMP[0], "max. ambient temperature", ["ambient temperature", "max. ambient temperature",
+                                                   "operating temperature", "Umgebungstemperatur",
+                                                   "Betriebstemperatur"]),
+    (CYCLE_TIME[0], "minimum bus cycle time", ["bus cycle time", "cycle time", "Zykluszeit", "Buszykluszeit"]),
+    (FIELDBUS[0], "fieldbus protocol", ["fieldbus", "fieldbus protocol", "communication interface", "Feldbus",
+                                        "Kommunikationsschnittstelle"]),
+    (STO[0], "safe torque off (STO)", ["safe torque off", "STO", "sicher abgeschaltetes Moment"]),
+    ("0173-1#02-AAZ904#001", "degree of protection", ["degree of protection", "IP rating", "Schutzart",
+                                                      "protection class"]),
+]
+# (wording as the supplier wrote it, unit, value, gold id or None when nothing in the dictionary fits)
+UNCODED = [
+    ("Nennstrom", "A", "9", RATED_CURRENT[0]),
+    ("Ausgangsnennstrom", "A", "9", RATED_CURRENT[0]),
+    ("Spitzenstrom (3 s)", "A", "27", PEAK_CURRENT[0]),
+    ("Netzspannung", "V", "400", SUPPLY_VOLTAGE[0]),
+    ("Umgebungstemperatur max.", "°C", "50", AMBIENT_TEMP[0]),
+    ("Zykluszeit", "ms", "0.5", CYCLE_TIME[0]),
+    ("Feldbusschnittstelle", "", "EtherCAT", FIELDBUS[0]),
+    ("Safe Torque Off", "", "true", STO[0]),
+    ("Schutzart", "", "IP65", "0173-1#02-AAZ904#001"),
+    ("Gewicht", "kg", "4.2", None),
+]
+
+
+def trigram_vector(text):
+    v = [0.0] * DIM
+    for word in text.lower().replace("(", " ").replace(")", " ").replace(".", " ").split():
+        padded = f"#{word}#"
+        for i in range(len(padded) - 2):
+            h = hashlib.md5(padded[i:i + 3].encode("utf-8")).digest()
+            v[h[0] % DIM] += 1.0 if h[1] % 2 else -1.0
+    norm = math.sqrt(sum(x * x for x in v)) or 1.0
+    return [round(x / norm, 6) for x in v]
+
+
+def word_vectors(text):
+    words = [w for w in text.replace("(", " ").replace(")", " ").split() if w.strip(".")]
+    return [trigram_vector(w) for w in words] or [trigram_vector(text)]
+
+
+def centroid(vectors):
+    v = [sum(c) for c in zip(*vectors)]
+    norm = math.sqrt(sum(x * x for x in v)) or 1.0
+    return [round(x / norm, 6) for x in v]
+
+
+def vec_text(v):
+    return "[" + ", ".join(f"{x:g}" for x in v) + "]"
+
+
+def tokens_text(vs):
+    return "[" + ", ".join(vec_text(v) for v in vs) + "]"
+
+
+def uncoded_offer():
+    """Nordwerk ND-5: a TechnicalData submodel with plain German names and no semanticIds."""
+    props = []
+    for name, unit, value, _ in UNCODED:
+        id_short = "".join(ch for ch in name.title() if ch.isalnum())
+        value_type = "xs:boolean" if value == "true" else "xs:string" if not unit else "xs:double"
+        p = {"modelType": "Property", "idShort": id_short, "displayName": [{"language": "de", "text": name}],
+             "valueType": value_type, "value": value}
+        if unit:
+            p["embeddedDataSpecifications"] = iec61360(name, unit)
+        props.append(p)
+    sm = technical_data("https://nordwerk.example/aas/nd-5/sm/technical-data", props)
+    s = shell("https://nordwerk.example/aas/nd-5", "Nordwerk_ND_5", "https://nordwerk.example/asset/nd-5", [sm])
+    return environment([s], [sm], [])
+
+
+def write_enrichment(out_dir):
+    d = out_dir / "enrichment"
+    d.mkdir(exist_ok=True)
+    (d / "nordwerk_nd5.aas.json").write_text(json.dumps(uncoded_offer(), indent=2, ensure_ascii=False) + "\n",
+                                             encoding="utf-8")
+    with open(d / "dictionary_examples.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["class_id", "label", "vec", "exemplar_tokens"])
+        for cid, label, examples in DICTIONARY:
+            tokens = [t for e in examples for t in word_vectors(e)]
+            w.writerow([cid, label, vec_text(centroid([trigram_vector(e) for e in examples])), tokens_text(tokens)])
+    with open(d / "uncoded_names.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["node_id", "tree_id", "label", "vec", "tokens"])
+        for name, _, _, _ in UNCODED:
+            w.writerow([name, "https://nordwerk.example/aas/nd-5", name, vec_text(trigram_vector(name)),
+                        tokens_text(word_vectors(name))])
+    with open(d / "gold_suggestions.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["wording", "semantic_id"])
+        for name, _, _, gold in UNCODED:
+            w.writerow([name, gold or ""])
+
+
 # Ground truth from the clean values: (offer, capability, property) -> met
 REQUIRED = {"RatedCurrent": ("at_least", 7.6), "SupplyVoltage": ("within", (380, 480)),
             "AmbientTemperature": ("at_least", 45), "SafeTorqueOff": ("equals", "true"),
@@ -687,6 +798,8 @@ def write(out_dir):
     dump_json(sealing / "offers" / "siegtech_st3.aas.json", offer_siegtech())
     (sealing / "offers" / "varipack_vp9.aas.xml").write_text(to_xml(offer_varipack()), encoding="utf-8")
     dump_json(sealing / "capability_taxonomy.aas.json", capability_taxonomy())
+
+    write_enrichment(out_dir)
 
     io = out_dir / "io_profile"
     io.mkdir(exist_ok=True)
