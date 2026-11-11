@@ -754,3 +754,8 @@ they are matched. These decisions take precedence over the text above.
    is the plain coefficient, so existing results are unchanged; the benchmark regression is in
    `test/sql/aas/uc_05_general_offer_gets_partial_credit.test`. A related match must still pass
    `partition_gate` and `count_gate`. Stage-1 recall stays class-exact.
+6. **A small AAS profile for what AAS cannot say** (#33, guide `docs/guides/10-aas-profile.md`).
+   A qualifier `anofox:VariantGroup` makes a collection's children OR alternatives; a qualifier
+   `anofox:Count` or a Property with semanticId `https://data-zoo.de/anofox/aas/Count/1/0` sets a
+   node count. Plain AAS without the markers loads unchanged. Known limit: each requirement
+   chooses its best alternative (§4.6), so one request may draw on two configurations.

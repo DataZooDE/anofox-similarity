@@ -44,6 +44,26 @@ const char *CONSTRAINT_HAS_PROPERTY = "/CapabilityDescription/ConstraintHasPrope
 const char *COMPOSED_OF = "/CapabilityDescription/CapabilityComposedOf/";
 const char *GENERALIZED_BY = "/CapabilityDescription/CapabilityGeneralizedBy/";
 
+// The DataZoo AAS profile (docs/guides/10-aas-profile.md): what AAS cannot say about
+// configuration spaces and additive counts
+const char *PROFILE_VARIANT_GROUP = "anofox:VariantGroup";
+const char *PROFILE_COUNT = "anofox:Count";
+const char *PROFILE_COUNT_ID = "data-zoo.de/anofox/aas/Count";
+
+const AasQualifier *FindQualifier(const AasElement &e, const char *type) {
+	for (auto &q : e.qualifiers) {
+		if (q.type == type) {
+			return &q;
+		}
+	}
+	return nullptr;
+}
+
+//! A Property with the profile's Count semanticId: the count of its collection, not a value.
+bool IsCountProperty(const AasElement &e) {
+	return e.model_type == "Property" && Contains(e.semantic_id, PROFILE_COUNT_ID);
+}
+
 //! An idShort path in one spelling for lookups: list indices as path segments (a[0] -> a.0).
 std::string NormalPath(const std::string &path) {
 	std::string out;
@@ -400,7 +420,7 @@ private:
 			bool stated = (e.has_min && !Trim(e.min).empty()) || (e.has_max && !Trim(e.max).empty());
 			return stated || (numeric && !in_template);
 		}
-		if (e.model_type != "Property") {
+		if (e.model_type != "Property" || IsCountProperty(e)) {
 			return false;
 		}
 		if (!e.value_id.empty()) {
@@ -640,11 +660,43 @@ private:
 		}
 	}
 
+	//! The count of a collection (profile): the anofox:Count qualifier, else a Count property among its
+	//! children. 1 when none; a count that is not a positive number is reported and ignored.
+	double NodeCount(const AasElement &e, const std::string &path) {
+		std::string text;
+		auto q = FindQualifier(e, PROFILE_COUNT);
+		if (q) {
+			text = q->value;
+		} else {
+			for (auto &c : e.children) {
+				if (IsCountProperty(c)) {
+					text = c.value;
+					break;
+				}
+			}
+		}
+		if (text.empty()) {
+			return 1;
+		}
+		auto n = ParseXsdNumber(text, false);
+		if ((n.status != XsdNumberStatus::OK && n.status != XsdNumberStatus::DECIMAL_COMMA) || n.value <= 0) {
+			Issue(tree_id, path, "bad_count", "warning", "count '" + Trim(text) + "' is not a positive number; 1 is used");
+			return 1;
+		}
+		return n.value;
+	}
+
 	void MapChildren(const std::vector<AasElement> &children, idx_t parent, const std::string &path, bool in_list,
 	                 const std::string &role) {
+		bool alternatives = out.nodes[parent].node_kind == "variant_group";
 		for (idx_t i = 0; i < children.size(); i++) {
 			auto &c = children[i];
 			auto child_path = ChildPath(path, c, i, in_list);
+			if (alternatives && (IsValueLeaf(c) || IsValueList(c))) {
+				Issue(tree_id, child_path, "value_in_variant_group", "warning",
+				      "a variant group holds alternatives, not values: this value is ignored");
+				continue;
+			}
 			if (IsValueLeaf(c)) {
 				AddAttribute(parent, c, nullptr, child_path, AttrId(c, child_path), Label(c), role);
 			} else if (IsValueList(c)) {
@@ -669,14 +721,24 @@ private:
 		node.parent_id = out.nodes[parent].node_id;
 		node.label = Label(e);
 		node.context = out.nodes[parent].node_id;
-		bool item = HasDirectValues(e.children);
-		node.node_kind = item ? "item" : "container";
+		bool variants = FindQualifier(e, PROFILE_VARIANT_GROUP) != nullptr;
+		bool item = !variants && HasDirectValues(e.children);
+		node.node_kind = variants ? "variant_group" : item ? "item" : "container";
+		node.count = NodeCount(e, path);
 		if (item) {
 			auto id = DictionaryId(e);
 			node.class_id = id.empty() ? std::string() : SemanticKey(id).key;
 		}
 		auto index = Add(std::move(node));
 		MapChildren(e.children, index, path, e.model_type == "SubmodelElementList", role);
+		if (variants) {
+			auto &group = out.nodes[index].node_id;
+			for (idx_t k = index + 1; k < out.nodes.size(); k++) {
+				if (out.nodes[k].tree_id == tree_id && out.nodes[k].parent_id == group) {
+					out.nodes[k].edge_type = "OR"; // each child is one alternative
+				}
+			}
+		}
 	}
 
 	//! A Capability outside a CapabilityContainer: an item without attributes.
@@ -713,6 +775,7 @@ private:
 		node.parent_id = out.nodes[parent].node_id;
 		node.node_kind = "item";
 		node.context = out.nodes[parent].node_id;
+		node.count = NodeCount(e, path);
 		std::string role;
 		if (capability) {
 			node.label = Label(*capability);

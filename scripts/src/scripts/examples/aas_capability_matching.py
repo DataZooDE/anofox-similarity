@@ -562,6 +562,64 @@ def capability_taxonomy():
     return environment([s], [sm], [])
 
 
+# --------------------------------------------------------------------------------------------
+# The DataZoo AAS profile (docs/guides/10-aas-profile.md): a remote I/O station with three
+# configurations (one is chosen: a variant group) and channels counted per card (additive counts)
+# --------------------------------------------------------------------------------------------
+
+PROFILE_COUNT_ID = "https://data-zoo.de/anofox/aas/Count/1/0"
+DI_CLASS = "0173-1#01-AAZ100#001"  # digital input channel (illustrative)
+DO_CLASS = "0173-1#01-AAZ110#001"  # digital output channel (illustrative)
+INPUT_VOLTAGE = ("0173-1#02-AAZ101#001", "input voltage", "V", "")
+OUTPUT_CURRENT = ("0173-1#02-AAZ111#001", "output current per channel", "A", "")
+
+
+def profile_qualifier(kind, value=None):
+    q = {"type": kind, "kind": "ConceptQualifier", "valueType": "xs:int" if value is not None else "xs:string",
+         "value": str(value) if value is not None else "true"}
+    return [q]
+
+
+def channels(id_short, cls, count, prop_element, profile):
+    elements = [prop_element]
+    if profile:
+        elements.insert(0, prop("ChannelCount", str(count), "xs:int", semantic=PROFILE_COUNT_ID))
+    return smc(id_short, elements, semantic=cls)
+
+
+def card(id_short, n_cards, content, profile):
+    return smc(id_short, [content], qualifiers=profile_qualifier("anofox:Count", n_cards) if profile else None)
+
+
+def io_request():
+    """RFQ-2026-311: 20 digital inputs at 24 V and 8 outputs of at least 0.5 A."""
+    sm = {"modelType": "Submodel", "id": "https://kroeger-vt.example/aas/rfq-2026-311/sm/io", "idShort": "IORequirements",
+          "kind": "Instance", "submodelElements": [
+              channels("DigitalInputs", DI_CLASS, 20, prop("InputVoltage", "24", semantic=INPUT_VOLTAGE[0]), True),
+              channels("DigitalOutputs", DO_CLASS, 8, rng("OutputCurrent", "0.5", None, semantic=OUTPUT_CURRENT[0]),
+                       True)]}
+    s = shell("https://kroeger-vt.example/aas/rfq-2026-311", "RFQ_2026_311",
+              "https://kroeger-vt.example/asset/tray-sealer-ts40/io", [sm])
+    return environment([s], [sm], [concept_description(INPUT_VOLTAGE), concept_description(OUTPUT_CURRENT)])
+
+
+def io_offer(profile):
+    """Ostwald IO-S: one station, three configurations; with the profile or as plain AAS."""
+    di = lambda n: channels("DigitalInputs", DI_CLASS, n, prop("InputVoltage", "24", semantic=INPUT_VOLTAGE[0]),
+                            profile)
+    do = lambda n, amps: channels("DigitalOutputs", DO_CLASS, n,
+                                  prop("OutputCurrent", amps, semantic=OUTPUT_CURRENT[0]), profile)
+    configurations = smc("Configuration", [
+        smc("Config16DI", [card("DI8Card", 2, di(8), profile)]),
+        smc("Config8DI8DO", [di(8), do(8, "0.5")]),
+        smc("Config16DI8DO", [card("DI8Card", 2, di(8), profile), do(8, "2")]),
+    ], qualifiers=profile_qualifier("anofox:VariantGroup") if profile else None)
+    sm = {"modelType": "Submodel", "id": "https://ostwald-io.example/aas/io-s/sm/configurations",
+          "idShort": "Configurations", "kind": "Instance", "submodelElements": [configurations]}
+    s = shell("https://ostwald-io.example/aas/io-s", "Ostwald_IO_S", "https://ostwald-io.example/asset/io-s", [sm])
+    return environment([s], [sm], [concept_description(INPUT_VOLTAGE), concept_description(OUTPUT_CURRENT)])
+
+
 # Ground truth from the clean values: (offer, capability, property) -> met
 REQUIRED = {"RatedCurrent": ("at_least", 7.6), "SupplyVoltage": ("within", (380, 480)),
             "AmbientTemperature": ("at_least", 45), "SafeTorqueOff": ("equals", "true"),
@@ -629,6 +687,12 @@ def write(out_dir):
     dump_json(sealing / "offers" / "siegtech_st3.aas.json", offer_siegtech())
     (sealing / "offers" / "varipack_vp9.aas.xml").write_text(to_xml(offer_varipack()), encoding="utf-8")
     dump_json(sealing / "capability_taxonomy.aas.json", capability_taxonomy())
+
+    io = out_dir / "io_profile"
+    io.mkdir(exist_ok=True)
+    dump_json(io / "rfq_2026_311.aas.json", io_request())
+    dump_json(io / "ostwald_ios.aas.json", io_offer(profile=True))
+    dump_json(io / "ostwald_ios_plain.aas.json", io_offer(profile=False))
 
     with open(out_dir / "eclass_units.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, lineterminator="\n")

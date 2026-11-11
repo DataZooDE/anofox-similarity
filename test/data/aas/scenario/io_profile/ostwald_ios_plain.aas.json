@@ -1,0 +1,278 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://ostwald-io.example/aas/io-s",
+      "idShort": "Ostwald_IO_S",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://ostwald-io.example/asset/io-s"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://ostwald-io.example/aas/io-s/sm/configurations"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://ostwald-io.example/aas/io-s/sm/configurations",
+      "idShort": "Configurations",
+      "kind": "Instance",
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "Configuration",
+          "value": [
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "Config16DI",
+              "value": [
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "DI8Card",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "DigitalInputs",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "InputVoltage",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "0173-1#02-AAZ101#001"
+                              }
+                            ]
+                          },
+                          "value": "24"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#01-AAZ100#001"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "Config8DI8DO",
+              "value": [
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "DigitalInputs",
+                  "value": [
+                    {
+                      "modelType": "Property",
+                      "idShort": "InputVoltage",
+                      "valueType": "xs:double",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAZ101#001"
+                          }
+                        ]
+                      },
+                      "value": "24"
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#01-AAZ100#001"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "DigitalOutputs",
+                  "value": [
+                    {
+                      "modelType": "Property",
+                      "idShort": "OutputCurrent",
+                      "valueType": "xs:double",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAZ111#001"
+                          }
+                        ]
+                      },
+                      "value": "0.5"
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#01-AAZ110#001"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "Config16DI8DO",
+              "value": [
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "DI8Card",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "DigitalInputs",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "InputVoltage",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "0173-1#02-AAZ101#001"
+                              }
+                            ]
+                          },
+                          "value": "24"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#01-AAZ100#001"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "DigitalOutputs",
+                  "value": [
+                    {
+                      "modelType": "Property",
+                      "idShort": "OutputCurrent",
+                      "valueType": "xs:double",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "0173-1#02-AAZ111#001"
+                          }
+                        ]
+                      },
+                      "value": "2"
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "0173-1#01-AAZ110#001"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": [
+    {
+      "modelType": "ConceptDescription",
+      "id": "0173-1#02-AAZ101#001",
+      "idShort": "InputVoltage",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "modelType": "DataSpecificationIec61360",
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "input voltage"
+              }
+            ],
+            "unit": "V"
+          }
+        }
+      ]
+    },
+    {
+      "modelType": "ConceptDescription",
+      "id": "0173-1#02-AAZ111#001",
+      "idShort": "OutputCurrentPerChannel",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "modelType": "DataSpecificationIec61360",
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "output current per channel"
+              }
+            ],
+            "unit": "A"
+          }
+        }
+      ]
+    }
+  ]
+}
