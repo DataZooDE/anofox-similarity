@@ -59,12 +59,27 @@ SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candida
 ----
 IO-S	0.9	1
 
-query TRR
-SELECT split_part(req_node_id, '.', -1), count_needed, count_available
+# One configuration for the whole request (alternatives := 'joint', the default): inputs and
+# outputs come from the same configuration, 16DI8DO
+query TRRT
+SELECT split_part(req_node_id, '.', -1), count_needed, count_available, split_part(matched_node_id, '.', 3)
 FROM tree_coverage_trace('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard') ORDER BY 1;
 ----
-DigitalInputs	20.0	16.0
-DigitalOutputs	8.0	8.0
+DigitalInputs	20.0	16.0	Config16DI8DO
+DigitalOutputs	8.0	8.0	Config16DI8DO
+
+# per_requirement lets each requirement take its own configuration (the inputs from 16DI)
+query TT
+SELECT split_part(req_node_id, '.', -1), split_part(matched_node_id, '.', 3)
+FROM tree_coverage_trace('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard', alternatives := 'per_requirement') ORDER BY 1;
+----
+DigitalInputs	Config16DI
+DigitalOutputs	Config16DI8DO
+
+statement error
+SELECT * FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], alternatives := 'all');
+----
+alternatives must be 'joint' or 'per_requirement'
 
 # Without the profile the file still loads: the configurations are siblings and every channel
 # block counts once, so the station looks far smaller than it is

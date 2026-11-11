@@ -2,9 +2,11 @@
 # description: The buyer needs a sealing station composed of hot-plate sealing and film cutting
 #              (IDTA-02020 ComposedOf). One supplier offers exactly that. Another offers only
 #              generic heat sealing, which the shared capability taxonomy (GeneralizedBy) names as
-#              the parent of hot-plate sealing. With a generalization credit the generic offer gets
+#              the parent of hot-plate sealing. The station has no properties of its own, so it is
+#              the sum of its parts (AAS-2). With a generalization credit the generic offer gets
 #              partial credit instead of a hard gap, and the trace marks the match as generalized.
-#              Without a hierarchy, results are unchanged.
+#              A specific offer fully meets a general requirement (is-a). Without a hierarchy,
+#              results are unchanged.
 # group: [aas]
 
 require anofox_similarity
@@ -21,14 +23,15 @@ CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
 statement ok
 CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
 
-# ComposedOf: the parts hang under the composite (AND), so the station needs both of them
-query TTT
-SELECT split_part(node_id, '.', -1), split_part(parent_id, '.', -1), edge_type FROM tree_nodes
-WHERE tree_id = 'RFQ-2026-204' AND node_kind = 'item' ORDER BY 1;
+# ComposedOf: the parts hang under the composite (AND); a composite without properties is a
+# container, so the parts are the requirements and no offer is asked for the label 'station'
+query TTTT
+SELECT split_part(node_id, '.', -1), split_part(parent_id, '.', -1), node_kind, edge_type FROM tree_nodes
+WHERE tree_id = 'RFQ-2026-204' AND node_id LIKE '%Container' ORDER BY 1;
 ----
-FilmCuttingContainer	SealingStationContainer	AND
-HotPlateSealingContainer	SealingStationContainer	AND
-SealingStationContainer	CapabilitySet	AND
+FilmCuttingContainer	SealingStationContainer	item	AND
+HotPlateSealingContainer	SealingStationContainer	item	AND
+SealingStationContainer	CapabilitySet	container	AND
 
 query I
 SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes');
@@ -53,22 +56,22 @@ ImpulseSealing	HeatSealing
 statement ok
 SET VARIABLE offers = ['https://siegtech.example/aas/st-3', 'https://varipack.example/aas/vp-9'];
 
-# Default: no credit for a more general offer; Varipack lacks the station and the hot-plate sealing
+# Default: no credit for a more general offer; Varipack lacks hot-plate sealing
 query TRI
 SELECT split_part(candidate_id, '/', 3), round(coverage, 3), n_gaps
 FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels := 'hard') ORDER BY rank;
 ----
 siegtech.example	1.0	0
-varipack.example	0.333	2
+varipack.example	0.5	1
 
-# A hierarchy without credit changes nothing
+# A hierarchy without credit gives a general offer nothing for a specific requirement
 query TRI
 SELECT split_part(candidate_id, '/', 3), round(coverage, 3), n_gaps
 FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels := 'hard',
                    class_hierarchy := 'class_hierarchy') ORDER BY rank;
 ----
 siegtech.example	1.0	0
-varipack.example	0.333	2
+varipack.example	0.5	1
 
 # With generalization_credit 0.5 heat sealing answers hot-plate sealing at half the label agreement
 query TRI
@@ -77,7 +80,7 @@ FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels :
                    class_hierarchy := 'class_hierarchy', generalization_credit := 0.5) ORDER BY rank;
 ----
 siegtech.example	1.0	0
-varipack.example	0.5	1
+varipack.example	0.75	0
 
 # The trace marks generalized matches
 query TTRTR
@@ -88,10 +91,9 @@ GROUP BY ALL ORDER BY 1;
 ----
 FilmCuttingContainer	FilmCuttingContainer	1.0	exact	1.0
 HotPlateSealingContainer	HeatSealingContainer	0.5	generalized	0.5
-SealingStationContainer	NULL	0.0	NULL	0.0
 
-# Both directions: a request for generic heat sealing gets the same partial credit from a
-# hot-plate offer; credit decays with distance (two levels: 0.5^2 = 0.25)
+# The other direction is is-a: a hot-plate sealer IS a heat sealer and a joining machine, so it
+# fully meets requirements for either, at any distance (label_rule 'specialized')
 statement ok
 CREATE TABLE deep_hierarchy AS SELECT * FROM class_hierarchy
 UNION ALL SELECT 'https://vocab.machinery.example/capability/HeatSealing', 'https://vocab.machinery.example/capability/Joining';
@@ -103,27 +105,14 @@ CREATE TABLE probe_nodes AS SELECT * FROM (VALUES
     ('O-hot', 'O-hot', NULL, 'item', 'AND', 'hot-plate sealing', 'https://vocab.machinery.example/capability/HotPlateSealing', 1.0)
 ) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
 
-query TR
-SELECT query_id, coverage
-FROM tree_coverage(['Q-heat', 'Q-join'], candidates := ['O-hot'], nodes_table := 'probe_nodes', attrs_table := NULL,
-                   labels := 'hard', class_hierarchy := 'deep_hierarchy', generalization_credit := 0.5,
-                   partition_gate := 0.2, count_gate := 0.2)
+query TRT
+SELECT query_id, req_score, label_rule
+FROM tree_coverage_trace(['Q-heat', 'Q-join'], candidates := ['O-hot'], nodes_table := 'probe_nodes', attrs_table := NULL,
+                         labels := 'hard', class_hierarchy := 'deep_hierarchy')
 ORDER BY 1;
 ----
-Q-heat	0.5
-Q-join	0.25
-
-# A related item answers a requirement only when its label agreement reaches the gates:
-# partition_gate (0.3, for reviewed trees, as these are) and count_gate (0.5). By default a
-# grandparent (0.25) is too weak an agreement
-query TR
-SELECT query_id, coverage
-FROM tree_coverage(['Q-heat', 'Q-join'], candidates := ['O-hot'], nodes_table := 'probe_nodes', attrs_table := NULL,
-                   labels := 'hard', class_hierarchy := 'deep_hierarchy', generalization_credit := 0.5)
-ORDER BY 1;
-----
-Q-heat	0.5
-Q-join	0.0
+Q-heat	1.0	specialized
+Q-join	1.0	specialized
 
 # Soft labels use the same relation: Bhattacharyya with related classes credited
 statement ok

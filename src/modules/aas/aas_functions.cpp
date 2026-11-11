@@ -325,12 +325,21 @@ void RegisterAasReader(ExtensionLoader &loader) {
 	    compat_anofox::ScalarBind<&AasClassHierarchyBind>(),
 	    "The capability class hierarchy of IDTA-02020 CapabilityGeneralizedBy relations: LIST of STRUCT(class_id, "
 	    "parent_class_id), class ids as in aas_to_trees (the second element may also be an external ontology IRI). "
-	    "Store it as a table and pass it to tree_coverage as class_hierarchy with a generalization_credit, so a "
-	    "requirement for a specific capability gets partial credit from a more general offer and vice versa. Same "
-	    "arguments as aas_to_trees.",
+	    "Store it as a table and pass it to tree_coverage as class_hierarchy: an offer of a subclass then fully meets "
+	    "a requirement of its superclass (is-a), and with a generalization_credit c a superclass offer gets c^d for "
+	    "a subclass requirement. Unresolvable references are in aas_issues (unresolved_relation).",
 	    AAS_CATEGORIES};
 	hierarchy.special_null_handling = true;
-	RegisterCoverageScalar(loader, hierarchy, ContentOverloads("aas_class_hierarchy"));
+	RegisterCoverageScalar(
+	    loader, hierarchy,
+	    {{{LogicalType::VARCHAR},
+	      {"content"},
+	      {"SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_text('capability_taxonomy.aas.json');"},
+	      ""},
+	     {{LogicalType::BLOB},
+	      {"content"},
+	      {"SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_blob('taxonomy.aasx');"},
+	      ""}});
 }
 
 //------------------------------------------------------------------------------

@@ -1,0 +1,169 @@
+# name: test/sql/aas/crew_t2_regressions.test
+# description: Regressions and decisions from the Tier 2 crew review (REVIEW_LOG.md, AAS-2).
+#              References resolve across submodels, count-only collections keep their class,
+#              constraints use their value, related items do not inflate counts, and the class
+#              hierarchy is an is-a relation: a specific offer fully meets a general requirement.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE MACRO aas_attrs(content) AS TABLE
+    SELECT a.* FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n));
+
+#------------------------------------------------------------------------------
+# F1: references resolve by submodel id across the whole input, never by idShort
+#------------------------------------------------------------------------------
+
+# GeneralizedBy into a second submodel gives the class IRI, not the bare idShort; an
+# unresolvable ModelReference is reported, never taken as an external class
+query TT
+SELECT replace(e.class_id, 'https://vocab.machinery.example/capability/', ''),
+       replace(e.parent_class_id, 'https://vocab.machinery.example/capability/', '')
+FROM (SELECT unnest(aas_class_hierarchy(content)) AS e FROM read_text('test/data/aas/fixtures/taxonomy_two_submodels.aas.json'));
+----
+HotPlateSealing	HeatSealing
+
+query TT
+SELECT i.issue, i.detail FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/taxonomy_two_submodels.aas.json'));
+----
+unresolved_relation	GeneralizedBy names Joining, which is not a mapped capability
+
+# Two submodels share the idShort 'SM'; a constraint in urn:first names a property of urn:other.
+# Only urn:other's property is constrained.
+query TTRT
+SELECT a.attr_id, a.bound, a.lo, a.bound_source
+FROM (SELECT unnest(n.attributes) AS a, n.node_id FROM (SELECT unnest(aas_to_trees(content)) AS n
+      FROM read_text('test/data/aas/fixtures/same_idshort_submodels.aas.json')))
+ORDER BY a.lo;
+----
+CycleTime	at_most	0.002	constraint
+CycleTime	NULL	0.004	NULL
+
+#------------------------------------------------------------------------------
+# F3: a classed collection that only states a count is an item: "8 digital inputs"
+#------------------------------------------------------------------------------
+
+query TTR
+SELECT split_part(n.node_id, '.', -1), n.class_id, n.count FROM (SELECT unnest(aas_to_trees(
+    '{"submodels": [{"modelType": "Submodel", "id": "urn:rfq:io", "idShort": "IO", "submodelElements": [
+       {"modelType": "SubmodelElementCollection", "idShort": "Inputs",
+        "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AAZ100#001"}]},
+        "value": [{"modelType": "Property", "idShort": "Channels", "valueType": "xs:int", "value": "8",
+                   "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://data-zoo.de/anofox/aas/Count/1/0"}]}}]},
+       {"modelType": "SubmodelElementCollection", "idShort": "Outputs",
+        "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AAZ110#001"}]},
+        "qualifiers": [{"type": "anofox:Count", "valueType": "xs:int", "value": "4"}], "value": []}]}]}')) AS n)
+WHERE n.node_kind = 'item' ORDER BY 1;
+----
+Inputs	0173-1#01-AAZ100	8.0
+Outputs	0173-1#01-AAZ110	4.0
+
+#------------------------------------------------------------------------------
+# F4, F5: a constraint uses its value; it reaches a property held in a list; a conflict with the
+# stated value or a two-sided Range is reported, not silently overwritten
+#------------------------------------------------------------------------------
+
+query TTRRT
+SELECT attr_id, bound, lo, hi, bound_source
+FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/constraints_values_and_lists.aas.json'))) ORDER BY 1;
+----
+CycleTime	at_most	0.001	0.001	constraint
+Nodes[0]	at_least	32.0	32.0	constraint
+OilTemperature	within	293.15	333.15	range
+
+query TT
+SELECT split_part(i.path, '.', -1), i.issue FROM (SELECT unnest(aas_issues(content)) AS i
+    FROM read_text('test/data/aas/fixtures/constraints_values_and_lists.aas.json'))
+WHERE i.issue LIKE 'constraint%' ORDER BY 1;
+----
+CycleLimit	constraint_conflict
+OilMax	constraint_conflict
+
+#------------------------------------------------------------------------------
+# Decision (AAS-2): the hierarchy is is-a. A specific offer fully meets a general requirement;
+# a general offer gets generalization_credit^d for a specific one. Related items count by their
+# agreement, so they cannot hide a count shortfall (F2).
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE h AS SELECT * FROM (VALUES ('HotPlate', 'Heat'), ('Impulse', 'Heat'), ('Heat', 'Joining')) t(class_id, parent_class_id);
+
+statement ok
+CREATE TABLE hn AS SELECT * FROM (VALUES
+    ('Q-heat', 'Q-heat', NULL, 'item', 'AND', 'heat sealing', 'Heat', 1.0),
+    ('Q-hot', 'Q-hot', NULL, 'item', 'AND', 'hot-plate sealing', 'HotPlate', 1.0),
+    ('Q-2hot', 'Q-2hot', NULL, 'item', 'AND', '2 hot-plate sealers', 'HotPlate', 2.0),
+    ('O-hot', 'O-hot', NULL, 'item', 'AND', 'hot-plate sealer', 'HotPlate', 1.0),
+    ('O-join', 'O-join', NULL, 'item', 'AND', 'joining', 'Joining', 1.0),
+    ('O-mix', 'O-mix', NULL, 'container', 'AND', 'line', NULL, 1.0),
+    ('O-mix', 'O-mix.1', 'O-mix', 'item', 'AND', 'hot-plate sealer', 'HotPlate', 1.0),
+    ('O-mix', 'O-mix.2', 'O-mix', 'item', 'AND', 'heat sealers', 'Heat', 3.0)
+) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+# specific offer, general requirement: is-a, full agreement, with or without credit
+query TRRT
+SELECT query_id, req_score, label_sim, label_rule FROM tree_coverage_trace(['Q-heat'], candidates := ['O-hot'], nodes_table := 'hn',
+    attrs_table := NULL, labels := 'hard', class_hierarchy := 'h');
+----
+Q-heat	1.0	1.0	specialized
+
+# general offer, specific requirement: credit^d (two levels up: 0.25 at c = 0.5), gates lowered
+query TR
+SELECT query_id, coverage FROM tree_coverage(['Q-hot'], candidates := ['O-join'], nodes_table := 'hn', attrs_table := NULL,
+    labels := 'hard', class_hierarchy := 'h', generalization_credit := 0.5, partition_gate := 0.2, count_gate := 0.2);
+----
+Q-hot	0.25
+
+# F2: 2 hot-plate sealers needed; the offer has 1 hot-plate and 3 general heat sealers. The heat
+# sealers count by their agreement 0.5: 1 + 3 x 0.5 = 2.5 >= 2. With credit 0 only 1 counts.
+query TRR
+SELECT 'credit 0.5', count_needed, count_available FROM tree_coverage_trace(['Q-2hot'], candidates := ['O-mix'], nodes_table := 'hn',
+    attrs_table := NULL, labels := 'hard', class_hierarchy := 'h', generalization_credit := 0.5)
+UNION ALL
+SELECT 'credit 0', count_needed, count_available FROM tree_coverage_trace(['Q-2hot'], candidates := ['O-mix'], nodes_table := 'hn',
+    attrs_table := NULL, labels := 'hard', class_hierarchy := 'h')
+ORDER BY 1 DESC;
+----
+credit 0.5	2.0	2.5
+credit 0	2.0	1.0
+
+# F8: soft labels mark related credit in the trace
+statement ok
+CREATE TABLE soft AS SELECT * FROM (VALUES
+    ('Q-heat', 'Q-heat', 'Heat', 1.0), ('O-hot', 'O-hot', 'HotPlate', 0.64), ('O-hot', 'O-hot', 'Heat', 0.36)) t(tree_id, node_id, class_id, p);
+
+statement ok
+CREATE TABLE unlabelled AS SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM hn;
+
+query RRT
+SELECT req_score, label_sim, label_rule FROM tree_coverage_trace(['Q-heat'], candidates := ['O-hot'], nodes_table := 'unlabelled',
+    attrs_table := NULL, label_table := 'soft', class_hierarchy := 'h');
+----
+1.0	1.0	specialized
+
+query RT
+SELECT label_sim, label_rule FROM tree_coverage_trace(['Q-heat'], candidates := ['O-hot'], nodes_table := 'unlabelled',
+    attrs_table := NULL, label_table := 'soft');
+----
+0.6	soft
+
+#------------------------------------------------------------------------------
+# F13: input checks
+#------------------------------------------------------------------------------
+
+statement error
+SELECT * FROM tree_coverage(['Q-hot'], candidates := ['O-join'], nodes_table := 'hn', attrs_table := NULL, generalization_credit := -0.1);
+----
+generalization_credit must be between 0 and 1
+
+query TT
+SELECT i.issue, i.detail FROM (SELECT unnest(aas_issues(
+    '{"submodels": [{"modelType": "Submodel", "id": "urn:q", "idShort": "Caps", "submodelElements": [
+       {"modelType": "SubmodelElementCollection", "idShort": "XContainer",
+        "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"}]},
+        "value": [{"modelType": "Capability", "idShort": "X",
+                   "qualifiers": [{"type": "Required", "valueType": "xs:boolean", "value": "True"}]}]}]}]}')) AS i) ORDER BY 1;
+----
+bad_value	CapabilityRoleQualifier Required has the value 'True'; expected true, false, 1 or 0
+unclassed_capability	the Capability states no supplementalSemanticId; its idShort 'X' is used as class

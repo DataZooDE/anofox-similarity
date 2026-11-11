@@ -757,5 +757,17 @@ they are matched. These decisions take precedence over the text above.
 6. **A small AAS profile for what AAS cannot say** (#33, guide `docs/guides/10-aas-profile.md`).
    A qualifier `anofox:VariantGroup` makes a collection's children OR alternatives; a qualifier
    `anofox:Count` or a Property with semanticId `https://data-zoo.de/anofox/aas/Count/1/0` sets a
-   node count. Plain AAS without the markers loads unchanged. Known limit: each requirement
-   chooses its best alternative (§4.6), so one request may draw on two configurations.
+   node count. Plain AAS without the markers loads unchanged.
+7. **Decisions of the Tier 2 review (AAS-2), with the product owner.**
+   - The class hierarchy is **is-a**: an offer of a subclass fully meets a requirement of its
+     superclass (`label_rule = 'specialized'`); only a superclass offer gets
+     `generalization_credit^d`. This revises item 5, where both directions got c^d.
+   - A ComposedOf composite **without properties of its own is a container**: only its parts are
+     requirements. This revises item 5.
+   - **One alternative per candidate OR group** for the whole request (`alternatives := 'joint'`,
+     default). This revises §4.6 and §11.9 ("best variant per requirement"), which remains
+     available as `alternatives := 'per_requirement'`. The full suite and the benchmark KPIs are
+     unchanged; the tender example's documented pitfall (a station built from two module
+     variants) is gone.
+   - A generalized item counts towards a required count relative to the best match (L / L(best)),
+     so superclass items cannot hide a count shortfall.

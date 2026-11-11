@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -379,6 +380,9 @@ KTree LoadTree(const Value &list) {
 struct Options {
 	bool soft = true;
 	string assignment = "auto";
+	//! Candidate OR groups (variant groups): 'joint' holds one request to one alternative per group
+	//! (one configuration of a product, AAS-2); 'per_requirement' lets each requirement use its best.
+	string alternatives = "joint";
 	double label_weight = 0.0; // lambda in HLD §4.6
 	double mu = 0.2;
 	double partition_gate = 0.3;
@@ -394,24 +398,31 @@ struct Options {
 	double generalization_credit = 0.0;
 	std::unordered_map<string, std::unordered_map<string, idx_t>> ancestors; // class -> ancestor -> distance
 
-	//! 1 for the same class, credit^d for an ancestor or descendant at distance d, else 0.
-	double Related(const string &a, const string &b) const {
-		if (a == b) {
-			return 1.0;
+	//! How a provided class relates to a required one (is-a, AAS-2): the same class, a subclass
+	//! (a hot-plate sealer is a heat sealer: full agreement) or a superclass at distance d (a heat
+	//! sealer for a hot-plate requirement: generalization_credit^d).
+	enum class Relation { NONE, SAME, SPECIALIZED, GENERALIZED };
+	struct Relatedness {
+		double value = 0;
+		Relation relation = Relation::NONE;
+	};
+
+	Relatedness Related(const string &required, const string &provided) const {
+		if (required == provided) {
+			return {1.0, Relation::SAME};
 		}
-		if (generalization_credit <= 0) {
-			return 0.0;
+		auto up = ancestors.find(provided);
+		if (up != ancestors.end() && up->second.count(required)) {
+			return {1.0, Relation::SPECIALIZED};
 		}
-		for (auto pair : {std::make_pair(&a, &b), std::make_pair(&b, &a)}) {
-			auto it = ancestors.find(*pair.first);
-			if (it != ancestors.end()) {
-				auto d = it->second.find(*pair.second);
-				if (d != it->second.end()) {
-					return std::pow(generalization_credit, double(d->second));
-				}
+		auto down = ancestors.find(required);
+		if (generalization_credit > 0 && down != ancestors.end()) {
+			auto d = down->second.find(provided);
+			if (d != down->second.end()) {
+				return {std::pow(generalization_credit, double(d->second)), Relation::GENERALIZED};
 			}
 		}
-		return 0.0;
+		return {};
 	}
 };
 
@@ -454,7 +465,11 @@ void LoadHierarchy(const Value &edges, Options &o) {
 //! The first invalid kernel setting as a message, or "" (shared by the coverage_kernel scalar and
 //! the table functions, which wrap it in their own exception type).
 string KernelSettingsError(const string &labels, const string &assignment, double label_weight, double mu,
-                           double partition_gate, double count_gate, double name_floor) {
+                           double partition_gate, double count_gate, double name_floor,
+                           double generalization_credit = 0) {
+	if (!(generalization_credit >= 0 && generalization_credit <= 1)) {
+		return "generalization_credit must be between 0 and 1";
+	}
 	if (!labels.empty() && labels != "soft" && labels != "hard") {
 		return "labels must be 'soft' or 'hard'";
 	}
@@ -484,6 +499,13 @@ Options LoadOptions(const Value &v) {
 	if (!assignment.empty()) {
 		o.assignment = StringUtil::Lower(assignment);
 	}
+	auto alternatives = FieldText(v, "alternatives");
+	if (!alternatives.empty()) {
+		o.alternatives = StringUtil::Lower(alternatives);
+	}
+	if (o.alternatives != "joint" && o.alternatives != "per_requirement") {
+		throw InvalidInputException("coverage_kernel: alternatives must be 'joint' or 'per_requirement'");
+	}
 	FieldNumber(v, "label_weight", o.label_weight);
 	FieldNumber(v, "mu", o.mu);
 	FieldNumber(v, "partition_gate", o.partition_gate);
@@ -492,9 +514,6 @@ Options LoadOptions(const Value &v) {
 	FieldNumber(v, "tol", o.values.tol);
 	FieldNumber(v, "soft_band", o.values.soft_band);
 	FieldNumber(v, "generalization_credit", o.generalization_credit);
-	if (!(o.generalization_credit >= 0 && o.generalization_credit <= 1)) {
-		throw InvalidInputException("coverage_kernel: generalization_credit must be between 0 and 1");
-	}
 	auto hierarchy = Field(v, "hierarchy");
 	if (hierarchy && !hierarchy->IsNull()) {
 		LoadHierarchy(*hierarchy, o);
@@ -506,7 +525,7 @@ Options LoadOptions(const Value &v) {
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
 	auto error = KernelSettingsError(StringUtil::Lower(labels), o.assignment, o.label_weight, o.mu, o.partition_gate,
-	                                 o.count_gate, o.name_floor);
+	                                 o.count_gate, o.name_floor, o.generalization_credit);
 	if (!error.empty()) {
 		throw InvalidInputException("coverage_kernel: %s", error);
 	}
@@ -532,36 +551,58 @@ Options LoadOptions(const Value &v) {
 }
 
 //! Label agreement L(q, c) and how it arose: exact (same class), soft (overlapping
-//! distributions) or generalized (related classes in the class hierarchy).
+//! distributions), specialized (a subclass was offered) or generalized (a superclass was offered,
+//! partial credit). count_weight is the agreement of a generalized match (1 otherwise); counting
+//! relates it to the agreement of the requirement's best match (ScoreRequirement).
 struct LabelMatch {
 	double value = 0;
 	const char *rule = "";
+	double count_weight = 1;
 };
 
 //! Hard labels: Related(class, class). Soft labels: Bhattacharyya with the class relation as kernel,
 //! sum over k, l of sqrt(p_k q_l) * Related(k, l), capped at 1. Without a hierarchy this is the plain
 //! Bhattacharyya coefficient.
 LabelMatch LabelSim(const KItem &q, const KItem &c, const Options &o) {
+	using Relation = Options::Relation;
 	if (!o.soft) {
 		if (q.cls.empty() || c.cls.empty()) {
 			return {};
 		}
-		double r = o.Related(q.cls, c.cls);
-		return {r, r <= 0 ? "" : q.cls == c.cls ? "exact" : "generalized"};
+		auto r = o.Related(q.cls, c.cls);
+		switch (r.relation) {
+		case Relation::SAME:
+			return {1.0, "exact", 1};
+		case Relation::SPECIALIZED:
+			return {1.0, "specialized", 1};
+		case Relation::GENERALIZED:
+			return {r.value, "generalized", r.value};
+		default:
+			return {};
+		}
 	}
-	double exact = 0, related = 0;
+	double exact = 0, specialized = 0, generalized = 0;
 	for (auto &kq : q.probs) {
 		for (auto &kc : c.probs) {
 			if (kq.second <= 0 || kc.second <= 0) {
 				continue;
 			}
-			double r = kq.first == kc.first ? 1.0 : o.Related(kq.first, kc.first);
-			(kq.first == kc.first ? exact : related) += r * std::sqrt(kq.second * kc.second);
+			auto r = o.Related(kq.first, kc.first);
+			double part = r.value * std::sqrt(kq.second * kc.second);
+			(r.relation == Relation::SAME ? exact : r.relation == Relation::SPECIALIZED ? specialized : generalized) += part;
 		}
 	}
-	double value = MinValue(1.0, exact + related);
-	const char *rule = value <= 0 ? "" : exact >= 1 - 1e-9 ? "exact" : related > exact ? "generalized" : "soft";
-	return {value, rule};
+	double value = MinValue(1.0, exact + specialized + generalized);
+	if (value <= 0) {
+		return {};
+	}
+	if (exact >= 1 - 1e-9) {
+		return {value, "exact", 1};
+	}
+	if (generalized > 0) {
+		return {value, "generalized", value};
+	}
+	return {value, specialized > 0 ? "specialized" : "soft", 1};
 }
 
 vector<string> Tokens(const string &name) {
@@ -944,8 +985,12 @@ void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Opt
 	r.pair = Score(*r.q, *best, o, true);
 	double available = 0;
 	for (auto c : pool) {
-		if (LabelSim(*r.q, *c, o).value >= o.count_gate && Compatible(*c, *best)) {
-			available += c->count;
+		auto label = LabelSim(*r.q, *c, o);
+		if (label.value >= o.count_gate && Compatible(*c, *best)) {
+			// a superclass item counts relative to the match: fully when the match itself is at that
+			// level (its score already carries the discount), partly next to a closer match (AAS-2)
+			double weight = label.count_weight >= 1 ? 1.0 : MinValue(1.0, label.count_weight / MaxValue(r.pair.label, 1e-12));
+			available += c->count * weight;
 		}
 	}
 	r.count_available = available;
@@ -1145,27 +1190,36 @@ void AppendTrace(const ReqResult &r, vector<Value> &trace) {
 	}
 }
 
-Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
-	auto Q = LoadTree(query);
-	auto C = LoadTree(candidate);
-	string assignment = o.assignment;
-	if (assignment == "auto") {
-		assignment = Q.reviewed && C.reviewed ? "partition" : "best_match"; // HLD §11.12: both trees reviewed
+//! One evaluation of a request against a candidate (or one configuration of it). The results
+//! point into tree, which travels with them.
+struct Evaluation {
+	KTree tree;
+	vector<ReqResult> results;
+	AlternativeTotals totals;
+
+	double Coverage() const {
+		return totals.n == 0 ? 0.0 : totals.sum / double(totals.n);
 	}
-	vector<ReqResult> results(Q.items.size());
+};
+
+Evaluation Evaluate(const KTree &Q, KTree C, const string &assignment, const Options &o) {
+	Evaluation e;
+	e.tree = std::move(C);
+	auto &results = e.results;
+	results.resize(Q.items.size());
 	for (idx_t i = 0; i < Q.items.size(); i++) {
 		results[i].q = &Q.items[i];
 	}
 	if (assignment == "partition") {
 		vector<Placement> movable;
-		auto blocks = PartitionBlocks(Q, C, o, movable);
+		auto blocks = PartitionBlocks(Q, e.tree, o, movable);
 		for (idx_t i = 0; i < Q.items.size(); i++) {
 			ScoreRequirement(results[i], blocks[i], o);
 		}
 		ImprovePartition(results, blocks, movable, o);
 	} else {
 		vector<const KItem *> all;
-		for (auto &c : C.items) {
+		for (auto &c : e.tree.items) {
 			all.push_back(&c);
 		}
 		for (auto &r : results) {
@@ -1177,7 +1231,94 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	for (idx_t i = 0; i < results.size(); i++) {
 		all_items[i] = i;
 	}
-	auto totals = AggregateAlternatives(results, all_items, 0);
+	e.totals = AggregateAlternatives(results, all_items, 0);
+	return e;
+}
+
+//! The candidate restricted to one choice per decided OR group.
+KTree Restrict(const KTree &C, const std::map<string, string> &selection) {
+	KTree out;
+	out.reviewed = C.reviewed;
+	for (auto &item : C.items) {
+		bool admissible = true;
+		for (auto &choice : item.choices) {
+			auto it = selection.find(choice.first);
+			if (it != selection.end() && it->second != choice.second) {
+				admissible = false;
+				break;
+			}
+		}
+		if (admissible) {
+			out.items.push_back(item);
+		}
+	}
+	return out;
+}
+
+//! One alternative per candidate OR group for the whole request (AAS-2): groups are decided outer
+//! first; each takes the alternative with the best coverage given the earlier decisions (ties: the
+//! lowest alternative id). The cost is the sum, not the product, of the alternatives.
+std::map<string, string> ChooseAlternatives(const KTree &Q, const KTree &C, const string &assignment,
+                                            const Options &o) {
+	std::map<string, std::set<string>> alternatives;
+	std::map<string, idx_t> depth;
+	for (auto &item : C.items) {
+		for (idx_t level = 0; level < item.choices.size(); level++) {
+			auto &choice = item.choices[level];
+			alternatives[choice.first].insert(choice.second);
+			auto d = depth.find(choice.first);
+			depth[choice.first] = d == depth.end() ? level : MinValue(d->second, level);
+		}
+	}
+	vector<string> order;
+	for (auto &g : alternatives) {
+		order.push_back(g.first);
+	}
+	std::sort(order.begin(), order.end(), [&](const string &a, const string &b) {
+		return depth[a] != depth[b] ? depth[a] < depth[b] : a < b;
+	});
+	std::map<string, string> selection;
+	for (auto &group : order) {
+		string best;
+		double best_coverage = -1;
+		for (auto &alternative : alternatives[group]) {
+			auto trial = selection;
+			trial[group] = alternative;
+			auto restricted = Restrict(C, trial);
+			bool reachable = false;
+			for (auto &item : restricted.items) {
+				for (auto &choice : item.choices) {
+					reachable = reachable || (choice.first == group && choice.second == alternative);
+				}
+			}
+			if (!reachable) {
+				continue; // inside an alternative of an outer group that was not chosen
+			}
+			double coverage = Evaluate(Q, std::move(restricted), assignment, o).Coverage();
+			if (coverage > best_coverage + SCORE_EPSILON) {
+				best_coverage = coverage;
+				best = alternative;
+			}
+		}
+		if (!best.empty()) {
+			selection[group] = best;
+		}
+	}
+	return selection;
+}
+
+Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
+	auto Q = LoadTree(query);
+	auto C = LoadTree(candidate);
+	string assignment = o.assignment;
+	if (assignment == "auto") {
+		assignment = Q.reviewed && C.reviewed ? "partition" : "best_match"; // HLD §11.12: both trees reviewed
+	}
+	bool reviewed = C.reviewed;
+	auto e = o.alternatives == "joint" ? Evaluate(Q, Restrict(C, ChooseAlternatives(Q, C, assignment, o)), assignment, o)
+	                                   : Evaluate(Q, std::move(C), assignment, o);
+	auto &results = e.results;
+	auto &totals = e.totals;
 	int64_t gaps = 0;
 	vector<Value> trace;
 	for (auto i : totals.chosen) {
@@ -1198,7 +1339,7 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	out.emplace_back("coverage", totals.n == 0 ? Value(LogicalType::DOUBLE) : Value::DOUBLE(totals.sum / totals.n));
 	out.emplace_back("n_requirements", Value::BIGINT(int64_t(totals.n)));
 	out.emplace_back("n_gaps", Value::BIGINT(gaps));
-	out.emplace_back("reviewed", Value::BOOLEAN(C.reviewed));
+	out.emplace_back("reviewed", Value::BOOLEAN(reviewed));
 	out.emplace_back("assignment_used", Value(assignment));
 	out.emplace_back("trace", Value::LIST(TraceType(), std::move(trace)));
 	return Value::STRUCT(std::move(out));
@@ -1221,7 +1362,11 @@ void CoverageKernelFun(DataChunk &args, ExpressionState &, Vector &result) {
 			result.SetValue(i, Value(KernelResultType()));
 			continue;
 		}
-		auto o = options_constant ? cached : LoadOptions(args.data[2].GetValue(i));
+		Options per_row;
+		if (!options_constant) {
+			per_row = LoadOptions(args.data[2].GetValue(i));
+		}
+		const Options &o = options_constant ? cached : per_row; // no copy of the hierarchy per pair
 		result.SetValue(i, RunKernel(q, c, o));
 	}
 	if (args.AllConstant()) {
@@ -1249,6 +1394,7 @@ struct TreeCoverageParams {
 	TreeSource q, c;
 	string labels = "soft";
 	string assignment = "auto";
+	string alternatives = "joint";
 	double label_weight = 0.0, mu = 0.2, partition_gate = 0.3, count_gate = 0.5, stage1_weight = 0.05, tie_break = 0.01;
 	string recall_mode = "auto";
 	string default_bounds;
@@ -1338,6 +1484,13 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	if (p.assignment.empty()) {
 		p.assignment = "auto";
 	}
+	p.alternatives = StringUtil::Lower(r.Str("alternatives", p.alternatives));
+	if (p.alternatives.empty()) {
+		p.alternatives = "joint";
+	}
+	if (p.alternatives != "joint" && p.alternatives != "per_requirement") {
+		throw BinderException("%s: alternatives must be 'joint' or 'per_requirement'", r.fn);
+	}
 	p.label_weight = r.Dbl("label_weight", p.label_weight);
 	p.mu = r.Dbl("mu", p.mu);
 	p.partition_gate = r.Dbl("partition_gate", p.partition_gate);
@@ -1346,16 +1499,13 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.tie_break = r.Dbl("tie_break", p.tie_break);
 	p.name_floor = r.Dbl("name_floor", p.name_floor);
 	p.generalization_credit = r.Dbl("generalization_credit", p.generalization_credit);
-	if (!(p.generalization_credit >= 0 && p.generalization_credit <= 1)) {
-		throw BinderException("%s: generalization_credit must be between 0 and 1", r.fn);
-	}
 	p.tol = r.Dbl("tol", p.tol);
 	p.soft_band = r.Dbl("soft_band", p.soft_band);
 	if (!std::isfinite(p.tol) || !std::isfinite(p.soft_band) || p.tol < 0 || p.soft_band < 0) {
 		throw BinderException("%s: tol and soft_band must be finite and not negative", r.fn);
 	}
 	auto error = KernelSettingsError(p.labels, p.assignment, p.label_weight, p.mu, p.partition_gate, p.count_gate,
-	                                 p.name_floor);
+	                                 p.name_floor, p.generalization_credit);
 	if (!error.empty()) {
 		throw BinderException("%s: %s", r.fn, error);
 	}
@@ -1607,10 +1757,11 @@ string OptionsSQL(const TreeCoverageParams &p, bool trace, const string &label_w
 	                                            "parent_class_id := CAST(parent_class_id AS VARCHAR))) FROM %s)",
 	                                            QuotedIdentifier(p.class_hierarchy));
 	return StringUtil::Format(
-	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
-	    "name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s, generalization_credit := %s, "
-	    "hierarchy := %s)",
-	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, DoubleLiteral(p.partition_gate),
+	    "struct_pack(labels := %s, assignment := %s, alternatives := %s, label_weight := %s, mu := %s, partition_gate := %s, "
+	    "count_gate := %s, name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s, "
+	    "generalization_credit := %s, hierarchy := %s)",
+	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), QuoteSQLStringLiteral(p.alternatives),
+	    label_weight, mu, DoubleLiteral(p.partition_gate),
 	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), DoubleLiteral(p.tol), DoubleLiteral(p.soft_band),
 	    trace ? "true" : "false", rules, DoubleLiteral(p.generalization_credit), hierarchy);
 }
@@ -1772,7 +1923,7 @@ NamedParameterList KernelParameters() {
 	        {"label_weight", dbl},   {"mu", dbl},                   {"partition_gate", dbl}, {"count_gate", dbl},
 	        {"stage1_weight", dbl},  {"default_bounds", vc},        {"templates_table", vc}, {"rules_table", vc},
 	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl},
-	        {"class_hierarchy", vc}, {"generalization_credit", dbl}};
+	        {"class_hierarchy", vc}, {"generalization_credit", dbl}, {"alternatives", vc}};
 }
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
@@ -1826,7 +1977,10 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
 	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
 	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
-	    "counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each "
+	    "counts are summed over compatible items (never across OR alternatives). alternatives 'joint' (default) holds "
+	    "the request to one alternative per candidate OR group (one configuration), 'per_requirement' lets each "
+	    "requirement pick its own. class_hierarchy (class_id, parent_class_id) makes a subclass offer meet a "
+	    "superclass requirement; generalization_credit c gives a superclass offer c^distance. assignment 'partition' gives each "
 	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
 	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
@@ -1843,8 +1997,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, "
 	    "attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a "
 	    "value below 1), name_rule (how the names were compared: key when both attributes carry the same attr_key, "
-	    "vector, exact or tokens) and bound_source (where the requirement's bound came from: explicit, text, range, "
-	    "level_type, constraint or template). rule is the value rule; gate for a dimension or unit mismatch; "
+	    "vector, exact or tokens), bound_source (where the requirement's bound came from: explicit, text, range, "
+	    "level_type, constraint or template) and label_rule (exact, soft, specialized: a subclass was offered, "
+	    "generalized: a superclass was offered, see class_hierarchy). rule is the value rule; gate for a dimension or unit mismatch; "
 	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
 	    "different attr_keys. Same parameters as tree_coverage." +
 	        common,
@@ -1878,6 +2033,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"rules_table", vc},
 		     {"class_hierarchy", vc},
 		     {"generalization_credit", dbl},
+		     {"alternatives", vc},
 		     {"name_vectors", vc},
 		     {"name_floor", dbl},
 		     {"tol", dbl},

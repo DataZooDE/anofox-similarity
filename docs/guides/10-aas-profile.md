@@ -25,6 +25,10 @@ ordinary AAS (qualifiers and a semanticId), so every AAS tool keeps reading the 
 | qualifier `type = "anofox:Count"`, `value = "2"` | a collection | the collection occurs that many times | node `count` |
 | Property with semanticId `https://data-zoo.de/anofox/aas/Count/1/0` | inside a collection | the same, as a property (e.g. channels per card) | node `count`; not an attribute |
 
+When a collection carries both, the qualifier wins. A collection with a dictionary semanticId and
+only a count (no other values) is an item: "8 digital inputs" is a requirement or an offer even
+without further properties.
+
 Counts multiply along the path: a card with `anofox:Count = 2` holding a channel block with a
 Count property of 8 gives 16 channels. The kernel sums counts only within one alternative, never
 across alternatives of a variant group.
@@ -77,8 +81,9 @@ block counts once and the configurations are siblings: coverage 0.2.
 - A value directly inside a variant group is reported (`value_in_variant_group`) and ignored: a
   variant group holds alternatives, not values.
 - A count that is not a positive number is reported (`bad_count`) and 1 is used.
-- **Each requirement picks its best alternative** (HLD §4.6, request alternatives). The kernel does
-  not force all requirements of one request onto the same configuration. In the example the
-  inputs come from `Config16DI` and the outputs from `Config16DI8DO`. Read the trace's
-  `matched_path` when the configuration must be one.
-- The writer (`aas_export`, issue #34) writes the markers back, so a tree round-trips.
+- **One configuration per request.** `tree_coverage` holds a request to one alternative of each
+  variant group (`alternatives := 'joint'`, the default): in the example both inputs and outputs
+  come from `Config16DI8DO`. `alternatives := 'per_requirement'` lets each requirement pick its
+  own alternative, e.g. to see what a mix would give.
+- The writer (`trees_to_aas` / `aas_export`, issue #34) will write the markers back, so a tree
+  round-trips.

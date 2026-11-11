@@ -66,10 +66,11 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
 | ... holding no values directly | transparent container |
 | IDTA-02020 `CapabilityContainer` | item: `class_id` = the Capability's supplementalSemanticId, `label` = the Capability, `role` from the `CapabilityRoleQualifier` (Required → `required`, Offered → `provided`); attributes from its `PropertySet`s |
 | `Capability` elsewhere | item without attributes |
-| `CapabilityComposedOf` (first is composed of second) | the part's item moves under the composite (`AND`) |
+| `CapabilityComposedOf` (first is composed of second) | the part's item moves under the composite (`AND`); a composite without properties of its own becomes a container, so only its parts are requirements |
 | `CapabilityGeneralizedBy` (second is more general) | a row of `aas_class_hierarchy`; second may be an external ontology IRI |
 | IEC 61360 `levelType` of a single value: exactly min / max / nom | `bound` `at_least` / `at_most` / `equals` |
-| IDTA-02020 `BasicConstraint` (`<= 1 ms`) on the properties its `ConstraintHasProperty` names | `bound` from the expression (overrides the Range) |
+| IDTA-02020 `BasicConstraint` (`<= 1 ms`) on the properties its `ConstraintHasProperty` names (the value element, a list holding it or its PropertyContainer) | `bound` and limit from the expression; a different stated value or a two-sided Range is reported (`constraint_conflict`), and a Range keeps `within` |
+| collection with a dictionary semanticId and only a profile count | item: "8 digital inputs" without further properties |
 | `Property` with a number (`xs:double`, `xs:int`, ...) | point attribute (`lo = hi`); an absent or unparseable number is kept without value (a gap) and reported |
 | `Range` | `lo` = min, `hi` = max; only min → `bound = 'at_least'`, only max → `'at_most'`, both → `'within'` |
 | `Property` with `valueId` (enumeration) | `category` = `semantic_key(valueId)` |
@@ -101,7 +102,10 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
   `bad_value`). Template submodels (`kind = Template`) contribute only stated values.
 - **`bound_source`** says where a bound came from: `range`, `level_type`, `constraint`, `text`
   (a quantity written as text), and `explicit` for `tree_from_json` bounds. The trace shows it.
-- **`role`** comes from the `CapabilityRoleQualifier` and is informational ([HLD §12](../requirements-matching/HLD.md)):
+- **References** in relations and constraints resolve by submodel **id** across the whole input,
+  so two submodels with the same idShort never mix, and a GeneralizedBy may point into another
+  submodel of the same input.
+- **`role`** comes from the `CapabilityRoleQualifier` (values true/false/1/0, else `bad_value`) and is informational ([HLD §12](../requirements-matching/HLD.md)):
   `tree_coverage` reads the query tree as the requirement. `validate_trees` warns (`mixed_roles`)
   when one tree mixes both roles.
 - **Text is not a number.** A string value counts as a quantity only with a written unit. Product
@@ -128,7 +132,9 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `missing_submodel` | info | a shell references a submodel that is not in the input |
 | `unresolved_constraint` | warning | a `ConstraintHasProperty` names no mapped property |
 | `unparsed_constraint` | info | a `BasicConstraint` without a comparison (`see data sheet`) |
-| `unresolved_relation` | warning | a ComposedOf / GeneralizedBy reference names no mapped capability |
+| `unresolved_relation` | warning | a ComposedOf / GeneralizedBy reference names no mapped capability (an ExternalReference in GeneralizedBy is an ontology class, not an error) |
+| `constraint_conflict` | warning | a BasicConstraint disagrees with the stated value (the constraint is used), names a two-sided Range (kept), or is in another dimension (not applied) |
+| `unclassed_capability` | info | a Capability without supplementalSemanticId: its idShort is the class |
 | `composition_cycle` | warning | a capability cannot be part of one it contains; the relation is skipped |
 | `multiple_composition` | info | a capability is part of two composites; the first is kept |
 
@@ -301,26 +307,18 @@ SELECT aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read
 
 *Scalar function*
 
-The capability class hierarchy of IDTA-02020 CapabilityGeneralizedBy relations: LIST of STRUCT(class_id, parent_class_id), class ids as in aas_to_trees (the second element may also be an external ontology IRI). Store it as a table and pass it to tree_coverage as class_hierarchy with a generalization_credit, so a requirement for a specific capability gets partial credit from a more general offer and vice versa. Same arguments as aas_to_trees.
+The capability class hierarchy of IDTA-02020 CapabilityGeneralizedBy relations: LIST of STRUCT(class_id, parent_class_id), class ids as in aas_to_trees (the second element may also be an external ontology IRI). Store it as a table and pass it to tree_coverage as class_hierarchy: an offer of a subclass then fully meets a requirement of its superclass (is-a), and with a generalization_credit c a superclass offer gets c^d for a subclass requirement. Unresolvable references are in aas_issues (unresolved_relation).
 
 ```sql
 aas_class_hierarchy(content BLOB) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
 aas_class_hierarchy(content VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
-aas_class_hierarchy(content BLOB, tree_id VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
-aas_class_hierarchy(content VARCHAR, tree_id VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
-aas_class_hierarchy(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
-aas_class_hierarchy(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
 ```
 
 **Examples**
 
 ```sql
-SELECT aas_class_hierarchy(content) FROM read_blob('offers/*.aasx');
-SELECT aas_class_hierarchy(content) FROM read_text('offers/*.json');
-SELECT aas_class_hierarchy(content, 'OFF-A') FROM read_blob('offer_a.aasx');
-SELECT aas_class_hierarchy(content, 'OFF-A') FROM read_text('offer_a.xml');
-SELECT aas_class_hierarchy(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_blob('offer_a.aasx');
-SELECT aas_class_hierarchy(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_text('offer_a.json');
+SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_blob('taxonomy.aasx');
+SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_text('capability_taxonomy.aas.json');
 ```
 
 ### `aas_id_b64url`

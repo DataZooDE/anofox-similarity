@@ -181,28 +181,6 @@ void Complete(AasIec61360 &into, const AasIec61360 &from) {
 	}
 }
 
-//! IDTA-02020 CapabilityRoleQualifier: required | provided | empty (NotAssigned or none).
-std::string CapabilityRole(const AasElement &capability) {
-	for (auto &q : capability.qualifiers) {
-		auto kind = q.type;
-		if (kind.empty() && Contains(q.semantic_id, ROLE_QUALIFIER)) {
-			kind = Contains(q.semantic_id, "/Required/") ? "Required"
-			       : Contains(q.semantic_id, "/Offered/") ? "Offered"
-			                                              : "NotAssigned";
-		}
-		if (!Truthy(q.value)) {
-			continue;
-		}
-		if (kind == "Required") {
-			return "required";
-		}
-		if (kind == "Offered") {
-			return "provided";
-		}
-	}
-	return std::string();
-}
-
 //------------------------------------------------------------------------------
 // The mapper
 //------------------------------------------------------------------------------
@@ -248,6 +226,9 @@ public:
 			StartTree(tree_id, sm.id_short.empty() ? sm.id : sm.id_short);
 			MapSubmodel(sm);
 		}
+		// IDTA-02020 relations and constraints may point into any submodel of the input
+		ApplyConstraints();
+		ApplyRelations();
 	}
 
 private:
@@ -262,30 +243,42 @@ private:
 	std::string root_id;
 	std::unordered_set<std::string> node_ids;
 
+	//! The submodel being mapped: references name elements by submodel id, never by idShort.
+	std::string submodel_id;
+	//! Nodes by (tree id, node id), for the ancestor checks of ComposedOf.
+	std::unordered_map<std::string, idx_t> node_index;
+
 	//! An attribute by position: out.nodes[node].attrs[attr].
 	struct AttrRef {
 		idx_t node;
 		idx_t attr;
 	};
-	//! Attributes of the current submodel by element path (NormalPath), for ConstraintHasProperty.
+	//! Attributes by ElementKey (submodel id + element path), for ConstraintHasProperty.
 	std::unordered_map<std::string, std::vector<AttrRef>> attrs_by_path;
-	//! An IDTA-02020 BasicConstraint waiting for the whole submodel to be mapped.
+	//! An IDTA-02020 BasicConstraint, applied once every submodel is mapped.
 	struct PendingConstraint {
+		std::string tree_id;
 		std::string constraint_path;
 		std::string expression;
 		AasReference target;
 	};
 	std::vector<PendingConstraint> constraints;
-	//! IDTA-02020 capability relations, resolved once the submodel is mapped.
+	//! IDTA-02020 capability relations, resolved once every submodel is mapped.
 	struct PendingRelation {
 		bool composed; // ComposedOf (else GeneralizedBy)
+		std::string tree_id;
 		std::string path;
 		AasReference first;
 		AasReference second;
 	};
 	std::vector<PendingRelation> relations;
-	//! CapabilityContainer nodes by the paths a reference may use: the container's and its Capability's.
+	//! CapabilityContainer nodes by ElementKey: the container's and its Capability's.
 	std::unordered_map<std::string, idx_t> capability_nodes;
+
+	//! The lookup key of an element: its submodel id and its idShort path (list indices as '.i').
+	static std::string ElementKey(const std::string &sm_id, const std::string &path) {
+		return sm_id + "\x1f" + NormalPath(path);
+	}
 	std::unordered_set<std::string> class_edges; // dedupe "child\x1fparent"
 
 	//! The tree id: the shell (or submodel) id, or the given tree_id for the first tree of the input;
@@ -335,6 +328,7 @@ private:
 			Issue(tree_id, base, "duplicate_id_short", "warning", "a second element with this path, kept as " + node.node_id);
 		}
 		node_ids.insert(node.node_id);
+		node_index[node.tree_id + "\x1f" + node.node_id] = out.nodes.size();
 		out.nodes.push_back(std::move(node));
 		return out.nodes.size() - 1;
 	}
@@ -488,14 +482,9 @@ private:
 		}
 		auto path = node.node_id;
 		in_template = sm.kind == "Template";
+		submodel_id = sm.id;
 		auto index = Add(std::move(node));
-		attrs_by_path.clear();
-		constraints.clear();
-		relations.clear();
-		capability_nodes.clear();
 		MapChildren(sm.elements, index, path, false, "");
-		ApplyConstraints();
-		ApplyRelations();
 	}
 
 	//------------------------------------------------------------------------------
@@ -509,45 +498,46 @@ private:
 			auto &c = e.children[i];
 			auto child_path = ChildPath(path, c, i, e.model_type == "SubmodelElementList");
 			if (Contains(c.semantic_id, COMPOSED_OF) || Contains(c.semantic_id, GENERALIZED_BY)) {
-				relations.push_back({Contains(c.semantic_id, COMPOSED_OF), child_path, c.first, c.second});
+				relations.push_back({Contains(c.semantic_id, COMPOSED_OF), tree_id, child_path, c.first, c.second});
 			} else if (AasIsContainer(c.model_type) && !Contains(c.semantic_id, CAPABILITY_CONTAINER)) {
 				CollectRelations(c, child_path);
 			}
 		}
 	}
 
-	const TreeNodeRow *Node(const std::string &node_id) const {
-		for (auto &n : out.nodes) {
-			if (n.tree_id == tree_id && n.node_id == node_id) {
-				return &n;
-			}
-		}
-		return nullptr;
-	}
-
-	//! True when candidate is node or one of its ancestors.
-	bool IsAncestorOrSelf(const std::string &candidate, const std::string &node_id) const {
+	//! True when candidate is the node or one of its ancestors (same tree).
+	bool IsAncestorOrSelf(const std::string &tree, const std::string &candidate, const std::string &node_id) const {
 		std::string cur = node_id;
 		for (idx_t steps = 0; !cur.empty() && steps <= out.nodes.size(); steps++) {
 			if (cur == candidate) {
 				return true;
 			}
-			auto n = Node(cur);
-			cur = n ? n->parent_id : std::string();
+			auto it = node_index.find(tree + "\x1f" + cur);
+			cur = it == node_index.end() ? std::string() : out.nodes[it->second].parent_id;
 		}
 		return false;
 	}
 
+	static bool IsExternal(const AasReference &r) {
+		return r.type == "ExternalReference" || (!r.keys.empty() && r.keys.front().first == "GlobalReference");
+	}
+
 	void ApplyRelations() {
-		std::unordered_set<idx_t> recomposed;
+		std::unordered_set<idx_t> recomposed, composites;
 		for (auto &r : relations) {
-			auto first = capability_nodes.find(ReferencePath(r.first));
+			auto first = capability_nodes.find(ReferenceKey(r.first));
 			if (first == capability_nodes.end()) {
-				Issue(tree_id, r.path, "unresolved_relation", "warning",
+				Issue(r.tree_id, r.path, "unresolved_relation", "warning",
 				      "the relation's first element " + r.first.Last() + " is not a mapped capability");
 				continue;
 			}
-			auto second = capability_nodes.find(ReferencePath(r.second));
+			auto second = capability_nodes.find(ReferenceKey(r.second));
+			if (second == capability_nodes.end() && (r.composed || !IsExternal(r.second))) {
+				Issue(r.tree_id, r.path, "unresolved_relation", "warning",
+				      std::string(r.composed ? "ComposedOf" : "GeneralizedBy") + " names " + r.second.Last() +
+				          ", which is not a mapped capability");
+				continue;
+			}
 			if (!r.composed) {
 				auto &child = out.nodes[first->second].class_id;
 				auto parent = second != capability_nodes.end() ? out.nodes[second->second].class_id
@@ -557,23 +547,29 @@ private:
 				}
 				continue;
 			}
-			if (second == capability_nodes.end()) {
-				Issue(tree_id, r.path, "unresolved_relation", "warning",
-				      "ComposedOf names " + r.second.Last() + ", which is not a mapped capability");
-				continue;
-			}
 			auto &composite = out.nodes[first->second];
 			auto &part = out.nodes[second->second];
-			if (IsAncestorOrSelf(part.node_id, composite.node_id)) {
-				Issue(tree_id, r.path, "composition_cycle", "warning",
+			if (composite.tree_id != part.tree_id) {
+				Issue(r.tree_id, r.path, "unresolved_relation", "warning",
+				      "ComposedOf across shells: " + part.node_id + " stays where it is");
+			} else if (IsAncestorOrSelf(part.tree_id, part.node_id, composite.node_id)) {
+				Issue(r.tree_id, r.path, "composition_cycle", "warning",
 				      part.node_id + " cannot be part of " + composite.node_id + ": it contains it");
 			} else if (!recomposed.insert(second->second).second) {
-				Issue(tree_id, r.path, "multiple_composition", "info",
+				Issue(r.tree_id, r.path, "multiple_composition", "info",
 				      part.node_id + " is already part of " + part.parent_id + "; kept there");
 			} else {
 				part.parent_id = composite.node_id;
 				part.context = composite.node_id;
 				part.edge_type = "AND";
+				composites.insert(first->second);
+			}
+		}
+		// a composite without properties of its own is the sum of its parts: only the parts are
+		// requirements (AAS-2 decision), so an offer is not asked for the composite's label
+		for (auto i : composites) {
+			if (out.nodes[i].attrs.empty()) {
+				out.nodes[i].node_kind = "container";
 			}
 		}
 	}
@@ -616,48 +612,94 @@ private:
 			return; // OCL, operation or custom constraints: not evaluated
 		}
 		for (auto &t : targets) {
-			constraints.push_back({path, expression, t});
+			constraints.push_back({tree_id, path, expression, t});
 		}
 	}
 
-	//! The element path a ModelReference names: the submodel's idShort, then the idShorts (or list
-	//! indices) of its keys.
-	std::string ReferencePath(const AasReference &r) const {
-		std::string path;
+	//! The ElementKey a ModelReference names: the Submodel key's id, then the idShorts (or list
+	//! indices) of the following keys, prefixed with the submodel's idShort as the paths are.
+	std::string ReferenceKey(const AasReference &r) const {
+		std::string sm_id, path;
 		for (auto &k : r.keys) {
 			if (k.first == "Submodel") {
+				sm_id = k.second;
+				path.clear();
 				for (auto &sm : env.submodels) {
 					if (sm.id == k.second) {
-						path = sm.id_short;
+						path = sm.id_short.empty() ? sm.id : sm.id_short;
 					}
 				}
 			} else if (k.first != "AssetAdministrationShell") {
 				path += (path.empty() ? "" : ".") + k.second;
 			}
 		}
-		return NormalPath(path);
+		return ElementKey(sm_id, path);
 	}
 
 	void ApplyConstraints() {
+		auto langs = vector<string>(options.langs.begin(), options.langs.end());
 		for (auto &c : constraints) {
-			auto it = attrs_by_path.find(ReferencePath(c.target));
+			auto it = attrs_by_path.find(ReferenceKey(c.target));
 			if (it == attrs_by_path.end()) {
-				Issue(tree_id, c.constraint_path, "unresolved_constraint", "warning",
+				Issue(c.tree_id, c.constraint_path, "unresolved_constraint", "warning",
 				      "ConstraintHasProperty names " + c.target.Last() + ", which is not a mapped property");
 				continue;
 			}
-			auto q = ParseQuantity(c.expression, vector<string>(options.langs.begin(), options.langs.end()), units);
+			auto q = ParseQuantity(c.expression, langs, units);
 			if (q.bound.empty()) {
-				Issue(tree_id, c.constraint_path, "unparsed_constraint", "info",
+				Issue(c.tree_id, c.constraint_path, "unparsed_constraint", "info",
 				      "BasicConstraint '" + c.expression + "' states no bound");
 				continue;
 			}
 			for (auto &ref : it->second) {
-				auto &a = out.nodes[ref.node].attrs[ref.attr];
-				a.bound = q.bound;
-				a.bound_source = "constraint";
+				ApplyConstraint(c, q, out.nodes[ref.node].attrs[ref.attr]);
 			}
 		}
+	}
+
+	//! A BasicConstraint on one attribute. Its value is the limit when it is in the attribute's
+	//! dimension; a different stated value and a two-sided Range are reported as constraint_conflict
+	//! (the Range keeps 'within', since the constraint cannot say which end it narrows).
+	void ApplyConstraint(const PendingConstraint &c, const Quantity &q, TreeAttrRow &a) {
+		bool two_sided = a.has_value && a.bound == "within" && a.lo != a.hi && q.bound != "within";
+		if (two_sided) {
+			Issue(c.tree_id, c.constraint_path, "constraint_conflict", "warning",
+			      "'" + c.expression + "' on a two-sided range (" + a.value_text + "): the range is kept");
+			return;
+		}
+		bool comparable = q.has_value && !a.dimension.empty() && q.dimension == a.dimension;
+		if (q.has_value && !a.dimension.empty() && !q.source_unit.empty() && !comparable) {
+			Issue(c.tree_id, c.constraint_path, "constraint_conflict", "warning",
+			      "'" + c.expression + "' is not in the property's dimension (" + a.dimension + "): not applied");
+			return;
+		}
+		if (comparable) {
+			double lo = q.bound == "at_most" ? q.hi : q.lo;
+			double hi = q.bound == "at_least" ? q.lo : q.hi;
+			if (a.has_value && (std::fabs(a.lo - lo) > 1e-9 * MaxValue(1.0, std::fabs(lo)) ||
+			                    std::fabs(a.hi - hi) > 1e-9 * MaxValue(1.0, std::fabs(hi)))) {
+				Issue(c.tree_id, c.constraint_path, "constraint_conflict", "warning",
+				      "the property states " + a.value_text + ", the constraint '" + c.expression +
+				          "': the constraint is used");
+			}
+			a.has_value = true;
+			a.lo = lo;
+			a.hi = hi;
+		}
+		a.bound = q.bound;
+		a.bound_source = "constraint";
+	}
+
+	static bool HasProfileCount(const AasElement &e) {
+		if (FindQualifier(e, PROFILE_COUNT)) {
+			return true;
+		}
+		for (auto &c : e.children) {
+			if (IsCountProperty(c)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	//! The count of a collection (profile): the anofox:Count qualifier, else a Count property among its
@@ -702,7 +744,7 @@ private:
 			} else if (IsValueList(c)) {
 				for (idx_t k = 0; k < c.children.size(); k++) {
 					AddAttribute(parent, c.children[k], &c, ChildPath(child_path, c.children[k], k, true),
-					             AttrId(c, child_path) + "[" + std::to_string(k) + "]", Label(c), role);
+					             AttrId(c, child_path) + "[" + std::to_string(k) + "]", Label(c), role, child_path);
 				}
 			} else if (AasIsContainer(c.model_type) && Contains(c.semantic_id, CAPABILITY_CONTAINER)) {
 				MapCapabilityContainer(c, parent, child_path);
@@ -722,7 +764,8 @@ private:
 		node.label = Label(e);
 		node.context = out.nodes[parent].node_id;
 		bool variants = FindQualifier(e, PROFILE_VARIANT_GROUP) != nullptr;
-		bool item = !variants && HasDirectValues(e.children);
+		// values make an item; so does a dictionary class with a profile count ("8 digital inputs")
+		bool item = !variants && (HasDirectValues(e.children) || (!DictionaryId(e).empty() && HasProfileCount(e)));
 		node.node_kind = variants ? "variant_group" : item ? "item" : "container";
 		node.count = NodeCount(e, path);
 		if (item) {
@@ -754,6 +797,37 @@ private:
 		Add(std::move(node));
 	}
 
+	//! IDTA-02020 CapabilityRoleQualifier: required | provided | empty (NotAssigned or none).
+	std::string CapabilityRole(const AasElement &capability, const std::string &path) {
+		for (auto &q : capability.qualifiers) {
+			auto kind = q.type;
+			if (kind.empty() && Contains(q.semantic_id, ROLE_QUALIFIER)) {
+				kind = Contains(q.semantic_id, "/Required/") ? "Required"
+				       : Contains(q.semantic_id, "/Offered/") ? "Offered"
+				                                              : "NotAssigned";
+			}
+			if (kind != "Required" && kind != "Offered" && kind != "NotAssigned") {
+				continue;
+			}
+			bool value = false;
+			if (!ParseXsdBoolean(q.value, value)) {
+				if (!in_template) {
+					Issue(tree_id, path, "bad_value", "warning",
+					      "CapabilityRoleQualifier " + kind + " has the value '" + q.value +
+					          "'; expected true, false, 1 or 0");
+				}
+				continue;
+			}
+			if (value && kind == "Required") {
+				return "required";
+			}
+			if (value && kind == "Offered") {
+				return "provided";
+			}
+		}
+		return std::string();
+	}
+
 	static std::string CapabilityClass(const AasElement &capability) {
 		auto id = DictionaryId(capability);
 		return id.empty() ? capability.id_short : SemanticKey(id).key;
@@ -780,15 +854,20 @@ private:
 		if (capability) {
 			node.label = Label(*capability);
 			node.class_id = CapabilityClass(*capability);
-			role = CapabilityRole(*capability);
+			role = CapabilityRole(*capability, path);
+			if (DictionaryId(*capability).empty() && !in_template) {
+				Issue(tree_id, path, "unclassed_capability", "info",
+				      "the Capability states no supplementalSemanticId; its idShort '" + capability->id_short +
+				          "' is used as class");
+			}
 		} else {
 			node.label = Label(e);
 			Issue(tree_id, path, "capability_missing", "warning", "a CapabilityContainer without a Capability element");
 		}
 		auto index = Add(std::move(node));
-		capability_nodes[NormalPath(path)] = index;
+		capability_nodes[ElementKey(submodel_id, path)] = index;
 		if (capability) {
-			capability_nodes[NormalPath(path + "." + capability->id_short)] = index;
+			capability_nodes[ElementKey(submodel_id, path + "." + capability->id_short)] = index;
 		}
 		CollectRelations(e, path);
 		for (auto &c : e.children) {
@@ -809,7 +888,7 @@ private:
 			for (idx_t j = 0; j < container.children.size(); j++) {
 				auto &p = container.children[j];
 				MapCapabilityProperty(p, container, Label(container), item, ChildPath(container_path, p, j, false),
-				                      AttrId(container, container_path), role);
+				                      AttrId(container, container_path), role, container_path);
 			}
 		}
 	}
@@ -818,17 +897,18 @@ private:
 	//! names the property (label, attr_id); the dictionary id comes from the element, else from the
 	//! list that holds it, else from the container (owner).
 	void MapCapabilityProperty(const AasElement &p, const AasElement &owner, const std::string &label, idx_t item,
-	                           const std::string &path, const std::string &attr_id, const std::string &role) {
+	                           const std::string &path, const std::string &attr_id, const std::string &role,
+	                           const std::string &container_path) {
 		if (p.model_type == "SubmodelElementList") {
 			auto &list_owner = DictionaryId(p).empty() ? owner : p;
 			for (idx_t k = 0; k < p.children.size(); k++) {
 				MapCapabilityProperty(p.children[k], list_owner, label, item, ChildPath(path, p.children[k], k, true),
-				                      attr_id + "[" + std::to_string(k) + "]", role);
+				                      attr_id + "[" + std::to_string(k) + "]", role, container_path);
 			}
 			return;
 		}
 		if (IsValueLeaf(p, &owner)) {
-			AddAttribute(item, p, &owner, path, attr_id, label, role);
+			AddAttribute(item, p, &owner, path, attr_id, label, role, container_path);
 		}
 	}
 
@@ -847,7 +927,8 @@ private:
 	//! owner: the element that names a value when e itself does not (a value list, an IDTA-02020
 	//! PropertyContainer); its dictionary entry and id are the fallback.
 	void AddAttribute(idx_t node_index, const AasElement &e, const AasElement *owner, const std::string &path,
-	                  const std::string &attr_id, const std::string &label, const std::string &role) {
+	                  const std::string &attr_id, const std::string &label, const std::string &role,
+	                  const std::string &anchor = std::string()) {
 		auto &node = out.nodes[node_index];
 		TreeAttrRow a;
 		a.attr_id = attr_id;
@@ -881,13 +962,13 @@ private:
 		}
 		node.attrs.push_back(std::move(a));
 		AttrRef ref {node_index, node.attrs.size() - 1};
-		attrs_by_path[NormalPath(path)].push_back(ref);
-		if (owner) {
-			// a constraint may name the PropertyContainer (or the list) instead of the value element
-			auto dot = NormalPath(path).rfind('.');
-			if (dot != std::string::npos) {
-				attrs_by_path[NormalPath(path).substr(0, dot)].push_back(ref);
-			}
+		// a constraint may name the value element, a list holding it or its PropertyContainer (anchor)
+		auto key = NormalPath(path);
+		auto stop = NormalPath(anchor);
+		attrs_by_path[ElementKey(submodel_id, key)].push_back(ref);
+		while (!stop.empty() && key != stop && key.size() > stop.size() && key.rfind('.') != std::string::npos) {
+			key = key.substr(0, key.rfind('.'));
+			attrs_by_path[ElementKey(submodel_id, key)].push_back(ref);
 		}
 	}
 
