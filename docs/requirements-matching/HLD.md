@@ -746,3 +746,11 @@ they are matched. These decisions take precedence over the text above.
 4. **Unit identifiers are resolved before the unit text** (#30), and never in free text. The seed
    carries UN/ECE Rec 20 codes; ECLASS unit IRDIs are licensed content and come from the user's
    `unit_table`.
+5. **Composition and a class hierarchy, off by default** (#32). IDTA-02020 ComposedOf moves a
+   part's item under its composite, as an AND child: the composite is a requirement, and so is each
+   part. GeneralizedBy gives `(class_id, parent_class_id)` edges. With `class_hierarchy` and
+   `generalization_credit` c, label agreement becomes Bhattacharyya with a class-relatedness
+   kernel (1 for the same class, c^d for an ancestor or descendant at distance d). With c = 0 it
+   is the plain coefficient, so existing results are unchanged; the benchmark regression is in
+   `test/sql/aas/uc_05_general_offer_gets_partial_credit.test`. A related match must still pass
+   `partition_gate` and `count_gate`. Stage-1 recall stays class-exact.

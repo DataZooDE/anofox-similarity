@@ -1,0 +1,646 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://vocab.machinery.example/aas/capability-taxonomy",
+      "idShort": "CapabilityTaxonomy",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://vocab.machinery.example/asset/capability-taxonomy"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities",
+      "idShort": "CapabilityDescription",
+      "kind": "Instance",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "CapabilitySet",
+          "value": [
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "HeatSealingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "HeatSealing",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/HeatSealing"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    }
+                  ]
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "HotPlateSealingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "HotPlateSealing",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/HotPlateSealing"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "CapabilityRelations",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "GeneralizedBySet",
+                      "value": [
+                        {
+                          "modelType": "RelationshipElement",
+                          "idShort": "GeneralizedBy0",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityGeneralizedBy/1/0"
+                              }
+                            ]
+                          },
+                          "first": {
+                            "type": "ModelReference",
+                            "keys": [
+                              {
+                                "type": "Submodel",
+                                "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "CapabilitySet"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "HotPlateSealingContainer"
+                              },
+                              {
+                                "type": "Capability",
+                                "value": "HotPlateSealing"
+                              }
+                            ]
+                          },
+                          "second": {
+                            "type": "ModelReference",
+                            "keys": [
+                              {
+                                "type": "Submodel",
+                                "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "CapabilitySet"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "HeatSealingContainer"
+                              },
+                              {
+                                "type": "Capability",
+                                "value": "HeatSealing"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/GeneralizedBySet/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "ImpulseSealingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "ImpulseSealing",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/ImpulseSealing"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "CapabilityRelations",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "GeneralizedBySet",
+                      "value": [
+                        {
+                          "modelType": "RelationshipElement",
+                          "idShort": "GeneralizedBy0",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityGeneralizedBy/1/0"
+                              }
+                            ]
+                          },
+                          "first": {
+                            "type": "ModelReference",
+                            "keys": [
+                              {
+                                "type": "Submodel",
+                                "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "CapabilitySet"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "ImpulseSealingContainer"
+                              },
+                              {
+                                "type": "Capability",
+                                "value": "ImpulseSealing"
+                              }
+                            ]
+                          },
+                          "second": {
+                            "type": "ModelReference",
+                            "keys": [
+                              {
+                                "type": "Submodel",
+                                "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "CapabilitySet"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "HeatSealingContainer"
+                              },
+                              {
+                                "type": "Capability",
+                                "value": "HeatSealing"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/GeneralizedBySet/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "FilmCuttingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "FilmCutting",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/FilmCutting"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "CapabilityRelations",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "GeneralizedBySet",
+                      "value": [
+                        {
+                          "modelType": "RelationshipElement",
+                          "idShort": "GeneralizedBy0",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityGeneralizedBy/1/0"
+                              }
+                            ]
+                          },
+                          "first": {
+                            "type": "ModelReference",
+                            "keys": [
+                              {
+                                "type": "Submodel",
+                                "value": "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "CapabilitySet"
+                              },
+                              {
+                                "type": "SubmodelElementCollection",
+                                "value": "FilmCuttingContainer"
+                              },
+                              {
+                                "type": "Capability",
+                                "value": "FilmCutting"
+                              }
+                            ]
+                          },
+                          "second": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://vocab.machinery.example/capability/Cutting"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/GeneralizedBySet/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilitySet/1/0"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": []
+}

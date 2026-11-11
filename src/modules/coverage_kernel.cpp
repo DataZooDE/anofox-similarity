@@ -134,7 +134,7 @@ void CheckScalarField(const string &fn, const string &name, const LogicalType &t
 	}
 	if (name == "count" || name == "lo" || name == "hi" || name == "score" || name == "label_weight" ||
 	    name == "mu" || name == "partition_gate" || name == "count_gate" || name == "name_floor" || name == "tol" ||
-	    name == "soft_band") {
+	    name == "soft_band" || name == "generalization_credit") {
 		if (!t.IsNumeric()) {
 			TypeError(fn, name + " must be numeric", t);
 		}
@@ -192,8 +192,8 @@ void CheckOptionsType(const string &fn, const LogicalType &t) {
 	}
 	for (auto &field : StructType::GetChildTypes(t)) {
 		auto fname = StringUtil::Lower(static_cast<const string &>(field.first));
-		if (fname == "rules") {
-			auto rule = ListOfStruct(fn, "rules", field.second);
+		if (fname == "rules" || fname == "hierarchy") {
+			auto rule = ListOfStruct(fn, fname, field.second);
 			if (rule) {
 				for (auto &rf : StructType::GetChildTypes(*rule)) {
 					CheckScalarField(fn, StringUtil::Lower(static_cast<const string &>(rf.first)), rf.second);
@@ -388,7 +388,66 @@ struct Options {
 	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
 	//! NaN when two dimensions disagree on the pair, so no rule is guessed
 	std::map<std::pair<string, string>, double> rules_any_dimension;
+	//! Class hierarchy (GitHub #32): related classes get generalization_credit^distance.
+	double generalization_credit = 0.0;
+	std::unordered_map<string, std::unordered_map<string, idx_t>> ancestors; // class -> ancestor -> distance
+
+	//! 1 for the same class, credit^d for an ancestor or descendant at distance d, else 0.
+	double Related(const string &a, const string &b) const {
+		if (a == b) {
+			return 1.0;
+		}
+		if (generalization_credit <= 0) {
+			return 0.0;
+		}
+		for (auto pair : {std::make_pair(&a, &b), std::make_pair(&b, &a)}) {
+			auto it = ancestors.find(*pair.first);
+			if (it != ancestors.end()) {
+				auto d = it->second.find(*pair.second);
+				if (d != it->second.end()) {
+					return std::pow(generalization_credit, double(d->second));
+				}
+			}
+		}
+		return 0.0;
+	}
 };
+
+//! The deepest class hierarchy followed (levels above a class).
+constexpr idx_t MAX_HIERARCHY_DEPTH = 32;
+
+//! Every class's ancestors with their distance, from (class_id, parent_class_id) edges.
+void LoadHierarchy(const Value &edges, Options &o) {
+	std::unordered_map<string, vector<string>> parents;
+	for (auto &e : ListValue::GetChildren(edges)) {
+		if (e.IsNull()) {
+			continue;
+		}
+		auto child = FieldText(e, "class_id"), parent = FieldText(e, "parent_class_id");
+		if (!child.empty() && !parent.empty() && child != parent) {
+			parents[child].push_back(parent);
+		}
+	}
+	for (auto &entry : parents) {
+		auto &found = o.ancestors[entry.first];
+		vector<string> frontier {entry.first};
+		for (idx_t depth = 1; depth <= MAX_HIERARCHY_DEPTH && !frontier.empty(); depth++) {
+			vector<string> next;
+			for (auto &c : frontier) {
+				auto it = parents.find(c);
+				if (it == parents.end()) {
+					continue;
+				}
+				for (auto &p : it->second) {
+					if (p != entry.first && found.emplace(p, depth).second) {
+						next.push_back(p); // first visit is the shortest distance (breadth first); cycles end here
+					}
+				}
+			}
+			frontier = std::move(next);
+		}
+	}
+}
 
 //! The first invalid kernel setting as a message, or "" (shared by the coverage_kernel scalar and
 //! the table functions, which wrap it in their own exception type).
@@ -430,6 +489,14 @@ Options LoadOptions(const Value &v) {
 	FieldNumber(v, "name_floor", o.name_floor);
 	FieldNumber(v, "tol", o.values.tol);
 	FieldNumber(v, "soft_band", o.values.soft_band);
+	FieldNumber(v, "generalization_credit", o.generalization_credit);
+	if (!(o.generalization_credit >= 0 && o.generalization_credit <= 1)) {
+		throw InvalidInputException("coverage_kernel: generalization_credit must be between 0 and 1");
+	}
+	auto hierarchy = Field(v, "hierarchy");
+	if (hierarchy && !hierarchy->IsNull()) {
+		LoadHierarchy(*hierarchy, o);
+	}
 	if (!std::isfinite(o.values.tol) || !std::isfinite(o.values.soft_band) || o.values.tol < 0 ||
 	    o.values.soft_band < 0) {
 		throw InvalidInputException("coverage_kernel: tol and soft_band must be finite and not negative");
@@ -461,20 +528,37 @@ Options LoadOptions(const Value &v) {
 	return o;
 }
 
-double LabelSim(const KItem &q, const KItem &c, const Options &o) {
+//! Label agreement L(q, c) and how it arose: exact (same class), soft (overlapping
+//! distributions) or generalized (related classes in the class hierarchy).
+struct LabelMatch {
+	double value = 0;
+	const char *rule = "";
+};
+
+//! Hard labels: Related(class, class). Soft labels: Bhattacharyya with the class relation as kernel,
+//! sum over k, l of sqrt(p_k q_l) * Related(k, l), capped at 1. Without a hierarchy this is the plain
+//! Bhattacharyya coefficient.
+LabelMatch LabelSim(const KItem &q, const KItem &c, const Options &o) {
 	if (!o.soft) {
-		return !q.cls.empty() && q.cls == c.cls ? 1.0 : 0.0;
+		if (q.cls.empty() || c.cls.empty()) {
+			return {};
+		}
+		double r = o.Related(q.cls, c.cls);
+		return {r, r <= 0 ? "" : q.cls == c.cls ? "exact" : "generalized"};
 	}
-	auto &pq = q.probs;
-	auto &pc = c.probs;
-	double s = 0;
-	for (auto &kv : pq) {
-		auto it = pc.find(kv.first);
-		if (it != pc.end() && kv.second > 0 && it->second > 0) {
-			s += std::sqrt(kv.second * it->second);
+	double exact = 0, related = 0;
+	for (auto &kq : q.probs) {
+		for (auto &kc : c.probs) {
+			if (kq.second <= 0 || kc.second <= 0) {
+				continue;
+			}
+			double r = kq.first == kc.first ? 1.0 : o.Related(kq.first, kc.first);
+			(kq.first == kc.first ? exact : related) += r * std::sqrt(kq.second * kc.second);
 		}
 	}
-	return MinValue(1.0, s);
+	double value = MinValue(1.0, exact + related);
+	const char *rule = value <= 0 ? "" : exact >= 1 - 1e-9 ? "exact" : related > exact ? "generalized" : "soft";
+	return {value, rule};
 }
 
 vector<string> Tokens(const string &name) {
@@ -694,6 +778,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 
 struct ItemScore {
 	double label = 0;
+	string label_rule; // exact | soft | generalized
 	double a = 1;
 	double score = 0;
 	vector<AttrMatch> attrs;
@@ -701,7 +786,9 @@ struct ItemScore {
 
 ItemScore Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
 	ItemScore p;
-	p.label = LabelSim(q, c, o);
+	auto label = LabelSim(q, c, o);
+	p.label = label.value;
+	p.label_rule = label.rule;
 	if (p.label <= 0) {
 		p.a = 0;
 		return p; // no agreement: the score is 0 whatever the attributes
@@ -797,7 +884,8 @@ LogicalType TraceType() {
 	    {"rule", LogicalType::VARCHAR},         {"attr_score", LogicalType::DOUBLE},
 	    {"count_needed", LogicalType::DOUBLE},  {"count_available", LogicalType::DOUBLE},
 	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN},
-	    {"name_rule", LogicalType::VARCHAR},    {"bound_source", LogicalType::VARCHAR}};
+	    {"name_rule", LogicalType::VARCHAR},    {"bound_source", LogicalType::VARCHAR},
+	    {"label_rule", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -843,7 +931,7 @@ void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Opt
 	r.pair = Score(*r.q, *best, o, true);
 	double available = 0;
 	for (auto c : pool) {
-		if (LabelSim(*r.q, *c, o) >= o.count_gate && Compatible(*c, *best)) {
+		if (LabelSim(*r.q, *c, o).value >= o.count_gate && Compatible(*c, *best)) {
 			available += c->count;
 		}
 	}
@@ -881,7 +969,7 @@ vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, co
 		double best = 0;
 		vector<idx_t> tied;
 		for (idx_t i = 0; i < Q.items.size(); i++) {
-			double l = LabelSim(Q.items[i], c, o);
+			double l = LabelSim(Q.items[i], c, o).value;
 			if (l > best + SCORE_EPSILON) {
 				best = l;
 				tied.assign(1, i);
@@ -1020,6 +1108,7 @@ Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
 	v.emplace_back("name_rule", m && !m->gate ? TextOrNull(m->name_rule) : Value(LogicalType::VARCHAR));
 	v.emplace_back("bound_source", m ? TextOrNull(BoundSource(*m->req)) : Value(LogicalType::VARCHAR));
+	v.emplace_back("label_rule", r.matched ? TextOrNull(r.pair.label_rule) : Value(LogicalType::VARCHAR));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -1152,6 +1241,8 @@ struct TreeCoverageParams {
 	string default_bounds;
 	string templates_table = "catalogue_attributes";
 	string rules_table;
+	string class_hierarchy; // (class_id, parent_class_id); empty: none
+	double generalization_credit = 0.0;
 	string name_vectors;
 	double name_floor = 0.85;
 	double tol = 0.02;       // value_satisfies tolerance (hard limits: 0)
@@ -1241,6 +1332,10 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.stage1_weight = r.Dbl("stage1_weight", p.stage1_weight);
 	p.tie_break = r.Dbl("tie_break", p.tie_break);
 	p.name_floor = r.Dbl("name_floor", p.name_floor);
+	p.generalization_credit = r.Dbl("generalization_credit", p.generalization_credit);
+	if (!(p.generalization_credit >= 0 && p.generalization_credit <= 1)) {
+		throw BinderException("%s: generalization_credit must be between 0 and 1", r.fn);
+	}
 	p.tol = r.Dbl("tol", p.tol);
 	p.soft_band = r.Dbl("soft_band", p.soft_band);
 	if (!std::isfinite(p.tol) || !std::isfinite(p.soft_band) || p.tol < 0 || p.soft_band < 0) {
@@ -1278,6 +1373,7 @@ void ReadSideTables(const CoverageParamReader &r, TreeCoverageParams &p) {
 		ValidateTableColumns(r.context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
 	}
 	p.rules_table = r.Table("rules_table", "", {"dimension", "required", "provided", "score"});
+	p.class_hierarchy = r.Table("class_hierarchy", "", {"class_id", "parent_class_id"});
 	p.name_vectors = r.Table("name_vectors", "", {"name", "vec"});
 	p.multiset_table = r.Table("candidate_multiset_table", "", {"entity_id", "feature_id", "weight"});
 	p.multiset_has_reviewed = !p.multiset_table.empty() && r.Has(p.multiset_table, "reviewed");
@@ -1491,12 +1587,18 @@ string OptionsSQL(const TreeCoverageParams &p, bool trace, const string &label_w
 	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
 	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
 	                                        QuotedIdentifier(p.rules_table));
+	string hierarchy = p.class_hierarchy.empty()
+	                       ? "NULL"
+	                       : StringUtil::Format("(SELECT list(struct_pack(class_id := CAST(class_id AS VARCHAR), "
+	                                            "parent_class_id := CAST(parent_class_id AS VARCHAR))) FROM %s)",
+	                                            QuotedIdentifier(p.class_hierarchy));
 	return StringUtil::Format(
 	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
-	    "name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s)",
+	    "name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s, generalization_credit := %s, "
+	    "hierarchy := %s)",
 	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, DoubleLiteral(p.partition_gate),
 	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), DoubleLiteral(p.tol), DoubleLiteral(p.soft_band),
-	    trace ? "true" : "false", rules);
+	    trace ? "true" : "false", rules, DoubleLiteral(p.generalization_credit), hierarchy);
 }
 
 string KernelSQL(ClientContext &context, const TreeCoverageParams &p, bool trace) {
@@ -1549,7 +1651,7 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 		SELECT query_id, candidate_id, t.req_node_id, t.matched_node_id, t.matched_path, t.label_sim, t.attr_id,
 		       t.attr_name, t.req_value, t.prov_value, t.gate, t.name_sim, t.value_score, t.distance, t.rule,
 		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap, t.name_rule,
-		       t.bound_source
+		       t.bound_source, t.label_rule
 		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
@@ -1655,7 +1757,8 @@ NamedParameterList KernelParameters() {
 	return {{"attrs_table", vc},     {"candidate_attrs_table", vc}, {"labels", vc},         {"assignment", vc},
 	        {"label_weight", dbl},   {"mu", dbl},                   {"partition_gate", dbl}, {"count_gate", dbl},
 	        {"stage1_weight", dbl},  {"default_bounds", vc},        {"templates_table", vc}, {"rules_table", vc},
-	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl}};
+	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl},
+	        {"class_hierarchy", vc}, {"generalization_credit", dbl}};
 }
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
@@ -1759,6 +1862,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"default_bounds", vc},
 		     {"templates_table", vc},
 		     {"rules_table", vc},
+		     {"class_hierarchy", vc},
+		     {"generalization_credit", dbl},
 		     {"name_vectors", vc},
 		     {"name_floor", dbl},
 		     {"tol", dbl},

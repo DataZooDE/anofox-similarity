@@ -144,14 +144,44 @@ def capability_property_value(dictionary, value=None, lo=None, hi=None, value_ty
     return p
 
 
-def capability_container(id_short, capability_class, role, properties):
+def capability_container(id_short, capability_class, role, properties, relations=None):
     capability = {"modelType": "Capability", "idShort": id_short, "semanticId": ref(f"{CD}Capability/1/0"),
                   "supplementalSemanticIds": [ref(CAP_VOCAB + capability_class)],
                   "qualifiers": role_qualifiers(role)}
     elements = [capability]
     if properties:
         elements.append(smc("PropertySet", properties, semantic=f"{CD}PropertySet/1/0"))
+    if relations:
+        elements.append(relations)
     return smc(id_short + "Container", elements, semantic=f"{CD}CapabilityContainer/1/0")
+
+
+def capability_ref(sm_id, capability):
+    """A ModelReference to the Capability element of a CapabilityContainer (IDTA-02020 relations)."""
+    return {"type": "ModelReference", "keys": [
+        {"type": "Submodel", "value": sm_id},
+        {"type": "SubmodelElementCollection", "value": "CapabilitySet"},
+        {"type": "SubmodelElementCollection", "value": capability + "Container"},
+        {"type": "Capability", "value": capability}]}
+
+
+def relationship(id_short, kind, first, second):
+    return {"modelType": "RelationshipElement", "idShort": id_short, "semanticId": ref(f"{CD}{kind}/1/0"),
+            "first": first, "second": second}
+
+
+def capability_relations(composed_of=(), generalized_by=()):
+    """CapabilityRelations: ComposedOfSet (composite, part) and GeneralizedBySet (specific, general)."""
+    elements = []
+    if composed_of:
+        rels = [relationship(f"ComposedOf{i}", "CapabilityComposedOf", f, s) for i, (f, s) in enumerate(composed_of)]
+        elements.append(smc("ComposedOfSet", [smc("ComposedOfContainer", rels, semantic=f"{CD}ComposedOfContainer/1/0")],
+                            semantic=f"{CD}ComposedOfSet/1/0"))
+    if generalized_by:
+        rels = [relationship(f"GeneralizedBy{i}", "CapabilityGeneralizedBy", f, s)
+                for i, (f, s) in enumerate(generalized_by)]
+        elements.append(smc("GeneralizedBySet", rels, semantic=f"{CD}GeneralizedBySet/1/0"))
+    return smc("CapabilityRelations", elements, semantic=f"{CD}CapabilityRelations/1/0")
 
 
 def capability_submodel(sm_id, containers):
@@ -242,7 +272,8 @@ def x_common(e, out, ind):
 
 
 TAGS = {"Property": "property", "Range": "range", "SubmodelElementCollection": "submodelElementCollection",
-        "SubmodelElementList": "submodelElementList", "Capability": "capability"}
+        "SubmodelElementList": "submodelElementList", "Capability": "capability",
+        "RelationshipElement": "relationshipElement"}
 
 
 def x_element(e, out, ind):
@@ -260,6 +291,9 @@ def x_element(e, out, ind):
         for side in ("min", "max"):
             if side in e:
                 out.append(f"{ind}  <{side}>{escape(e[side])}</{side}>")
+    elif tag == "relationshipElement":
+        x_ref("first", e["first"], out, ind + "  ")
+        x_ref("second", e["second"], out, ind + "  ")
     elif tag in ("submodelElementCollection", "submodelElementList"):
         if tag == "submodelElementList":
             out.append(f"{ind}  <typeValueListElement>{e['typeValueListElement']}</typeValueListElement>")
@@ -451,6 +485,83 @@ def offer_orbitec():
     return environment([s], [td, cap], [concept_description(RATED_CURRENT)])
 
 
+# --------------------------------------------------------------------------------------------
+# Composition and generalisation (IDTA-02020 ComposedOf / GeneralizedBy): the sealing station
+# --------------------------------------------------------------------------------------------
+
+SEAL_TEMP = ("0173-1#02-AAZ910#001", "sealing temperature", "°C", "0173-1#05-AAA567#002")
+SEAL_FORCE = ("0173-1#02-AAZ911#001", "sealing force", "kN", "")
+CUT_LENGTH = ("0173-1#02-AAZ912#001", "cutting length", "mm", "")
+
+
+def sealing_request():
+    """RFQ-2026-204: a sealing station composed of hot-plate sealing and film cutting."""
+    sm_id = "https://kroeger-vt.example/aas/rfq-2026-204/sm/capabilities"
+    station = capability_container("SealingStation", "SealingStation", "Required", [], capability_relations(
+        composed_of=[(capability_ref(sm_id, "SealingStation"), capability_ref(sm_id, "HotPlateSealing")),
+                     (capability_ref(sm_id, "SealingStation"), capability_ref(sm_id, "FilmCutting"))]))
+    sealing = capability_container("HotPlateSealing", "HotPlateSealing", "Required", [
+        capability_property("SealingTemperature", capability_property_value(SEAL_TEMP, lo="140", hi="220")),
+        capability_property("SealingForce", capability_property_value(SEAL_FORCE, lo="2")),
+    ])
+    cutting = capability_container("FilmCutting", "FilmCutting", "Required", [
+        capability_property("CutLength", capability_property_value(CUT_LENGTH, lo="400")),
+    ])
+    sm = capability_submodel(sm_id, [station, sealing, cutting])
+    s = shell("https://kroeger-vt.example/aas/rfq-2026-204", "RFQ_2026_204",
+              "https://kroeger-vt.example/asset/tray-sealer-ts40/sealing-station", [sm])
+    return environment([s], [sm], [])
+
+
+def offer_siegtech():
+    """Siegtech ST-3 (JSON): the same composite, the exact capabilities."""
+    sm_id = "https://siegtech.example/aas/st-3/sm/capabilities"
+    station = capability_container("SealingStation", "SealingStation", "Offered", [], capability_relations(
+        composed_of=[(capability_ref(sm_id, "SealingStation"), capability_ref(sm_id, "HotPlateSealing")),
+                     (capability_ref(sm_id, "SealingStation"), capability_ref(sm_id, "FilmCutting"))]))
+    sealing = capability_container("HotPlateSealing", "HotPlateSealing", "Offered", [
+        capability_property("SealingTemperature", capability_property_value(SEAL_TEMP, lo="120", hi="240")),
+        capability_property("SealingForce", capability_property_value(SEAL_FORCE, value="3")),
+    ])
+    cutting = capability_container("FilmCutting", "FilmCutting", "Offered", [
+        capability_property("CutLength", capability_property_value(CUT_LENGTH, value="450")),
+    ])
+    sm = capability_submodel(sm_id, [station, sealing, cutting])
+    s = shell("https://siegtech.example/aas/st-3", "Siegtech_ST_3", "https://siegtech.example/asset/st-3", [sm])
+    return environment([s], [sm], [])
+
+
+def offer_varipack():
+    """Varipack VP-9 (XML): only generic heat sealing, film cutting, no composite station."""
+    sealing = capability_container("HeatSealing", "HeatSealing", "Offered", [
+        capability_property("SealingTemperature", capability_property_value(SEAL_TEMP, lo="110", hi="230")),
+        capability_property("SealingForce", capability_property_value(SEAL_FORCE, value="2.5")),
+    ])
+    cutting = capability_container("FilmCutting", "FilmCutting", "Offered", [
+        capability_property("CutLength", capability_property_value(CUT_LENGTH, value="500")),
+    ])
+    sm = capability_submodel("https://varipack.example/aas/vp-9/sm/capabilities", [sealing, cutting])
+    s = shell("https://varipack.example/aas/vp-9", "Varipack_VP_9", "https://varipack.example/asset/vp-9", [sm])
+    return environment([s], [sm], [])
+
+
+def capability_taxonomy():
+    """The shared capability vocabulary as an AAS: which capability generalises which."""
+    sm_id = "https://vocab.machinery.example/aas/capability-taxonomy/sm/capabilities"
+    general = [("HotPlateSealing", "HeatSealing"), ("ImpulseSealing", "HeatSealing")]
+    containers = [capability_container("HeatSealing", "HeatSealing", "NotAssigned", [])]
+    for specific, parent in general:
+        containers.append(capability_container(specific, specific, "NotAssigned", [], capability_relations(
+            generalized_by=[(capability_ref(sm_id, specific), capability_ref(sm_id, parent))])))
+    # a generalisation into an external ontology (not a capability of this submodel)
+    containers.append(capability_container("FilmCutting", "FilmCutting", "NotAssigned", [], capability_relations(
+        generalized_by=[(capability_ref(sm_id, "FilmCutting"), ref(CAP_VOCAB + "Cutting"))])))
+    sm = capability_submodel(sm_id, containers)
+    s = shell("https://vocab.machinery.example/aas/capability-taxonomy", "CapabilityTaxonomy",
+              "https://vocab.machinery.example/asset/capability-taxonomy", [sm])
+    return environment([s], [sm], [])
+
+
 # Ground truth from the clean values: (offer, capability, property) -> met
 REQUIRED = {"RatedCurrent": ("at_least", 7.6), "SupplyVoltage": ("within", (380, 480)),
             "AmbientTemperature": ("at_least", 45), "SafeTorqueOff": ("equals", "true"),
@@ -511,6 +622,13 @@ def write(out_dir):
     dump_json(out_dir / "formats" / "lenvaro_lx8.aas.json", same)
     (out_dir / "formats" / "lenvaro_lx8.aas.xml").write_text(to_xml(same), encoding="utf-8")
     (out_dir / "formats" / "lenvaro_lx8.aasx").write_bytes(to_aasx(to_xml(same), "LenvaroLX8"))
+
+    sealing = out_dir / "sealing"
+    (sealing / "offers").mkdir(parents=True, exist_ok=True)
+    dump_json(sealing / "rfq_2026_204.aas.json", sealing_request())
+    dump_json(sealing / "offers" / "siegtech_st3.aas.json", offer_siegtech())
+    (sealing / "offers" / "varipack_vp9.aas.xml").write_text(to_xml(offer_varipack()), encoding="utf-8")
+    dump_json(sealing / "capability_taxonomy.aas.json", capability_taxonomy())
 
     with open(out_dir / "eclass_units.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, lineterminator="\n")

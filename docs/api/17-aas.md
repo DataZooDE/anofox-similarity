@@ -54,6 +54,10 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
 | ... holding no values directly | transparent container |
 | IDTA-02020 `CapabilityContainer` | item: `class_id` = the Capability's supplementalSemanticId, `label` = the Capability, `role` from the `CapabilityRoleQualifier` (Required → `required`, Offered → `provided`); attributes from its `PropertySet`s |
 | `Capability` elsewhere | item without attributes |
+| `CapabilityComposedOf` (first is composed of second) | the part's item moves under the composite (`AND`) |
+| `CapabilityGeneralizedBy` (second is more general) | a row of `aas_class_hierarchy`; second may be an external ontology IRI |
+| IEC 61360 `levelType` of a single value: exactly min / max / nom | `bound` `at_least` / `at_most` / `equals` |
+| IDTA-02020 `BasicConstraint` (`<= 1 ms`) on the properties its `ConstraintHasProperty` names | `bound` from the expression (overrides the Range) |
 | `Property` with a number (`xs:double`, `xs:int`, ...) | point attribute (`lo = hi`) |
 | `Range` | `lo` = min, `hi` = max; only min → `bound = 'at_least'`, only max → `'at_most'`, both → `'within'` |
 | `Property` with `valueId` (enumeration) | `category` = `semantic_key(valueId)` |
@@ -73,6 +77,11 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
   it to the property), else the ConceptDescription of its semanticId or a supplementalSemanticId.
   `unitId` is resolved first, then the `unit` text. Values are converted to base units. A
   dictionary entry without any unit gives a dimensionless count.
+- **`bound_source`** says where a bound came from: `range`, `level_type`, `constraint`, `text`
+  (a quantity written as text), and `explicit` for `tree_from_json` bounds. The trace shows it.
+- **`role`** comes from the `CapabilityRoleQualifier` and is informational ([HLD §12](../requirements-matching/HLD.md)):
+  `tree_coverage` reads the query tree as the requirement. `validate_trees` warns (`mixed_roles`)
+  when one tree mixes both roles.
 - **Text is not a number.** A string value counts as a quantity only with a written unit. Product
   class ids (`0112/2///62683#ACC501#002`), versions (`15.0`) and dates stay out.
 
@@ -88,6 +97,11 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `unknown_unit_id` | warning | the `unitId` is not in the unit table; the `unit` text is used |
 | `capability_missing` | warning | a CapabilityContainer without a Capability |
 | `missing_submodel` | info | a shell references a submodel that is not in the input |
+| `unresolved_constraint` | warning | a `ConstraintHasProperty` names no mapped property |
+| `unparsed_constraint` | info | a `BasicConstraint` without a comparison (`see data sheet`) |
+| `unresolved_relation` | warning | a ComposedOf / GeneralizedBy reference names no mapped capability |
+| `composition_cycle` | warning | a capability cannot be part of one it contains; the relation is skipped |
+| `multiple_composition` | info | a capability is part of two composites; the first is kept |
 | `empty_value` | info | a numeric property without a value |
 
 Malformed input (broken JSON or XML, a zip without a spec part) is an error with the reader's
@@ -104,6 +118,18 @@ FROM read_text('http://localhost:8081/submodels/' || aas_id_b64url('https://lenv
 `GET /submodels` pages its result (`paging_metadata.cursor`). Fetch the pages with a recursive
 CTE that appends `?cursor=` until no cursor comes back, and pass each page to `aas_to_trees`:
 a paged result is a valid input.
+
+**Capability hierarchy.** `aas_class_hierarchy(content)` reads the GeneralizedBy relations of a
+capability taxonomy (any AAS with IDTA-02020 capabilities) as `(class_id, parent_class_id)`.
+Pass the table to `tree_coverage` with a credit:
+
+```sql
+CREATE TABLE class_hierarchy AS
+SELECT unnest(aas_class_hierarchy(content), recursive := true) FROM read_text('capability_taxonomy.aas.json');
+
+SELECT * FROM tree_coverage('RFQ-2026-204', candidates := ['https://varipack.example/aas/vp-9'],
+                            labels := 'hard', class_hierarchy := 'class_hierarchy', generalization_credit := 0.5);
+```
 
 ## Identifiers: semantic_key
 
@@ -172,12 +198,12 @@ SELECT semantic_key('0173-1#02-AAC895#008', true); -- 0173-1#02-AAC895#008
 Reads Asset Administration Shell data (AAS v3.x: Part 1 JSON or XML, an AASX package, a single Submodel or a Part 2 paged result) into property trees: a LIST of the node STRUCTs of tree_from_json with their attributes. One tree per shell (tree_id: the shell id, or the tree_id argument), submodels and collections as nodes; a collection that directly holds values is an item (class_id: its semanticId), otherwise a container. Property and Range give attributes: attr_key is the semanticId (the supplementalSemanticId for IDTA-02020 property types), the unit comes from the IEC 61360 data specification (unitId first, then unit) and values are converted to base units. An IDTA-02020 CapabilityContainer is an item whose class is the Capability's supplementalSemanticId and whose attributes come from its PropertySets; the CapabilityRoleQualifier gives role. Pass read_blob(...) for AASX packages. Findings about the input are in aas_issues(). unit_table as in parse_quantity.
 
 ```sql
-aas_to_trees(content BLOB) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
-aas_to_trees(content VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
-aas_to_trees(content BLOB, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
-aas_to_trees(content VARCHAR, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
-aas_to_trees(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
-aas_to_trees(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR)[])[]
+aas_to_trees(content BLOB) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content BLOB, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
 ```
 
 **Examples**
@@ -215,6 +241,32 @@ SELECT aas_issues(content, 'OFF-A') FROM read_blob('offer_a.aasx');
 SELECT aas_issues(content, 'OFF-A') FROM read_text('offer_a.xml');
 SELECT aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_blob('offer_a.aasx');
 SELECT aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_text('offer_a.json');
+```
+
+### `aas_class_hierarchy`
+
+*Scalar function*
+
+The capability class hierarchy of IDTA-02020 CapabilityGeneralizedBy relations: LIST of STRUCT(class_id, parent_class_id), class ids as in aas_to_trees (the second element may also be an external ontology IRI). Store it as a table and pass it to tree_coverage as class_hierarchy with a generalization_credit, so a requirement for a specific capability gets partial credit from a more general offer and vice versa. Same arguments as aas_to_trees.
+
+```sql
+aas_class_hierarchy(content BLOB) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+aas_class_hierarchy(content VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+aas_class_hierarchy(content BLOB, tree_id VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+aas_class_hierarchy(content VARCHAR, tree_id VARCHAR) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+aas_class_hierarchy(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+aas_class_hierarchy(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(class_id VARCHAR, parent_class_id VARCHAR)[]
+```
+
+**Examples**
+
+```sql
+SELECT aas_class_hierarchy(content) FROM read_blob('offers/*.aasx');
+SELECT aas_class_hierarchy(content) FROM read_text('offers/*.json');
+SELECT aas_class_hierarchy(content, 'OFF-A') FROM read_blob('offer_a.aasx');
+SELECT aas_class_hierarchy(content, 'OFF-A') FROM read_text('offer_a.xml');
+SELECT aas_class_hierarchy(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_blob('offer_a.aasx');
+SELECT aas_class_hierarchy(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM read_text('offer_a.json');
 ```
 
 ### `aas_id_b64url`

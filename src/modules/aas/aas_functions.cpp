@@ -208,6 +208,26 @@ void AasIssuesFun(DataChunk &args, ExpressionState &, Vector &result) {
 	});
 }
 
+LogicalType ClassEdgeType() {
+	child_list_t<LogicalType> c {{"class_id", LogicalType::VARCHAR}, {"parent_class_id", LogicalType::VARCHAR}};
+	return LogicalType::STRUCT(c);
+}
+
+void AasClassHierarchyFun(DataChunk &args, ExpressionState &, Vector &result) {
+	ForEachMapping(args, result, [](const AasMapping &m) {
+		vector<Value> edges;
+		for (auto &e : m.class_hierarchy) {
+			edges.push_back(Value::STRUCT({{"class_id", Value(e.class_id)}, {"parent_class_id", Value(e.parent_class_id)}}));
+		}
+		return Value::LIST(ClassEdgeType(), std::move(edges));
+	});
+}
+
+unique_ptr<FunctionData> AasClassHierarchyBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_class_hierarchy");
+	return nullptr;
+}
+
 unique_ptr<FunctionData> AasToTreesBind() {
 	PostHogTelemetry::Instance().RecordFunctionCall("aas_to_trees");
 	return nullptr;
@@ -277,6 +297,20 @@ void RegisterAasReader(ExtensionLoader &loader) {
 	    AAS_CATEGORIES};
 	issues.special_null_handling = true;
 	RegisterCoverageScalar(loader, issues, ContentOverloads("aas_issues"));
+
+	CoverageScalarSpec hierarchy {
+	    "aas_class_hierarchy",
+	    LogicalType::LIST(ClassEdgeType()),
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasClassHierarchyFun),
+	    compat_anofox::ScalarBind<&AasClassHierarchyBind>(),
+	    "The capability class hierarchy of IDTA-02020 CapabilityGeneralizedBy relations: LIST of STRUCT(class_id, "
+	    "parent_class_id), class ids as in aas_to_trees (the second element may also be an external ontology IRI). "
+	    "Store it as a table and pass it to tree_coverage as class_hierarchy with a generalization_credit, so a "
+	    "requirement for a specific capability gets partial credit from a more general offer and vice versa. Same "
+	    "arguments as aas_to_trees.",
+	    AAS_CATEGORIES};
+	hierarchy.special_null_handling = true;
+	RegisterCoverageScalar(loader, hierarchy, ContentOverloads("aas_class_hierarchy"));
 }
 
 //------------------------------------------------------------------------------

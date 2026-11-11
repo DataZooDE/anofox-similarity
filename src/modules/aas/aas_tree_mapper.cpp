@@ -71,6 +71,8 @@ const char *ROLE_QUALIFIER = "/CapabilityDescription/CapabilityRoleQualifier/";
 const char *PROPERTY_CONSTRAINT_CONTAINER = "/CapabilityDescription/PropertyConstraintContainer/";
 const char *BASIC_CONSTRAINT = "/PropertyConstraintType/BasicConstraint/";
 const char *CONSTRAINT_HAS_PROPERTY = "/CapabilityDescription/ConstraintHasProperty/";
+const char *COMPOSED_OF = "/CapabilityDescription/CapabilityComposedOf/";
+const char *GENERALIZED_BY = "/CapabilityDescription/CapabilityGeneralizedBy/";
 
 //! An idShort path in one spelling for lookups: list indices as path segments (a[0] -> a.0).
 std::string NormalPath(const std::string &path) {
@@ -207,6 +209,17 @@ private:
 		AasReference target;
 	};
 	std::vector<PendingConstraint> constraints;
+	//! IDTA-02020 capability relations, resolved once the submodel is mapped.
+	struct PendingRelation {
+		bool composed; // ComposedOf (else GeneralizedBy)
+		std::string path;
+		AasReference first;
+		AasReference second;
+	};
+	std::vector<PendingRelation> relations;
+	//! CapabilityContainer nodes by the paths a reference may use: the container's and its Capability's.
+	std::unordered_map<std::string, idx_t> capability_nodes;
+	std::unordered_set<std::string> class_edges; // dedupe "child\x1fparent"
 
 	bool Referenced(const std::string &submodel_id) const {
 		for (auto &s : env.shells) {
@@ -354,8 +367,91 @@ private:
 		auto index = Add(std::move(node));
 		attrs_by_path.clear();
 		constraints.clear();
+		relations.clear();
+		capability_nodes.clear();
 		MapChildren(sm.elements, index, path, false, "");
 		ApplyConstraints();
+		ApplyRelations();
+	}
+
+	//------------------------------------------------------------------------------
+	// IDTA-02020 capability relations: CapabilityComposedOf (first is composed of second) makes the
+	// sub-capability a child of the composite; CapabilityGeneralizedBy (second is more general)
+	// gives a class hierarchy edge.
+	//------------------------------------------------------------------------------
+
+	void CollectRelations(const AasElement &e, const std::string &path) {
+		for (idx_t i = 0; i < e.children.size(); i++) {
+			auto &c = e.children[i];
+			auto child_path = ChildPath(path, c, i, e.model_type == "SubmodelElementList");
+			if (Contains(c.semantic_id, COMPOSED_OF) || Contains(c.semantic_id, GENERALIZED_BY)) {
+				relations.push_back({Contains(c.semantic_id, COMPOSED_OF), child_path, c.first, c.second});
+			} else if (AasIsContainer(c.model_type) && !Contains(c.semantic_id, CAPABILITY_CONTAINER)) {
+				CollectRelations(c, child_path);
+			}
+		}
+	}
+
+	const TreeNodeRow *Node(const std::string &node_id) const {
+		for (auto &n : out.nodes) {
+			if (n.tree_id == tree_id && n.node_id == node_id) {
+				return &n;
+			}
+		}
+		return nullptr;
+	}
+
+	//! True when candidate is node or one of its ancestors.
+	bool IsAncestorOrSelf(const std::string &candidate, const std::string &node_id) const {
+		std::string cur = node_id;
+		for (idx_t steps = 0; !cur.empty() && steps <= out.nodes.size(); steps++) {
+			if (cur == candidate) {
+				return true;
+			}
+			auto n = Node(cur);
+			cur = n ? n->parent_id : std::string();
+		}
+		return false;
+	}
+
+	void ApplyRelations() {
+		std::unordered_set<idx_t> recomposed;
+		for (auto &r : relations) {
+			auto first = capability_nodes.find(ReferencePath(r.first));
+			if (first == capability_nodes.end()) {
+				Issue(tree_id, r.path, "unresolved_relation", "warning",
+				      "the relation's first element " + r.first.Last() + " is not a mapped capability");
+				continue;
+			}
+			auto second = capability_nodes.find(ReferencePath(r.second));
+			if (!r.composed) {
+				auto &child = out.nodes[first->second].class_id;
+				auto parent = second != capability_nodes.end() ? out.nodes[second->second].class_id
+				                                               : SemanticKey(r.second.Last()).key; // external ontology
+				if (!child.empty() && !parent.empty() && child != parent && class_edges.insert(child + "\x1f" + parent).second) {
+					out.class_hierarchy.push_back({child, parent});
+				}
+				continue;
+			}
+			if (second == capability_nodes.end()) {
+				Issue(tree_id, r.path, "unresolved_relation", "warning",
+				      "ComposedOf names " + r.second.Last() + ", which is not a mapped capability");
+				continue;
+			}
+			auto &composite = out.nodes[first->second];
+			auto &part = out.nodes[second->second];
+			if (IsAncestorOrSelf(part.node_id, composite.node_id)) {
+				Issue(tree_id, r.path, "composition_cycle", "warning",
+				      part.node_id + " cannot be part of " + composite.node_id + ": it contains it");
+			} else if (!recomposed.insert(second->second).second) {
+				Issue(tree_id, r.path, "multiple_composition", "info",
+				      part.node_id + " is already part of " + part.parent_id + "; kept there");
+			} else {
+				part.parent_id = composite.node_id;
+				part.context = composite.node_id;
+				part.edge_type = "AND";
+			}
+		}
 	}
 
 	//------------------------------------------------------------------------------
@@ -526,6 +622,11 @@ private:
 			Issue(tree_id, path, "capability_missing", "warning", "a CapabilityContainer without a Capability element");
 		}
 		auto index = Add(std::move(node));
+		capability_nodes[NormalPath(path)] = index;
+		if (capability) {
+			capability_nodes[NormalPath(path + "." + capability->id_short)] = index;
+		}
+		CollectRelations(e, path);
 		for (auto &c : e.children) {
 			if (Contains(c.semantic_id, PROPERTY_SET)) {
 				MapPropertySet(c, index, ChildPath(path, c, 0, false), role);
