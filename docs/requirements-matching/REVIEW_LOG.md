@@ -667,3 +667,32 @@ Decisions and open questions:
 - **Open:** the canonical ECLASS CDP IRI spellings for BASIC/ADVANCED and versionless ids, and how
   BaSyx and FA³ST serialise `CapabilityRoleQualifier` values (`true` / `1` are read; the template's
   `[1, 0]` placeholder is not a value). Both need real exporter samples.
+
+## AAS-2 — 2026-11-11 — Tier 2 of the AAS epic (#31–#33) and the AAS-1 fixes, crew review (user request)
+
+- **Crew** (review mode, one round) on `git diff 993ae68..d130bff`: correctness (codex), design
+  (claude), testing (codex) reported. Usability and maintainability (muse) failed on a quota
+  error and are covered by the final review. Verdict: request changes. The two codex members
+  reproduced the same reader bugs against the 1.5.6 build independently.
+- **Product decisions** (asked and answered in the session, recorded in HLD §12.7): is-a class
+  hierarchy; transparent composites; one alternative per candidate OR group.
+- **Evidence:** `test/sql/aas/crew_t2_regressions.test` (hand-written fixtures), updated `uc_05`,
+  `uc_06` and `examples/tender_reuse/03`. The full suite (133 test cases) and all 26 examples pass
+  on 1.5.6 and 2.0.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Relations and constraints resolved per submodel by idShort: cross-submodel GeneralizedBy fell back to a bare idShort, duplicate idShorts misresolved a constraint | One input-wide index keyed by submodel id and path, applied after all trees; the external-class fallback only for ExternalReferences; unresolved ModelReferences reported |
+| F2 | high | Superclass items added their full count | A generalized item counts relative to the best match (L / L(best)): fully at its own level, partly next to a closer match. Test: 2 needed, 1 exact + 3 superclass → 2.5 |
+| F3 | high | A classed collection with only a profile count became a container | Item when it has a dictionary semanticId and a profile count |
+| F4 | medium | BasicConstraint kept its comparator and dropped its number; overwrote a Range's `within` | The value is the limit in the attribute's dimension; `constraint_conflict` for a different stated value, a two-sided Range (kept) or another dimension (not applied) |
+| F5 | medium | Constraint on a container holding a list unresolved | Attributes indexed under every enclosing path up to the PropertyContainer or list |
+| F6 | medium | Credit symmetric in both directions | Decided: is-a. A subclass offer fully meets a superclass requirement (`specialized`); only a superclass offer gets c^d |
+| F7 | medium | Composite without properties counted as a requirement | Decided: it becomes a container, only its parts are requirements |
+| F8 | medium | Soft-label trace said `soft` with hierarchy credit | `specialized` / `generalized` whenever related classes contribute |
+| F9 | medium | The #32 regression test compared the new build with itself | The default path is pinned by the golden suites under `test/sql/coverage/r0`–`r5` (2589 assertions, soft and hard labels), which passed unchanged after #32 and after AAS-2. With a hierarchy, results now change by design (is-a), so a "hierarchy, credit 0 = no hierarchy" golden no longer holds in general |
+| F10 | medium | Options deep-copied per row | Bound by reference |
+| F11 | low | Guide described a writer that did not exist | Future tense until #34 lands |
+| F12 | low | TreeBuilder responsibilities, O(n²) ancestor walk | Node index; relation and constraint passes run once over the input-wide index; value typing and dictionary lookups in their own units (AAS-1) |
+| F13 | low | Small API inconsistencies | `aas_class_hierarchy(content)` only; the credit check in `KernelSettingsError`; qualifier-over-property precedence for counts documented; `bad_value` for role qualifiers, `unclassed_capability` |
+| new | — | Open question "one configuration per request" | Decided: `alternatives := 'joint'` (default). The suite and benchmark KPIs are unchanged; `examples/tender_reuse/03` step 4 had documented the mixing pitfall and now shows it solved, with `'per_requirement'` for the old behaviour |
