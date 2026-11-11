@@ -1,7 +1,11 @@
 // SQL registration for the AAS integration. Only the SQL surface lives here: argument
 // handling, documentation and telemetry. The logic is in the format-neutral modules next to it.
 #include "modules/aas/aas_functions.hpp"
+#include "modules/aas/aas_model.hpp"
+#include "modules/aas/aas_tree_mapper.hpp"
 #include "modules/aas/semantic_key.hpp"
+#include "modules/property_tree.hpp"
+#include "modules/quantity.hpp"
 #include "modules/coverage_sql.hpp"
 #include "compat_anofox/scalar_bind.hpp"
 #include "duckdb_compat.hpp"
@@ -68,10 +72,281 @@ void RegisterSemanticKey(ExtensionLoader &loader) {
 	      ""}});
 }
 
+//------------------------------------------------------------------------------
+// aas_to_trees(content [, tree_id [, unit_table]]) and aas_issues(content [, tree_id [, unit_table]])
+//------------------------------------------------------------------------------
+
+//! The raw bytes of a VARCHAR or BLOB argument.
+string ContentOf(const Value &v) {
+	return StringValue::Get(v);
+}
+
+Value Text(const string &s) {
+	return s.empty() ? Value(LogicalType::VARCHAR) : Value(s);
+}
+
+Value AttributeValue(const TreeNodeRow &n, const TreeAttrRow &a) {
+	child_list_t<Value> v;
+	v.emplace_back("tree_id", Value(n.tree_id));
+	v.emplace_back("node_id", Value(n.node_id));
+	v.emplace_back("attr_id", Value(a.attr_id));
+	v.emplace_back("name", Text(a.name));
+	v.emplace_back("value_text", Text(a.value_text));
+	v.emplace_back("dimension", Text(a.dimension));
+	v.emplace_back("unit", Text(a.unit));
+	v.emplace_back("lo", a.has_value ? Value::DOUBLE(a.lo) : Value(LogicalType::DOUBLE));
+	v.emplace_back("hi", a.has_value ? Value::DOUBLE(a.hi) : Value(LogicalType::DOUBLE));
+	v.emplace_back("role", Text(a.role));
+	v.emplace_back("bound", Text(a.bound));
+	v.emplace_back("qualifier", Text(a.qualifier));
+	v.emplace_back("category", Text(a.category));
+	v.emplace_back("attr_key", Text(a.attr_key));
+	return Value::STRUCT(std::move(v));
+}
+
+Value NodeValue(const TreeNodeRow &n) {
+	vector<Value> attrs;
+	for (auto &a : n.attrs) {
+		attrs.push_back(AttributeValue(n, a));
+	}
+	child_list_t<Value> v;
+	v.emplace_back("tree_id", Value(n.tree_id));
+	v.emplace_back("node_id", Value(n.node_id));
+	v.emplace_back("parent_id", Text(n.parent_id));
+	v.emplace_back("node_kind", Value(n.node_kind));
+	v.emplace_back("edge_type", Value(n.edge_type));
+	v.emplace_back("label", Text(n.label));
+	v.emplace_back("context", Text(n.context));
+	v.emplace_back("class_id", Text(n.class_id));
+	v.emplace_back("count", Value::DOUBLE(n.count));
+	v.emplace_back("source", Value(LogicalType::VARCHAR));
+	v.emplace_back("attributes", Value::LIST(TreeAttributeType(), std::move(attrs)));
+	return Value::STRUCT(std::move(v));
+}
+
+LogicalType IssueType() {
+	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},
+	                             {"path", LogicalType::VARCHAR},
+	                             {"issue", LogicalType::VARCHAR},
+	                             {"severity", LogicalType::VARCHAR},
+	                             {"detail", LogicalType::VARCHAR}};
+	return LogicalType::STRUCT(c);
+}
+
+Value IssueValue(const AasIssue &i) {
+	child_list_t<Value> v;
+	v.emplace_back("tree_id", Text(i.tree_id));
+	v.emplace_back("path", Text(i.path));
+	v.emplace_back("issue", Value(i.issue));
+	v.emplace_back("severity", Value(i.severity));
+	v.emplace_back("detail", Text(i.detail));
+	return Value::STRUCT(std::move(v));
+}
+
+//! Reads one row's AAS input and maps it. The unit table is rebuilt only when it changes.
+class AasRowMapper {
+public:
+	AasMapping Map(DataChunk &args, idx_t row) {
+		AasMapOptions options;
+		if (args.ColumnCount() > 1) {
+			auto id = args.data[1].GetValue(row);
+			options.tree_id = id.IsNull() ? string() : id.ToString();
+		}
+		if (args.ColumnCount() > 2) {
+			auto units = args.data[2].GetValue(row);
+			if (!has_units || !Value::NotDistinctFrom(units, units_value)) {
+				unit_table = UnitTable::WithUserUnits(units);
+				units_value = units;
+				has_units = true;
+			}
+			options.units = &unit_table;
+		} else {
+			options.units = &UnitTable::Seed();
+		}
+		return MapAasToTrees(ReadAas(ContentOf(args.data[0].GetValue(row))), options);
+	}
+
+private:
+	bool has_units = false;
+	Value units_value;
+	UnitTable unit_table;
+};
+
+template <class EMIT>
+void ForEachMapping(DataChunk &args, Vector &result, EMIT emit) {
+	AasRowMapper mapper;
+	for (idx_t row = 0; row < args.size(); row++) {
+		if (args.data[0].GetValue(row).IsNull()) {
+			result.SetValue(row, Value(result.GetType()));
+			continue;
+		}
+		result.SetValue(row, emit(mapper.Map(args, row)));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+void AasToTreesFun(DataChunk &args, ExpressionState &, Vector &result) {
+	ForEachMapping(args, result, [](const AasMapping &m) {
+		vector<Value> nodes;
+		for (auto &n : m.nodes) {
+			nodes.push_back(NodeValue(n));
+		}
+		return Value::LIST(TreeNodeType(), std::move(nodes));
+	});
+}
+
+void AasIssuesFun(DataChunk &args, ExpressionState &, Vector &result) {
+	ForEachMapping(args, result, [](const AasMapping &m) {
+		vector<Value> issues;
+		for (auto &i : m.issues) {
+			issues.push_back(IssueValue(i));
+		}
+		return Value::LIST(IssueType(), std::move(issues));
+	});
+}
+
+unique_ptr<FunctionData> AasToTreesBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_to_trees");
+	return nullptr;
+}
+
+unique_ptr<FunctionData> AasIssuesBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_issues");
+	return nullptr;
+}
+
+//! The overloads shared by aas_to_trees and aas_issues: VARCHAR (JSON, XML) or BLOB (also AASX).
+vector<CoverageScalarOverload> ContentOverloads(const string &fn) {
+	auto vc = LogicalType::VARCHAR;
+	auto blob = LogicalType::BLOB;
+	auto any = LogicalType::ANY;
+	vector<CoverageScalarOverload> out;
+	for (auto &content : {vc, blob}) {
+		bool text = content == vc;
+		out.push_back({{content},
+		               {"content"},
+		               {text ? "SELECT " + fn + "(content) FROM read_text('offers/*.json');"
+		                     : "SELECT " + fn + "(content) FROM read_blob('offers/*.aasx');"},
+		               ""});
+		out.push_back({{content, vc},
+		               {"content", "tree_id"},
+		               {"SELECT " + fn + "(content, 'OFF-A') FROM " + (text ? "read_text('offer_a.xml');" : "read_blob('offer_a.aasx');")},
+		               ""});
+		out.push_back({{content, vc, any},
+		               {"content", "tree_id", "unit_table"},
+		               {"SELECT " + fn + "(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM " +
+		                (text ? "read_text('offer_a.json');" : "read_blob('offer_a.aasx');")},
+		               ""});
+	}
+	return out;
+}
+
+void RegisterAasReader(ExtensionLoader &loader) {
+	CoverageScalarSpec trees {
+	    "aas_to_trees",
+	    LogicalType::LIST(TreeNodeType()),
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasToTreesFun),
+	    compat_anofox::ScalarBind<&AasToTreesBind>(),
+	    "Reads Asset Administration Shell data (AAS v3.x: Part 1 JSON or XML, an AASX package, a single Submodel or a "
+	    "Part 2 paged result) into property trees: a LIST of the node STRUCTs of tree_from_json with their attributes. "
+	    "One tree per shell (tree_id: the shell id, or the tree_id argument), submodels and collections as nodes; a "
+	    "collection that directly holds values is an item (class_id: its semanticId), otherwise a container. Property "
+	    "and Range give attributes: attr_key is the semanticId (the supplementalSemanticId for IDTA-02020 property "
+	    "types), the unit comes from the IEC 61360 data specification (unitId first, then unit) and values are "
+	    "converted to base units. An IDTA-02020 CapabilityContainer is an item whose class is the Capability's "
+	    "supplementalSemanticId and whose attributes come from its PropertySets; the CapabilityRoleQualifier gives "
+	    "role. Pass read_blob(...) for AASX packages. Findings about the input are in aas_issues(). unit_table as "
+	    "in parse_quantity.",
+	    AAS_CATEGORIES};
+	trees.special_null_handling = true;
+	RegisterCoverageScalar(loader, trees, ContentOverloads("aas_to_trees"));
+
+	CoverageScalarSpec issues {
+	    "aas_issues",
+	    LogicalType::LIST(IssueType()),
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasIssuesFun),
+	    compat_anofox::ScalarBind<&AasIssuesBind>(),
+	    "Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). Issues: "
+	    "bad_value (a value that does not parse as its valueType), decimal_comma (read with ',' as decimal separator), "
+	    "missing_concept_description and no_unit_information (the unit of a value is unknown), unknown_unit_id "
+	    "(falls back to the unit text), capability_missing, missing_submodel, empty_value. path is the idShort path, "
+	    "submodel first. Same arguments as aas_to_trees.",
+	    AAS_CATEGORIES};
+	issues.special_null_handling = true;
+	RegisterCoverageScalar(loader, issues, ContentOverloads("aas_issues"));
+}
+
+//------------------------------------------------------------------------------
+// aas_id_b64url(id): identifiers in AAS Part 2 REST paths
+//------------------------------------------------------------------------------
+
+string Base64Url(const string &in) {
+	static const char *ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+	string out;
+	idx_t i = 0;
+	while (i + 2 < in.size()) {
+		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8) | uint8_t(in[i + 2]);
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+		out += ALPHABET[(n >> 6) & 63];
+		out += ALPHABET[n & 63];
+		i += 3;
+	}
+	if (i + 1 == in.size()) {
+		uint32_t n = uint8_t(in[i]) << 16;
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+	} else if (i + 2 == in.size()) {
+		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8);
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+		out += ALPHABET[(n >> 6) & 63];
+	}
+	return out;
+}
+
+void AasIdB64UrlFun(DataChunk &args, ExpressionState &, Vector &result) {
+	for (idx_t row = 0; row < args.size(); row++) {
+		auto id = args.data[0].GetValue(row);
+		result.SetValue(row, id.IsNull() ? Value(LogicalType::VARCHAR) : Value(Base64Url(id.ToString())));
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
+unique_ptr<FunctionData> AasIdB64UrlBind() {
+	PostHogTelemetry::Instance().RecordFunctionCall("aas_id_b64url");
+	return nullptr;
+}
+
+void RegisterAasIdB64Url(ExtensionLoader &loader) {
+	CoverageScalarSpec spec {
+	    "aas_id_b64url",
+	    LogicalType::VARCHAR,
+	    DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, AasIdB64UrlFun),
+	    compat_anofox::ScalarBind<&AasIdB64UrlBind>(),
+	    "An AAS identifier encoded for an AAS Part 2 REST path: base64url (RFC 4648 §5) without padding, as in "
+	    "GET /submodels/{submodelIdentifier}. Use it with read_text over httpfs to load a submodel from an AAS "
+	    "repository (BaSyx, FA³ST).",
+	    AAS_CATEGORIES};
+	RegisterCoverageScalar(
+	    loader, spec,
+	    {{{LogicalType::VARCHAR},
+	      {"id"},
+	      {"SELECT aas_to_trees(content) FROM read_text('http://localhost:8081/submodels/' || "
+	       "aas_id_b64url('https://example.com/ids/sm/TechnicalData'));"},
+	      ""}});
+}
+
 } // namespace
 
 void RegisterAasFunctions(ExtensionLoader &loader) {
 	RegisterSemanticKey(loader);
+	RegisterAasReader(loader);
+	RegisterAasIdB64Url(loader);
 }
 
 } // namespace anofox

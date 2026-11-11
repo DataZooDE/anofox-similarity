@@ -367,7 +367,9 @@ Value OptVarchar(const string &s) {
 	return s.empty() ? Value(LogicalType::VARCHAR) : Value(s);
 }
 
-LogicalType AttributeType() {
+} // namespace
+
+LogicalType TreeAttributeType() {
 	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},  {"node_id", LogicalType::VARCHAR},
 	                             {"attr_id", LogicalType::VARCHAR},  {"name", LogicalType::VARCHAR},
 	                             {"value_text", LogicalType::VARCHAR}, {"dimension", LogicalType::VARCHAR},
@@ -378,14 +380,24 @@ LogicalType AttributeType() {
 	return LogicalType::STRUCT(c);
 }
 
-LogicalType NodeType() {
+LogicalType TreeNodeType() {
 	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},   {"node_id", LogicalType::VARCHAR},
 	                             {"parent_id", LogicalType::VARCHAR}, {"node_kind", LogicalType::VARCHAR},
 	                             {"edge_type", LogicalType::VARCHAR}, {"label", LogicalType::VARCHAR},
 	                             {"context", LogicalType::VARCHAR},   {"class_id", LogicalType::VARCHAR},
 	                             {"count", LogicalType::DOUBLE},      {"source", LogicalType::VARCHAR},
-	                             {"attributes", LogicalType::LIST(AttributeType())}};
+	                             {"attributes", LogicalType::LIST(TreeAttributeType())}};
 	return LogicalType::STRUCT(c);
+}
+
+namespace {
+
+LogicalType AttributeType() {
+	return TreeAttributeType();
+}
+
+LogicalType NodeType() {
+	return TreeNodeType();
 }
 
 struct JsonTreeContext {
@@ -1049,14 +1061,16 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		bool has_name = TableHasColumn(context, src.attrs_table, "name");
 		bool has_category = TableHasColumn(context, src.attrs_table, "category");
 		bool has_bound = TableHasColumn(context, src.attrs_table, "bound");
+		bool has_attr_key = TableHasColumn(context, src.attrs_table, "attr_key");
 		auto a = StringUtil::Format(
 		    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 		    "CAST(attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS lo, %s AS hi, %s AS category, "
-		    "%s AS bound FROM %s",
+		    "%s AS bound, %s AS attr_key FROM %s",
 		    CastOrNullSQL(has_name, "name", "VARCHAR"),
 		    CastOrNullSQL(has_dimension, "dimension", "VARCHAR"), CastOrNullSQL(has_lo, "lo", "DOUBLE"),
 		    CastOrNullSQL(has_hi, "hi", "DOUBLE"), CastOrNullSQL(has_category, "category", "VARCHAR"),
-		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
+		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), CastOrNullSQL(has_attr_key, "attr_key", "VARCHAR"),
+		    QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'null_key', 'error', 'an attribute row without tree_id or node_id'
@@ -1079,7 +1093,7 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'category_without_dimension', 'warning',
 			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair'
-			FROM a WHERE category IS NOT NULL AND dimension IS NULL
+			FROM a WHERE category IS NOT NULL AND dimension IS NULL AND attr_key IS NULL
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'bad_interval', 'error', 'lo is greater than hi'
 			FROM a WHERE lo > hi
@@ -1314,7 +1328,8 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "detail). Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, "
 	                  "no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, "
 	                  "attribute_on_container, orphan_attribute, "
-	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension, mixed_dimensions (one "
+	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension (not for "
+	                  "attributes with an attr_key: the key identifies the property), mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source).",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }

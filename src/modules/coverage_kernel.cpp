@@ -600,6 +600,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	best.rule = "gate";
 	bool exact_key = HasKeyedCounterpart(x, c);
 	bool key_gated = false;
+	const KAttr *same_key_gated = nullptr; // the requirement's own property, stopped by the dimension gate
 	for (auto &y : c.attrs) {
 		auto relation = KeyRelationOf(x, y);
 		if (relation == KeyRelation::DIFFERENT) {
@@ -615,6 +616,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 		m.bound = best.bound;
 		if (!x.category.empty()) {
 			if (y.category.empty() || (!x.dimension.empty() && x.dimension != y.dimension)) {
+				same_key_gated = relation == KeyRelation::SAME ? &y : same_key_gated;
 				continue;
 			}
 			auto dim = !y.dimension.empty() ? y.dimension : x.dimension;
@@ -635,6 +637,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.rule = "compat";
 		} else {
 			if (x.dimension.empty() || y.dimension.empty() || x.dimension != y.dimension) {
+				same_key_gated = relation == KeyRelation::SAME ? &y : same_key_gated;
 				continue;
 			}
 			ValueSide req, prov;
@@ -675,7 +678,13 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			best = m;
 		}
 	}
-	if (best.gate && key_gated) {
+	if (best.gate && same_key_gated) {
+		// the offer states the property, but without a usable value (unknown unit, not a number):
+		// show it, so the trace says why rather than claiming another property
+		best.prov = same_key_gated;
+		best.rule = !same_key_gated->has_lo && !same_key_gated->has_hi && same_key_gated->category.empty() ? "missing"
+		                                                                                                 : "gate";
+	} else if (best.gate && key_gated) {
 		best.rule = "key_mismatch";
 	}
 	return best;

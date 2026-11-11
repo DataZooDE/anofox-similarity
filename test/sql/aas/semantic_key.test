@@ -56,6 +56,13 @@ SELECT semantic_key('0112/2///61360_4#AAA001#001'), semantic_key('0112/2///61987
 ----
 0112/2///61360_4#AAA001	0112/2///61987#ABA581#007
 
+# Compound ids (a property in a class, as ECLASS writes them in TechnicalData) canonicalise part by part
+query TT
+SELECT semantic_key('0173-1#02-ABK161#002/0173-1#01-AHX838#002'),
+       semantic_key('0112/2///62683#ACE260#001/0112/2///62683#ACC501#002', true);
+----
+0173-1#02-ABK161/0173-1#01-AHX838	0112/2///62683#ACE260#001/0112/2///62683#ACC501#002
+
 # Other URIs pass through: scheme and host lower-cased, path kept as written (IDTA template ids)
 query TT
 SELECT semantic_key('HTTPS://Admin-Shell.IO/ZVEI/nameplate/2/0/Nameplate'),

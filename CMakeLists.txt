@@ -34,6 +34,11 @@ set(EXTENSION_SOURCES
     src/modules/coverage_kernel.cpp
     src/modules/aas/semantic_key.cpp
     src/modules/aas/aas_functions.cpp
+    src/modules/aas/aas_json_reader.cpp
+    src/modules/aas/aas_xml_reader.cpp
+    src/modules/aas/aasx_package.cpp
+    src/modules/aas/aasx_miniz.cpp
+    src/modules/aas/aas_tree_mapper.cpp
     src/modules/pivot_classifier.cpp
     src/modules/vocabulary_review.cpp
     src/modules/evaluation.cpp

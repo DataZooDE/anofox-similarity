@@ -94,6 +94,36 @@ bool ParseIrdi(const std::string &s, bool keep_version, std::string &out) {
 	return true;
 }
 
+//! A compound IRDI, e.g. property-in-class: 0173-1#02-ABK161#002/0173-1#01-AHX838#002. Parts are
+//! split at a '/' that ends a part with an item code and starts a new RAI (four digits, then '-'
+//! or '/'); the slashes inside an IEC CDD RAI (0112/2///62683) never match.
+bool ParseCompoundIrdi(const std::string &s, bool keep_version, std::string &out) {
+	std::string result;
+	size_t start = 0;
+	for (size_t i = 0; i < s.size(); i++) {
+		bool boundary = s[i] == '/' && i + 5 < s.size() && AllDigits(s.substr(i + 1, 4)) &&
+		                (s[i + 5] == '-' || s[i + 5] == '/') && s.substr(start, i - start).find('#') != std::string::npos;
+		if (!boundary) {
+			continue;
+		}
+		std::string part;
+		if (!ParseIrdi(s.substr(start, i - start), keep_version, part)) {
+			return false;
+		}
+		result += part + "/";
+		start = i + 1;
+	}
+	if (start == 0) {
+		return false; // not compound
+	}
+	std::string last;
+	if (!ParseIrdi(s.substr(start), keep_version, last)) {
+		return false;
+	}
+	out = result + last;
+	return true;
+}
+
 //! ECLASS IRI: an eclass host whose last path segment is the IRDI with '-' for '#':
 //! 0173-1-02-AAC895-008 -> 0173-1#02-AAC895#008.
 bool ParseEclassIri(const std::string &host, const std::string &path, bool keep_version, std::string &out) {
@@ -177,7 +207,7 @@ SemanticKeyResult SemanticKey(const std::string &id, bool keep_version) {
 		return result;
 	}
 	result.has_key = true;
-	if (ParseIrdi(s, keep_version, result.key)) {
+	if (ParseIrdi(s, keep_version, result.key) || ParseCompoundIrdi(s, keep_version, result.key)) {
 		return result;
 	}
 	std::string scheme, host, path;

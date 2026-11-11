@@ -1,0 +1,253 @@
+# name: test/sql/aas/uc_02_load_supplier_aas_and_validate.test
+# description: The buyer has an RFQ as an AAS and four supplier answers as AAS: JSON, XML and an
+#              AASX package with XML inside. One query loads them all into property trees. The
+#              audit flags what cannot be compared, here a missing ConceptDescription, a value of
+#              "n/a" and an unknown unit id, instead of turning it into silent zeros. Officially
+#              published IDTA packages load as well.
+# group: [aas]
+
+require anofox_similarity
+
+# The company's licensed unit list (stand-in): ECLASS unit IRDIs attached to known units
+statement ok
+CREATE TABLE eclass_units AS SELECT * FROM read_csv('test/data/aas/scenario/eclass_units.csv');
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
+UNION ALL
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u))) FROM read_blob('test/data/aas/scenario/offers/*');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+# One tree per shell: the RFQ and four offers. The trees are named by the shell id unless a
+# tree_id is given.
+query TII
+SELECT tree_id, count(*) FILTER (node_kind = 'item'), (SELECT count(*) FROM tree_attributes a WHERE a.tree_id = n.tree_id)
+FROM tree_nodes n GROUP BY tree_id ORDER BY tree_id;
+----
+RFQ-2026-117	2	6
+https://driventa.example/aas/ds-12	2	6
+https://kessler-antriebe.example/aas/ksd-10	2	6
+https://lenvaro.example/aas/lx-8	3	9
+https://orbitec.example/aas/ox-6	3	8
+
+# IDTA-02020: a CapabilityContainer is an item; its class is the Capability's
+# supplementalSemanticId and its role comes from the CapabilityRoleQualifier
+query TTT
+SELECT n.node_id, n.class_id, any_value(a.role)
+FROM tree_nodes n JOIN tree_attributes a USING (tree_id, node_id)
+WHERE tree_id = 'RFQ-2026-117' GROUP BY ALL ORDER BY 1;
+----
+CapabilityDescription.CapabilitySet.FieldbusCommunicationContainer	https://vocab.machinery.example/capability/FieldbusCommunication	required
+CapabilityDescription.CapabilitySet.PositionControlledMotionContainer	https://vocab.machinery.example/capability/PositionControlledMotion	required
+
+# The idShort path is kept: node_id is the path, context the parent's path
+query TT
+SELECT parent_id, context FROM tree_nodes
+WHERE tree_id = 'RFQ-2026-117' AND node_id = 'CapabilityDescription.CapabilitySet.PositionControlledMotionContainer';
+----
+CapabilityDescription.CapabilitySet	CapabilityDescription.CapabilitySet
+
+# The request's properties: dictionary keys from the supplementalSemanticId, units from the
+# embedded IEC 61360 specification, converted to base units; one-sided ranges give the bound
+query TTTRRTT
+SELECT attr_id, attr_key, dimension, lo, hi, bound, category FROM tree_attributes WHERE tree_id = 'RFQ-2026-117' ORDER BY attr_id;
+----
+AmbientTemperature	0173-1#02-BAA039#012	temperature	318.15	318.15	at_least	NULL
+CycleTime	0173-1#02-AAZ901#002	time	0.001	0.001	at_most	NULL
+Protocol	0173-1#02-AAZ902#002	NULL	NULL	NULL	NULL	0173-1#07-AAZ001
+RatedCurrent	0173-1#02-BAA120#008	current	7.6	7.6	at_least	NULL
+SafeTorqueOff	0173-1#02-AAZ903#001	NULL	NULL	NULL	NULL	true
+SupplyVoltage	0173-1#02-AAB381#005	voltage	380.0	480.0	within	NULL
+
+# The same offer as JSON, XML and AASX gives the same trees, node for node and attribute for attribute
+statement ok
+CREATE TABLE formats AS
+SELECT 'json' AS f, unnest(aas_to_trees(content)) AS n FROM read_text('test/data/aas/scenario/formats/lenvaro_lx8.aas.json')
+UNION ALL SELECT 'xml', unnest(aas_to_trees(content)) FROM read_text('test/data/aas/scenario/formats/lenvaro_lx8.aas.xml')
+UNION ALL SELECT 'aasx', unnest(aas_to_trees(content)) FROM read_blob('test/data/aas/scenario/formats/lenvaro_lx8.aasx');
+
+query III
+SELECT count(*) FILTER (f = 'json'), count(DISTINCT n) FILTER (f = 'json'),
+       (SELECT count(*) FROM (SELECT n FROM formats WHERE f = 'json' EXCEPT ALL SELECT n FROM formats WHERE f = 'xml'
+                              UNION ALL
+                              SELECT n FROM formats WHERE f = 'xml' EXCEPT ALL SELECT n FROM formats WHERE f = 'aasx'))
+FROM formats;
+----
+7	7	0
+
+# read_blob reads all three, read_text the text formats
+query I
+SELECT count(*) FROM (SELECT unnest(aas_to_trees(content)) FROM read_blob('test/data/aas/scenario/formats/*'));
+----
+21
+
+# What cannot be compared is flagged, not zeroed: Kessler's ambient temperature has no
+# ConceptDescription (unit unknown) and its cycle time is "n/a"; Orbitec writes a decimal comma and
+# names a unit id nobody knows, so the unit text 'A' is used
+query TTTT
+SELECT split_part(i.tree_id, '/', 3), i.path, i.issue, i.severity
+FROM (SELECT unnest(aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)), recursive := true)
+      FROM read_blob('test/data/aas/scenario/offers/*')) i
+ORDER BY ALL;
+----
+kessler-antriebe.example	CapabilityDescription.CapabilitySet.FieldbusCommunicationContainer.PropertySet.CycleTime.PropertyProperty	bad_value	warning
+kessler-antriebe.example	CapabilityDescription.CapabilitySet.PositionControlledMotionContainer.PropertySet.AmbientTemperature.PropertyProperty	missing_concept_description	warning
+orbitec.example	CapabilityDescription.CapabilitySet.PositionControlledMotionContainer.PropertySet.RatedCurrent.PropertyProperty	unknown_unit_id	warning
+orbitec.example	TechnicalData.TechnicalProperties.RatedCurrent	decimal_comma	info
+
+query T
+SELECT i.detail
+FROM (SELECT unnest(aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)), recursive := true)
+      FROM read_text('test/data/aas/scenario/offers/orbitec_ox6.aas.json')) i
+WHERE i.issue = 'unknown_unit_id';
+----
+unitId urn:orbitec:unit:ampere is not in the unit table; using the unit text 'A'
+
+# Without the licensed list every ECLASS unit IRDI is unknown, and the unit text is used each time
+query I
+SELECT count(*) FROM (SELECT unnest(aas_issues(content), recursive := true)
+                      FROM read_text('test/data/aas/scenario/offers/orbitec_ox6.aas.json')) WHERE issue = 'unknown_unit_id';
+----
+5
+
+# The fallback works: Orbitec's 6.0 A is a current, and "6,0" in its technical data too
+query TRR
+SELECT attr_id, lo, hi FROM tree_attributes
+WHERE tree_id = 'https://orbitec.example/aas/ox-6' AND attr_id = 'RatedCurrent' AND dimension = 'current' ORDER BY node_id;
+----
+RatedCurrent	6.0	6.0
+RatedCurrent	6.0	6.0
+
+# validate_trees sees the value without a unit; keyed categories (enumerations, booleans) need no dimension
+query TTTT
+SELECT tree_id, attr_id, issue, severity FROM validate_trees('tree_nodes', 'tree_attributes');
+----
+https://kessler-antriebe.example/aas/ksd-10	AmbientTemperature	unknown_unit	warning
+
+# An ECLASS unit IRDI resolves only with the licensed list; without it the unit text is used
+query TT
+SELECT a.dimension, a.unit FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json'))) WHERE a.attr_id = 'RatedCurrent';
+----
+current	A
+
+# A SubmodelElementList of values is one multi-valued property: Orbitec speaks EtherCAT and PROFINET
+query TTT
+SELECT attr_id, category, attr_key FROM tree_attributes
+WHERE tree_id = 'https://orbitec.example/aas/ox-6' AND name = 'Protocol' ORDER BY attr_id;
+----
+Protocol[0]	0173-1#07-AAZ001	0173-1#02-AAZ902#002
+Protocol[1]	0173-1#07-AAZ002	0173-1#02-AAZ902#002
+
+#------------------------------------------------------------------------------
+# Officially published IDTA files (CC BY 4.0, test/data/aas/idta/README.md)
+#------------------------------------------------------------------------------
+
+# Technical Data sample: an AASX package with XML inside. Collections that hold values become
+# items, their ECLASS property-in-class ids canonicalised; values typed and in base units
+query TRRTT
+SELECT a.attr_id, a.lo, a.hi, a.unit, a.attr_key FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_blob('test/data/aas/idta/IDTA_02003_Sample_TechnicalData_2_0_4.aasx')))
+WHERE a.node_id = 'TechnicalData.TechnicalPropertyAreas[0]' AND a.lo IS NOT NULL ORDER BY 1;
+----
+diameter	0.03	0.03	m	0173-1#02-AAC895#009
+max_ambient_temperature	343.15	343.15	K	0173-1#02-BAA039#012
+
+query TT
+SELECT n.node_kind, n.class_id FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_blob('test/data/aas/idta/IDTA_02003_Sample_TechnicalData_2_0_4.aasx'))
+WHERE n.node_id = 'TechnicalData.TechnicalPropertyAreas[0]';
+----
+item	0173-1#02-ABL358/0173-1#01-AHX773
+
+# Descriptive text (manufacturer name, URLs) and identifiers written as strings (product class
+# 0112/2///62683#ACC501#002, version 15.0, date 2025-03-15) are not values
+query I
+SELECT count(*) FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_blob('test/data/aas/idta/IDTA_02003_Sample_TechnicalData_2_0_4.aasx')))
+WHERE a.attr_id IN ('ManufacturerName', 'ProductClassId', 'ClassificationSystemVersion', 'ValidDate') AND a.lo IS NOT NULL;
+----
+0
+
+# The Capability Description template, as JSON and as AASX (XML), gives the same tree
+query I
+SELECT count(*) FROM (
+    SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/idta/IDTA_02020_Template_Capability_Description_1_0_2.json')
+    EXCEPT ALL
+    SELECT unnest(aas_to_trees(content)) FROM read_blob('test/data/aas/idta/IDTA_02020_Template_Capability_Description_1_0_2.aasx'));
+----
+0
+
+query T
+SELECT n.class_id FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_text('test/data/aas/idta/IDTA_02020_Template_Capability_Description_1_0_2.json'))
+WHERE n.node_kind = 'item';
+----
+Capability
+
+# The Digital Nameplate template loads (it has no values, only structure)
+query I
+SELECT count(*) > 5 FROM (SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/idta/IDTA_02006_Template_Digital_Nameplate_3_0_3.json'));
+----
+true
+
+#------------------------------------------------------------------------------
+# Other shapes and errors
+#------------------------------------------------------------------------------
+
+# A single submodel, as GET /submodels/{id} of an AAS repository returns it, and a paged result
+query TT
+SELECT n.tree_id, n.node_kind FROM (SELECT unnest(aas_to_trees(
+    '{"modelType": "Submodel", "id": "urn:sm:1", "idShort": "TechnicalData", "submodelElements": [
+       {"modelType": "Property", "idShort": "NumberOfAxes", "valueType": "xs:int", "value": "2"}]}')) AS n) ORDER BY 2;
+----
+urn:sm:1	container
+urn:sm:1	item
+
+query I
+SELECT len(aas_to_trees('{"result": [{"modelType": "Submodel", "id": "urn:sm:1", "submodelElements": []},
+                                      {"modelType": "Submodel", "id": "urn:sm:2", "submodelElements": []}],
+                          "paging_metadata": {"cursor": "abc"}}'));
+----
+4
+
+# Identifiers for AAS Part 2 REST paths: base64url without padding
+query TT
+SELECT aas_id_b64url('https://example.com/ids/sm/TechnicalData'), aas_id_b64url('ab');
+----
+aHR0cHM6Ly9leGFtcGxlLmNvbS9pZHMvc20vVGVjaG5pY2FsRGF0YQ	YWI
+
+# Malformed input is an error with a readable message, never a crash
+statement error
+SELECT aas_to_trees('{"submodels": [');
+----
+AAS JSON:
+
+statement error
+SELECT aas_to_trees('<environment><submodels>');
+----
+AAS XML:
+
+statement error
+SELECT aas_to_trees('PK' || chr(3) || chr(4) || 'not really a zip');
+----
+AASX: not a readable zip package
+
+statement error
+SELECT aas_to_trees('Manufacturer: Lenvaro');
+----
+AAS: expected JSON, XML or an AASX package (zip)
+
+query I
+SELECT aas_to_trees(NULL) IS NULL;
+----
+true
