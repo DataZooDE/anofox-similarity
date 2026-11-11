@@ -159,6 +159,31 @@ SELECT * FROM tree_coverage('RFQ-2026-204', candidates := ['https://varipack.exa
                             labels := 'hard', class_hierarchy := 'class_hierarchy', generalization_credit := 0.5);
 ```
 
+## Query loaded AAS by value: attrs_satisfying
+
+"Which assets offer a rated current that covers 7.6 A?" The AAS Query Language addresses
+semanticId, idShort and plain values, not Range bounds or units. Over loaded attributes:
+
+```sql
+SELECT tree_id, node_id, value, rule
+FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens 7637,1 mA', 'de'))
+WHERE satisfied;
+-- https://kessler-antriebe.example/aas/ksd-10 | CapabilityDescription...RatedCurrent... | 10 A | at_least
+-- https://lenvaro.example/aas/lx-8            | ...                                      | 8 A  | at_least
+```
+
+**`attrs_satisfying(attr_key, requirement)`** with named `attrs_table` (default
+`'tree_attributes'`), `tol`, `soft_band`, `scale`, `default_bound` as in
+[`value_satisfies`](11-quantities.md).
+
+- Rows whose `attr_key` equals `attr_key` after `semantic_key` match: any release, IRDI or
+  ECLASS IRI. Rows without `attr_key` (hand-made tables, `tree_from_json`) match by `name`,
+  case-insensitively.
+- `requirement` is a STRUCT with `lo`, `hi`, `dimension`, `bound` (`parse_quantity` output).
+  The dimension gate applies: 5 V never satisfies 5 A (`rule = 'gate'`, score 0).
+- Returns `tree_id, node_id, attr_id, name, attr_key, value, score, distance, rule, satisfied`,
+  best first. `satisfied` is score 1; use `tol := 0, soft_band := 0` for hard limits.
+
 ## Identifiers: semantic_key
 
 The same dictionary concept arrives in several spellings:
@@ -312,6 +337,22 @@ aas_id_b64url(id VARCHAR) → VARCHAR
 
 ```sql
 SELECT aas_to_trees(content) FROM read_text('http://localhost:8081/submodels/' || aas_id_b64url('https://example.com/ids/sm/TechnicalData'));
+```
+
+### `attrs_satisfying`
+
+*Table function*
+
+Which attributes satisfy a requirement: every row of attrs_table (default 'tree_attributes') whose attr_key equals attr_key after semantic_key (any release, IRDI or ECLASS IRI; rows without attr_key match by name, case-insensitively), checked with value_satisfies against requirement (a STRUCT such as parse_quantity('mindestens 7637,1 mA')): direction (at_least, at_most, within, equals), units and the dimension gate (5 V never satisfies 5 A). Returns tree_id, node_id, attr_id, name, attr_key, value (the offered value in base units), score, distance, rule and satisfied (score 1), best first. tol, soft_band, scale and default_bound as in value_satisfies; tol := 0, soft_band := 0 for hard limits. A unit- and direction-aware query over AAS data that the AAS Query Language does not offer.
+
+```sql
+attrs_satisfying(attr_key, requirement, attrs_table, tol, soft_band, scale, default_bound)
+```
+
+**Examples**
+
+```sql
+SELECT tree_id, node_id, value FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens 7637,1 mA', 'de')) WHERE satisfied;
 ```
 
 <!-- generated:functions:end -->

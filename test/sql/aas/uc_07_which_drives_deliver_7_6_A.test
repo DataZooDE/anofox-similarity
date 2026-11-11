@@ -1,0 +1,87 @@
+# name: test/sql/aas/uc_07_which_drives_deliver_7_6_A.test
+# description: A service engineer must replace a failed drive and asks across all supplier AAS
+#              loaded so far: which assets state a rated current that covers "mindestens 7637,1
+#              mA"? The AAS Query Language has no Range or unit-aware comparison. attrs_satisfying
+#              finds the property by its dictionary key (any release, IRDI or IRI) and checks the
+#              value with direction and units. 5 V never satisfies 5 A.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM read_csv('test/data/aas/scenario/eclass_units.csv') u))) AS n
+FROM read_blob('test/data/aas/scenario/offers/*');
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+# The requirement as a German text; the key in the IRI form of a newer release
+query TTRT
+SELECT split_part(tree_id, '/', 3), split_part(node_id, '.', 1), score, rule
+FROM attrs_satisfying('https://api.eclass-cdp.com/0173-1-02-BAA120-009', parse_quantity('mindestens 7637,1 mA', 'de'))
+ORDER BY score DESC, 1, 2;
+----
+kessler-antriebe.example	CapabilityDescription	1.0	at_least
+lenvaro.example	CapabilityDescription	1.0	at_least
+lenvaro.example	TechnicalData	1.0	at_least
+orbitec.example	CapabilityDescription	0.0	at_least
+orbitec.example	TechnicalData	0.0	at_least
+
+# The satisfied flag and the offered value read directly
+query TTT
+SELECT split_part(tree_id, '/', 3), value, satisfied
+FROM attrs_satisfying('0173-1#02-BAA120', parse_quantity('mindestens 7637,1 mA', 'de'))
+WHERE node_id LIKE 'CapabilityDescription%' ORDER BY 1;
+----
+kessler-antriebe.example	10 A	true
+lenvaro.example	8 A	true
+orbitec.example	6 A	false
+
+# Driventa states only a peak current: another property, never listed for the rated current
+query I
+SELECT count(*) FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('>= 7.6 A'))
+WHERE tree_id LIKE '%driventa%';
+----
+0
+
+# Dimension gate: a voltage requirement against current properties is a gate, score 0
+query TR
+SELECT DISTINCT rule, score FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens 5 V', 'de'));
+----
+gate	0.0
+
+# Ranges: which offers cover a 380..480 V supply?
+query TT
+SELECT split_part(tree_id, '/', 3), satisfied
+FROM attrs_satisfying('0173-1#02-AAB381#005', parse_quantity('380-480 V'), tol := 0, soft_band := 0)
+WHERE node_id LIKE 'CapabilityDescription%' ORDER BY 1;
+----
+driventa.example	false
+kessler-antriebe.example	true
+lenvaro.example	true
+orbitec.example	false
+
+# Tables without attr_key (hand-made, from tree_from_json) match by name, case-insensitively
+statement ok
+CREATE TABLE sheet_attrs AS SELECT * FROM (VALUES
+    ('Pump-7', 'Pump-7', 'a1', 'Rated current', 'current', 'A', 9.0, 9.0),
+    ('Pump-8', 'Pump-8', 'a1', 'rated current', 'current', 'A', 4.0, 4.0),
+    ('Pump-8', 'Pump-8', 'a2', 'rated voltage', 'voltage', 'V', 400.0, 400.0)
+) t(tree_id, node_id, attr_id, name, dimension, unit, lo, hi);
+
+query TT
+SELECT tree_id, satisfied FROM attrs_satisfying('rated current', parse_quantity('at least 7.6 A'), attrs_table := 'sheet_attrs') ORDER BY 1;
+----
+Pump-7	true
+Pump-8	false
+
+statement error
+SELECT * FROM attrs_satisfying('rated current', parse_quantity('at least 7.6 A'), attrs_table := 'no_such_table');
+----
+attrs_satisfying: attrs_table 'no_such_table' does not exist
+
+statement error
+SELECT * FROM attrs_satisfying(NULL, parse_quantity('at least 7.6 A'));
+----
+attrs_satisfying: attr_key must not be NULL

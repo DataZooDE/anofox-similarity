@@ -396,12 +396,87 @@ void RegisterAasIdB64Url(ExtensionLoader &loader) {
 	      ""}});
 }
 
+//------------------------------------------------------------------------------
+// attrs_satisfying(attr_key, requirement): a unit- and direction-aware filter over loaded
+// attributes (GitHub #35), a thin wrapper over value_satisfies
+//------------------------------------------------------------------------------
+
+unique_ptr<TableRef> AttrsSatisfyingBindReplace(ClientContext &context, TableFunctionBindInput &input) {
+	PostHogTelemetry::Instance().RecordFunctionCall("attrs_satisfying");
+	CoverageParamReader r {context, input.named_parameters, "attrs_satisfying"};
+	if (input.inputs.size() < 2 || input.inputs[0].IsNull()) {
+		throw BinderException("attrs_satisfying: attr_key must not be NULL");
+	}
+	if (input.inputs[1].IsNull()) {
+		throw BinderException("attrs_satisfying: requirement must not be NULL (e.g. parse_quantity('at least 7.6 A'))");
+	}
+	auto key = QuoteSQLStringLiteral(input.inputs[0].ToString());
+	auto &requirement = input.inputs[1];
+	auto req = "CAST(" + requirement.ToSQLString() + " AS " + requirement.type().ToString() + ")";
+	auto attrs = r.Table("attrs_table", "tree_attributes", {"tree_id", "node_id", "attr_id", "lo", "hi", "dimension"});
+	bool keyed = r.Has(attrs, "attr_key");
+	bool named = r.Has(attrs, "name");
+	auto name = CastOrNullSQL(named, "name", "VARCHAR", "a");
+	auto attr_key = CastOrNullSQL(keyed, "attr_key", "VARCHAR", "a");
+	auto unit = CastOrNullSQL(r.Has(attrs, "unit"), "unit", "VARCHAR", "a");
+	auto opt = [&](const char *param, bool numeric) {
+		auto v = r.Get(param);
+		if (!v || v->IsNull()) {
+			return string(numeric ? "NULL::DOUBLE" : "NULL::VARCHAR");
+		}
+		return numeric ? DoubleLiteral(r.Dbl(param, 0)) : QuoteSQLStringLiteral(r.Str(param));
+	};
+	// keyed rows match by semantic_key (any release, IRDI or IRI); unkeyed rows by name
+	auto match = StringUtil::Format(
+	    "(%s IS NOT NULL AND semantic_key(%s) = semantic_key(%s)) OR (%s IS NULL AND lower(%s) = lower(trim(%s)))",
+	    attr_key, attr_key, key, attr_key, name, key);
+	auto sql = StringUtil::Format(R"(
+		SELECT tree_id, node_id, attr_id, name, attr_key, value, s.score AS score, s.distance AS distance,
+		       s.rule AS rule, s.score >= 1 - 1e-9 AS satisfied
+		FROM (
+			SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id,
+			       CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS attr_key,
+			       CASE WHEN a.lo IS NULL THEN NULL
+			            WHEN a.lo = a.hi THEN printf('%%g', CAST(a.lo AS DOUBLE))
+			            ELSE printf('%%g..%%g', CAST(a.lo AS DOUBLE), CAST(a.hi AS DOUBLE)) END
+			       || CASE WHEN a.lo IS NULL OR %s IS NULL OR %s = '1' THEN '' ELSE ' ' || %s END AS value,
+			       value_satisfies(%s, struct_pack(lo := CAST(a.lo AS DOUBLE), hi := CAST(a.hi AS DOUBLE),
+			                                       dimension := CAST(a.dimension AS VARCHAR),
+			                                       unit := CASE WHEN a.dimension = 'currency' THEN %s END),
+			                       %s, %s, %s, %s) AS s
+			FROM %s a WHERE %s)
+		ORDER BY score DESC, tree_id, node_id, attr_id)",
+	    name, attr_key, unit, unit, unit, req, unit, opt("scale", false), opt("tol", true), opt("soft_band", true),
+	    opt("default_bound", false), QuotedIdentifier(attrs), match);
+	return CoverageSubquery(sql, context, "attrs_satisfying");
+}
+
+void RegisterAttrsSatisfying(ExtensionLoader &loader) {
+	auto vc = LogicalType::VARCHAR;
+	auto dbl = LogicalType::DOUBLE;
+	RegisterCoverageTableFunction(
+	    loader, "attrs_satisfying", {vc, LogicalType::ANY}, {"attr_key", "requirement"}, AttrsSatisfyingBindReplace,
+	    {{"attrs_table", vc}, {"tol", dbl}, {"soft_band", dbl}, {"scale", vc}, {"default_bound", vc}},
+	    "Which attributes satisfy a requirement: every row of attrs_table (default 'tree_attributes') whose attr_key "
+	    "equals attr_key after semantic_key (any release, IRDI or ECLASS IRI; rows without attr_key match by name, "
+	    "case-insensitively), checked with value_satisfies against requirement (a STRUCT such as parse_quantity("
+	    "'mindestens 7637,1 mA')): direction (at_least, at_most, within, equals), units and the dimension gate (5 V "
+	    "never satisfies 5 A). Returns tree_id, node_id, attr_id, name, attr_key, value (the offered value in base "
+	    "units), score, distance, rule and satisfied (score 1), best first. tol, soft_band, scale and default_bound "
+	    "as in value_satisfies; tol := 0, soft_band := 0 for hard limits. A unit- and direction-aware query over "
+	    "AAS data that the AAS Query Language does not offer.",
+	    {"SELECT tree_id, node_id, value FROM attrs_satisfying('0173-1#02-BAA120#008', parse_quantity('mindestens "
+	     "7637,1 mA', 'de')) WHERE satisfied;"},
+	    AAS_CATEGORIES);
+}
+
 } // namespace
 
 void RegisterAasFunctions(ExtensionLoader &loader) {
 	RegisterSemanticKey(loader);
 	RegisterAasReader(loader);
 	RegisterAasIdB64Url(loader);
+	RegisterAttrsSatisfying(loader);
 }
 
 } // namespace anofox
