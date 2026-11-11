@@ -3,7 +3,7 @@
 > Say "one of these configurations" and "8 channels per card, 2 cards" in an Asset
 > Administration Shell, so offers match without one shell per variant.
 
-[Guides](README.md) · [AAS API](../api/17-aas.md) · [Examples](../../examples/aas_capability_matching/)
+[Guides](README.md) · [AAS API](../api/17-aas.md) · [Term reference](../aas/index.md) · [Examples](../../examples/aas_capability_matching/)
 
 ## What AAS cannot say
 

@@ -235,7 +235,8 @@ requirements), `GapCount` and a list of `Requirements`, each with the matched no
 path, label similarity and rule, counts, score, `IsGap` and the `Attributes` with required and
 offered value, rule, name rule, bound source and score. A metric the trace lacks is written
 without a value, never as 0. The semanticIds are in the
-`https://anofox.com/aas/CoverageResult/` namespace until a standard template exists. The
+`https://anofox.com/aas/CoverageResult/` namespace until a standard template exists; every
+term is listed in the [term reference](../aas/index.md). The
 result is AAS itself: `aas_to_trees` reads it back.
 
 **Validation.** The output validates against the official AAS v3.2 JSON schema
