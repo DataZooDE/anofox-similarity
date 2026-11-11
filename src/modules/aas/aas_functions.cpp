@@ -613,7 +613,7 @@ const Value *StructField(const Value &v, const char *name) {
 	auto &types = StructType::GetChildTypes(v.type());
 	auto &values = StructValue::GetChildren(v);
 	for (idx_t i = 0; i < types.size(); i++) {
-		if (StringUtil::CIEquals(types[i].first, name)) {
+		if (StringUtil::CIEquals(static_cast<const string &>(types[i].first), name)) {
 			return &values[i];
 		}
 	}
