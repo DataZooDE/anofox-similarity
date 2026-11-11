@@ -569,7 +569,7 @@ def capability_taxonomy():
 # configurations (one is chosen: a variant group) and channels counted per card (additive counts)
 # --------------------------------------------------------------------------------------------
 
-PROFILE_COUNT_ID = "https://data-zoo.de/anofox/aas/Count/1/0"
+PROFILE_COUNT_ID = "https://anofox.com/aas/Count/1/0"
 DI_CLASS = "0173-1#01-AAZ100#001"  # digital input channel (illustrative)
 DO_CLASS = "0173-1#01-AAZ110#001"  # digital output channel (illustrative)
 INPUT_VOLTAGE = ("0173-1#02-AAZ101#001", "input voltage", "V", "")

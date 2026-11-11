@@ -7,6 +7,13 @@
 namespace duckdb {
 namespace anofox {
 
+//! The extension's own AAS identifiers (the profile of docs/guides/10-aas-profile.md and the
+//! CoverageResult submodel) live under this namespace.
+constexpr const char *ANOFOX_AAS_NAMESPACE = "https://anofox.com/aas/";
+//! The profile's Count semanticId, matched as a substring so that version suffixes (/1/0) and
+//! the http spelling are accepted.
+constexpr const char *ANOFOX_AAS_COUNT_ID = "anofox.com/aas/Count";
+
 //------------------------------------------------------------------------------
 // A format-neutral, read-only view of an AAS v3.x environment (IDTA-01001 Part 1).
 //------------------------------------------------------------------------------

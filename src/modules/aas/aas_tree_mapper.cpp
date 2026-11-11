@@ -48,7 +48,6 @@ const char *GENERALIZED_BY = "/CapabilityDescription/CapabilityGeneralizedBy/";
 // configuration spaces and additive counts
 const char *PROFILE_VARIANT_GROUP = "anofox:VariantGroup";
 const char *PROFILE_COUNT = "anofox:Count";
-const char *PROFILE_COUNT_ID = "data-zoo.de/anofox/aas/Count";
 
 const AasQualifier *FindQualifier(const AasElement &e, const char *type) {
 	for (auto &q : e.qualifiers) {
@@ -61,7 +60,7 @@ const AasQualifier *FindQualifier(const AasElement &e, const char *type) {
 
 //! A Property with the profile's Count semanticId: the count of its collection, not a value.
 bool IsCountProperty(const AasElement &e) {
-	return e.model_type == "Property" && Contains(e.semantic_id, PROFILE_COUNT_ID);
+	return e.model_type == "Property" && Contains(e.semantic_id, ANOFOX_AAS_COUNT_ID);
 }
 
 //! An idShort path in one spelling for lookups: list indices as path segments (a[0] -> a.0).

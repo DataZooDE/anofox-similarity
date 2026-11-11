@@ -25,7 +25,7 @@ using Json = nlohmann::ordered_json;
 const char *CD = "https://admin-shell.io/idta/CapabilityDescription/";
 const char *CPT = "https://admin-shell.io/idta/CapabilityPropertyType/";
 const char *IEC61360 = "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0";
-const char *ANOFOX = "https://data-zoo.de/anofox/aas/";
+const char *ANOFOX = ANOFOX_AAS_NAMESPACE;
 constexpr size_t AAS_ID_SHORT_MAX = 128;
 
 Json Ref(const std::string &value) {

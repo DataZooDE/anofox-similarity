@@ -756,7 +756,7 @@ they are matched. These decisions take precedence over the text above.
    `partition_gate` and `count_gate`. Stage-1 recall stays class-exact.
 6. **A small AAS profile for what AAS cannot say** (#33, guide `docs/guides/10-aas-profile.md`).
    A qualifier `anofox:VariantGroup` makes a collection's children OR alternatives; a qualifier
-   `anofox:Count` or a Property with semanticId `https://data-zoo.de/anofox/aas/Count/1/0` sets a
+   `anofox:Count` or a Property with semanticId `https://anofox.com/aas/Count/1/0` sets a
    node count. Plain AAS without the markers loads unchanged.
 7. **Decisions of the Tier 2 review (AAS-2), with the product owner.**
    - The class hierarchy is **is-a**: an offer of a subclass fully meets a requirement of its
@@ -775,5 +775,5 @@ they are matched. These decisions take precedence over the text above.
    node ids, so a tree read from AAS reads back unchanged (except `value_text`, written in base
    units). Items with a role, and items without attributes, are written as IDTA-02020
    CapabilityContainers; ComposedOf parts next to their composite with relations. The gap list is a
-   `CoverageResult` submodel in the `https://data-zoo.de/anofox/aas/` namespace. The output validates
+   `CoverageResult` submodel in the `https://anofox.com/aas/` namespace. The output validates
    against the AAS v3.2 JSON schema and opens in Eclipse BaSyx.

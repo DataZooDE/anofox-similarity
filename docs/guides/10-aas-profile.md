@@ -23,7 +23,7 @@ ordinary AAS (qualifiers and a semanticId), so every AAS tool keeps reading the 
 |---|---|---|---|
 | qualifier `type = "anofox:VariantGroup"` | a SubmodelElementCollection | its child collections are alternatives | `node_kind = 'variant_group'`, children `edge_type = 'OR'` |
 | qualifier `type = "anofox:Count"`, `value = "2"` | a collection | the collection occurs that many times | node `count` |
-| Property with semanticId `https://data-zoo.de/anofox/aas/Count/1/0` | inside a collection | the same, as a property (e.g. channels per card) | node `count`; not an attribute |
+| Property with semanticId `https://anofox.com/aas/Count/1/0` | inside a collection | the same, as a property (e.g. channels per card) | node `count`; not an attribute |
 
 When a collection carries both, the qualifier wins. A collection with a dictionary semanticId and
 only a count (no other values) is an item: "8 digital inputs" is a requirement or an offer even
@@ -51,7 +51,7 @@ A remote I/O station in three configurations (abridged from
          "value": [
            {"modelType": "Property", "idShort": "ChannelCount", "valueType": "xs:int", "value": "8",
             "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference",
-                           "value": "https://data-zoo.de/anofox/aas/Count/1/0"}]}},
+                           "value": "https://anofox.com/aas/Count/1/0"}]}},
            {"modelType": "Property", "idShort": "InputVoltage", "valueType": "xs:double", "value": "24",
             "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ101#001"}]}}]}]},
      {"modelType": "SubmodelElementCollection", "idShort": "DigitalOutputs", "...": "8 channels, 2 A"}]},

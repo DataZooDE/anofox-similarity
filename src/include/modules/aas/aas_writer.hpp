@@ -48,8 +48,8 @@ struct TraceRequirementEntry {
 };
 
 //! The explanation of one ranking as a Submodel ("CoverageResult", semanticIds in the
-//! https://data-zoo.de/anofox/aas/ namespace until a standard template exists). Its id is id_prefix
-//! (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query and candidate.
+//! https://anofox.com/aas/ namespace until a standard template exists). Its id is id_prefix
+//! (default https://anofox.com/aas/results/) plus the base64url-encoded query and candidate.
 std::string WriteCoverageResult(const std::string &query_id, const std::string &candidate_id, double coverage,
                                 const std::vector<TraceRequirementEntry> &requirements,
                                 const std::string &id_prefix = std::string());

@@ -50,7 +50,7 @@ SELECT split_part(n.node_id, '.', -1), n.class_id, n.count FROM (SELECT unnest(a
        {"modelType": "SubmodelElementCollection", "idShort": "Inputs",
         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AAZ100#001"}]},
         "value": [{"modelType": "Property", "idShort": "Channels", "valueType": "xs:int", "value": "8",
-                   "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://data-zoo.de/anofox/aas/Count/1/0"}]}}]},
+                   "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://anofox.com/aas/Count/1/0"}]}}]},
        {"modelType": "SubmodelElementCollection", "idShort": "Outputs",
         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AAZ110#001"}]},
         "qualifiers": [{"type": "anofox:Count", "valueType": "xs:int", "value": "4"}], "value": []}]}]}')) AS n)

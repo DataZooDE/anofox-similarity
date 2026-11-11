@@ -907,7 +907,7 @@ void RegisterAasWriters(ExtensionLoader &loader) {
 	    "The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult': Query, Candidate, "
 	    "Coverage, GapCount and a list of Requirements with matched node and path, label similarity and rule, counts, "
 	    "score, IsGap and per attribute the required and offered value, rule and score. semanticIds in the "
-	    "https://data-zoo.de/anofox/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); "
+	    "https://anofox.com/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); "
 	    "aas_coverage_result builds them from a trace table.",
 	    AAS_CATEGORIES};
 	result.special_null_handling = true;
@@ -935,7 +935,7 @@ void RegisterAasWriters(ExtensionLoader &loader) {
 	    "The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a "
 	    "'CoverageResult' Submodel (coverage_result_to_aas), and aas_environment, the same wrapped as an Environment "
 	    "ready to upload. coverage is the mean requirement score of the trace, i.e. tree_coverage's coverage. The "
-	    "submodel id is id_prefix (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query "
+	    "submodel id is id_prefix (default https://anofox.com/aas/results/) plus the base64url-encoded query "
 	    "and candidate ids.",
 	    {"CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := ['OFF-A']);",
 	     "SELECT aas_json FROM aas_coverage_result('trace');"},

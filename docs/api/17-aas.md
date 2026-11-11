@@ -228,14 +228,14 @@ not as a count.
 **`aas_coverage_result(trace_table [, id_prefix])`** → `query_id, candidate_id, aas_json,
 aas_environment`: a Submodel `CoverageResult` per ranking (`coverage_result_to_aas` does one), and
 the same wrapped as an Environment ready to upload. Its id is `id_prefix` (default
-`https://data-zoo.de/anofox/aas/results/`) plus the base64url-encoded query and candidate ids, so
+`https://anofox.com/aas/results/`) plus the base64url-encoded query and candidate ids, so
 ids never collide and stay valid IRIs. Use your own prefix before you publish results. Contents:
 `Query`, `Candidate`, `Coverage` (the kernel's coverage: the mean score of the counted
 requirements), `GapCount` and a list of `Requirements`, each with the matched node and
 path, label similarity and rule, counts, score, `IsGap` and the `Attributes` with required and
 offered value, rule, name rule, bound source and score. A metric the trace lacks is written
 without a value, never as 0. The semanticIds are in the
-`https://data-zoo.de/anofox/aas/CoverageResult/` namespace until a standard template exists. The
+`https://anofox.com/aas/CoverageResult/` namespace until a standard template exists. The
 result is AAS itself: `aas_to_trees` reads it back.
 
 **Validation.** The output validates against the official AAS v3.2 JSON schema
@@ -530,7 +530,7 @@ SELECT tree_id, aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']);
 
 *Table function*
 
-The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a 'CoverageResult' Submodel (coverage_result_to_aas), and aas_environment, the same wrapped as an Environment ready to upload. coverage is the mean requirement score of the trace, i.e. tree_coverage's coverage. The submodel id is id_prefix (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query and candidate ids.
+The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a 'CoverageResult' Submodel (coverage_result_to_aas), and aas_environment, the same wrapped as an Environment ready to upload. coverage is the mean requirement score of the trace, i.e. tree_coverage's coverage. The submodel id is id_prefix (default https://anofox.com/aas/results/) plus the base64url-encoded query and candidate ids.
 
 ```sql
 aas_coverage_result(trace_table, id_prefix)
@@ -547,7 +547,7 @@ SELECT aas_json FROM aas_coverage_result('trace');
 
 *Scalar function*
 
-The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult': Query, Candidate, Coverage, GapCount and a list of Requirements with matched node and path, label similarity and rule, counts, score, IsGap and per attribute the required and offered value, rule and score. semanticIds in the https://data-zoo.de/anofox/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); aas_coverage_result builds them from a trace table.
+The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult': Query, Candidate, Coverage, GapCount and a list of Requirements with matched node and path, label similarity and rule, counts, score, IsGap and per attribute the required and offered value, rule and score. semanticIds in the https://anofox.com/aas/CoverageResult/ namespace. rows are tree_coverage_trace rows (STRUCTs); aas_coverage_result builds them from a trace table.
 
 ```sql
 coverage_result_to_aas(query_id VARCHAR, candidate_id VARCHAR, coverage DOUBLE, rows ANY) → VARCHAR
