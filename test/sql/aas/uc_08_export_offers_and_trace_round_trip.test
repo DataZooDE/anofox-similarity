@@ -102,12 +102,16 @@ SELECT count(*) FROM aas_export();
 ----
 5
 
-query I
-SELECT count(*) FROM (
-    SELECT n.tree_id, n.node_id, n.parent_id, n.class_id, n.count FROM (SELECT unnest(aas_to_trees(aas_json, tree_id)) AS n FROM aas_export())
-    EXCEPT ALL SELECT tree_id, node_id, parent_id, class_id, count FROM tree_nodes);
+query II
+SELECT (SELECT count(*) FROM (
+            SELECT n.* EXCLUDE (attributes) FROM (SELECT unnest(aas_to_trees(aas_json, tree_id)) AS n FROM aas_export())
+            EXCEPT ALL SELECT * FROM tree_nodes)),
+       (SELECT count(*) FROM (
+            SELECT * EXCLUDE (value_text) FROM (SELECT unnest(n.attributes, recursive := true)
+                FROM (SELECT unnest(aas_to_trees(aas_json, tree_id, (SELECT list(u) FROM read_csv('test/data/aas/scenario/eclass_units.csv') u))) AS n FROM aas_export()))
+            EXCEPT ALL SELECT * EXCLUDE (value_text) FROM tree_attributes));
 ----
-0
+0	0
 
 statement ok
 SET VARIABLE offers = (SELECT list(DISTINCT tree_id ORDER BY tree_id) FROM tree_nodes WHERE tree_id <> 'RFQ-2026-117');

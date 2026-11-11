@@ -2,6 +2,7 @@
 
 #include "modules/aas/aas_tree_mapper.hpp"
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -28,27 +29,30 @@ struct CatalogueEntry {
 //! One environment (shells, submodels, ConceptDescriptions) for the trees in nodes.
 std::string WriteTreesAsAas(const std::vector<TreeNodeRow> &nodes, const std::vector<CatalogueEntry> &catalogue);
 
-//! A tree_coverage_trace row, grouped by requirement.
+//! A tree_coverage_trace row, grouped by requirement. Metrics are NaN when the trace had none:
+//! they are written without a value.
 struct TraceAttrEntry {
 	std::string attr_id, attr_name, required, offered, rule, name_rule, bound_source;
 	bool has_score = false;
-	double score = 0;
+	double score = std::numeric_limits<double>::quiet_NaN();
 };
 
 struct TraceRequirementEntry {
 	std::string req_node_id, matched_node_id, matched_path, label_rule;
-	double label_sim = 0;
-	double req_score = 0;
+	double label_sim = std::numeric_limits<double>::quiet_NaN();
+	double req_score = std::numeric_limits<double>::quiet_NaN();
 	bool is_gap = false;
-	double count_needed = 1;
-	double count_available = 0;
+	double count_needed = std::numeric_limits<double>::quiet_NaN();
+	double count_available = std::numeric_limits<double>::quiet_NaN();
 	std::vector<TraceAttrEntry> attrs;
 };
 
 //! The explanation of one ranking as a Submodel ("CoverageResult", semanticIds in the
-//! https://data-zoo.de/anofox/aas/ namespace until a standard template exists).
+//! https://data-zoo.de/anofox/aas/ namespace until a standard template exists). Its id is id_prefix
+//! (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query and candidate.
 std::string WriteCoverageResult(const std::string &query_id, const std::string &candidate_id, double coverage,
-                                const std::vector<TraceRequirementEntry> &requirements);
+                                const std::vector<TraceRequirementEntry> &requirements,
+                                const std::string &id_prefix = std::string());
 
 //! An idShort that satisfies AAS's pattern ^[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]+$.
 std::string AasIdShort(const std::string &text);

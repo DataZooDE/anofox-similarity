@@ -2,11 +2,15 @@
 #include "modules/aas/aas_writer.hpp"
 #include "modules/aas/aas_values.hpp"
 
+#include "duckdb/common/exception.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,6 +26,7 @@ const char *CD = "https://admin-shell.io/idta/CapabilityDescription/";
 const char *CPT = "https://admin-shell.io/idta/CapabilityPropertyType/";
 const char *IEC61360 = "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0";
 const char *ANOFOX = "https://data-zoo.de/anofox/aas/";
+constexpr size_t AAS_ID_SHORT_MAX = 128;
 
 Json Ref(const std::string &value) {
 	return Json {{"type", "ExternalReference"}, {"keys", Json::array({{{"type", "GlobalReference"}, {"value", value}}})}};
@@ -31,8 +36,14 @@ Json LangText(const std::string &text, size_t max) {
 	return Json::array({{{"language", "en"}, {"text", text.substr(0, max)}}});
 }
 
-//! The shortest decimal that reads back as the same double.
+//! The shortest decimal that reads back as the same double; XSD spellings for the non-finite.
 std::string Number(double v) {
+	if (std::isnan(v)) {
+		return "NaN";
+	}
+	if (std::isinf(v)) {
+		return v > 0 ? "INF" : "-INF";
+	}
 	char buf[40];
 	for (int precision = 15; precision <= 17; precision++) {
 		std::snprintf(buf, sizeof(buf), "%.*g", precision, v);
@@ -43,8 +54,22 @@ std::string Number(double v) {
 	return buf;
 }
 
+//! An identifier-like category (written as valueId): an IRDI (four digits, '-' or '/', then '#') or a
+//! URI. Free text with a '#' ("C#") is not one.
 bool IsIdentifier(const std::string &s) {
-	return s.find('#') != std::string::npos || s.find("://") != std::string::npos || s.rfind("urn:", 0) == 0;
+	bool irdi = s.size() > 6 && std::isdigit(static_cast<unsigned char>(s[0])) &&
+	            std::isdigit(static_cast<unsigned char>(s[3])) && (s[4] == '-' || s[4] == '/') &&
+	            s.find('#') != std::string::npos;
+	return irdi || s.find("://") != std::string::npos || s.rfind("urn:", 0) == 0;
+}
+
+//! The numeric index of a list member "X[12]" (or of a node id ending in "[12]"); -1 otherwise.
+long ListIndex(const std::string &id) {
+	auto open = id.rfind('[');
+	if (open == std::string::npos || id.back() != ']') {
+		return -1;
+	}
+	return std::strtol(id.c_str() + open + 1, nullptr, 10);
 }
 
 Json Qualifier(const std::string &type, const std::string &value_type, const std::string &value) {
@@ -131,7 +156,8 @@ public:
 		auto id = AasIdShort(raw);
 		auto base = id;
 		for (int n = 2; taken.count(id); n++) {
-			id = base + "_" + std::to_string(n);
+			auto suffix = "_" + std::to_string(n);
+			id = base.substr(0, AAS_ID_SHORT_MAX - suffix.size()) + suffix;
 		}
 		taken.insert(id);
 		return id;
@@ -159,11 +185,9 @@ public:
 				children[n->parent_id].push_back(n);
 			}
 		}
-		tree_role = role_counts["required"] >= role_counts["provided"] ? (role_counts["required"] ? "required" : "")
-		                                                               : "provided";
-		if (tree_role.empty() && role_counts["provided"]) {
-			tree_role = "provided";
-		}
+		// the majority role of the tree, for items without attributes (ties: required)
+		auto required = role_counts["required"], provided = role_counts["provided"];
+		tree_role = required + provided == 0 ? "" : required >= provided ? "required" : "provided";
 	}
 
 	void Write() {
@@ -175,7 +199,8 @@ public:
 			}
 		}
 		if (!root) {
-			return;
+			throw InvalidInputException("trees_to_aas: tree '%s' has no root (every node has a parent in the tree)",
+			                            nodes.empty() ? std::string() : nodes[0]->tree_id);
 		}
 		auto shell_id = root->tree_id;
 		Json shell {{"modelType", "AssetAdministrationShell"},
@@ -207,7 +232,13 @@ public:
 		}
 		ResolveCompositions();
 		for (auto &sm : pending_submodels) {
+			if (sm["submodelElements"].empty()) {
+				sm.erase("submodelElements"); // the schema allows no empty lists
+			}
 			env["submodels"].push_back(std::move(sm));
+		}
+		if (shell["submodels"].empty()) {
+			shell.erase("submodels");
 		}
 		env["assetAdministrationShells"].push_back(std::move(shell));
 		for (auto n : nodes) {
@@ -344,8 +375,13 @@ private:
 				compositions.push_back({&n, c});
 			}
 		} else {
-			auto kids = children[n.node_id];
+			auto &kids = children[n.node_id];
 			bool list = AllListIndices(n, kids);
+			if (list) {
+				std::stable_sort(kids.begin(), kids.end(), [](const TreeNodeRow *a, const TreeNodeRow *b) {
+					return ListIndex(a->node_id) < ListIndex(b->node_id);
+				});
+			}
 			e = Json {{"modelType", list ? "SubmodelElementList" : "SubmodelElementCollection"}};
 			if (!in_list) {
 				e["idShort"] = id_short;
@@ -407,6 +443,9 @@ private:
 			auto name = entry.substr(1);
 			if (entry[0] == 'L') {
 				auto &members = lists[name];
+				std::stable_sort(members.begin(), members.end(), [](const TreeAttrRow *a, const TreeAttrRow *b) {
+					return ListIndex(a->attr_id) < ListIndex(b->attr_id); // X[10] after X[9], whatever the input order
+				});
 				Json list {{"modelType", "SubmodelElementList"}, {"idShort", siblings.Unique(name)}};
 				if (!members[0]->attr_key.empty()) {
 					list["semanticId"] = Ref(members[0]->attr_key);
@@ -505,6 +544,9 @@ private:
 		auto containers = Json::array();
 		for (auto &name : order) {
 			auto &members = groups[name];
+			std::stable_sort(members.begin(), members.end(), [](const TreeAttrRow *a, const TreeAttrRow *b) {
+				return ListIndex(a->attr_id) < ListIndex(b->attr_id);
+			});
 			Json inner;
 			std::string base;
 			if (members.size() > 1 || ListMember(members[0]->attr_id, base)) {
@@ -671,7 +713,17 @@ private:
 
 } // namespace
 
-std::string AasIdShort(const std::string &text) {
+std::string AasIdShort(const std::string &raw) {
+	// German umlauts and ß are transliterated, other non-ASCII characters become '_'
+	static const std::pair<const char *, const char *> TRANSLIT[] = {
+	    {"\xc3\xa4", "ae"}, {"\xc3\xb6", "oe"}, {"\xc3\xbc", "ue"}, {"\xc3\x84", "Ae"},
+	    {"\xc3\x96", "Oe"}, {"\xc3\x9c", "Ue"}, {"\xc3\x9f", "ss"}};
+	std::string text = raw;
+	for (auto &t : TRANSLIT) {
+		for (size_t pos = text.find(t.first); pos != std::string::npos; pos = text.find(t.first, pos)) {
+			text.replace(pos, std::strlen(t.first), t.second);
+		}
+	}
 	std::string out;
 	bool upper_next = false;
 	for (char c : text) {
@@ -689,13 +741,14 @@ std::string AasIdShort(const std::string &text) {
 	if (out.empty() || !std::isalpha(static_cast<unsigned char>(out[0]))) {
 		out = "n" + out;
 	}
+	out = out.substr(0, AAS_ID_SHORT_MAX); // cut first, then make the end valid
 	while (out.size() > 1 && out.back() == '-') {
 		out.pop_back();
 	}
 	if (out.size() < 2) {
 		out += "_";
 	}
-	return out.substr(0, 128);
+	return out;
 }
 
 std::string WriteTreesAsAas(const std::vector<TreeNodeRow> &nodes, const std::vector<CatalogueEntry> &catalogue) {
@@ -752,19 +805,33 @@ std::string WriteTreesAsAas(const std::vector<TreeNodeRow> &nodes, const std::ve
 		    Json::array({{{"dataSpecification", Ref(IEC61360)}, {"dataSpecificationContent", content}}});
 		env["conceptDescriptions"].push_back(cd);
 	}
-	if (env["conceptDescriptions"].empty()) {
-		env.erase("conceptDescriptions");
+	for (auto member : {"assetAdministrationShells", "submodels", "conceptDescriptions"}) {
+		if (env[member].empty()) {
+			env.erase(member); // the schema allows no empty lists
+		}
 	}
 	return env.dump(2);
 }
 
+//! A metric of the trace: written without a value when the trace had none (NaN), never as 0.
+std::string Metric(double v) {
+	return std::isnan(v) ? std::string() : Number(v);
+}
+
 std::string WriteCoverageResult(const std::string &query_id, const std::string &candidate_id, double coverage,
-                                const std::vector<TraceRequirementEntry> &requirements) {
+                                const std::vector<TraceRequirementEntry> &requirements, const std::string &id_prefix) {
 	auto sem = [](const std::string &name) { return Ref(std::string(ANOFOX) + "CoverageResult/" + name + "/1/0"); };
 	auto prop = [&](const std::string &id_short, const std::string &value_type, const std::string &value) {
 		Json p {{"modelType", "Property"}, {"idShort", id_short}, {"semanticId", sem(id_short)}, {"valueType", value_type}};
 		if (!value.empty()) {
 			p["value"] = value;
+		}
+		if (value_type == "xs:double" || value_type == "xs:int") {
+			// a dimensionless number: with its own dictionary entry it reads back without findings
+			p["embeddedDataSpecifications"] = Json::array(
+			    {{{"dataSpecification", Ref(IEC61360)},
+			      {"dataSpecificationContent",
+			       {{"modelType", "DataSpecificationIec61360"}, {"preferredName", LangText(id_short, 255)}, {"unit", "1"}}}}});
 		}
 		return p;
 	};
@@ -778,17 +845,17 @@ std::string WriteCoverageResult(const std::string &query_id, const std::string &
 			                          prop("Required", "xs:string", a.required), prop("Offered", "xs:string", a.offered),
 			                          prop("Rule", "xs:string", a.rule), prop("NameRule", "xs:string", a.name_rule),
 			                          prop("BoundSource", "xs:string", a.bound_source),
-			                          prop("Score", "xs:double", a.has_score ? Number(a.score) : "")});
+			                          prop("Score", "xs:double", a.has_score ? Metric(a.score) : "")});
 			attrs.push_back({{"modelType", "SubmodelElementCollection"}, {"semanticId", sem("Attribute")}, {"value", value}});
 		}
 		auto value = Json::array({prop("RequirementNode", "xs:string", r.req_node_id),
 		                          prop("MatchedNode", "xs:string", r.matched_node_id),
 		                          prop("MatchedPath", "xs:string", r.matched_path),
-		                          prop("LabelSimilarity", "xs:double", Number(r.label_sim)),
+		                          prop("LabelSimilarity", "xs:double", Metric(r.label_sim)),
 		                          prop("LabelRule", "xs:string", r.label_rule),
-		                          prop("CountNeeded", "xs:double", Number(r.count_needed)),
-		                          prop("CountAvailable", "xs:double", Number(r.count_available)),
-		                          prop("RequirementScore", "xs:double", Number(r.req_score)),
+		                          prop("CountNeeded", "xs:double", Metric(r.count_needed)),
+		                          prop("CountAvailable", "xs:double", Metric(r.count_available)),
+		                          prop("RequirementScore", "xs:double", Metric(r.req_score)),
 		                          prop("IsGap", "xs:boolean", r.is_gap ? "true" : "false")});
 		if (!attrs.empty()) {
 			value.push_back({{"modelType", "SubmodelElementList"},
@@ -801,7 +868,7 @@ std::string WriteCoverageResult(const std::string &query_id, const std::string &
 		reqs.push_back({{"modelType", "SubmodelElementCollection"}, {"semanticId", sem("Requirement")}, {"value", value}});
 	}
 	auto elements = Json::array({prop("Query", "xs:string", query_id), prop("Candidate", "xs:string", candidate_id),
-	                             prop("Coverage", "xs:double", Number(coverage)),
+	                             prop("Coverage", "xs:double", Metric(coverage)),
 	                             prop("GapCount", "xs:int", std::to_string(gaps))});
 	if (!reqs.empty()) {
 		elements.push_back({{"modelType", "SubmodelElementList"},
@@ -813,7 +880,8 @@ std::string WriteCoverageResult(const std::string &query_id, const std::string &
 	}
 	Json sm {{"modelType", "Submodel"},
 	         {"idShort", "CoverageResult"},
-	         {"id", std::string(ANOFOX) + "results/" + query_id + "/" + candidate_id},
+	         {"id", (id_prefix.empty() ? std::string(ANOFOX) + "results/" : id_prefix) + AasBase64Url(query_id) + "/" +
+	                    AasBase64Url(candidate_id)},
 	         {"kind", "Instance"},
 	         {"semanticId", Ref(std::string(ANOFOX) + "CoverageResult/1/0")},
 	         {"submodelElements", elements}};

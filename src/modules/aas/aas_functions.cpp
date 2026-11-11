@@ -5,6 +5,7 @@
 #include "modules/aas/aas_tree_mapper.hpp"
 #include "modules/aas/aas_writer.hpp"
 #include "modules/aas/aas_quality.hpp"
+#include "modules/aas/aas_values.hpp"
 #include "modules/aas/semantic_key.hpp"
 #include "modules/property_tree.hpp"
 #include "modules/quantity.hpp"
@@ -147,34 +148,49 @@ Value IssueValue(const AasIssue &i) {
 	return Value::STRUCT(std::move(v));
 }
 
-//! Reads one row's AAS input and maps it. The unit table is rebuilt only when it changes.
-class AasRowMapper {
-public:
-	//! The environment of the last Map call (for reports that need the model as well).
-	AasEnvironment environment;
+//! Which argument holds what in a reader function (aas_to_trees and aas_issues: content, tree_id,
+//! unit_table; aas_quality: content, unit_table).
+struct ReaderArguments {
+	idx_t tree_id = 1;    // DConstants::INVALID_INDEX: none
+	idx_t unit_table = 2; // DConstants::INVALID_INDEX: none
+};
 
-	AasMapping Map(DataChunk &args, idx_t row, idx_t unit_arg = 2) {
+//! One row's AAS input, read and mapped.
+struct ReadResult {
+	AasEnvironment environment;
+	AasMapping mapping;
+};
+
+//! Reads and maps the AAS input of each row. The unit table is rebuilt only when it changes.
+class AasRowReader {
+public:
+	explicit AasRowReader(ReaderArguments layout) : layout(layout) {
+	}
+
+	ReadResult Read(DataChunk &args, idx_t row) {
 		AasMapOptions options;
-		if (args.ColumnCount() > 1 && unit_arg != 1) {
-			auto id = args.data[1].GetValue(row);
+		if (layout.tree_id < args.ColumnCount()) {
+			auto id = args.data[layout.tree_id].GetValue(row);
 			options.tree_id = id.IsNull() ? string() : id.ToString();
 		}
-		if (args.ColumnCount() > unit_arg) {
-			auto units = args.data[unit_arg].GetValue(row);
+		options.units = &UnitTable::Seed();
+		if (layout.unit_table < args.ColumnCount()) {
+			auto units = args.data[layout.unit_table].GetValue(row);
 			if (!has_units || !Value::NotDistinctFrom(units, units_value)) {
 				unit_table = UnitTable::WithUserUnits(units);
 				units_value = units;
 				has_units = true;
 			}
 			options.units = &unit_table;
-		} else {
-			options.units = &UnitTable::Seed();
 		}
-		environment = ReadAas(ContentOf(args.data[0].GetValue(row)));
-		return MapAasToTrees(environment, options);
+		ReadResult r;
+		r.environment = ReadAas(ContentOf(args.data[0].GetValue(row)));
+		r.mapping = MapAasToTrees(r.environment, options);
+		return r;
 	}
 
 private:
+	ReaderArguments layout;
 	bool has_units = false;
 	Value units_value;
 	UnitTable unit_table;
@@ -186,7 +202,7 @@ enum class OnReadError { RAISE, REPORT };
 
 template <class EMIT>
 void ForEachMapping(DataChunk &args, Vector &result, EMIT emit, OnReadError on_error = OnReadError::RAISE) {
-	AasRowMapper mapper;
+	AasRowReader reader(ReaderArguments {});
 	for (idx_t row = 0; row < args.size(); row++) {
 		if (args.data[0].GetValue(row).IsNull()) {
 			result.SetValue(row, Value(result.GetType()));
@@ -194,10 +210,10 @@ void ForEachMapping(DataChunk &args, Vector &result, EMIT emit, OnReadError on_e
 		}
 		AasMapping mapping;
 		if (on_error == OnReadError::RAISE) {
-			mapping = mapper.Map(args, row);
+			mapping = reader.Read(args, row).mapping;
 		} else {
 			try {
-				mapping = mapper.Map(args, row);
+				mapping = reader.Read(args, row).mapping;
 			} catch (std::exception &ex) {
 				ErrorData error(ex);
 				mapping.issues.push_back({"", "", "parse_error", "error", error.RawMessage()});
@@ -352,35 +368,10 @@ void RegisterAasReader(ExtensionLoader &loader) {
 // aas_id_b64url(id): identifiers in AAS Part 2 REST paths
 //------------------------------------------------------------------------------
 
-string Base64Url(const string &in) {
-	static const char *ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-	string out;
-	idx_t i = 0;
-	while (i + 2 < in.size()) {
-		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8) | uint8_t(in[i + 2]);
-		out += ALPHABET[(n >> 18) & 63];
-		out += ALPHABET[(n >> 12) & 63];
-		out += ALPHABET[(n >> 6) & 63];
-		out += ALPHABET[n & 63];
-		i += 3;
-	}
-	if (i + 1 == in.size()) {
-		uint32_t n = uint8_t(in[i]) << 16;
-		out += ALPHABET[(n >> 18) & 63];
-		out += ALPHABET[(n >> 12) & 63];
-	} else if (i + 2 == in.size()) {
-		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8);
-		out += ALPHABET[(n >> 18) & 63];
-		out += ALPHABET[(n >> 12) & 63];
-		out += ALPHABET[(n >> 6) & 63];
-	}
-	return out;
-}
-
 void AasIdB64UrlFun(DataChunk &args, ExpressionState &, Vector &result) {
 	for (idx_t row = 0; row < args.size(); row++) {
 		auto id = args.data[0].GetValue(row);
-		result.SetValue(row, id.IsNull() ? Value(LogicalType::VARCHAR) : Value(Base64Url(id.ToString())));
+		result.SetValue(row, id.IsNull() ? Value(LogicalType::VARCHAR) : Value(AasBase64Url(id.ToString())));
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -432,15 +423,15 @@ LogicalType QualityType() {
 }
 
 void AasQualityFun(DataChunk &args, ExpressionState &, Vector &result) {
-	AasRowMapper mapper;
+	AasRowReader reader(ReaderArguments {DConstants::INVALID_INDEX, 1});
 	for (idx_t row = 0; row < args.size(); row++) {
 		if (args.data[0].GetValue(row).IsNull()) {
 			result.SetValue(row, Value(result.GetType()));
 			continue;
 		}
-		auto mapping = mapper.Map(args, row, 1);
+		auto read = reader.Read(args, row);
 		vector<Value> rows;
-		for (auto &q : AssessAasQuality(mapper.environment, mapping)) {
+		for (auto &q : AssessAasQuality(read.environment, read.mapping)) {
 			auto share = q.n_values ? Value::DOUBLE(double(q.n_with_semantic_id) / double(q.n_values))
 			                        : Value(LogicalType::DOUBLE);
 			rows.push_back(Value::STRUCT({{"tree_id", Text(q.tree_id)},
@@ -534,32 +525,38 @@ unique_ptr<TableRef> SuggestSemanticIdBindReplace(ClientContext &context, TableF
 	auto tree = CastOrNullSQL(r.Has(items, "tree_id"), "tree_id", "VARCHAR", "i");
 	string reviewed;
 	if (!overrides.empty()) {
-		reviewed = r.Has(overrides, "source")
-		               ? StringUtil::Format(" WHERE NOT EXISTS (SELECT 1 FROM %s o WHERE CAST(o.wording AS VARCHAR) = "
-		                                    "q.wording AND (o.source IS NULL OR CAST(o.source AS VARCHAR) IS NOT DISTINCT "
-		                                    "FROM q.source))",
-		                                    QuotedIdentifier(overrides))
-		               : StringUtil::Format(" WHERE q.wording NOT IN (SELECT CAST(wording AS VARCHAR) FROM %s)",
-		                                    QuotedIdentifier(overrides));
+		// NOT EXISTS, not NOT IN: one NULL wording in the overrides would empty the queue
+		reviewed = StringUtil::Format(" WHERE NOT EXISTS (SELECT 1 FROM %s o WHERE CAST(o.wording AS VARCHAR) = q.wording%s)",
+		                              QuotedIdentifier(overrides),
+		                              r.Has(overrides, "source")
+		                                  ? " AND (o.source IS NULL OR CAST(o.source AS VARCHAR) IS NOT DISTINCT FROM q.source)"
+		                                  : "");
 	}
 	auto sql = StringUtil::Format(R"(
 		WITH decisions AS (
-			SELECT * FROM classify_to_catalogue(items_table := %s, catalogue_table := %s, mode := %s, top := 2,
+			SELECT * FROM classify_to_catalogue(items_table := %s, catalogue_table := %s, mode := %s,
 			                                    temperature := %s, center_by_source := %s)),
 		occurrences AS (
 			SELECT %s AS tree_id, CAST(i.node_id AS VARCHAR) AS node_id, %s AS wording, %s AS source FROM %s i),
-		fit AS (
-			SELECT o.wording, o.source, CAST(d.class_id AS VARCHAR) AS class_id, avg(%s) AS similarity
-			FROM occurrences o JOIN %s i ON CAST(i.node_id AS VARCHAR) = o.node_id AND %s IS NOT DISTINCT FROM o.tree_id,
-			     %s d
-			GROUP BY ALL),
 		per_class AS (
-			SELECT o.wording, o.source, d.class_id, avg(d.p) AS p
+			-- the full distribution of every occurrence, averaged per wording (an absent class counts 0)
+			SELECT o.wording, o.source, d.class_id, sum(d.p) / any_value(n.n) AS p
 			FROM decisions d JOIN occurrences o ON o.node_id = CAST(d.node_id AS VARCHAR)
 			     AND o.tree_id IS NOT DISTINCT FROM CAST(d.tree_id AS VARCHAR)
+			JOIN (SELECT wording, source, count(*) AS n FROM occurrences GROUP BY ALL) n
+			     ON n.wording = o.wording AND n.source IS NOT DISTINCT FROM o.source
 			GROUP BY ALL),
 		ranked AS (
 			SELECT *, row_number() OVER (PARTITION BY wording, source ORDER BY p DESC, class_id) AS rank FROM per_class),
+		fit AS (
+			-- the absolute fit, for each wording's top suggestion only
+			SELECT r1.wording, r1.source, avg(%s) AS similarity
+			FROM ranked r1
+			JOIN occurrences o ON o.wording = r1.wording AND o.source IS NOT DISTINCT FROM r1.source
+			JOIN %s i ON CAST(i.node_id AS VARCHAR) = o.node_id AND %s IS NOT DISTINCT FROM o.tree_id
+			JOIN %s d ON CAST(d.class_id AS VARCHAR) = CAST(r1.class_id AS VARCHAR)
+			WHERE r1.rank = 1
+			GROUP BY ALL),
 		counts AS (
 			SELECT wording, source, count(*) AS n_occurrences, count(DISTINCT coalesce(tree_id, node_id)) AS n_trees_affected
 			FROM occurrences GROUP BY ALL),
@@ -570,8 +567,7 @@ unique_ptr<TableRef> SuggestSemanticIdBindReplace(ClientContext &context, TableF
 			FROM counts c
 			JOIN ranked r1 ON r1.wording = c.wording AND r1.source IS NOT DISTINCT FROM c.source AND r1.rank = 1
 			LEFT JOIN ranked r2 ON r2.wording = c.wording AND r2.source IS NOT DISTINCT FROM c.source AND r2.rank = 2
-			LEFT JOIN fit f ON f.wording = c.wording AND f.source IS NOT DISTINCT FROM c.source
-			     AND f.class_id = CAST(r1.class_id AS VARCHAR))
+			LEFT JOIN fit f ON f.wording = c.wording AND f.source IS NOT DISTINCT FROM c.source)
 		SELECT wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, similarity, fits,
 		       CASE WHEN fits = false THEN n_trees_affected ELSE n_trees_affected * (1 - margin) END AS impact
 		FROM q%s
@@ -767,8 +763,14 @@ void CoverageResultToAasFun(DataChunk &args, ExpressionState &, Vector &result) 
 		for (auto &id : order) {
 			reqs.push_back(std::move(by_req[id]));
 		}
-		double cov = coverage.IsNull() ? 0.0 : coverage.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
-		result.SetValue(row, Value(WriteCoverageResult(query.ToString(), candidate.ToString(), cov, reqs)));
+		double cov = coverage.IsNull() ? std::numeric_limits<double>::quiet_NaN()
+		                               : coverage.DefaultCastAs(LogicalType::DOUBLE).GetValue<double>();
+		string prefix;
+		if (args.ColumnCount() > 4) {
+			auto p = args.data[4].GetValue(row);
+			prefix = p.IsNull() ? string() : p.ToString();
+		}
+		result.SetValue(row, Value(WriteCoverageResult(query.ToString(), candidate.ToString(), cov, reqs, prefix)));
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -847,15 +849,22 @@ unique_ptr<TableRef> AasCoverageResultBindReplace(ClientContext &context, TableF
 	CoverageParamReader r {context, input.named_parameters, "aas_coverage_result"};
 	auto trace = r.Positional(input, 0, "trace_table", {"query_id", "candidate_id", "req_node_id"});
 	auto t = [&](const char *col, const char *type) { return CastOrNullSQL(r.Has(trace, col), col, type, "t"); };
+	auto id_prefix = r.Get("id_prefix");
+	auto prefix = !id_prefix || id_prefix->IsNull() ? string("NULL::VARCHAR") : QuoteSQLStringLiteral(id_prefix->ToString());
+	// coverage: the mean requirement score over the trace's requirements, which are the kernel's
+	// counted requirements (chosen alternatives only), so it equals tree_coverage's coverage
 	auto sql = StringUtil::Format(
+	    "SELECT query_id, candidate_id, aas_json, '{\"submodels\": [' || aas_json || ']}' AS aas_environment FROM ("
 	    "SELECT query_id, candidate_id, coverage_result_to_aas(query_id, candidate_id, "
-	    "(SELECT avg(s) FROM (SELECT any_value(x.req_score) AS s FROM unnest(rows) AS u(x) GROUP BY x.req_node_id)), rows) "
-	    "AS aas_json FROM (SELECT CAST(t.query_id AS VARCHAR) AS query_id, CAST(t.candidate_id AS VARCHAR) AS candidate_id, "
+	    "(SELECT avg(s) FROM (SELECT any_value(x.req_score) AS s FROM unnest(rows) AS u(x) GROUP BY x.req_node_id)), rows, " +
+	        prefix +
+	        ") "
+	        "AS aas_json FROM (SELECT CAST(t.query_id AS VARCHAR) AS query_id, CAST(t.candidate_id AS VARCHAR) AS candidate_id, "
 	    "list(struct_pack(req_node_id := CAST(t.req_node_id AS VARCHAR), matched_node_id := %s, matched_path := %s, "
 	    "label_sim := %s, label_rule := %s, req_score := %s, is_gap := %s, count_needed := %s, count_available := %s, "
 	    "attr_id := %s, attr_name := %s, req_value := %s, prov_value := %s, rule := %s, name_rule := %s, "
 	    "bound_source := %s, attr_score := %s) ORDER BY CAST(t.req_node_id AS VARCHAR), %s) AS rows "
-	    "FROM %s t GROUP BY ALL) ORDER BY query_id, candidate_id",
+	    "FROM %s t GROUP BY ALL)) ORDER BY query_id, candidate_id",
 	    t("matched_node_id", "VARCHAR"), t("matched_path", "VARCHAR"), t("label_sim", "DOUBLE"),
 	    t("label_rule", "VARCHAR"), t("req_score", "DOUBLE"), t("is_gap", "BOOLEAN"), t("count_needed", "DOUBLE"),
 	    t("count_available", "DOUBLE"), t("attr_id", "VARCHAR"), t("attr_name", "VARCHAR"), t("req_value", "VARCHAR"),
@@ -906,6 +915,10 @@ void RegisterAasWriters(ExtensionLoader &loader) {
 	                       {{{LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::DOUBLE, any},
 	                         {"query_id", "candidate_id", "coverage", "rows"},
 	                         {"SELECT * FROM aas_coverage_result('trace');"},
+	                         ""},
+	                        {{LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::DOUBLE, any, LogicalType::VARCHAR},
+	                         {"query_id", "candidate_id", "coverage", "rows", "id_prefix"},
+	                         {"SELECT * FROM aas_coverage_result('trace', id_prefix := 'urn:acme:results:');"},
 	                         ""}});
 
 	auto vc = LogicalType::VARCHAR;
@@ -918,9 +931,12 @@ void RegisterAasWriters(ExtensionLoader &loader) {
 	    "ConceptDescriptions for the classes.",
 	    {"SELECT tree_id, aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']);"}, AAS_CATEGORIES);
 	RegisterCoverageTableFunction(
-	    loader, "aas_coverage_result", {vc}, {"trace_table"}, AasCoverageResultBindReplace, {},
+	    loader, "aas_coverage_result", {vc}, {"trace_table"}, AasCoverageResultBindReplace, {{"id_prefix", vc}},
 	    "The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a "
-	    "'CoverageResult' Submodel (coverage_result_to_aas). coverage is the mean requirement score of the trace.",
+	    "'CoverageResult' Submodel (coverage_result_to_aas), and aas_environment, the same wrapped as an Environment "
+	    "ready to upload. coverage is the mean requirement score of the trace, i.e. tree_coverage's coverage. The "
+	    "submodel id is id_prefix (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query "
+	    "and candidate ids.",
 	    {"CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := ['OFF-A']);",
 	     "SELECT aas_json FROM aas_coverage_result('trace');"},
 	    AAS_CATEGORIES);

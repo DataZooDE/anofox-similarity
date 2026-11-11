@@ -257,6 +257,7 @@ private:
 	std::unordered_map<std::string, std::vector<AttrRef>> attrs_by_path;
 	//! An IDTA-02020 BasicConstraint, applied once every submodel is mapped.
 	struct PendingConstraint {
+		std::string submodel_id;
 		std::string tree_id;
 		std::string constraint_path;
 		std::string expression;
@@ -266,6 +267,7 @@ private:
 	//! IDTA-02020 capability relations, resolved once every submodel is mapped.
 	struct PendingRelation {
 		bool composed; // ComposedOf (else GeneralizedBy)
+		std::string submodel_id;
 		std::string tree_id;
 		std::string path;
 		AasReference first;
@@ -328,6 +330,7 @@ private:
 			Issue(tree_id, base, "duplicate_id_short", "warning", "a second element with this path, kept as " + node.node_id);
 		}
 		node_ids.insert(node.node_id);
+		node.submodel_id = node.node_id == root_id ? std::string() : submodel_id;
 		node_index[node.tree_id + "\x1f" + node.node_id] = out.nodes.size();
 		out.nodes.push_back(std::move(node));
 		return out.nodes.size() - 1;
@@ -335,7 +338,7 @@ private:
 
 	void Issue(const std::string &tree, const std::string &path, const char *issue, const char *severity,
 	           const std::string &detail) {
-		out.issues.push_back({tree, path, issue, severity, detail});
+		out.issues.push_back({tree, path, issue, severity, detail, submodel_id});
 	}
 
 	//! The dictionary entry of a value element (and of the element that names it, owner): the
@@ -483,7 +486,6 @@ private:
 		auto path = node.node_id;
 		in_template = sm.kind == "Template";
 		submodel_id = sm.id;
-		out.submodel_trees.emplace_back(sm.id, tree_id);
 		auto index = Add(std::move(node));
 		MapChildren(sm.elements, index, path, false, "");
 	}
@@ -499,7 +501,7 @@ private:
 			auto &c = e.children[i];
 			auto child_path = ChildPath(path, c, i, e.model_type == "SubmodelElementList");
 			if (Contains(c.semantic_id, COMPOSED_OF) || Contains(c.semantic_id, GENERALIZED_BY)) {
-				relations.push_back({Contains(c.semantic_id, COMPOSED_OF), tree_id, child_path, c.first, c.second});
+				relations.push_back({Contains(c.semantic_id, COMPOSED_OF), submodel_id, tree_id, child_path, c.first, c.second});
 			} else if (AasIsContainer(c.model_type) && !Contains(c.semantic_id, CAPABILITY_CONTAINER)) {
 				CollectRelations(c, child_path);
 			}
@@ -526,6 +528,7 @@ private:
 	void ApplyRelations() {
 		std::unordered_set<idx_t> recomposed, composites;
 		for (auto &r : relations) {
+			submodel_id = r.submodel_id; // findings belong to the submodel the relation is in
 			auto first = capability_nodes.find(ReferenceKey(r.first));
 			if (first == capability_nodes.end()) {
 				Issue(r.tree_id, r.path, "unresolved_relation", "warning",
@@ -613,7 +616,7 @@ private:
 			return; // OCL, operation or custom constraints: not evaluated
 		}
 		for (auto &t : targets) {
-			constraints.push_back({tree_id, path, expression, t});
+			constraints.push_back({submodel_id, tree_id, path, expression, t});
 		}
 	}
 
@@ -640,6 +643,7 @@ private:
 	void ApplyConstraints() {
 		auto langs = vector<string>(options.langs.begin(), options.langs.end());
 		for (auto &c : constraints) {
+			submodel_id = c.submodel_id;
 			auto it = attrs_by_path.find(ReferenceKey(c.target));
 			if (it == attrs_by_path.end()) {
 				Issue(c.tree_id, c.constraint_path, "unresolved_constraint", "warning",

@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <unordered_set>
 
@@ -95,6 +96,30 @@ XsdNumber ParseXsdNumber(const std::string &text, bool integer) {
 		n.read_as = dotted;
 	}
 	return n;
+}
+
+std::string AasBase64Url(const std::string &in) {
+	static const char *ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+	std::string out;
+	size_t i = 0;
+	for (; i + 2 < in.size(); i += 3) {
+		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8) | uint8_t(in[i + 2]);
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+		out += ALPHABET[(n >> 6) & 63];
+		out += ALPHABET[n & 63];
+	}
+	if (i + 1 == in.size()) {
+		uint32_t n = uint8_t(in[i]) << 16;
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+	} else if (i + 2 == in.size()) {
+		uint32_t n = (uint8_t(in[i]) << 16) | (uint8_t(in[i + 1]) << 8);
+		out += ALPHABET[(n >> 18) & 63];
+		out += ALPHABET[(n >> 12) & 63];
+		out += ALPHABET[(n >> 6) & 63];
+	}
+	return out;
 }
 
 bool ParseXsdBoolean(const std::string &text, bool &value) {

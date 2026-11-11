@@ -172,21 +172,36 @@ SELECT * FROM tree_coverage('RFQ-2026-204', candidates := ['https://varipack.exa
 -- every tree of the tables as an AAS Environment, one row per tree
 SELECT tree_id, aas_json FROM aas_export(catalogue_table := 'capability_catalogue');
 
--- write one to a file (the CSV writer with quoting off writes the text unchanged)
-COPY (SELECT aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']))
-TO 'rfq_2026_117.aas.json' (FORMAT csv, HEADER false, QUOTE '', ESCAPE '', DELIMITER '\x1f');
-
 -- the gap list of a ranking as a CoverageResult submodel per query and candidate
 CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := getvariable('offers'));
-SELECT candidate_id, aas_json FROM aas_coverage_result('trace');
+SELECT candidate_id, aas_environment FROM aas_coverage_result('trace', id_prefix := 'urn:kroeger:results:');
+```
+
+**Writing a file.** Write **one row per file**. Several environments in one file are not valid JSON.
+The CSV writer with quoting off writes the text unchanged:
+
+```sql
+COPY (SELECT aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']))
+TO 'rfq_2026_117.aas.json' (FORMAT csv, HEADER false, QUOTE '', ESCAPE '', DELIMITER '\x1f');
 ```
 
 **`trees_to_aas(nodes [, catalogue])`** → VARCHAR, an AAS v3 Environment in Part 1 JSON. `nodes` is
 a LIST of node STRUCTs as `aas_to_trees` and `tree_from_json` produce them. It is the inverse of
 the reader: a tree read from AAS is written with the same idShort paths, so
 `aas_to_trees(trees_to_aas(t))` gives `t` again: node ids, parents, kinds, OR edges, classes,
-counts, attribute keys, values, units, bounds, roles and categories. The one difference is
-`value_text`: the writer writes values in base units, so 45 °C comes back as 318.15.
+counts, attribute keys, values, units, bounds, roles and categories (`test/sql/aas/uc_08`). What
+does not survive:
+
+- `value_text`: values are written in base units, so 45 °C comes back as 318.15.
+- `bound_source`: the bound survives but is re-derived. A `constraint` or `text` bound comes back
+  as `range`; `equals` comes back as `level_type`.
+- the submodel `kind`: everything is written as `Instance`.
+- idShorts are made valid: at most 128 characters, umlauts and ß transliterated (`Größe` →
+  `Groesse`), other characters `_`. Trees from `tree_from_json` with such ids therefore get new
+  node ids; their classes, values and bounds survive.
+
+A tree without a root is an error. Lists keep their order (`X[10]` after `X[9]`), and non-finite
+numbers are written as `NaN`, `INF`, `-INF`.
 
 | Tree | AAS |
 |---|---|
@@ -210,16 +225,22 @@ not as a count.
 **`aas_export(nodes_table := 'tree_nodes', attrs_table := 'tree_attributes', catalogue_table, tree_ids)`**
 → `tree_id, aas_json`: `trees_to_aas` over tables.
 
-**`aas_coverage_result(trace_table)`** → `query_id, candidate_id, aas_json`: a Submodel
-`CoverageResult` per ranking (`coverage_result_to_aas` does one): `Query`, `Candidate`, `Coverage`
-(mean requirement score), `GapCount` and a list of `Requirements`, each with the matched node and
+**`aas_coverage_result(trace_table [, id_prefix])`** → `query_id, candidate_id, aas_json,
+aas_environment`: a Submodel `CoverageResult` per ranking (`coverage_result_to_aas` does one), and
+the same wrapped as an Environment ready to upload. Its id is `id_prefix` (default
+`https://data-zoo.de/anofox/aas/results/`) plus the base64url-encoded query and candidate ids, so
+ids never collide and stay valid IRIs. Use your own prefix before you publish results. Contents:
+`Query`, `Candidate`, `Coverage` (the kernel's coverage: the mean score of the counted
+requirements), `GapCount` and a list of `Requirements`, each with the matched node and
 path, label similarity and rule, counts, score, `IsGap` and the `Attributes` with required and
-offered value, rule, name rule, bound source and score. The semanticIds are in the
+offered value, rule, name rule, bound source and score. A metric the trace lacks is written
+without a value, never as 0. The semanticIds are in the
 `https://data-zoo.de/anofox/aas/CoverageResult/` namespace until a standard template exists. The
 result is AAS itself: `aas_to_trees` reads it back.
 
 **Validation.** The output validates against the official AAS v3.2 JSON schema
-(`scripts/tests/test_aas_schema.py`, schema in `test/data/aas/schema/`). It opens in Eclipse BaSyx
+(`scripts/tests/test_aas_schema.py`, schema in `test/data/aas/schema/`, run in CI with the release
+artifact; it includes generated edge cases). It opens in Eclipse BaSyx
 (`scripts/aas_basyx_smoke.sh`: upload, list the shells, fetch a submodel over REST and read it back
 unchanged). AASX Package Explorer, a Windows application, has not been tried.
 
@@ -509,10 +530,10 @@ SELECT tree_id, aas_json FROM aas_export(tree_ids := ['RFQ-2026-117']);
 
 *Table function*
 
-The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a 'CoverageResult' Submodel (coverage_result_to_aas). coverage is the mean requirement score of the trace.
+The rankings of a tree_coverage_trace result as AAS: one row per query and candidate with aas_json, a 'CoverageResult' Submodel (coverage_result_to_aas), and aas_environment, the same wrapped as an Environment ready to upload. coverage is the mean requirement score of the trace, i.e. tree_coverage's coverage. The submodel id is id_prefix (default https://data-zoo.de/anofox/aas/results/) plus the base64url-encoded query and candidate ids.
 
 ```sql
-aas_coverage_result(trace_table)
+aas_coverage_result(trace_table, id_prefix)
 ```
 
 **Examples**
@@ -530,12 +551,14 @@ The explanation of one ranking as an AAS Submodel (Part 1 JSON) 'CoverageResult'
 
 ```sql
 coverage_result_to_aas(query_id VARCHAR, candidate_id VARCHAR, coverage DOUBLE, rows ANY) → VARCHAR
+coverage_result_to_aas(query_id VARCHAR, candidate_id VARCHAR, coverage DOUBLE, rows ANY, id_prefix VARCHAR) → VARCHAR
 ```
 
 **Examples**
 
 ```sql
 SELECT * FROM aas_coverage_result('trace');
+SELECT * FROM aas_coverage_result('trace', id_prefix := 'urn:acme:results:');
 ```
 
 ### `aas_quality`

@@ -60,7 +60,7 @@ SELECT tree_id, attr_id, issue FROM validate_trees('tree_nodes', 'tree_attribute
 -- | https://kessler-antriebe.example/aas/ksd-10 | AmbientTemperature | unknown_unit |
 
 .print ''
-.print '>>> 5. Data quality per submodel'
+.print '>>> 5. Data quality per submodel (Orbitec\'s protocol codes carry a key but no dictionary entry)'
 SELECT split_part(filename, '/', -1) AS file, q.submodel, round(q.semantic_id_share, 2) AS coded,
        q.n_missing_concept_description AS no_dictionary, q.n_unparseable AS unparseable, q.n_mixed_releases AS mixed_releases
 FROM (SELECT filename, unnest(aas_quality(content)) AS q FROM read_blob('examples/aas_capability_matching/data/offers/*'))
@@ -71,5 +71,5 @@ ORDER BY file, q.submodel;
 -- | kessler_ksd10.aasx    | CapabilityDescription | 1.0   | 1             | 1           | 0              |
 -- | lenvaro_lx8.aas.json  | CapabilityDescription | 1.0   | 0             | 0           | 1              |
 -- | lenvaro_lx8.aas.json  | TechnicalData         | 1.0   | 0             | 0           | 1              |
--- | orbitec_ox6.aas.json  | CapabilityDescription | 1.0   | 0             | 0           | 0              |
+-- | orbitec_ox6.aas.json  | CapabilityDescription | 1.0   | 2             | 0           | 0              |
 -- | orbitec_ox6.aas.json  | TechnicalData         | 1.0   | 0             | 0           | 0              |

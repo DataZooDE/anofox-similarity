@@ -33,6 +33,9 @@ struct XsdNumber {
 //! separator (one comma, no dot, not exactly three digits after it).
 XsdNumber ParseXsdNumber(const std::string &text, bool integer);
 
+//! An AAS identifier for a Part 2 REST path or an id segment: base64url without padding.
+std::string AasBase64Url(const std::string &in);
+
 //! xs:boolean: true, false, 1, 0 (XSD lexical space). Anything else is false with ok = false.
 bool ParseXsdBoolean(const std::string &text, bool &value);
 

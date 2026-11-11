@@ -45,6 +45,7 @@ struct TreeNodeRow {
 	std::string class_id;
 	double count = 1;
 	std::vector<TreeAttrRow> attrs;
+	std::string submodel_id; // the AAS submodel the node comes from (empty for the shell's root)
 };
 
 //! A finding about the input, not an error: the mapping goes on.
@@ -54,6 +55,7 @@ struct AasIssue {
 	std::string issue;
 	std::string severity; // error | warning | info
 	std::string detail;
+	std::string submodel_id; // empty for findings about the whole input
 };
 
 //! A GeneralizedBy relation: class_id is a specialisation of parent_class_id.
@@ -66,7 +68,6 @@ struct AasMapping {
 	std::vector<TreeNodeRow> nodes;
 	std::vector<AasIssue> issues;
 	std::vector<ClassEdge> class_hierarchy;
-	std::vector<std::pair<std::string, std::string>> submodel_trees; // (submodel id, tree id)
 };
 
 struct AasMapOptions {
