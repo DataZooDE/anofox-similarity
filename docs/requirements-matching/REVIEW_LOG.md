@@ -696,3 +696,40 @@ Decisions and open questions:
 | F12 | low | TreeBuilder responsibilities, O(n²) ancestor walk | Node index; relation and constraint passes run once over the input-wide index; value typing and dictionary lookups in their own units (AAS-1) |
 | F13 | low | Small API inconsistencies | `aas_class_hierarchy(content)` only; the credit check in `KernelSettingsError`; qualifier-over-property precedence for counts documented; `bad_value` for role qualifiers, `unclassed_capability` |
 | new | — | Open question "one configuration per request" | Decided: `alternatives := 'joint'` (default). The suite and benchmark KPIs are unchanged; `examples/tender_reuse/03` step 4 had documented the mixing pitfall and now shows it solved, with `'per_requirement'` for the old behaviour |
+
+## AAS-3 — 2026-11-11 — Tier 3 of the AAS epic (#34–#36) and a whole-epic usability pass, crew review (user request)
+
+- **Crew** (review mode, one round, codex and claude only, so usability and maintainability ran
+  this time): usability, correctness, design, maintainability, testing on `git diff
+  52287b2..8582182`, plus the AAS docs and tests as a user meets them. Verdict: request changes.
+  Several bugs were reproduced against the build, two of them by two members independently.
+- **Evidence:** `test/sql/aas/crew_t3_regressions.test` and generated edge cases in
+  `scripts/tests/test_aas_schema.py`. The generated cases found one more bug, empty lists in the
+  output, which the schema forbids. The full suite (136 test cases), all 30 examples and the
+  schema test pass on 1.5.6 and 2.0; the 2.0 schema test runs with the loadable artifact.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | `aas_export` reordered lists of 11+ members (text sort, positional indices) | The writer sorts list members (attributes and nodes) by numeric index. Test: 12 members each |
+| F2 | high | `aas_quality` matched submodels by idShort prefix (`Tech` got `TechnicalData`'s counts) | The mapper tags every node and finding with its submodel id; the report groups by id |
+| F3 | high | A NULL wording in overrides emptied the suggestion queue (`NOT IN`) | `NOT EXISTS` |
+| F4 | high | CoverageResult ids collided (`a/b`+`c` = `a`+`b/c`), unencoded IRIs | `id_prefix` + base64url-encoded query and candidate |
+| F5 | medium | idShorts could end in `-` or exceed 128 characters | Cut first, then trim; uniqueness suffixes within the limit; umlauts transliterated |
+| F6 | medium | `nan` / `inf` written | `NaN`, `INF`, `-INF` (XSD) |
+| F7 | medium | Schema validation not in CI | A step in `_extension_smoke_test.yml` (linux_amd64): stock CLI + release artifact, `REQUIRE_SHELL=1` |
+| F8 | medium | Suggestions averaged top-2-truncated probabilities | Full distribution, averaged per wording with absent classes as 0 |
+| F9 | medium | Similarity scored every item against the whole dictionary | Only for each wording's top suggestion |
+| F10 | medium | Quality columns overlapped and missed cases | Missing ConceptDescriptions counted for every coded value from the environment; unresolved units from the final unit resolution |
+| F11 | medium | Coverage recomputed in SQL; missing metrics written as 0 | Asserted equal to `tree_coverage` (variant groups included); missing metrics without a value; result numbers carry a dimensionless entry, so a re-read is clean |
+| F12 | medium | Role-less items without attributes written as Capabilities | Kept: a collection without values reads back as a container and would lose its class. Documented in the mapping table |
+| F13 | medium | Fragile file recipe; results not uploadable | One recipe with a one-file-per-row warning; `aas_environment` column |
+| F14 | low | Hidden state in the row mapper | `AasRowReader` returns `{environment, mapping}` with an explicit argument layout |
+| F15 | low | Round-trip contract overstated | Documented what does not survive (`value_text`, `bound_source`, `kind`, invalid idShorts) |
+| F16 | low | `C#` became a valueId; dead branch; quadratic placement | IRDI/URI test; one expression for the tree role. Placement kept: composites are few |
+| F17 | low | Test gaps; `QuotedIdentifier` did not escape `"` | Full-row `aas_export` round trip in `uc_08`; no-root error; escaping added (also protected by the existence check) |
+| new | — | `submodelElements: []` violated the schema (found by the generated cases) | Empty lists are omitted |
+| 2.0 | — | STRUCT field names are `Identifier`s on DuckDB 2.0 | Cast as in `quantity.cpp` |
+
+Open, for the product owner:
+- the CoverageResult namespace and id scheme before results are published outside DataZoo;
+- whether `trees_to_aas` should keep `kind = Template`.
