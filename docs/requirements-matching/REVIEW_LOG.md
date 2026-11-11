@@ -628,3 +628,42 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | R9 | med | `cluster_matches` closes chains across a missing attribute | Example guard re-checks every whole cluster; an optional conflict check is backlog |
 | R10, S6, S7 | low | Trace tie keeps the first value; OR variants scored per requirement item; base units in the trace; no per-attribute gap flag | Backlog; examples show the workarounds |
 | S8 | med | `infer_predecessors` misses the clean cut-over (0.356 < 0.5) | Known (UR-2 D-2); planner folder shows the recipe |
+
+## AAS-1 — 2026-11-11 — Tier 1 of the AAS epic (#27–#30), crew review (user request)
+
+- **Crew** (review mode, one round): usability (claude), correctness (muse), design (codex),
+  maintainability (claude), testing (muse) on `git diff 86ef2be..589e113..4d419e0..993ae68`
+  (semantic_key, the attr_key gate, unit identifiers, the AAS reader). Verdict: request changes.
+  The design held up (format-neutral model, three readers, an independent gold oracle), but
+  several paths failed silently on supplier data.
+- **Evidence after the fixes:** `test/sql/aas/crew_t1_regressions.test` uses hand-written
+  fixtures (`test/data/aas/fixtures/`), not the scenario generator. All 8 AAS test files and the
+  full suite pass on DuckDB 1.5.6 and 2.0. The loadable extension loads in the stock 1.5.6 shell
+  and in the 2.0 shell, and reads the XML AASX sample.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | ConceptDescriptions indexed version-stripped, first wins: mA vs A by input order | Exact release first; another release only when all agree on unit and unitId, else `ambiguous_concept_description` and no unit. Tested in both CD orders |
+| F2 | high | `semanticIdListElement` / `valueTypeListElement` ignored | Parsed in JSON and XML; list children inherit them (`AasInheritListElement`) |
+| F3 | high | `"yes"` → false, `xs:int "1.5"` accepted, `"1,500"` → 1.5 | `aas_values`: strict booleans, integers without fraction, the comma is a decimal separator only when it cannot be a thousands separator; Range uses the same parser |
+| F4 | high | Absent numbers and coded strings dropped silently | Absent or blank numbers stay as valueless attributes (a gap) with `empty_value`; codes (IP65) and short keyed texts become categories; template submodels only contribute stated values |
+| F5 | high | One broken file aborts a folder load, no file name | `aas_issues` reports `parse_error` and never raises; the docs open with a filename audit. `aas_to_trees` stays strict (decision below) |
+| F6 | medium | `('mA', id, 'current')` redefined mA with factor 1 | A known symbol without a factor only attaches ids and aliases; another dimension is an error |
+| F7 | medium | Given `tree_id` suffixed when the file had an orphan submodel | The first tree gets the given id; others `tree_id/idShort` (id on collision) with `tree_id_suffixed` |
+| F8 | medium | ECLASS IRIs of BASIC/ADVANCED, versionless | Right-anchored parsing, query/fragment and trailing slash ignored. The canonical CDP spellings are not confirmed by a source (open) |
+| F9 | medium | An embedded spec with only a name hid the CD's unit | Field-by-field merge; `assumed_dimensionless` when no unit anywhere |
+| F10 | medium | `key_mismatch` hid unstated properties | `key_mismatch` only for a differently-keyed attribute of the same kind, shown as `prov_value`; otherwise `missing` |
+| F11 | medium | Seed copy recipe dropped `unit_id` | Recipe fixed; an override without ids keeps the seed codes |
+| F12 | medium | Categories compared raw | Categories and rules canonicalised with `semantic_key` in the kernel |
+| F13 | medium | XML single roots, silent empties, `..` targets | XML accepts a lone shell / CD; `no_shell_or_submodel`, `malformed_member`; AASX targets normalised, escapes are an error |
+| F14 | medium | Duplicate idShorts renamed silently | Renamed `X~2` and reported as `duplicate_id_short` (kept, so a load is not blocked) |
+| F15 | medium | Fixtures only from the own generator, no 2.0 / loadable evidence | Hand-written fixtures; 1.5.6 and 2.0 suites, loadable smoke on both |
+| F16 | low | Unbounded AASX extraction | 256 MB cap per spec part (`mz_zip_reader_file_stat`) |
+| F17 | low | Cleanups | Helpers in `aas_model.cpp` / `aas_values.cpp`; property_tree wrappers removed; page title; raw `attr_key` documented; coded values read as text in the trace. Kept the base64url encoder: `Blob::ToBase64` writes padded base64, not base64url |
+
+Decisions and open questions:
+- **Strict `aas_to_trees`, lenient `aas_issues`.** A pipeline should stop on unreadable input, an
+  audit should not. Changing the load to NULL-plus-issue remains possible later.
+- **Open:** the canonical ECLASS CDP IRI spellings for BASIC/ADVANCED and versionless ids, and how
+  BaSyx and FA³ST serialise `CapabilityRoleQualifier` values (`true` / `1` are read; the template's
+  `[1, 0]` placeholder is not a value). Both need real exporter samples.
