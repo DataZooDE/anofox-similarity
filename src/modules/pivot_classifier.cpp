@@ -277,7 +277,7 @@ struct ClassifyParams {
 	bool centre = true;
 	double beta = 1.0, tau = 0.3, name_floor = 0.85;
 	int64_t top = 0; // 0: all classes
-	int64_t min_source_items = 10; // smaller sources are centred with the batch mean
+	int64_t min_source_items = 10; // smaller sources: the batch mean if the batch is large enough, else none
 	string items, catalogue, overrides, answers, attrs, templates, name_vectors;
 	bool items_tree = false, items_source = false, items_label = false, items_vec = false;
 	bool attrs_tree = false, attrs_name = false, overrides_source = false, answers_tree = false;
@@ -604,7 +604,7 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	               "must be in [0, 1); NULL gives NULL.",
 	               {"SELECT calibrated_cosine([1.0, 0.0], [0.8, 0.6], 0.5); -- 0.6"});
 
-	RegisterCoverageTableFunction(loader, "cosine_floor", {LogicalType::VARCHAR, LogicalType::VARCHAR}, {"table", "column"},
+	RegisterCoverageTableFunction(loader, "cosine_floor", {LogicalType::VARCHAR, LogicalType::VARCHAR}, {"table_name", "column_name"},
 	              CosineFloorBindReplace, {{"sample", LogicalType::BIGINT}, {"seed", LogicalType::BIGINT}},
 	              "Estimates the cosine floor b of a vector corpus: the median cosine of pairs of distinct vectors. "
 	              "With at most `sample` pairs (default 10 000) all pairs count; otherwise `sample` pairs "
@@ -629,8 +629,9 @@ void RegisterPivotClassifierFunctions(ExtensionLoader &loader) {
 	     {"top", LogicalType::BIGINT},
 	     {"min_source_items", LogicalType::BIGINT}},
 	    "Pivot classifier: maps every item onto the catalogue as a distribution p(class). Steps: per-source "
-	    "mean-centring of the item vectors (center_by_source, centroid mode; sources with fewer than "
-	    "min_source_items items, default 10, use the batch mean); cosine to the class vector, or "
+	    "mean-centring of the item vectors (center_by_source, centroid mode; a source with fewer than "
+	    "min_source_items items, default 10, is centred with the batch mean when the whole batch has at least "
+	    "min_source_items items, and not centred otherwise); cosine to the class vector, or "
 	    "maxsim(tokens, exemplar_tokens) in mode 'late_interaction'; z-score across the catalogue; plus attr_bonus x "
 	    "the attribute-template match (mean over the item's attributes of the best same-dimension template, name "
 	    "similarity by calibrated cosine of name_vectors, or 1 without vectors); softmax with temperature; margin = p1 "

@@ -31,3 +31,13 @@ doc-audit: release
 	  --artifact build/release/extension/$(EXT_NAME)/$(EXT_NAME).duckdb_extension \
 	  --preload vss \
 	  --check-examples
+
+# Docs and Claude Code skills against the build: every ```sql block in README.md and
+# plugins/anofox-similarity/skills runs, every function the extension registers is on an API
+# page and named in a skill, and the generated API blocks are current. Fails on any problem.
+# FILES=... additionally runs the SQL of those files (docs pages mostly need your own tables).
+.PHONY: check-docs
+check-docs: release
+	@DATAZOO_DISABLE_TELEMETRY=1 python3 scripts/generate_api_reference.py --check
+	@DATAZOO_DISABLE_TELEMETRY=1 python3 scripts/check_doc_snippets.py
+	@$(if $(FILES),DATAZOO_DISABLE_TELEMETRY=1 python3 scripts/check_doc_snippets.py --out build/doc-snippets-files.tsv $(FILES))

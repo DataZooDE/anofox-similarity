@@ -1,5 +1,5 @@
 # name: test/sql/functions/dynamics365_transformations.test
-# description: Dynamics 365 BOM transformations to universal schema
+# description: Dynamics 365 BOM transformations to universal schema (native D365 columns)
 # group: [functions]
 
 # tier: tier1
@@ -10,80 +10,42 @@ statement ok
 PRAGMA enable_verification
 
 # ============================================================================
-# Test 1: Create Dynamics 365 InventTable (materials master)
+# Test 1: Dynamics 365 InventTable (materials master); ItemType 0 Item, 1 BOM, 2 Service
 # ============================================================================
 
 statement ok
 CREATE TABLE d365_InventTable AS
 SELECT * FROM (VALUES
-    ('ITEM-001', 'Assembly 1', 0),      -- ItemId, ItemName, ItemType (0=BOM)
-    ('ITEM-002', 'Component 1', 2),     -- ItemType 2 = Component
-    ('ITEM-003', 'Component 2', 2)
+    ('ITEM-001', 'Assembly 1', 1),
+    ('ITEM-002', 'Component 1', 0),
+    ('ITEM-003', 'Component 2', 0)
 ) AS t(ItemId, ItemName, ItemType)
 
 # ============================================================================
-# Test 2: Create Dynamics 365 BOMTable (BOM header)
-# ============================================================================
-
-statement ok
-CREATE TABLE d365_BOMTable AS
-SELECT * FROM (VALUES
-    ('BOM-001', 'ITEM-001', 0),         -- BOMId, ItemId, Status (0=Active)
-    ('BOM-002', 'ITEM-002', 0)          -- Status 0 = Active
-) AS t(BOMId, ItemId, Status)
-
-# ============================================================================
-# Test 3: Create Dynamics 365 BOMVersion (BOM version details)
+# Test 2: Dynamics 365 BOMVersion (links items to BOMs, with validity and approval)
 # ============================================================================
 
 statement ok
 CREATE TABLE d365_BOMVersion AS
 SELECT * FROM (VALUES
-    ('BOM-001', 'V1', 1, TIMESTAMP '2024-01-01 00:00:00'),     -- BOMId, VersionId, ApprovedStatus (1=Approved), ActivationDate
-    ('BOM-002', 'V1', 0, TIMESTAMP '2024-01-15 00:00:00')      -- ApprovedStatus 0 = Not Approved
-) AS t(BOMId, VersionId, ApprovedStatus, ActivationDate)
+    ('ITEM-001', 'BOM-001', DATE '2024-01-01', DATE '1900-01-01', 1, 1),
+    ('ITEM-002', 'BOM-002', DATE '2024-01-15', DATE '1900-01-01', 1, 0)
+) AS t(ItemId, BOMId, FromDate, ToDate, Active, Approved)
 
 # ============================================================================
-# Test 4: Create Dynamics 365 BOM (BOM components)
+# Test 3: Dynamics 365 BOM lines
 # ============================================================================
 
 statement ok
 CREATE TABLE d365_BOM AS
 SELECT * FROM (VALUES
-    ('BOM-001', 1, 'ITEM-002', 2.0, 5.0),   -- BOMId, LineNum, ItemId, Quantity, ScrapPercent
-    ('BOM-001', 2, 'ITEM-003', 1.5, 0.0),
-    ('BOM-002', 1, 'ITEM-001', 3.0, 10.0)
-) AS t(BOMId, LineNum, ItemId, Quantity, ScrapPercent)
+    ('BOM-001', 1, 'ITEM-002', 2.0, 1.0, 'pcs', 5.0),
+    ('BOM-001', 2, 'ITEM-003', 1.5, 1.0, 'kg', 0.0),
+    ('BOM-002', 1, 'ITEM-001', 3.0, 1.0, 'pcs', 10.0)
+) AS t(BOMId, LineNum, ItemId, BOMQty, BOMQtySerie, UnitId, ScrapVar)
 
 # ============================================================================
-# Test 5: Test dynamics365_to_materials conversion exists
-# ============================================================================
-
-query I
-SELECT COUNT(*) > 0 FROM dynamics365_to_materials('d365_InventTable')
-----
-true
-
-# ============================================================================
-# Test 6: Test dynamics365_to_bom_header conversion exists
-# ============================================================================
-
-query I
-SELECT COUNT(*) > 0 FROM dynamics365_to_bom_header('d365_BOMTable', 'd365_BOMVersion')
-----
-true
-
-# ============================================================================
-# Test 7: Test dynamics365_to_bom_component conversion exists
-# ============================================================================
-
-query I
-SELECT COUNT(*) > 0 FROM dynamics365_to_bom_component('d365_BOM')
-----
-true
-
-# ============================================================================
-# Test 8: Verify materials count
+# Test 4: counts
 # ============================================================================
 
 query I
@@ -91,68 +53,61 @@ SELECT COUNT(*) FROM dynamics365_to_materials('d365_InventTable')
 ----
 3
 
-# ============================================================================
-# Test 9: Verify BOM header count
-# ============================================================================
-
 query I
-SELECT COUNT(*) FROM dynamics365_to_bom_header('d365_BOMTable', 'd365_BOMVersion')
+SELECT COUNT(*) FROM dynamics365_to_bom_header(bom_version := 'd365_BOMVersion')
 ----
 2
 
-# ============================================================================
-# Test 10: Verify BOM component count
-# ============================================================================
-
 query I
-SELECT COUNT(*) FROM dynamics365_to_bom_component('d365_BOM')
+SELECT COUNT(*) FROM dynamics365_to_bom_component(bom_lines := 'd365_BOM', bom_version := 'd365_BOMVersion')
 ----
 3
 
 # ============================================================================
-# Test 11: Verify active status filtering (only approved BOMs)
+# Test 5: approval, scrap, units and ids
 # ============================================================================
 
 query I
-SELECT COUNT(*) FROM dynamics365_to_bom_header('d365_BOMTable', 'd365_BOMVersion')
+SELECT COUNT(*) FROM dynamics365_to_bom_header(bom_version := 'd365_BOMVersion')
 WHERE is_approved = TRUE
 ----
 1
 
-# ============================================================================
-# Test 12: Verify scrap percentage conversion
-# ============================================================================
-
 query I
-SELECT COUNT(*) FROM dynamics365_to_bom_component('d365_BOM')
+SELECT COUNT(*) FROM dynamics365_to_bom_component(bom_lines := 'd365_BOM', bom_version := 'd365_BOMVersion')
 WHERE scrap_percent > 0
 ----
 2
 
-# ============================================================================
-# Test 13: Verify component material ID mapping
-# ============================================================================
-
-query I
-SELECT COUNT(DISTINCT child_material_id) FROM dynamics365_to_bom_component('d365_BOM')
+query TT
+SELECT child_material_id, quantity_uom FROM dynamics365_to_bom_component(bom_lines := 'd365_BOM', bom_version := 'd365_BOMVersion')
+WHERE bom_id = 'ITEM-001/BOM-001' ORDER BY 1
 ----
-3
+ITEM-002	pcs
+ITEM-003	kg
 
-# ============================================================================
-# Test 14: Verify BOM ID preservation
-# ============================================================================
-
-query I
-SELECT COUNT(DISTINCT bom_id) FROM dynamics365_to_bom_header('d365_BOMTable', 'd365_BOMVersion')
+query TT
+SELECT bom_id, source_bom_id FROM dynamics365_to_bom_header(bom_version := 'd365_BOMVersion') ORDER BY 1
 ----
-2
+ITEM-001/BOM-001	BOM-001
+ITEM-002/BOM-002	BOM-002
 
 # ============================================================================
-# Test 15: Verify quantity preservation in components
+# Test 6: material types follow D365's ItemType enum
+# ============================================================================
+
+query TT
+SELECT material_id, material_type FROM dynamics365_to_materials('d365_InventTable') ORDER BY 1
+----
+ITEM-001	BOM
+ITEM-002	ITEM
+ITEM-003	ITEM
+
+# ============================================================================
+# Test 7: source system
 # ============================================================================
 
 query I
-SELECT COUNT(*) FROM dynamics365_to_bom_component('d365_BOM')
-WHERE quantity_per > 0
+SELECT COUNT(*) FROM dynamics365_to_materials('d365_InventTable') WHERE source_system = 'DYNAMICS365'
 ----
 3

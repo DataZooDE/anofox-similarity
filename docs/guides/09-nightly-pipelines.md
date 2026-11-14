@@ -109,7 +109,9 @@ succeeds:
 
 Readers that already have `serve.duckdb` open keep reading the previous version until they
 reconnect. Readers open the file with `-readonly` (shell) or `read_only=True` (Python). All
-functions work on a read-only database.
+functions work on a read-only database; `compute_fused_embeddings` and
+`compute_transactional_embeddings` also need the embedding tables, which exist only if the file
+was once opened writable with the extension loaded (the writer's LOAD creates them).
 
 - **Versions.** A file created by DuckDB 2.0 cannot be opened by 1.5.6
   (`database file with version number 69`). A file created by 1.5.6 stays readable by 1.5.6

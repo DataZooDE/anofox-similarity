@@ -117,7 +117,9 @@ The extension creates several database objects on load to store embeddings.
 > **Read-only databases:** every function works on a database opened read-only, the SQL macros
 > (BOM traversal, ERP transforms, embeddings, statistics) included: they are registered inside
 > the extension, not in your catalog. On a read-only database the embedding tables below are
-> not created.
+> not created, so the functions that read them fail there: `compute_fused_embeddings` (Catalog
+> Error) and `compute_transactional_embeddings` (an error saying so). Open the database writable
+> once. `check_statistics_freshness` returns 0 / NULL / `false` instead.
 >
 > **What LOAD writes:** on a writable database, loading the extension creates the tables and
 > HNSW indexes below in that database file. A file that contains them needs the `vss`

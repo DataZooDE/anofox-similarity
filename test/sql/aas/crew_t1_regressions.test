@@ -91,6 +91,7 @@ WHERE i.issue <> 'no_unit_information' ORDER BY 1, 2;
 Axes	bad_value	warning
 Inertia	empty_value	warning
 Mass	empty_value	warning
+Remark	unmapped_text	info
 Speed	bad_value	warning
 StoYes	bad_value	warning
 Torque	decimal_comma	info

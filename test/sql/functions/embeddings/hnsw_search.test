@@ -42,7 +42,7 @@ SELECT * FROM (VALUES
 
 statement ok
 CREATE TEMP TABLE brute_force_results AS
-SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom', min_similarity := 0);
 
 query I
 SELECT COUNT(*) FROM brute_force_results;
@@ -109,7 +109,7 @@ true
 
 statement ok
 CREATE TEMP TABLE indexed_results AS
-SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom', min_similarity := 0);
 
 query I
 SELECT COUNT(*) FROM indexed_results;
@@ -215,7 +215,7 @@ SELECT COUNT(*) FROM material_embeddings WHERE jaccard_embedding IS NOT NULL;
 # Now that embeddings exist, find_similar_materials should use VSS path
 statement ok
 CREATE TEMP TABLE vss_search_results AS
-SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-001', 3, bom_table := 'test_bom', min_similarity := 0);
 
 # Verify we get expected number of results
 query I
@@ -289,7 +289,7 @@ DELETE FROM material_embeddings WHERE material_id = 'MAT-004';
 # Should still return results via brute-force fallback
 statement ok
 CREATE TEMP TABLE fallback_results AS
-SELECT * FROM find_similar_materials_jaccard('MAT-004', 2, bom_table := 'test_bom');
+SELECT * FROM find_similar_materials_jaccard('MAT-004', 2, bom_table := 'test_bom', min_similarity := 0);
 
 query I
 SELECT COUNT(*) FROM fallback_results;

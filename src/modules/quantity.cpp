@@ -1146,6 +1146,11 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		// a zero-width requirement (a point with tol 0) is met when the offer contains it
 		r.score = width > 1e-12 ? inter / width : ((c <= a + 1e-12 && a <= e + 1e-12) ? 1.0 : 0.0);
 		r.distance = 1.0 - r.score;
+		// soft_band 0 means hard limits, as for the one-sided bounds: the requirement range (within
+		// tol) is covered or it is not; the share of it that is covered only counts with a band
+		if (options.soft_band <= 0) {
+			r.score = r.score >= 1.0 - 1e-9 ? 1.0 : 0.0;
+		}
 	}
 	r.rule = bound.empty() ? "point" : bound;
 	return r;

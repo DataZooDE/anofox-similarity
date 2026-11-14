@@ -16,9 +16,9 @@ CREATE TABLE bom_items AS
 SELECT 'M' || i::VARCHAR AS parent_id, 'C' || (i % 40)::VARCHAR AS child_id
 FROM range(1, 201) t(i);
 
-# Runs without crashing on 200 parents and returns exactly k rows.
+# Runs without crashing on 200 parents and returns exactly k rows (zeros kept).
 query I
-SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 10);
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 10, min_similarity := 0);
 ----
 10
 
@@ -163,12 +163,13 @@ SELECT fuse_embeddings(list_resize([1.0]::FLOAT[], 256, 0.0), list_resize([1.0]:
 ----
 false
 
-# M-3: a wrong-length modality vector at positive weight yields NULL (no silent pad/truncate).
-query I
+# M-3: a wrong-length modality vector is an error (no silent pad/truncate): the parameters are
+# FLOAT[256] / FLOAT[384] / FLOAT[128] arrays and a list of another length does not cast.
+statement error
 SELECT fuse_embeddings([1.0,2.0]::FLOAT[], list_resize([1.0]::FLOAT[], 384, 0.0),
-   list_resize([1.0]::FLOAT[], 128, 0.0), {'structural':0.34,'textual':0.33,'transactional':0.33}) IS NULL;
+   list_resize([1.0]::FLOAT[], 128, 0.0), {'structural':0.34,'textual':0.33,'transactional':0.33});
 ----
-true
+array with length 256
 
 # ------------------------------------------------------------------------------
 # H-7 / M-1: BOM traversal on the universal schema.

@@ -11,18 +11,12 @@ namespace anofox {
 // Dynamics 365 BOM Transformations Module
 //------------------------------------------------------------------------------
 
-// Registers Dynamics 365 transformation macros for converting ERP structures
-// to the universal BOM schema:
+// Registers the Dynamics 365 table functions that convert native D365 tables (table field or OData
+// entity names) to the universal BOM schema:
 //   - dynamics365_to_materials(invent_table)
-//   - dynamics365_to_bom_header(bom_table, bom_version)
-//   - dynamics365_to_bom_component(bom_lines)
-//
-// These macros enable integration with Microsoft Dynamics 365 SCM systems,
-// converting D365 InventTable, BOMTable, BOMVersion, and BOM structures
-// to the universal BOM schema for multi-ERP similarity analysis.
-//
-// Parameters:
-//   conn - DuckDB connection for macro registration
+//   - dynamics365_to_bom_header(bom_version, bom_table, reference_date)
+//   - dynamics365_to_bom_component(bom_lines, bom_version, reference_date)
+// One BOM per item on reference_date; see src/modules/dynamics365_transformations.cpp.
 void RegisterDynamics365TransformationMacros(ExtensionLoader &loader);
 
 } // namespace anofox

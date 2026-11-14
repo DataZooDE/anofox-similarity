@@ -34,7 +34,7 @@ SELECT material_id, round(similarity, 3) AS similarity, shared_components, total
 FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'pump_bom');
 -- Expected:
 --   PUMP-B | 0.75 | 3 | 4    (3 shared out of 4 distinct parts)
---   PUMP-C | 0.0  | 0 | 5    (disjoint, still returned; filter with min_similarity)
+--   PUMP-C shares nothing and is left out; min_similarity := 0 keeps it with 0.0
 
 .print ''
 .print '>>> 3. Containment mode: how much of the query BOM does a candidate contain?'

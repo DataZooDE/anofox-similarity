@@ -305,7 +305,8 @@ FROM textual_embeddings_de;
 Finding the same material across languages needs vectors that place translations close
 together, and `embed_text` does not (see the warning above). Compute the vectors with a
 multilingual model of your choice outside DuckDB, store them as a table
-`(material_id, language, vec FLOAT[])`, and rank by cosine:
+`(material_id, language, vec FLOAT[n])` (n your model's dimension; the type a vss HNSW index
+takes), and rank by cosine:
 
 ```sql
 -- material_text_vectors: one row per (material, language), vectors from your own model
@@ -318,7 +319,7 @@ SELECT
     v.material_id,
     v.language,
     k.maktx AS description,
-    list_cosine_similarity(v.vec, q.vec) AS similarity
+    1 - array_cosine_distance(v.vec, q.vec) AS similarity
 FROM material_text_vectors v
 CROSS JOIN query_vec q
 JOIN sap_makt k ON v.material_id = k.matnr AND v.language = k.spras

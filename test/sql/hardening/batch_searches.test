@@ -1,0 +1,308 @@
+# name: test/sql/hardening/batch_searches.test
+# description: The batch form of the material searches (materials_table := ...) returns, per
+#   material of the table, exactly what the single-id call returns, with query_id in front. A table
+#   function takes constants, not a column of another table, so this is how a search runs for many
+#   materials in one query (found by the exploratory test: s13 generated one statement per product).
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE bom_items AS SELECT * FROM read_csv('test/data/synthetic/bom_items.csv.gz');
+
+statement ok
+CREATE TABLE goods_movements AS SELECT * FROM read_csv('test/data/synthetic/goods_movements.csv.gz');
+
+# duplicates and an unknown id: each known id is searched once, the unknown one gives no rows
+statement ok
+CREATE TABLE q AS SELECT * FROM (VALUES
+    ('FAMILY-00-BASE'), ('S10-PROD-LINEAR'), ('S7-PRED-NEW'), ('IDENT-PROD-A'), ('NOPE'), ('FAMILY-00-BASE'), (NULL)
+) t(material_id);
+
+# ------------------------------------------------------------------------------
+# Batch = the single calls, row for row (both directions of EXCEPT), for every function and both
+# candidate paths (zero scores left out: inverted join; min_similarity := 0: every material)
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE single_jaccard AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 4)
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM find_similar_materials_jaccard('S10-PROD-LINEAR', 4)
+UNION ALL SELECT 'S7-PRED-NEW', * FROM find_similar_materials_jaccard('S7-PRED-NEW', 4)
+UNION ALL SELECT 'IDENT-PROD-A', * FROM find_similar_materials_jaccard('IDENT-PROD-A', 4);
+
+statement ok
+CREATE TABLE batch_jaccard AS SELECT * FROM find_similar_materials_jaccard(4, materials_table := 'q');
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_jaccard EXCEPT ALL SELECT * FROM batch_jaccard)),
+       (SELECT count(*) FROM (SELECT * FROM batch_jaccard EXCEPT ALL SELECT * FROM single_jaccard));
+----
+0	0
+
+query TI
+SELECT query_id, count(*) FROM batch_jaccard GROUP BY 1 ORDER BY 1;
+----
+FAMILY-00-BASE	3
+IDENT-PROD-A	1
+S10-PROD-LINEAR	1
+S7-PRED-NEW	1
+
+statement ok
+CREATE TABLE single_jaccard0 AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 6, min_similarity := 0)
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM find_similar_materials_jaccard('S10-PROD-LINEAR', 6, min_similarity := 0)
+UNION ALL SELECT 'S7-PRED-NEW', * FROM find_similar_materials_jaccard('S7-PRED-NEW', 6, min_similarity := 0)
+UNION ALL SELECT 'IDENT-PROD-A', * FROM find_similar_materials_jaccard('IDENT-PROD-A', 6, min_similarity := 0);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_jaccard0 EXCEPT ALL
+                              SELECT * FROM find_similar_materials_jaccard(6, materials_table := 'q', min_similarity := 0))),
+       (SELECT count(*) FROM (SELECT * FROM find_similar_materials_jaccard(6, materials_table := 'q', min_similarity := 0)
+                              EXCEPT ALL SELECT * FROM single_jaccard0));
+----
+0	0
+
+# containment mode
+statement ok
+CREATE TABLE single_cont AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 4, mode := 'containment')
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM find_similar_materials_jaccard('S10-PROD-LINEAR', 4, mode := 'containment')
+UNION ALL SELECT 'S7-PRED-NEW', * FROM find_similar_materials_jaccard('S7-PRED-NEW', 4, mode := 'containment')
+UNION ALL SELECT 'IDENT-PROD-A', * FROM find_similar_materials_jaccard('IDENT-PROD-A', 4, mode := 'containment');
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_cont EXCEPT ALL
+                              SELECT * FROM find_similar_materials_jaccard(4, materials_table := 'q', mode := 'containment'))),
+       (SELECT count(*) FROM (SELECT * FROM find_similar_materials_jaccard(4, materials_table := 'q', mode := 'containment')
+                              EXCEPT ALL SELECT * FROM single_cont));
+----
+0	0
+
+# WL kernel, both paths
+statement ok
+CREATE TABLE single_wl AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM find_similar_materials_wl_kernel('FAMILY-00-BASE', 4)
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM find_similar_materials_wl_kernel('S10-PROD-LINEAR', 4)
+UNION ALL SELECT 'S7-PRED-NEW', * FROM find_similar_materials_wl_kernel('S7-PRED-NEW', 4)
+UNION ALL SELECT 'IDENT-PROD-A', * FROM find_similar_materials_wl_kernel('IDENT-PROD-A', 4);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_wl EXCEPT ALL
+                              SELECT * FROM find_similar_materials_wl_kernel(4, materials_table := 'q'))),
+       (SELECT count(*) FROM (SELECT * FROM find_similar_materials_wl_kernel(4, materials_table := 'q')
+                              EXCEPT ALL SELECT * FROM single_wl));
+----
+0	0
+
+statement ok
+CREATE TABLE single_wl0 AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM find_similar_materials_wl_kernel('FAMILY-00-BASE', 6, min_similarity := 0, iterations := 2)
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM find_similar_materials_wl_kernel('S10-PROD-LINEAR', 6, min_similarity := 0, iterations := 2)
+UNION ALL SELECT 'S7-PRED-NEW', * FROM find_similar_materials_wl_kernel('S7-PRED-NEW', 6, min_similarity := 0, iterations := 2)
+UNION ALL SELECT 'IDENT-PROD-A', * FROM find_similar_materials_wl_kernel('IDENT-PROD-A', 6, min_similarity := 0, iterations := 2);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_wl0 EXCEPT ALL
+                              SELECT * FROM find_similar_materials_wl_kernel(6, materials_table := 'q', min_similarity := 0, iterations := 2))),
+       (SELECT count(*) FROM (SELECT * FROM find_similar_materials_wl_kernel(6, materials_table := 'q', min_similarity := 0, iterations := 2)
+                              EXCEPT ALL SELECT * FROM single_wl0));
+----
+0	0
+
+# cold_start_analogs
+statement ok
+CREATE TABLE single_cold AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM cold_start_analogs('FAMILY-00-BASE', 3)
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM cold_start_analogs('S10-PROD-LINEAR', 3)
+UNION ALL SELECT 'S7-PRED-NEW', * FROM cold_start_analogs('S7-PRED-NEW', 3)
+UNION ALL SELECT 'IDENT-PROD-A', * FROM cold_start_analogs('IDENT-PROD-A', 3);
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_cold EXCEPT ALL SELECT * FROM cold_start_analogs(3, materials_table := 'q'))),
+       (SELECT count(*) FROM (SELECT * FROM cold_start_analogs(3, materials_table := 'q') EXCEPT ALL SELECT * FROM single_cold));
+----
+0	0
+
+# infer_predecessors: S7-PRED-NEW replaces S7-PRED-OLD; the other queries have none
+statement ok
+CREATE TABLE single_pred AS
+SELECT 'FAMILY-00-BASE' AS query_id, * FROM infer_predecessors('FAMILY-00-BASE')
+UNION ALL SELECT 'S10-PROD-LINEAR', * FROM infer_predecessors('S10-PROD-LINEAR')
+UNION ALL SELECT 'S7-PRED-NEW', * FROM infer_predecessors('S7-PRED-NEW')
+UNION ALL SELECT 'IDENT-PROD-A', * FROM infer_predecessors('IDENT-PROD-A');
+
+query II
+SELECT (SELECT count(*) FROM (SELECT * FROM single_pred EXCEPT ALL SELECT * FROM infer_predecessors(materials_table := 'q'))),
+       (SELECT count(*) FROM (SELECT * FROM infer_predecessors(materials_table := 'q') EXCEPT ALL SELECT * FROM single_pred));
+----
+0	0
+
+query TTR
+SELECT query_id, predecessor_id, confidence FROM infer_predecessors(materials_table := 'q');
+----
+S7-PRED-NEW	S7-PRED-OLD	0.8371
+
+# all 10 successors with a gold predecessor in one query: 10 rows, every one the gold pair
+statement ok
+CREATE TABLE successors AS SELECT DISTINCT material_a AS material_id FROM read_csv('test/data/synthetic/ground_truth.csv.gz')
+WHERE relationship_type = 'predecessor';
+
+query II
+SELECT count(*), count(g.material_b) FROM infer_predecessors(materials_table := 'successors', min_overlapping_weeks := 4) p
+LEFT JOIN read_csv('test/data/synthetic/ground_truth.csv.gz') g
+  ON g.material_a = p.query_id AND g.material_b = p.predecessor_id AND g.relationship_type = 'predecessor';
+----
+10	10
+
+# ------------------------------------------------------------------------------
+# Shape: query_id in front, k per query, ordered by query then rank
+# ------------------------------------------------------------------------------
+
+query I
+SELECT max(n) <= 2 FROM (SELECT count(*) AS n FROM find_similar_materials_jaccard(2, materials_table := 'q') GROUP BY query_id);
+----
+true
+
+query T
+SELECT string_agg(column_name, ',') FROM (DESCRIBE SELECT * FROM find_similar_materials_jaccard(2, materials_table := 'q'));
+----
+query_id,material_id,similarity,shared_components,total_components
+
+query T
+SELECT string_agg(column_name, ',') FROM (DESCRIBE SELECT * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 2));
+----
+material_id,similarity,shared_components,total_components
+
+query I
+SELECT count(DISTINCT query_id) FROM find_similar_materials_jaccard(4, materials_table := 'q');
+----
+4
+
+# the rows come grouped by query and ranked inside it
+query I
+SELECT bool_and(ok) FROM (
+    SELECT row_number() OVER () AS pos, query_id, similarity,
+           query_id > lag(query_id) OVER () OR (query_id = lag(query_id) OVER () AND similarity <= lag(similarity) OVER ())
+           OR lag(query_id) OVER () IS NULL AS ok
+    FROM find_similar_materials_jaccard(4, materials_table := 'q'));
+----
+true
+
+# integer ids in the materials table match VARCHAR BOM ids by their text
+statement ok
+CREATE TABLE int_bom AS SELECT * FROM (VALUES (1, 10), (1, 11), (2, 10), (2, 11), (3, 12)) t(parent_id, child_id);
+
+statement ok
+CREATE TABLE int_q AS SELECT * FROM (VALUES ('1'), ('3')) t(material_id);
+
+query TTR
+SELECT query_id, material_id, similarity FROM find_similar_materials_jaccard(5, materials_table := 'int_q', bom_table := 'int_bom');
+----
+1	2	1.0
+
+# ------------------------------------------------------------------------------
+# Empty table, errors
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE empty_q (material_id VARCHAR);
+
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel(5, materials_table := 'empty_q');
+----
+0
+
+query I
+SELECT count(*) FROM infer_predecessors(materials_table := 'empty_q');
+----
+0
+
+statement ok
+CREATE TABLE wrong_q AS SELECT 'FAMILY-00-BASE' AS id;
+
+statement error
+SELECT * FROM find_similar_materials_jaccard(5, materials_table := 'wrong_q');
+----
+missing required column(s): material_id
+
+statement error
+SELECT * FROM cold_start_analogs(5, materials_table := 'q; DROP TABLE q');
+----
+Invalid identifier for materials_table
+
+statement error
+SELECT * FROM find_similar_materials_wl_kernel(5);
+----
+materials_table := '<table>' for many materials
+
+statement error
+SELECT * FROM infer_predecessors();
+----
+materials_table := '<table>' for many materials
+
+statement error
+SELECT * FROM find_similar_materials_jaccard(NULL::BIGINT, materials_table := 'q');
+----
+k must not be NULL
+
+# the single form does not take materials_table
+statement error
+SELECT * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 5, materials_table := 'q');
+----
+materials_table
+
+# ------------------------------------------------------------------------------
+# Crew review: negative k is an error in both forms; an INTEGER id list finds VARCHAR BOM ids;
+# ties at the k boundary are cut by material id, the same in both forms; a hand-computed score
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE tie_bom AS SELECT * FROM (VALUES
+    ('7', 'a'), ('7', 'b'), ('11', 'a'), ('12', 'a'), ('13', 'a'), ('14', 'b'), ('14', 'c')) t(parent_id, child_id);
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative
+
+statement ok
+CREATE TABLE int_q7 AS SELECT 7 AS material_id;
+
+statement error
+SELECT * FROM find_similar_materials_jaccard(-1, materials_table := 'int_q7', bom_table := 'tie_bom');
+----
+k must not be negative
+
+# 7 = {a, b}: 11, 12, 13 share a (1/2 each), 14 shares b (1/3); k = 2 keeps 11 and 12
+query TTR
+SELECT query_id, material_id, similarity FROM find_similar_materials_jaccard(2, materials_table := 'int_q7', bom_table := 'tie_bom');
+----
+7	11	0.5
+7	12	0.5
+
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('7', 2, bom_table := 'tie_bom');
+----
+11	0.5
+12	0.5
+
+query TTR
+SELECT query_id, material_id, round(similarity, 4) FROM find_similar_materials_wl_kernel(1, materials_table := 'int_q7', bom_table := 'tie_bom', iterations := 1);
+----
+7	11	0.5
+
+query I
+SELECT count(*) FROM (SELECT * FROM find_similar_materials_wl_kernel(4, materials_table := 'int_q7', bom_table := 'tie_bom')
+    EXCEPT ALL SELECT '7', * FROM find_similar_materials_wl_kernel('7', 4, bom_table := 'tie_bom'));
+----
+0
+
+statement error
+SELECT * FROM find_similar_materials_wl_kernel('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative
+
+statement error
+SELECT * FROM cold_start_analogs('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative

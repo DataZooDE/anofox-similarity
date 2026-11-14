@@ -157,4 +157,23 @@ jobs:
           REQUIRE_SHELL: '1'
         run: |
           python -m pip install --quiet pytest jsonschema
-          python -m pytest scripts/tests/test_aas_schema.py -q -p no:cacheprovider
+          python -m pytest scripts/tests/test_aas_schema.py scripts/tests/test_check_doc_snippets.py -q -p no:cacheprovider
+
+      # The docs and the Claude Code skills (plugins/anofox-similarity) against the release
+      # artifact: every SQL example in README.md and the skills runs, every registered function
+      # is on an API page and named in a skill, and the generated API reference is current.
+      # A functional check, not a format check. linux_amd64 only, using the audit step's CLI.
+      - name: Docs and Claude Code skills run against the artifact
+        if: steps.gate.outputs.skip != 'true' && matrix.arch == 'linux_amd64'
+        shell: bash
+        env:
+          DUCKDB: /tmp/duckdb_cli/duckdb
+          DUCKDB_BASELINE: /tmp/duckdb_cli/duckdb
+          ANOFOX_EXTENSION: ${{ github.workspace }}/extension_artifact/${{ inputs.extension_name }}.duckdb_extension
+          DATAZOO_DISABLE_TELEMETRY: '1'
+        run: |
+          # The extension installs vss on LOAD when it is missing; do it once here, not per block.
+          "$DUCKDB" -c "INSTALL vss;"
+          python3 scripts/generate_api_reference.py --check
+          python3 scripts/check_doc_snippets.py --out "$RUNNER_TEMP/doc-snippets.tsv" || {
+            grep -P '^(FAIL|STALE)\t' "$RUNNER_TEMP/doc-snippets.tsv"; exit 1; }

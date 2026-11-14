@@ -2,6 +2,8 @@
 
 `include/compat_anofox/scalar_bind.hpp` adapts telemetry-only scalar bind
 callbacks to the callback signature of each DuckDB line.
+`include/compat_anofox/array_vector.hpp` gives the child vector of an ARRAY
+vector (`GetEntry` before 2.0, `GetChildMutable` on 2.0).
 `include/compat_anofox/macro_doc.hpp` registers parsed scalar macros with
 documentation and the same category defaults as the banner Registrar.
 Struct child access now uses

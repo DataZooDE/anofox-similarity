@@ -26,6 +26,22 @@ statement ok
 CREATE TABLE seed(x INTEGER);
 
 statement ok
+CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity DOUBLE);
+
+# the result types of check_statistics_freshness on a writable database, to compare below
+statement ok
+CREATE TABLE fresh_types AS SELECT typeof(stat_count) a, typeof(max_samples) b, typeof(current_version) c,
+       typeof(last_updated) d, typeof(is_fresh) e FROM check_statistics_freshness();
+
+# The extension created its embedding tables when this file was opened writable; drop them so the
+# read-only open below sees a database without them, as one never opened writable with the extension.
+statement ok
+DROP TABLE material_embeddings;
+
+statement ok
+DROP TABLE transactional_embedding_statistics;
+
+statement ok
 INSERT INTO seed VALUES (1);
 
 # Reopen the same file read-only.
@@ -56,3 +72,27 @@ statement error
 CREATE TABLE proof_readonly(x INTEGER);
 ----
 read-only
+
+# The embedding tables are not created on a read-only database. check_statistics_freshness
+# reports "no statistics" instead of a Catalog Error.
+query IT
+SELECT stat_count, last_updated IS NULL AND NOT is_fresh FROM check_statistics_freshness();
+----
+0	true
+
+query I
+SELECT (SELECT typeof(stat_count) || typeof(max_samples) || typeof(current_version) || typeof(last_updated) || typeof(is_fresh)
+        FROM check_statistics_freshness()) = (SELECT a || b || c || d || e FROM fresh_types);
+----
+true
+
+# The functions that read the embedding tables say why they fail on a read-only database.
+statement error
+SELECT * FROM compute_transactional_embeddings();
+----
+transactional_embedding_statistics
+
+statement error
+SELECT * FROM compute_fused_embeddings();
+----
+material_embeddings

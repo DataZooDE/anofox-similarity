@@ -9,6 +9,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
   <a href="https://duckdb.org"><img src="https://img.shields.io/badge/DuckDB-1.5.6%20%7C%202.0-green.svg" alt="DuckDB 1.5.6 and 2.0"></a>
   <a href="https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml"><img src="https://github.com/DataZooDE/anofox-similarity/actions/workflows/MainDistributionPipeline.yml/badge.svg" alt="Build"></a>
+  <a href="#-claude-code-skills-ai-pair-programming"><img src="https://img.shields.io/badge/Claude%20Code-skills%20plugin-D97757.svg" alt="Claude Code AI skills plugin"></a>
 </p>
 
 A DuckDB extension that answers two questions on enterprise master data, in pure SQL:
@@ -22,6 +23,10 @@ A DuckDB extension that answers two questions on enterprise master data, in pure
 It works on the data ERP systems already have (SAP, Dynamics 365 and others): BOMs, goods
 movements, material texts and extracted specifications. Bring your own vectors where meaning
 matters; the extension does not ship language models.
+
+> **Built for AI pair-programming.** Six [Claude Code skills](#-claude-code-skills-ai-pair-programming)
+> teach your assistant every function, input table and gotcha:
+> `/plugin install anofox-similarity --marketplace DataZooDE/anofox-similarity`
 
 ## ✨ Key Features
 
@@ -60,6 +65,7 @@ matters; the extension does not ship language models.
 
 ## 📋 Table of Contents
 
+- [Claude Code Skills](#-claude-code-skills-ai-pair-programming)
 - [Installation](#installation)
 - [Quick Start: similar materials](#-quick-start-similar-materials)
 - [Quick Start: coverage matching](#-quick-start-coverage-matching)
@@ -68,11 +74,58 @@ matters; the extension does not ship language models.
 - [Development](#-development)
 - [License](#-license)
 
+## 🤖 Claude Code Skills (AI pair-programming)
+
+anofox-similarity ships an installable [Claude Code](https://claude.com/claude-code) plugin: six
+skills that give Claude checked knowledge of every function, its input tables and output columns,
+and the gotchas. Ask in plain words, such as *"find the five products most like PUMP-A from my
+SAP STPO extract"* or *"which past offers cover this request, and what is missing?"*, and Claude
+writes SQL that runs.
+
+Install it in any Claude Code session:
+
+```
+/plugin install anofox-similarity --marketplace DataZooDE/anofox-similarity
+```
+
+On Claude Code before 2.1.275, add the marketplace first:
+
+```
+/plugin marketplace add DataZooDE/anofox-similarity
+/plugin install anofox-similarity@anofox-similarity
+```
+
+| Skill | Covers |
+|-------|--------|
+| `anofox-similarity-material-search` | Jaccard, WL kernel, Tversky, containment, weighted measures; similar materials, predecessors, cold-start analogs; BOM traversal |
+| `anofox-similarity-coverage` | Covering search, quantities with units and direction, property trees, the coverage kernel with gaps |
+| `anofox-similarity-classification-review` | Classifying items onto a catalogue with your own vectors; the vocabulary review queue |
+| `anofox-similarity-evaluation-scale` | Ranking and calibration metrics, thresholds, confidence intervals, weight fitting; MinHash/LSH; clustering |
+| `anofox-similarity-erp-embeddings` | SAP and Dynamics 365 transformations, the universal BOM schema, embeddings, fusion and statistics |
+| `anofox-similarity-aas` | Asset Administration Shell: read, match on semantic keys, check quality, write back |
+
+The skills live in [`plugins/anofox-similarity/`](plugins/anofox-similarity/). Every SQL example
+in them runs in CI against the build (`make check-docs`). For in-repo development, load them
+directly with `claude --plugin-dir ./plugins/anofox-similarity`.
+
 ## Installation
 
-The extension is not yet published in the DuckDB community repository or in DataZoo's
-repository (`INSTALL anofox_similarity FROM community` returns 404). Build it from source.
-You need Git, CMake, Ninja and a C++17 compiler:
+### Community extension
+
+```sql
+INSTALL anofox_similarity FROM community;
+LOAD anofox_similarity;
+```
+
+The community build follows the tagged releases (`FORCE INSTALL anofox_similarity FROM community;`
+upgrades a cached copy). Check which one you have with
+`SELECT extension_version FROM duckdb_extensions() WHERE extension_name = 'anofox_similarity'`;
+the functions and behaviour described here are those of the newest release (see
+[upgrading](docs/UPGRADING.md) for what changed).
+
+### From source
+
+For changes that are not released yet, build it. You need Git, CMake, Ninja and a C++17 compiler:
 
 | OS | Install the prerequisites |
 |---|---|
@@ -112,8 +165,7 @@ INSERT INTO bom_items VALUES
 -- The products most similar to PUMP-A by shared components
 SELECT material_id, similarity, shared_components, total_components
 FROM find_similar_materials_jaccard('PUMP-A', 3);
--- PUMP-B | 0.75 | 3 | 4
--- PUMP-C | 0.0  | 0 | 5
+-- PUMP-B | 0.75 | 3 | 4      (PUMP-C shares nothing and is left out; min_similarity := 0 keeps it)
 ```
 
 A new product has no sales history. Find its predecessor from consumption that declines while
@@ -144,6 +196,8 @@ FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 6);
 
 Predecessor detection needs dense weekly history; sparse movements return no rows. See the
 [guide](docs/guides/03-predecessors-and-cold-start.md).
+
+Using an AI assistant? Install the [Claude Code skills](#-claude-code-skills-ai-pair-programming).
 
 ## 📐 Quick Start: coverage matching
 
@@ -217,7 +271,9 @@ FROM find_covering_entities('REQ-7', 5,
 ```
 
 This checks feature presence and counts. For limits such as “at most 8 A” and a value-by-value
-gap list, use [property trees](docs/guides/04-coverage-matching.md#property-trees).
+gap list, use [property trees](docs/guides/04-coverage-matching.md#property-trees). The
+`anofox-similarity-coverage` [Claude Code skill](#-claude-code-skills-ai-pair-programming) covers
+this whole area.
 
 ## 📚 Documentation
 
@@ -227,11 +283,16 @@ gap list, use [property trees](docs/guides/04-coverage-matching.md#property-tree
 | **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
 | **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
 | **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |
+| **[Upgrading](docs/UPGRADING.md)** | Changes that need action when you upgrade |
 | **[Background](docs/background/)** | Design notes and research (not the product contract) |
+| **[Claude Code skills](plugins/anofox-similarity/skills/)** | Condensed, tested cheat sheets for AI assistants ([install](#-claude-code-skills-ai-pair-programming)) |
 
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position: give them in the
-documented order. Table functions bind by name. All functions work on a read-only database; only
-the embedding tables are not created there. Run the SQL in the guides and examples from the
+documented order. Table functions bind by name. All functions work on a read-only database except
+`compute_fused_embeddings` and `compute_transactional_embeddings`, which read the embedding tables
+LOAD creates only on a writable database (open it writable once). On a writable database LOAD
+creates four tables (`material_embeddings`, ...) and, with `vss`, three HNSW indexes in your catalog;
+see [conventions](docs/api/00-conventions.md#read-only-databases) for the list and how to keep a file clean. Run the SQL in the guides and examples from the
 repository root: their data paths (`test/data/...`) are relative to it.
 
 ## 🌍 Multi-Language Support
@@ -273,7 +334,10 @@ DATAZOO_DISABLE_TELEMETRY=1 make test        # the whole SQL test suite
 
 The SQL tests live in `test/sql/` ([overview](test/README.md)). Examples run with
 `scripts/run_examples.sh`. After changing a function's description, parameters or examples,
-regenerate the reference with `python3 scripts/generate_api_reference.py`.
+regenerate the reference with `python3 scripts/generate_api_reference.py`. When you add, rename
+or change a function, also update the skill that covers it in
+`plugins/anofox-similarity/skills/` and run `make check-docs`: it runs every SQL example in the
+README and the skills and fails when a function is named in no skill.
 
 ### Telemetry
 

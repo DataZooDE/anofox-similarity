@@ -59,6 +59,14 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
                                                                       TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("compute_transactional_embeddings");
 
+	// First, so it is the error a read-only database gives: the statistics table is created on load,
+	// but not on a read-only database.
+	if (!TableExists(context, "transactional_embedding_statistics")) {
+		throw InvalidInputException(
+		    "compute_transactional_embeddings needs the table transactional_embedding_statistics, which the "
+		    "extension creates on load but not on a read-only database. Open the database writable once.");
+	}
+
 	// Parameters (all named with defaults):
 	// movements_table := 'goods_movements'
 	// time_window_days := 365
