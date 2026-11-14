@@ -220,7 +220,9 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	const bool item_nodes = has(stpo, "stlkn");
 
 	// MAST: material -> BOM number of the alternative (and usage); plants collapse to one row
+	const bool mast_usage = has(mast, "stlan");
 	string mast_sql = "SELECT DISTINCT " + client_col + "TRIM(matnr) AS parent_id, stlnr" + string(mast_alternative ? ", stlal" : "") +
+	                  string(mast_usage ? ", stlan" : ", NULL::VARCHAR AS stlan") +
 	                  " FROM query_table(" + QuoteSQLStringLiteral(mast) + ") WHERE TRUE" +
 	                  (mast_alternative ? " AND stlal = " + alternative : string()) +
 	                  (by_usage ? " AND stlan = " + QuoteSQLStringLiteral(usage_value->ToString()) : string());
@@ -256,14 +258,20 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 
 	string sql = "WITH mast AS (" + mast_sql +
 	             "),\n header AS (" + stko_sql + "),\n item AS (" + stpo_sql + ")" + stas_cte +
-	             "\nSELECT h.stlnr AS bom_id, m.parent_id, i.child_id, i.qty, i.unit, h.valid_from, "
-	             "'9999-12-31'::DATE AS valid_to, h.stlal AS bom_version"
+	             // every usage and BOM number of a material can list the same child: keep one edge per
+	             // (parent_id, child_id), from the lowest usage, then the lowest BOM number; quantities
+	             // of that BOM's positions of the child are added (per unit)
+	             ",\n edges AS (SELECT h.stlnr AS bom_id, m.parent_id, i.child_id, i.qty, i.unit, h.valid_from, "
+	             "h.stlal AS bom_version, dense_rank() OVER (PARTITION BY m.parent_id, i.child_id ORDER BY "
+	             "TRY_CAST(m.stlan AS BIGINT) NULLS LAST, m.stlan NULLS LAST, h.stlnr) AS pick"
 	             " FROM mast m JOIN header h ON h.stlnr = m.stlnr" + string(clients ? " AND h.mandt = m.mandt" : "") +
 	             string(mast_alternative ? " AND h.stlal = m.stlal" : "") +
 	             " AND h.rn = 1 AND NOT h.deleted"
 	             " JOIN item i ON i.stlnr = h.stlnr AND i.rn = 1 AND NOT i.deleted" +
 	             string(clients ? " AND i.mandt = h.mandt" : "") +
-	             stas_join;
+	             stas_join +
+	             ")\nSELECT bom_id, parent_id, child_id, sum(qty) AS qty, unit, valid_from, '9999-12-31'::DATE AS valid_to, "
+	             "bom_version FROM edges WHERE pick = 1 GROUP BY bom_id, parent_id, child_id, unit, valid_from, bom_version";
 	return ParseSapSubquery(sql, context);
 }
 
@@ -300,9 +308,10 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 		    "version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item "
 		    "selection: an item is kept only when its newest STAS row for the alternative on reference_date exists "
 		    "and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, "
-		    "clients are kept apart. Plants collapse to one row per material and BOM, but without bom_usage every usage "
-		    "and every BOM number of a material is merged (pass bom_usage, e.g. '1' for production). qty keeps the "
-		    "MENGE type.";
+		    "clients are kept apart. Each (parent_id, child_id) edge comes once: without bom_usage every usage and "
+		    "BOM number of a material is read, and an edge is taken from the lowest usage, then the lowest BOM number, "
+		    "with the quantities of that BOM's positions of the child added per unit (pass bom_usage, e.g. '1' for "
+		    "production, to compare one usage). qty is the sum of MENGE.";
 		desc.examples = {"SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO');",
 		                 "SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', "
 		                 "reference_date := '2024-01-01', bom_usage := '1');"};

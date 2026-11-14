@@ -297,3 +297,45 @@ query T
 SELECT child_id FROM sap_to_bom_items('n_mast', 'b_stko', 'd_stpo') WHERE parent_id = 'P';
 ----
 A
+
+# ------------------------------------------------------------------------------
+# One edge per (parent_id, child_id): a material with a production (1) and an engineering (2)
+# BOM listing the same child gets it once, from the lowest usage; two positions of a child in
+# one BOM add up per unit; bom_usage still selects one usage
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE u_mast AS SELECT * FROM (VALUES ('P', '1', '0001', '01'), ('P', '2', '0002', '01')) t(matnr, stlan, stlnr, stlal);
+
+statement ok
+CREATE TABLE u_stko AS SELECT * FROM (VALUES ('0001', '01'), ('0002', '01')) t(stlnr, stlal);
+
+statement ok
+CREATE TABLE u_stpo AS SELECT * FROM (VALUES
+    ('0001', '1', 'MOTOR', 1.0, 'EA'),
+    ('0001', '2', 'SCREW', 4.0, 'EA'),
+    ('0001', '3', 'SCREW', 2.0, 'EA'),
+    ('0001', '4', 'GLUE', 0.5, 'KG'),
+    ('0001', '5', 'GLUE', 20.0, 'G'),
+    ('0002', '1', 'MOTOR', 1.0, 'EA'),
+    ('0002', '2', 'DRAWING-ONLY', 1.0, 'EA')) t(stlnr, stlkn, idnrk, menge, meins);
+
+query TTRT
+SELECT bom_id, child_id, qty, unit FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo') ORDER BY child_id, unit;
+----
+0002	DRAWING-ONLY	1.0	EA
+0001	GLUE	20.0	G
+0001	GLUE	0.5	KG
+0001	MOTOR	1.0	EA
+0001	SCREW	6.0	EA
+
+query I
+SELECT count(*) FROM (SELECT parent_id, child_id, unit FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo')
+                      GROUP BY ALL HAVING count(*) > 1);
+----
+0
+
+query TT
+SELECT bom_id, child_id FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo', bom_usage := '2') ORDER BY 2;
+----
+0002	DRAWING-ONLY
+0002	MOTOR

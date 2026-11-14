@@ -53,7 +53,7 @@ take; `list_cosine_similarity` and other list functions still accept them. Two b
 | `find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`, `cold_start_analogs` filled `k` rows with materials scoring 0 | those are left out unless you pass `min_similarity := 0`; fewer than `k` rows means nothing else shares a component |
 | `check_statistics_freshness` on empty statistics: `last_updated` = now − 8 days | NULL |
 | `dynamics365_to_bom_header`: one row per BOMVersion | one row per BOM (approved version, then the newest) |
-| `sap_to_bom_items` joined MAST, STKO and STPO by `stlnr` only | uses `stlty` (material BOMs only), MAST `stlal`, header and item versions (`datuv`, `stkoz`, `stlkn`, `stpoz`) and `lkenz`/`loekz` when the columns exist, so document BOM items, other alternatives' headers, deleted headers and items, and future item versions are gone; `bom_usage` now filters `MAST.stlan`; new `stas_table := 'STAS'` applies the item selection. Re-run it and rebuild the tables made from it |
+| `sap_to_bom_items` joined MAST, STKO and STPO by `stlnr` only | uses `stlty` (material BOMs only), MAST `stlal`, header and item versions (`datuv`, `stkoz`, `stlkn`, `stpoz`) and `lkenz`/`loekz` when the columns exist, so document BOM items, other alternatives' headers, deleted headers and items, and future item versions are gone; `bom_usage` now filters `MAST.stlan`; new `stas_table := 'STAS'` applies the item selection. Each `(parent_id, child_id)` comes once (lowest usage, then BOM number; quantities of its positions added per unit), so `qty` is a sum and the row count drops (test extract: 14.0 M → 4.7 M). Re-run it and rebuild the tables made from it |
 
 Fixed without action on your side:
 

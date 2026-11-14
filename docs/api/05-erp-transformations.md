@@ -60,9 +60,11 @@ material item of the same node, so this is a Binder Error. Version counters (`st
 `stasz`) are compared as numbers; a blank or `'00000000'` `datuv` counts as undated.
 `reference_date` is checked when the query is bound.
 
-Without `bom_usage`, every usage and every BOM number of a material is merged: a material can get
-the same child more than once and the parts of several BOMs. For similarity pass the usage you
-compare (`bom_usage := '1'`, production) and deduplicate `(parent_id, child_id)`.
+Each `(parent_id, child_id)` edge comes once. Without `bom_usage` every usage (production,
+engineering, sales ...) and every BOM number of a material is read, and an edge is taken from the
+lowest usage, then the lowest BOM number; the quantities of that BOM's positions of the child are
+added per unit (a child in two units gives two rows). The result can therefore hold parts of
+several BOMs of a material: pass `bom_usage := '1'` (or the usage you compare) for one usage.
 
 **Rules:**
 
@@ -172,7 +174,7 @@ CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_comp
 
 *Table function*
 
-Converts SAP MAST/STKO/STPO (and optionally STAS) into flat BOM edges (bom_id, parent_id, child_id, qty, unit, valid_from, valid_to, bom_version). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, menge, meins. Each further SAP column is used when the table has it: stlty keeps material BOMs (M) only; MAST.stlal must equal bom_alternative (default '01', also matched on STKO.stlal); datuv picks the STKO header and, per STPO item node stlkn, the item version valid on reference_date (YYYYMMDD or a date, default 9999-12-31), stkoz / stpoz breaking ties; a header version with lkenz or loekz set and an item version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item selection: an item is kept only when its newest STAS row for the alternative on reference_date exists and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, clients are kept apart. Plants collapse to one row per material and BOM, but without bom_usage every usage and every BOM number of a material is merged (pass bom_usage, e.g. '1' for production). qty keeps the MENGE type.
+Converts SAP MAST/STKO/STPO (and optionally STAS) into flat BOM edges (bom_id, parent_id, child_id, qty, unit, valid_from, valid_to, bom_version). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, menge, meins. Each further SAP column is used when the table has it: stlty keeps material BOMs (M) only; MAST.stlal must equal bom_alternative (default '01', also matched on STKO.stlal); datuv picks the STKO header and, per STPO item node stlkn, the item version valid on reference_date (YYYYMMDD or a date, default 9999-12-31), stkoz / stpoz breaking ties; a header version with lkenz or loekz set and an item version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item selection: an item is kept only when its newest STAS row for the alternative on reference_date exists and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, clients are kept apart. Each (parent_id, child_id) edge comes once: without bom_usage every usage and BOM number of a material is read, and an edge is taken from the lowest usage, then the lowest BOM number, with the quantities of that BOM's positions of the child added per unit (pass bom_usage, e.g. '1' for production, to compare one usage). qty is the sum of MENGE.
 
 ```sql
 sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage, stas_table)
