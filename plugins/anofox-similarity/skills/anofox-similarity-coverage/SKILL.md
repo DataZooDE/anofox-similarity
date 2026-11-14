@@ -44,9 +44,13 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
 - **Candidates default to the query table**: every other tree in it, other requests too. Keep
   requests and archive apart, or pass `candidates := [...]`.
 - **Stage-1 `k` can drop a full cover**: stage 2 sees only the top `k` (default 20); with
-  `k := 2` on the mini fixture `S6` (coverage 1.0) is never scored.
+  `k := 2` on the mini fixture `S6` (coverage 1.0) is never scored. When you quote more than the
+  top candidate, raise `k` (e.g. 300) or pass `candidates`: on the seating benchmark the true #3
+  for R02 is outside the default stage-1 top 20.
 - **Coverage < 1 with no gaps** = name discount `mu` (0.2); without `name_vectors` names compare
-  by word overlap (German never matches English). Use `mu := 0.0` or name vectors.
+  by word overlap (German never matches English). Name vectors only shrink the discount (synonyms
+  at cosine ≈ 0.98 still give about 0.98, not 1.0). Judge "nothing missing" from `n_gaps` and the
+  trace, not from coverage = 1; use `mu := 0.0` when every name pair is a known synonym.
 - **Dimension mismatch is not an error**: `value_satisfies` gives score 0, rule `gate` (A vs V,
   unknown unit, EUR vs USD). A categorical value (`IP54`) **is** an error there: use `compat_score`.
 - **`within` = the offer covers the whole required range** (`25 cm` vs `von 22 bis 26 cm` →

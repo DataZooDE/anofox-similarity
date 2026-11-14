@@ -57,8 +57,10 @@ and `examples/predecessors_cold_start/`.
   `min_similarity` the searches leave out materials scoring 0; `min_similarity := 0.0` brings them
   back (ties by material id). The query itself is excluded. Unknown material id → empty result, no
   error. Candidates are every `parent_id` in the BOM table, subassemblies included, so a parent
-  that *contains* the query's subassembly can rank high in the WL kernel; filter top-level
-  materials yourself when you want peers only.
+  that *contains* the query (a where-used ancestor) can rank high in the WL kernel. A top-level
+  filter does not help (finished products contain it too): exclude the query's ancestors when you
+  want peers only:
+  `WITH RECURSIVE up AS (SELECT parent_id AS id FROM bom_items WHERE child_id = 'Q' UNION SELECT b.parent_id FROM bom_items b JOIN up ON b.child_id = up.id) SELECT * FROM find_similar_materials_wl_kernel('Q', 10) WHERE material_id NOT IN (SELECT id FROM up)`.
 - **The WL kernel is much slower than Jaccard on large BOM tables** (about 85 s against 1 s on a
   4.7 M-edge SAP extract). Start with Jaccard; use WL for the shortlist.
 - **Read-only databases work.** All functions in this skill, macros included, are available on a

@@ -8,7 +8,9 @@ one tree (`duckdb-compat` shims).
 ## Build and test
 
 ```bash
-GEN=ninja make release                          # extension + ./build/release/duckdb (extension linked in)
+GEN=ninja make release                          # extension + ./build/release/duckdb (extension linked in on 1.5.6;
+                                                # on 2.0 the shell does not link it: duckdb -unsigned, then
+                                                # LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension')
 DATAZOO_DISABLE_TELEMETRY=1 make test           # whole SQL suite (test/sql/)
 ./build/release/test/unittest "test/sql/coverage/*"
 make check-docs                                 # README + skills SQL runs, API reference current, skills cover every function

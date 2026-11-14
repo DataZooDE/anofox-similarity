@@ -554,6 +554,12 @@ ORDER BY rank;
 -- => driventa.example | 0.372 | 2
 ```
 
+`n_gaps` counts the RFQ's capabilities (items) that are not met, not the properties: Driventa's 2
+gaps hide five failing properties. For a per-requirement verdict read `tree_coverage_trace` (one
+row per requirement and attribute, with `rule` and `score`). The default soft tolerance scores
+near misses above 0 (400–480 V against 380–480 V: 0.978); pass `tol := 0, soft_band := 0` when the
+RFQ's limits are hard.
+
 ```sql
 -- 5. explain + 6. write the gap lists back as AAS environments, one file per ranking
 SET VARIABLE offers = (SELECT list(DISTINCT tree_id ORDER BY tree_id) FROM tree_nodes WHERE tree_id <> 'RFQ-2026-117');
