@@ -22,7 +22,16 @@ import shutil
 import subprocess
 import sys
 
-DUCKDB = "./build/release/duckdb"
+# The built shell has the extension linked in. In CI, DUCKDB names a stock DuckDB CLI and
+# ANOFOX_EXTENSION the .duckdb_extension artifact to load into it.
+DUCKDB = os.environ.get("DUCKDB") or "./build/release/duckdb"
+EXTENSION = os.environ.get("ANOFOX_EXTENSION")
+
+
+def shell(path, load=True):
+    if load and EXTENSION:
+        return [path, "-unsigned", "-cmd", f"LOAD '{EXTENSION}'"]
+    return [path]
 START = "<!-- generated:functions:start -->"
 END = "<!-- generated:functions:end -->"
 
@@ -88,7 +97,7 @@ def metadata(names):
         f"FROM duckdb_functions() WHERE function_name IN ({quoted}) ORDER BY function_name;"
     )
     env = dict(os.environ, DATAZOO_DISABLE_TELEMETRY="1")
-    out = subprocess.run([DUCKDB, "-json", "-c", sql], capture_output=True, text=True, env=env, check=True).stdout
+    out = subprocess.run(shell(DUCKDB) + ["-json", "-c", sql], capture_output=True, text=True, env=env, check=True).stdout
     rows = json.loads(out) if out.strip() else []
     by_name = {}
     for r in rows:
@@ -100,13 +109,13 @@ def metadata(names):
     return by_name
 
 
-def function_names(shell):
+def function_names(shell_path, load=True):
     env = dict(os.environ, DATAZOO_DISABLE_TELEMETRY="1")
     env.pop("AI_AGENT", None)
     env.pop("CLAUDECODE", None)
-    out = subprocess.run([shell, "-noheader", "-list", "-c", "SELECT DISTINCT function_name FROM duckdb_functions()"],
+    out = subprocess.run(shell(shell_path, load) + ["-noheader", "-list", "-c", "SELECT DISTINCT function_name FROM duckdb_functions()"],
                          capture_output=True, text=True, env=env, check=True).stdout
-    return set(out.split())
+    return set(out.splitlines())  # lines: some names have spaces (IS DISTINCT FROM)
 
 
 def coverage_problems(by_name):
@@ -117,7 +126,7 @@ def coverage_problems(by_name):
         print("note: no plain DuckDB shell found (set DUCKDB_BASELINE); skipped the check for unlisted functions")
         return problems
     # the build also links the vss extension
-    ours = {n for n in function_names(DUCKDB) - function_names(baseline)
+    ours = {n for n in function_names(DUCKDB) - function_names(baseline, load=False)
             if not n.startswith(("hnsw_", "pragma_hnsw_", "vss_"))}
     problems += [f"on no page: {n} (add it to PAGES)" for n in sorted(ours - set(listed))]
     return problems

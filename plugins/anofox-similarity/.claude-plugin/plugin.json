@@ -1,0 +1,12 @@
+{
+  "name": "anofox-similarity",
+  "description": "SQL-native product similarity and requirements coverage skills for the anofox_similarity DuckDB extension — similar materials from BOMs, predecessors and cold-start analogs, coverage matching with quantities, classification and vocabulary review, evaluation and LSH scale-out, ERP (SAP/Dynamics 365) ingest and embeddings, and Asset Administration Shell (AAS) exchange.",
+  "version": "2026.11.13",
+  "author": {
+    "name": "DataZoo GmbH",
+    "url": "https://github.com/DataZooDE"
+  },
+  "homepage": "https://github.com/DataZooDE/anofox-similarity",
+  "repository": "https://github.com/DataZooDE/anofox-similarity",
+  "license": "BUSL-1.1"
+}
