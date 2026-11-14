@@ -48,7 +48,7 @@ CREATE TABLE test_stko AS SELECT * FROM (VALUES
 # ============================================================================
 
 statement ok
-CREATE TABLE test_stpo AS SELECT * FROM (VALUES
+CREATE TABLE test_stpo AS SELECT 'M' AS stlty, * FROM (VALUES
     ('00000001', '0001', '0010', '000000000000000002', NULL, 2.0, 'EA', NULL, '2020-01-01'::DATE),
     ('00000001', '0002', '0020', '000000000000000003', NULL, 5.0, 'KG', NULL, '2020-01-01'::DATE),
     ('00000001', '0003', '0030', 'COMP-A', NULL, 1.5, 'EA', NULL, '2020-01-01'::DATE),

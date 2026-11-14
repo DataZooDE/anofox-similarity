@@ -1,4 +1,7 @@
 #include "modules/sap_transformations.hpp"
+#include "duckdb/common/types/date.hpp"
+
+#include <algorithm>
 #include "core/error_handling.hpp"
 #include "duckdb/main/connection.hpp"
 #include "datazoo_function_doc.hpp"
@@ -127,6 +130,20 @@ static string SapNamedString(const NAMED &named, const string &name, const strin
 	return value->ToString();
 }
 
+// reference_date: SAP YYYYMMDD or an ISO date; checked here so a bad value is an error even when no
+// table has datuv
+static date_t SapParseReferenceDate(const string &text) {
+	string iso = text;
+	if (text.size() == 8 && std::all_of(text.begin(), text.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+		iso = text.substr(0, 4) + "-" + text.substr(4, 2) + "-" + text.substr(6, 2);
+	}
+	try {
+		return Date::FromString(iso, true);
+	} catch (std::exception &) {
+		throw BinderException("sap_to_bom_items: reference_date '%s' is not a date (YYYYMMDD or YYYY-MM-DD)", text);
+	}
+}
+
 static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("sap_to_bom_items");
 	const char *names[] = {"mast_table", "stko_table", "stpo_table"};
@@ -148,17 +165,17 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	ValidateTableColumns(context, stko, {"stlnr", "stlal"}, "stko_table");
 	ValidateTableColumns(context, stpo, {"stlnr", "idnrk", "menge", "meins"}, "stpo_table");
 
-	string stas = SapNamedString(input.named_parameters, "stas_table", "");
-	if (!stas.empty()) {
-		stas = ValidateSQLIdentifierPath(stas, "stas_table");
+	// only an absent or NULL stas_table turns the item selection off; '' is an invalid name
+	auto stas_value = duckdb_compat::FindNamedParameter(input.named_parameters, "stas_table");
+	string stas;
+	if (stas_value && !stas_value->IsNull()) {
+		stas = ValidateSQLIdentifierPath(stas_value->ToString(), "stas_table");
 		ValidateTableColumns(context, stas, {"stlnr", "stlal", "stlkn"}, "stas_table");
 		ValidateTableColumns(context, stpo, {"stlkn"}, "stpo_table (with stas_table)");
 	}
 	auto alternative = QuoteSQLStringLiteral(SapNamedString(input.named_parameters, "bom_alternative", "01"));
 	auto reference_text = SapNamedString(input.named_parameters, "reference_date", "9999-12-31");
-	auto reference = QuoteSQLStringLiteral(reference_text);
-	auto reference_error = QuoteSQLStringLiteral("sap_to_bom_items: reference_date '" + reference_text +
-	                                             "' is not a date (YYYYMMDD or YYYY-MM-DD)");
+	string reference = "DATE '" + Date::ToString(SapParseReferenceDate(reference_text)) + "'";
 	auto usage_value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_usage");
 	const bool by_usage = usage_value && !usage_value->IsNull();
 	if (by_usage) {
@@ -168,16 +185,32 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	auto has = [&](const string &table, const char *column) {
 		return TableHasColumn(context, table, column);
 	};
-	// newest datuv first, then the highest version counter (stkoz, stpoz, stasz)
-	auto newest_first = [&](const string &table, const char *counter) {
-		string order = has(table, "datuv") ? SapDate("datuv") + " DESC NULLS LAST" : string();
-		if (has(table, counter)) {
-			order += string(order.empty() ? "" : ", ") + counter + " DESC";
+	// The BOM category: STKO, STPO and STAS share stlnr across categories (M, D, K, ...). Filtering
+	// the header but not the items would let a document item replace a material item of the same
+	// node, so with stlty on STKO the item tables need it too.
+	if (has(stko, "stlty")) {
+		ValidateTableColumns(context, stpo, {"stlty"}, "stpo_table (STKO has stlty)");
+		if (!stas.empty()) {
+			ValidateTableColumns(context, stas, {"stlty"}, "stas_table (STKO has stlty)");
 		}
-		return order.empty() ? string("NULL") : order;
+	}
+	// SAP clients: with mandt in every table, rows of different clients never join
+	const bool clients = has(mast, "mandt") && has(stko, "mandt") && has(stpo, "mandt") &&
+	                     (stas.empty() || has(stas, "mandt"));
+	const string client_col = clients ? "mandt, " : "";
+	// newest datuv first, then the highest version counter (stkoz, stpoz, stasz) as a number
+	// ('10' after '9'), then the given columns so the choice is deterministic
+	auto newest_first = [&](const string &table, const char *counter, const string &tie_break) {
+		string order = has(table, "datuv") ? SapDate("datuv") + " DESC NULLS LAST, " : string();
+		if (has(table, counter)) {
+			order += "TRY_CAST(" + string(counter) + " AS BIGINT) DESC NULLS LAST, " + counter + " DESC, ";
+		}
+		return order + tie_break;
 	};
+	// a blank or SAP-initial ('00000000') datuv parses to NULL and counts as undated, not as invalid
 	auto valid_on_reference = [&](const string &table) {
-		return has(table, "datuv") ? " AND (datuv IS NULL OR " + SapDate("datuv") + " <= (SELECT ref FROM params))"
+		return has(table, "datuv") ? " AND (" + SapDate("datuv") + " IS NULL OR " + SapDate("datuv") + " <= " +
+		                                 reference + ")"
 		                           : string();
 	};
 	auto material_boms = [&](const string &table) {
@@ -187,24 +220,24 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	const bool item_nodes = has(stpo, "stlkn");
 
 	// MAST: material -> BOM number of the alternative (and usage); plants collapse to one row
-	string mast_sql = "SELECT DISTINCT TRIM(matnr) AS parent_id, stlnr" + string(mast_alternative ? ", stlal" : "") +
+	string mast_sql = "SELECT DISTINCT " + client_col + "TRIM(matnr) AS parent_id, stlnr" + string(mast_alternative ? ", stlal" : "") +
 	                  " FROM query_table(" + QuoteSQLStringLiteral(mast) + ") WHERE TRUE" +
 	                  (mast_alternative ? " AND stlal = " + alternative : string()) +
 	                  (by_usage ? " AND stlan = " + QuoteSQLStringLiteral(usage_value->ToString()) : string());
 
 	// STKO: the header version valid on the reference date; the BOM is dropped when it is deleted
-	string stko_sql = "SELECT stlnr, stlal, " + (has(stko, "datuv") ? SapDate("datuv") : string("NULL::DATE")) +
+	string stko_sql = "SELECT " + client_col + "stlnr, stlal, " + (has(stko, "datuv") ? SapDate("datuv") : string("NULL::DATE")) +
 	                  " AS valid_from, " + SapDeleted(context, stko, {"lkenz", "loekz"}) +
-	                  " AS deleted, row_number() OVER (PARTITION BY stlnr, stlal ORDER BY " +
-	                  newest_first(stko, "stkoz") + ") AS rn FROM query_table(" + QuoteSQLStringLiteral(stko) +
+	                  " AS deleted, row_number() OVER (PARTITION BY " + client_col + "stlnr, stlal ORDER BY " +
+	                  newest_first(stko, "stkoz", "stlnr") + ") AS rn FROM query_table(" + QuoteSQLStringLiteral(stko) +
 	                  ") WHERE stlal = " + alternative + material_boms(stko) + valid_on_reference(stko);
 
 	// STPO: per item node (stlkn) the version valid on the reference date; dropped when deleted
-	string stpo_sql = "SELECT stlnr, " + string(item_nodes ? "stlkn" : "NULL AS stlkn") +
+	string stpo_sql = "SELECT " + client_col + "stlnr, " + string(item_nodes ? "stlkn" : "NULL AS stlkn") +
 	                  ", TRIM(idnrk) AS child_id, menge AS qty, meins AS unit, " +
 	                  SapDeleted(context, stpo, {"lkenz"}) + " AS deleted, " +
-	                  (item_nodes ? "row_number() OVER (PARTITION BY stlnr, stlkn ORDER BY " +
-	                                    newest_first(stpo, "stpoz") + ")"
+	                  (item_nodes ? "row_number() OVER (PARTITION BY " + client_col + "stlnr, stlkn ORDER BY " +
+	                                    newest_first(stpo, "stpoz", "TRIM(idnrk), menge, meins") + ")"
 	                              : string("1")) +
 	                  " AS rn FROM query_table(" + QuoteSQLStringLiteral(stpo) + ") WHERE TRUE" +
 	                  material_boms(stpo) + valid_on_reference(stpo);
@@ -212,22 +245,24 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	string stas_cte, stas_join;
 	if (!stas.empty()) {
 		// STAS: the items the alternative selects, from the newest selection row on the date
-		stas_cte = ",\n stas AS (SELECT stlnr, stlkn, " + SapDeleted(context, stas, {"lkenz"}) +
-		           " AS deleted, row_number() OVER (PARTITION BY stlnr, stlkn ORDER BY " + newest_first(stas, "stasz") +
+		stas_cte = ",\n stas AS (SELECT " + client_col + "stlnr, stlkn, " + SapDeleted(context, stas, {"lkenz"}) +
+		           " AS deleted, row_number() OVER (PARTITION BY " + client_col + "stlnr, stlkn ORDER BY " +
+		           newest_first(stas, "stasz", "deleted") +
 		           ") AS rn FROM query_table(" + QuoteSQLStringLiteral(stas) + ") WHERE stlal = " + alternative +
 		           material_boms(stas) + valid_on_reference(stas) + ")";
-		stas_join = " JOIN stas a ON a.stlnr = i.stlnr AND a.stlkn = i.stlkn AND a.rn = 1 AND NOT a.deleted";
+		stas_join = " JOIN stas a ON a.stlnr = i.stlnr AND a.stlkn = i.stlkn AND a.rn = 1 AND NOT a.deleted" +
+		            string(clients ? " AND a.mandt = i.mandt" : "");
 	}
 
-	string sql = "WITH params AS (SELECT COALESCE(TRY_STRPTIME(" + reference + ", '%Y%m%d')::DATE, TRY_CAST(" +
-	             reference + " AS DATE), error(" + reference_error + ")) AS ref),\n mast AS (" + mast_sql +
+	string sql = "WITH mast AS (" + mast_sql +
 	             "),\n header AS (" + stko_sql + "),\n item AS (" + stpo_sql + ")" + stas_cte +
 	             "\nSELECT h.stlnr AS bom_id, m.parent_id, i.child_id, i.qty, i.unit, h.valid_from, "
 	             "'9999-12-31'::DATE AS valid_to, h.stlal AS bom_version"
-	             " FROM mast m JOIN header h ON h.stlnr = m.stlnr" +
+	             " FROM mast m JOIN header h ON h.stlnr = m.stlnr" + string(clients ? " AND h.mandt = m.mandt" : "") +
 	             string(mast_alternative ? " AND h.stlal = m.stlal" : "") +
 	             " AND h.rn = 1 AND NOT h.deleted"
 	             " JOIN item i ON i.stlnr = h.stlnr AND i.rn = 1 AND NOT i.deleted" +
+	             string(clients ? " AND i.mandt = h.mandt" : "") +
 	             stas_join;
 	return ParseSapSubquery(sql, context);
 }
@@ -264,7 +299,10 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 		    "default 9999-12-31), stkoz / stpoz breaking ties; a header version with lkenz or loekz set and an item "
 		    "version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item "
 		    "selection: an item is kept only when its newest STAS row for the alternative on reference_date exists "
-		    "and is not deleted (lkenz). Plants collapse to one row per material and BOM. qty keeps the MENGE type.";
+		    "and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, "
+		    "clients are kept apart. Plants collapse to one row per material and BOM, but without bom_usage every usage "
+		    "and every BOM number of a material is merged (pass bom_usage, e.g. '1' for production). qty keeps the "
+		    "MENGE type.";
 		desc.examples = {"SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO');",
 		                 "SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', "
 		                 "reference_date := '2024-01-01', bom_usage := '1');"};

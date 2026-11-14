@@ -304,14 +304,51 @@ LAST_MARKER = "__anofox_last_statement__"
 WRITES_REPO_RE = re.compile(r"\bTO\s+'(?:\./)?(?:test|examples)/", re.IGNORECASE)
 
 
+def statement_ends(text):
+    """Offsets just after each top-level `;`, skipping strings ('..', ".."), -- and /* */ comments."""
+    ends, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c in "'\"":
+            j = i + 1
+            while j < n:
+                if text[j] == c:
+                    if j + 1 < n and text[j + 1] == c:  # '' / "" escape
+                        j += 2
+                        continue
+                    break
+                j += 1
+            i = j + 1
+        elif text.startswith("--", i):
+            nl = text.find("\n", i)
+            i = n if nl < 0 else nl
+        elif text.startswith("/*", i):
+            close = text.find("*/", i + 2)
+            i = n if close < 0 else close + 2
+        else:
+            if c == ";":
+                ends.append(i + 1)
+            i += 1
+    return ends
+
+
+def has_code(text):
+    """True when text holds anything besides blanks and comments."""
+    return bool(re.sub(r"--[^\n]*|/\*.*?\*/|\s+", "", text, flags=re.DOTALL))
+
+
 def with_last_marker(block_text):
     """The block with `SELECT '<marker>';` before its last statement, so the rows after the
-    marker are exactly what the last statement printed. A statement ends at a line whose code
-    (comment stripped) ends in `;`."""
-    lines = block_text.splitlines()
-    ends = [i for i, l in enumerate(lines) if l.split("--", 1)[0].rstrip().endswith(";")]
-    cut = ends[-2] + 1 if len(ends) >= 2 else 0
-    return "\n".join(lines[:cut] + [f"SELECT '{LAST_MARKER}';"] + lines[cut:])
+    marker are exactly what the last statement printed. An unterminated last statement counts
+    (the shell runs it), and several statements may share a line."""
+    ends = [e for e in statement_ends(block_text)]
+    if ends and has_code(block_text[ends[-1]:]):
+        cut = ends[-1]
+    elif len(ends) >= 2:
+        cut = ends[-2]
+    else:
+        cut = 0
+    return block_text[:cut] + f"\nSELECT '{LAST_MARKER}';\n" + block_text[cut:]
 
 
 def output_mismatch(block_text, stdout):

@@ -412,7 +412,9 @@ Dedup recipe (benchmark customer master, `test/sql/coverage/r5/uc_03_merge_dupli
 `straße` → `str`, legal forms unified), build an identity per record type, block on shared tax
 id or city, score `0.6 × jaro_winkler_similarity of the identities + 0.3 × same tax id + 0.1 × same address`,
 cluster at 0.85 → all 152 planted duplicates merged, none of 12 near misses. Address agreement
-alone is not enough (near misses share the address). To pick the threshold, label some pairs and
+alone is not enough (near misses share the address). Names that differ only in a number
+("Werk Köln 1" vs "Werk Köln 5") score above 0.9 in Jaro-Winkler: split numbers off the name and
+require them to be equal. To pick the threshold, label some pairs and
 reuse `threshold_at_precision` logic, or inspect cluster sizes: a sudden giant cluster means a
 transitive bad link. For graph queries, the docs give an optional DuckPGQ recipe (not loaded by
 the extension).

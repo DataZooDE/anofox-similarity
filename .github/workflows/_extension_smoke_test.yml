@@ -157,7 +157,7 @@ jobs:
           REQUIRE_SHELL: '1'
         run: |
           python -m pip install --quiet pytest jsonschema
-          python -m pytest scripts/tests/test_aas_schema.py -q -p no:cacheprovider
+          python -m pytest scripts/tests/test_aas_schema.py scripts/tests/test_check_doc_snippets.py -q -p no:cacheprovider
 
       # The docs and the Claude Code skills (plugins/anofox-similarity) against the release
       # artifact: every SQL example in README.md and the skills runs, every registered function

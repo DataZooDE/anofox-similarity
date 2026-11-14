@@ -121,7 +121,7 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `bad_value` | warning | a value that does not parse as its `valueType` (`"n/a"` in an `xs:double`, `"yes"` in an `xs:boolean`, `"1.5"` in an `xs:int`, the ambiguous `"1,500"`). The attribute keeps its text and shows up as a gap |
 | `empty_value` | warning | a numeric Property or Range without a value: kept as a gap |
 | `decimal_comma` | info | `"6,0"` in an `xs:double`, read as `6.0` |
-| `unmapped_text` | info | a text Property (no code, no quantity) or MultiLanguageProperty without any semanticId: descriptive text, left out of the tree. These are the names to give a dictionary id (`suggest_semantic_id`); `aas_quality.n_issues` does not count them |
+| `unmapped_text` | info | a text Property (no code, no quantity) or MultiLanguageProperty without any semanticId: descriptive text, left out of the tree. These are the names to give a dictionary id (`suggest_semantic_id`); `aas_quality.n_issues` does not count them. Also reported inside IDTA-02020 capability containers when neither the property nor its list or container has an id; the text in `detail` is cut after 80 bytes |
 | `ambiguous_concept_description` | warning | no ConceptDescription for this release, and the other releases disagree on the unit |
 | `assumed_dimensionless` | info | the dictionary entry states no unit: the value is a count |
 | `duplicate_id_short` | warning | two siblings share an idShort; the second is kept as `X~2` |

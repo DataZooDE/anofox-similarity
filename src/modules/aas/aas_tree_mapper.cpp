@@ -789,6 +789,15 @@ private:
 		if (text.empty()) {
 			return;
 		}
+		// long supplier free text: keep the issue short (cut at a UTF-8 character boundary)
+		const size_t max_bytes = 80;
+		if (text.size() > max_bytes) {
+			size_t cut = max_bytes;
+			while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80) {
+				cut--;
+			}
+			text = text.substr(0, cut) + "...";
+		}
 		Issue(tree_id, path, "unmapped_text", "info",
 		      Label(e) + " = '" + text + "' has no semanticId: kept out of the tree (descriptive text); give it a "
 		      "dictionary id (suggest_semantic_id) if it should be compared");
@@ -947,6 +956,9 @@ private:
 		}
 		if (IsValueLeaf(p, &owner)) {
 			AddAttribute(item, p, &owner, path, attr_id, label, role, container_path);
+		} else {
+			// neither the property nor its list or container carries a dictionary id
+			ReportUnmappedText(p, path);
 		}
 	}
 

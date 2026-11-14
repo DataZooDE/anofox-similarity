@@ -153,8 +153,10 @@ SELECT sb.* FROM sap_bom sb
 WHERE sb.parent_id IS NOT NULL
 AND sb.child_id IS NOT NULL
 AND sb.parent_id IN (
+    -- ordered, so the sample (and the bounds below) do not change between runs
     SELECT DISTINCT parent_id FROM sap_bom
     WHERE parent_id IS NOT NULL
+    ORDER BY parent_id
     LIMIT 50000
 );
 
@@ -268,9 +270,9 @@ WHERE jaccard_embedding IS NULL;
 # Test 8: Component Count Distribution
 # ============================================================================
 
-# Get component count percentiles (sample data, max observed ~1610 in SAP data)
+# Get component count percentiles (the largest material BOM of the extract has 4110 components)
 query I
-SELECT CAST(MAX(num_components) <= 2000 AS INTEGER) FROM material_embeddings;
+SELECT CAST(MAX(num_components) <= 5000 AS INTEGER) FROM material_embeddings;
 ----
 1
 
@@ -279,9 +281,9 @@ SELECT MIN(num_components) FROM material_embeddings;
 ----
 1
 
-# Verify all materials have valid component counts (1-2000 range)
+# Verify all materials have valid component counts (1-5000 range)
 query I
-SELECT CAST(COUNT(*) = COUNT(CASE WHEN num_components >= 1 AND num_components <= 2000 THEN 1 END) AS INTEGER)
+SELECT CAST(COUNT(*) = COUNT(CASE WHEN num_components >= 1 AND num_components <= 5000 THEN 1 END) AS INTEGER)
 FROM material_embeddings
 WHERE jaccard_embedding IS NOT NULL;
 ----
@@ -317,16 +319,16 @@ SELECT CAST(COUNT(*) > 45000 AND COUNT(*) <= 50000 AS INTEGER) FROM material_emb
 ----
 1
 
-# Average components per material is reasonable (10-20 range)
+# Average components per material is reasonable (the first 50 000 materials by id: about 21)
 query I
-SELECT CAST(AVG(num_components) > 10 AND AVG(num_components) < 20 AS INTEGER)
+SELECT CAST(AVG(num_components) > 10 AND AVG(num_components) < 30 AS INTEGER)
 FROM material_embeddings;
 ----
 1
 
-# Sum of components is in expected range (~450k-800k for ~48k materials with avg 10 components)
+# Sum of components is in expected range (the first 50 000 materials by id: about 1.05 M)
 query I
-SELECT CAST(SUM(num_components) > 400000 AND SUM(num_components) < 800000 AS INTEGER)
+SELECT CAST(SUM(num_components) > 500000 AND SUM(num_components) < 1500000 AS INTEGER)
 FROM material_embeddings;
 ----
 1

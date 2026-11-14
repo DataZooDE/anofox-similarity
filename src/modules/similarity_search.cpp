@@ -10,6 +10,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "telemetry.hpp"
 
+#include <cmath>
 #include <limits>
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
@@ -67,6 +68,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
 		min_similarity = (*value).GetValue<double>();
+		if (!std::isfinite(min_similarity)) {
+			throw BinderException("min_similarity must be a finite number");
+		}
 	}
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
 		bom_table = (*value).GetValue<string>();
@@ -201,6 +205,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	}
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
 		min_similarity = (*value).GetValue<double>();
+		if (!std::isfinite(min_similarity)) {
+			throw BinderException("min_similarity must be a finite number");
+		}
 	}
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
 		bom_table = (*value).GetValue<string>();
@@ -319,6 +326,9 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	}
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
 		min_similarity = (*value).GetValue<double>();
+		if (!std::isfinite(min_similarity)) {
+			throw BinderException("min_similarity must be a finite number");
+		}
 	}
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "bom_table"); value && !value->IsNull()) {
 		bom_table = (*value).GetValue<string>();

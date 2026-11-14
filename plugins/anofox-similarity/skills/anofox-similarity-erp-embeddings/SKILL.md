@@ -66,7 +66,15 @@ every similarity search reads, and builds per-material vectors in `material_embe
   `reference_date`; `lkenz` / `loekz` drop deleted headers and items; `bom_usage` filters
   `MAST.stlan`. Without `stas_table := 'STAS'` every item of the BOM number comes through,
   whichever alternative selects it, and items STAS removed are kept. A missing optional column just
-  skips its rule, so check that a full extract really has `stlty`, `stlkn` and `lkenz`.
+  skips its rule, so check that a full extract really has `stlty`, `stlkn` and `lkenz`. With `stlty`
+  on STKO, STPO (and STAS) must have it too (else a Binder Error); `mandt` in every table keeps SAP
+  clients apart. `reference_date` is checked at once ('garbage' is an error); a blank or
+  `'00000000'` `datuv` counts as undated.
+- **Pass `bom_usage` for similarity.** Without it every usage (engineering, production, sales ...)
+  and every BOM number of a material is merged, so one material can get the same child twice and
+  the parts of several BOMs. On the test SAP extract that is 961 k duplicate edges. Use
+  `bom_usage := '1'` (production) or the usage you compare, and `SELECT DISTINCT parent_id,
+  child_id` for set measures.
 - **anofox-forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
   `recompute_embedding_statistics` and `compute_domain_specific_statistics` need `anofox_fcst_ts_features`.
   Check with `check_anofox_forecast_available` first (see the dependency section). It is never auto-installed.
