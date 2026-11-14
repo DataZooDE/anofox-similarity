@@ -64,7 +64,7 @@ every similarity search reads, and builds per-material vectors in `material_embe
   `extract_material_descriptions` / `compute_textual_embeddings`; MAST `matnr, stlnr`; STKO
   `stlnr, stlal`; STPO `stlnr, idnrk, menge, meins`. A missing column is a Binder Error naming it.
 - **Transforms emit the universal schema and write nothing** (wrap in `CREATE TABLE ... AS`).
-  `sap_to_bom_items` is already flat but names the quantity `qty`, typed like MENGE (DECIMAL); rename
+  `sap_to_bom_items` is already flat but names the quantity `qty` (the sum of MENGE: DECIMAL(38, s) for a DECIMAL MENGE); rename
   and cast to `quantity`. The D365 functions emit `bom_header` + `bom_component`: flatten with `bom_to_items`.
 - **`sap_to_bom_items` uses the SAP columns your extract has; pass STAS.** With `stlty` only material
   BOMs (`'M'`) are read (a document BOM can share the `stlnr`); MAST `stlal` must be the
@@ -85,6 +85,9 @@ every similarity search reads, and builds per-material vectors in `material_embe
   child_id)` comes once, from the lowest usage, then the lowest BOM number, with the quantities of
   its positions added per unit (`bom_id` says which BOM). A material can so mix parts of several
   BOMs: pass `bom_usage := '1'` (production) or the usage you compare.
+- **SAP clients stay apart in the `client` column** (`mandt` when every table has it, else NULL):
+  the same material in clients 100 and 200 gives two sets of rows, never summed. The searches do
+  not see `client`: filter one client (`WHERE client = '100'`) before you build `bom_items`.
 - **anofox-forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
   `recompute_embedding_statistics` and `compute_domain_specific_statistics` need `anofox_fcst_ts_features`.
   Check with `check_anofox_forecast_available` first (see the dependency section). It is never auto-installed.
@@ -152,7 +155,7 @@ CREATE TABLE sap_stpo AS SELECT * FROM (VALUES
 ```text
 sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative := '01',
                  reference_date := '9999-12-31', bom_usage := NULL, stas_table := NULL)
-  → (bom_id, parent_id, child_id, qty, unit, valid_from DATE, valid_to DATE, bom_version)
+  → (bom_id, parent_id, child_id, qty, unit, valid_from DATE, valid_to DATE, bom_version, client)
 sap_to_materials(mara_table)                          -- makt_table/language accepted, ignored
   → (material_id, material_type, material_group, description = '', created_date DATE)
 sap_to_materials_with_desc(mara_table, makt_table, language := 'E')

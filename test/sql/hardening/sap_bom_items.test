@@ -339,3 +339,30 @@ SELECT bom_id, child_id FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo', bom_
 ----
 0002	DRAWING-ONLY
 0002	MOTOR
+
+# The same material, BOM number and child in two SAP clients: two rows with their own quantity
+# and client, never summed; a third client with another BOM number is not dropped by the dedupe
+statement ok
+CREATE TABLE k2_mast AS SELECT * FROM (VALUES ('100', 'P', '0001', '01'), ('200', 'P', '0001', '01'), ('300', 'P', '0009', '01'))
+    t(mandt, matnr, stlnr, stlal);
+
+statement ok
+CREATE TABLE k2_stko AS SELECT * FROM (VALUES ('100', '0001', '01'), ('200', '0001', '01'), ('300', '0009', '01')) t(mandt, stlnr, stlal);
+
+statement ok
+CREATE TABLE k2_stpo AS SELECT * FROM (VALUES ('100', '0001', '1', 'C', 2.0, 'EA'), ('200', '0001', '1', 'C', 5.0, 'EA'),
+    ('300', '0009', '1', 'C', 7.0, 'EA'), ('300', '0009', '2', 'D', 1.0, 'EA')) t(mandt, stlnr, stlkn, idnrk, menge, meins);
+
+query TTTR
+SELECT client, bom_id, child_id, qty FROM sap_to_bom_items('k2_mast', 'k2_stko', 'k2_stpo') ORDER BY client, child_id;
+----
+100	0001	C	2.0
+200	0001	C	5.0
+300	0009	C	7.0
+300	0009	D	1.0
+
+# without mandt the column is NULL
+query T
+SELECT DISTINCT client FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min');
+----
+NULL

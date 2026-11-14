@@ -251,3 +251,48 @@ statement error
 SELECT * FROM find_similar_materials_jaccard('FAMILY-00-BASE', 5, materials_table := 'q');
 ----
 materials_table
+
+# ------------------------------------------------------------------------------
+# Crew review: negative k is an error in both forms; an INTEGER id list finds VARCHAR BOM ids;
+# ties at the k boundary are cut by material id, the same in both forms; a hand-computed score
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE tie_bom AS SELECT * FROM (VALUES
+    ('7', 'a'), ('7', 'b'), ('11', 'a'), ('12', 'a'), ('13', 'a'), ('14', 'b'), ('14', 'c')) t(parent_id, child_id);
+
+statement error
+SELECT * FROM find_similar_materials_jaccard('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative
+
+statement ok
+CREATE TABLE int_q7 AS SELECT 7 AS material_id;
+
+statement error
+SELECT * FROM find_similar_materials_jaccard(-1, materials_table := 'int_q7', bom_table := 'tie_bom');
+----
+k must not be negative
+
+# 7 = {a, b}: 11, 12, 13 share a (1/2 each), 14 shares b (1/3); k = 2 keeps 11 and 12
+query TTR
+SELECT query_id, material_id, similarity FROM find_similar_materials_jaccard(2, materials_table := 'int_q7', bom_table := 'tie_bom');
+----
+7	11	0.5
+7	12	0.5
+
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('7', 2, bom_table := 'tie_bom');
+----
+11	0.5
+12	0.5
+
+query TTR
+SELECT query_id, material_id, round(similarity, 4) FROM find_similar_materials_wl_kernel(1, materials_table := 'int_q7', bom_table := 'tie_bom', iterations := 1);
+----
+7	11	0.5
+
+query I
+SELECT count(*) FROM (SELECT * FROM find_similar_materials_wl_kernel(4, materials_table := 'int_q7', bom_table := 'tie_bom')
+    EXCEPT ALL SELECT '7', * FROM find_similar_materials_wl_kernel('7', 4, bom_table := 'tie_bom'));
+----
+0

@@ -319,13 +319,13 @@ unique_ptr<TableRef> D365ComponentBindReplace(ClientContext &context, TableFunct
 void RegisterD365Function(ExtensionLoader &loader, const string &name, table_function_bind_replace_t bind,
                           vector<string> positional, vector<string> named, const string &description,
                           vector<string> examples) {
-	TableFunctionSet set(name);
+	TableFunctionSet set(duckdb_compat::FunctionName(name));
 	vector<FunctionDescription> docs;
 	// with the tables positional (where there are), and with every argument named
 	vector<idx_t> overloads = positional.empty() ? vector<idx_t> {0} : vector<idx_t> {positional.size(), 0};
 	for (auto count : overloads) {
 		vector<LogicalType> args(count, LogicalType(LogicalTypeId::VARCHAR));
-		TableFunction f(name, args, nullptr, nullptr);
+		TableFunction f(duckdb_compat::FunctionName(name), args, nullptr, nullptr);
 		f.bind_replace = bind;
 		FunctionDescription desc;
 		desc.description = description;

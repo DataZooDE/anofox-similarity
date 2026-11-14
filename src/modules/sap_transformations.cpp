@@ -261,8 +261,10 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	             // every usage and BOM number of a material can list the same child: keep one edge per
 	             // (parent_id, child_id), from the lowest usage, then the lowest BOM number; quantities
 	             // of that BOM's positions of the child are added (per unit)
+	             // the SAP client is part of an edge's identity: clients are never merged
 	             ",\n edges AS (SELECT h.stlnr AS bom_id, m.parent_id, i.child_id, i.qty, i.unit, h.valid_from, "
-	             "h.stlal AS bom_version, dense_rank() OVER (PARTITION BY m.parent_id, i.child_id ORDER BY "
+	             "h.stlal AS bom_version, " + string(clients ? "trim(m.mandt::VARCHAR)" : "NULL::VARCHAR") +
+	             " AS client, dense_rank() OVER (PARTITION BY client, m.parent_id, i.child_id ORDER BY "
 	             "TRY_CAST(m.stlan AS BIGINT) NULLS LAST, m.stlan NULLS LAST, h.stlnr) AS pick"
 	             " FROM mast m JOIN header h ON h.stlnr = m.stlnr" + string(clients ? " AND h.mandt = m.mandt" : "") +
 	             string(mast_alternative ? " AND h.stlal = m.stlal" : "") +
@@ -271,7 +273,8 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	             string(clients ? " AND i.mandt = h.mandt" : "") +
 	             stas_join +
 	             ")\nSELECT bom_id, parent_id, child_id, sum(qty) AS qty, unit, valid_from, '9999-12-31'::DATE AS valid_to, "
-	             "bom_version FROM edges WHERE pick = 1 GROUP BY bom_id, parent_id, child_id, unit, valid_from, bom_version";
+	             "bom_version, client FROM edges WHERE pick = 1 GROUP BY client, bom_id, parent_id, child_id, unit, valid_from, "
+	             "bom_version";
 	return ParseSapSubquery(sql, context);
 }
 
@@ -300,7 +303,7 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description =
 		    "Converts SAP MAST/STKO/STPO (and optionally STAS) into flat BOM edges (bom_id, parent_id, child_id, qty, "
-		    "unit, valid_from, valid_to, bom_version). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, "
+		    "unit, valid_from, valid_to, bom_version, client). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, "
 		    "menge, meins. Each further SAP column is used when the table has it: stlty keeps material BOMs (M) only; "
 		    "MAST.stlal must equal bom_alternative (default '01', also matched on STKO.stlal); datuv picks the STKO "
 		    "header and, per STPO item node stlkn, the item version valid on reference_date (YYYYMMDD or a date, "
@@ -310,8 +313,10 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 		    "and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, "
 		    "clients are kept apart. Each (parent_id, child_id) edge comes once: without bom_usage every usage and "
 		    "BOM number of a material is read, and an edge is taken from the lowest usage, then the lowest BOM number, "
+		    "per SAP client (the client column is MANDT when every table has it, else NULL; filter one client before "
+		    "searching, the searches do not see it), "
 		    "with the quantities of that BOM's positions of the child added per unit (pass bom_usage, e.g. '1' for "
-		    "production, to compare one usage). qty is the sum of MENGE.";
+		    "production, to compare one usage). qty is the sum of MENGE (a DECIMAL MENGE becomes DECIMAL(38, scale)).";
 		desc.examples = {"SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO');",
 		                 "SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', "
 		                 "reference_date := '2024-01-01', bom_usage := '1');"};

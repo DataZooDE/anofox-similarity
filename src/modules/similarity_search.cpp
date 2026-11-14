@@ -66,7 +66,11 @@ static int64_t ReadK(TableFunctionBindInput &input, const string &fn, const Quer
 	if (input.inputs.size() <= k_index || input.inputs[k_index].IsNull()) {
 		throw BinderException("%s: k must not be NULL", fn);
 	}
-	return input.inputs[k_index].GetValue<int64_t>();
+	auto k = input.inputs[k_index].GetValue<int64_t>();
+	if (k < 0) { // the batch form would return no rows, the single form a LIMIT error
+		throw BinderException("%s: k must not be negative", fn);
+	}
+	return k;
 }
 
 //! The k best rows of `from` (a CTE) per query: the single form keeps its columns and LIMIT; the
@@ -323,12 +327,12 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 static void RegisterSearch(ExtensionLoader &loader, const string &name, table_function_bind_replace_t bind,
                            const string &description, vector<string> examples, vector<string> batch_examples,
                            vector<string> categories, std::initializer_list<NamedParameterSpec> named) {
-	TableFunctionSet set(name);
+	TableFunctionSet set(duckdb_compat::FunctionName(name));
 	vector<FunctionDescription> docs;
 	for (bool batch : {false, true}) {
 		vector<LogicalType> args = batch ? vector<LogicalType> {LogicalType::BIGINT}
 		                                 : vector<LogicalType> {LogicalType::VARCHAR, LogicalType::BIGINT};
-		TableFunction f(name, args, nullptr, nullptr);
+		TableFunction f(duckdb_compat::FunctionName(name), args, nullptr, nullptr);
 		f.bind_replace = bind;
 		FunctionDescription desc;
 		// one text for both overloads: the reference shows a single description per function
