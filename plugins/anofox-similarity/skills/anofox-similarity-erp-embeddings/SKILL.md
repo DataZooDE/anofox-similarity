@@ -42,7 +42,8 @@ every similarity search reads, and builds per-material vectors in `material_embe
 - **Textual embeddings are a placeholder.** No language model ships. `compute_textual_embeddings`,
   `embed_text` and `embedding_backend` return a deterministic *hash* vector for every provider
   (`gemma-local`, `openai`, `anthropic`, `cohere`; any other name is an error); similar texts do **not** get
-  similar vectors (`'centrifugal pump'` vs `'centrifugal pumps'`: cosine -0.59). Plumbing only; for
+  similar vectors (`'centrifugal pump'` vs `'centrifugal pumps'`: cosine 0.03). The vectors are the
+  same on every platform, and distinct texts get distinct vectors. Plumbing only; for
   semantics bring your own model's vectors as a table and fuse (`fuse_embeddings`) or classify with them.
 - **Language keys differ by function.** `sap_to_materials_with_desc` defaults to `'E'` (SAP's one-char
   `SPRAS`); `extract_material_descriptions` and `compute_textual_embeddings` default to `'EN'`. On a
@@ -51,6 +52,11 @@ every similarity search reads, and builds per-material vectors in `material_embe
   `FLOAT[256]` structural, `FLOAT[768]` fused), the type vss HNSW indexes take: compare with
   `array_cosine_distance` / `array_distance`, not the `list_*` functions. A list of the right length
   casts in; a wrong length is a `Conversion Error`, not NULL.
+- **HNSW is only used for a constant query vector.** `ORDER BY array_cosine_distance(e, q) LIMIT k`
+  takes the index when `q` is a constant: `SET VARIABLE q = (SELECT e FROM t WHERE id = 'X');` then
+  `... array_cosine_distance(e, getvariable('q')::FLOAT[384]) LIMIT 10` (check with `EXPLAIN`:
+  `HNSW_INDEX_SCAN`); a correlated subquery or a join scans everything. An index in a database file
+  needs `SET hnsw_enable_experimental_persistence = true` before `CREATE INDEX` (a vss rule).
 - **MAKT duplicates are collapsed.** Several MAKT rows per `(matnr, spras)` (one per client/MANDT)
   become one row per material (an arbitrary one, via `ANY_VALUE`). Filter `mandt` first if it matters.
 - **Required columns.** MARA needs `matnr, mtart, matkl, ersda, lvorm` (`ersda` as `YYYYMMDD` text,
@@ -70,6 +76,10 @@ every similarity search reads, and builds per-material vectors in `material_embe
   on STKO, STPO (and STAS) must have it too (else a Binder Error); `mandt` in every table keeps SAP
   clients apart. `reference_date` is checked at once ('garbage' is an error); a blank or
   `'00000000'` `datuv` counts as undated.
+- **An empty `sap_to_bom_items` result usually means the BOMs are not valid on `reference_date`**
+  (default 9999-12-31, i.e. today's state): headers or items deleted (`lkenz`/`loekz`), or removed
+  by STAS. Re-run with an earlier `reference_date` (`'20030101'`) to see a deleted BOM, and check
+  the STAS rows of the BOM number.
 - **One edge per parent and child, from every usage.** Without `bom_usage` every usage
   (engineering, production, sales ...) and BOM number of a material is read; each `(parent_id,
   child_id)` comes once, from the lowest usage, then the lowest BOM number, with the quantities of
@@ -485,6 +495,10 @@ check_statistics_freshness()
 - No automatic refresh exists (no triggers in DuckDB; `material_embeddings_dirty` is never filled):
   recompute for the changed materials (`WHERE material_id IN (...)`) and
   `INSERT OR REPLACE INTO material_embeddings (material_id, transactional_embedding, updated_at)`.
+  A material's Jaccard MinHash depends only on its own children, so computing it for a subset (a
+  BOM table filtered to the changed parents) gives the same values as a full run. Detect changes
+  by a per-parent hash: `SELECT parent_id, hash(list(child_id ORDER BY child_id)) FROM bom_items
+  GROUP BY 1`, compared with the hash stored at the last run.
 
 ```sql
 SELECT stat_count, last_updated, is_fresh FROM check_statistics_freshness();

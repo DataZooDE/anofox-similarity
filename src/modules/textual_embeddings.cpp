@@ -28,6 +28,34 @@ namespace duckdb {
 namespace anofox {
 
 //------------------------------------------------------------------------------
+// Placeholder vectors
+//------------------------------------------------------------------------------
+
+// A deterministic stand-in for a text model: element i is a 64-bit mix of (FNV-1a of the text, i)
+// mapped to [-0.5, 0.5). Identical on every platform and compiler (std::hash is not), and
+// distinct texts do not collide in practice. It carries no meaning: similar texts do not get
+// similar vectors.
+static vector<float> PlaceholderEmbedding(const string &text, idx_t dimension) {
+	vector<float> embedding(dimension, 0.0f);
+	if (text.empty()) {
+		return embedding;
+	}
+	uint64_t h = 1469598103934665603ULL; // FNV-1a 64
+	for (unsigned char c : text) {
+		h = (h ^ c) * 1099511628211ULL;
+	}
+	for (idx_t i = 0; i < dimension; i++) {
+		uint64_t z = h + 0x9E3779B97F4A7C15ULL * (i + 1); // SplitMix64
+		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+		z ^= z >> 31;
+		embedding[i] = static_cast<float>(static_cast<double>(z >> 11) / 9007199254740992.0 - 0.5);
+	}
+	return embedding;
+}
+
+
+//------------------------------------------------------------------------------
 // Embedding Provider Base Class
 //------------------------------------------------------------------------------
 
@@ -68,15 +96,7 @@ public:
 		// 1. Tokenize text
 		// 2. Run inference
 		// 3. Extract pooled embeddings
-		vector<float> embedding(384, 0.0f);
-		if (!text.empty()) {
-			// Simple deterministic placeholder based on text hash
-			size_t hash = std::hash<string> {}(text);
-			for (size_t i = 0; i < 384; i++) {
-				embedding[i] = static_cast<float>((hash + i) % 1000) / 1000.0f - 0.5f;
-			}
-		}
-		return embedding;
+		return PlaceholderEmbedding(text, 384);
 	}
 
 	idx_t Dimension() const override {
@@ -122,14 +142,7 @@ public:
 	vector<float> Embed(const string &text) override {
 		// Placeholder: In production, this would make HTTP requests
 		// For now, return deterministic embeddings based on text
-		vector<float> embedding(dimension, 0.0f);
-		if (!text.empty()) {
-			size_t hash = std::hash<string> {}(text);
-			for (size_t i = 0; i < dimension; i++) {
-				embedding[i] = static_cast<float>((hash + i) % 1000) / 1000.0f - 0.5f;
-			}
-		}
-		return embedding;
+		return PlaceholderEmbedding(text, dimension);
 	}
 
 	idx_t Dimension() const override {

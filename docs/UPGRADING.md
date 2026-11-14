@@ -47,8 +47,10 @@ take; `list_cosine_similarity` and other list functions still accept them. Two b
 | `items_to_bom` header `valid_from` 2024-01-01, materials `description` '' | NULL |
 | `embedding_backend(..., '<any name>', ...)` returned the placeholder | only `gemma-local`, `openai`, `anthropic`, `cohere` (case-insensitive); any other name is an error |
 | `embedding_backend` `provider_config` parsed an `api_key` | not read; remove keys from your SQL |
+| `embed_text` / `embedding_backend` placeholder: a ramp from `std::hash` (at most 1000 distinct vectors, different per platform) | a 64-bit hash per element, the same on every platform; recompute stored textual placeholder vectors |
 | `items_to_bom` quantity below 0.0000005 stored as 0 | `items_to_bom_component` raises an error; scale to a larger unit |
 | `tree_class_multiset(..., attrs_table := ...)` (ignored) | the parameter is gone: drop it |
+| `value_satisfies` / `tree_coverage` with `soft_band := 0`: `within` and `point` scored the covered share (380–480 V vs 400–480 V: 0.78) | strict like the one-sided bounds: 1 when covered within `tol`, else 0; hard-limit coverages can drop |
 | `aas_issues`: a text value without semanticId was dropped silently | reported as `unmapped_text` (info); filter it out if you count issues yourself (`aas_quality.n_issues` already leaves it out) |
 | `find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`, `cold_start_analogs` filled `k` rows with materials scoring 0 | those are left out unless you pass `min_similarity := 0`; fewer than `k` rows means nothing else shares a component |
 | `check_statistics_freshness` on empty statistics: `last_updated` = now − 8 days | NULL |

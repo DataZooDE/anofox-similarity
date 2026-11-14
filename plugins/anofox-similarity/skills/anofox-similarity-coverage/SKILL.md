@@ -246,6 +246,8 @@ value_satisfies(requirement, provided [, scale [, tol, soft_band [, default_boun
 | `missing` | no provided value → score 0 | NULL |
 
 - `score` is 1 within `tol`, falls linearly to 0 across `soft_band`; `soft_band` 0 = strict.
+  `within` / `point` score the covered share of the required range, but with `soft_band` 0 they
+  are strict too (400–480 V against 380–480 V: 0.0, with the defaults 0.978).
 - `scale`: linear for time, currency, percent, sound level; log otherwise (tol 0.02 decades ≈
   4.5 %). A limit of 0 uses an absolute distance and a strict score.
 - Temperature: absolute 1 K tolerance, 2.5 K band, `distance` in K; `tol`/`soft_band` ignored.

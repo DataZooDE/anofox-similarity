@@ -146,3 +146,20 @@ SELECT stat_count, is_fresh FROM check_statistics_freshness();
 
 statement ok
 DELETE FROM transactional_embedding_statistics;
+
+# ------------------------------------------------------------------------------
+# value_satisfies: soft_band 0 is a hard limit for within (and point) too, not only for the
+# one-sided bounds: 400-480 V against 380-480 V fails (it scored 0.78, the covered share)
+# ------------------------------------------------------------------------------
+query RRR
+SELECT value_satisfies(parse_quantity('380-480 V'), parse_quantity('400-480 V'), NULL, 0.0, 0.0).score,
+       value_satisfies(parse_quantity('380-480 V'), parse_quantity('370-490 V'), NULL, 0.0, 0.0).score,
+       round(value_satisfies(parse_quantity('380-480 V'), parse_quantity('400-480 V')).score, 3);
+----
+0.0	1.0	0.978
+
+# the tolerance still applies: 381-480 V against 380-480 V with tol 0.02 (log) is met
+query R
+SELECT value_satisfies(parse_quantity('380-480 V'), parse_quantity('381-480 V'), NULL, 0.02, 0.0).score;
+----
+1.0
