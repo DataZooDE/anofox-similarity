@@ -296,3 +296,13 @@ SELECT count(*) FROM (SELECT * FROM find_similar_materials_wl_kernel(4, material
     EXCEPT ALL SELECT '7', * FROM find_similar_materials_wl_kernel('7', 4, bom_table := 'tie_bom'));
 ----
 0
+
+statement error
+SELECT * FROM find_similar_materials_wl_kernel('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative
+
+statement error
+SELECT * FROM cold_start_analogs('7', -1, bom_table := 'tie_bom');
+----
+k must not be negative

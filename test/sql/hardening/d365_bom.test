@@ -301,7 +301,7 @@ CREATE TABLE old_version AS SELECT * FROM (VALUES ('B1', 'V1', DATE '2024-01-01'
 statement error
 SELECT * FROM dynamics365_to_bom_header(bom_version := 'old_version');
 ----
-looks like the column contract of releases before v2026.11
+column contract of releases before v2026.11
 
 statement error
 SELECT * FROM dynamics365_to_bom_component(bom_lines := 'v_min', bom_version := 'v_min');
@@ -372,7 +372,7 @@ CREATE TABLE l_old AS SELECT * FROM (VALUES ('B1', 'X', 1.0, 5.0)) t(BOMId, Item
 statement error
 SELECT * FROM dynamics365_to_bom_component(bom_lines := 'l_old', bom_version := 'v_min');
 ----
-has ScrapPercent but no ScrapVar
+has ScrapPercent / Quantity instead of ScrapVar / BOMQty
 
 # BOMTable repeating a BOM: the site is the lowest, every time
 statement ok
@@ -417,3 +417,52 @@ query T
 SELECT bom_id FROM dynamics365_to_bom_header(bom_version := 'ver_mapped');
 ----
 PUMP/B1
+
+# ------------------------------------------------------------------------------
+# Follow-up review: companies only on the lines, the old BOMVersion contract, an old line table
+# with Quantity, and text after the time of reference_date are errors, not silent results
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE fv AS SELECT * FROM (VALUES ('P', 'B1')) t(ItemId, BOMId);
+
+statement ok
+CREATE TABLE fl AS SELECT * FROM (VALUES ('usmf', 'B1', 'X', 2.0), ('demf', 'B1', 'X', 5.0)) t(DataAreaId, BOMId, ItemId, BOMQty);
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'fl', bom_version := 'fv');
+----
+has DataAreaId but bom_version 'fv' does not
+
+statement ok
+CREATE TABLE fb AS SELECT * FROM (VALUES ('usmf', 'B1', 'S1')) t(DataAreaId, BOMId, SiteId);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'fv', bom_table := 'fb');
+----
+has DataAreaId but bom_version 'fv' does not
+
+statement ok
+CREATE TABLE old_v AS SELECT * FROM (VALUES ('P', 'B1', 'V1', DATE '2030-01-01', 1)) t(ItemId, BOMId, VersionId, ActivationDate, ApprovedStatus);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'old_v', reference_date := '2024-01-01');
+----
+has ActivationDate / ApprovedStatus instead of FromDate / Approved
+
+statement ok
+CREATE TABLE old_l AS SELECT * FROM (VALUES ('B1', 'X', 2.0)) t(BOMId, ItemId, Quantity);
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'old_l', bom_version := 'fv');
+----
+has ScrapPercent / Quantity instead of ScrapVar / BOMQty
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'fv', reference_date := '2024-06-30Tjunk');
+----
+is not a date
+
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'fv', reference_date := '2024-06-30T12:00:00Z');
+----
+1

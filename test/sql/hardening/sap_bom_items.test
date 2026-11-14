@@ -366,3 +366,9 @@ query T
 SELECT DISTINCT client FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min');
 ----
 NULL
+
+# mandt in some tables only: clients would merge under a NULL client, so that is an error
+statement error
+SELECT * FROM sap_to_bom_items('k2_mast', 'stko_min', 'stpo_min');
+----
+mandt is in some of the tables but not in all

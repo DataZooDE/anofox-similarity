@@ -3,6 +3,7 @@
 #include "core/error_handling.hpp"
 #include "core/sql_safety.hpp"
 #include "duckdb_compat.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "telemetry.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/function/function_set.hpp"
@@ -155,6 +156,16 @@ string D365ReferenceDate(const NAMED &named, const string &fn) {
 	} else {
 		throw BinderException("%s: reference_date '%s' is not a date (YYYY-MM-DD or YYYYMMDD)", fn, text);
 	}
+	if (text.size() > 10) {
+		// a time after the date must be a valid timestamp ('2024-06-30T12:00:00Z', not '2024-06-30Tjunk')
+		string spelled = text;
+		spelled[10] = ' ';
+		try {
+			Timestamp::FromString(spelled, true);
+		} catch (std::exception &) {
+			throw BinderException("%s: reference_date '%s' is not a date (YYYY-MM-DD or YYYYMMDD)", fn, text);
+		}
+	}
 	try {
 		return "DATE '" + Date::ToString(Date::FromString(iso, true)) + "'";
 	} catch (std::exception &) {
@@ -182,9 +193,17 @@ struct D365Versions {
 };
 
 // The company (DataAreaId) is part of bom_id whenever BOMVersion has it, so both functions build the
-// same ids; lines and BOMTable rows are matched on it when they have it too (without it they match
-// the BOMId in every company).
+// same ids; lines and BOMTable rows are matched on it when they have it too (with it on the lines
+// or BOMTable but not on the versions, the binds raise an error).
 D365Versions ChosenVersions(ClientContext &context, const string &fn, const string &versions, const string &reference) {
+	// the old contract would pass the required columns and silently ignore its dates and status
+	if ((TableHasColumn(context, versions, "ActivationDate") && !TableHasColumn(context, versions, "FromDate")) ||
+	    (TableHasColumn(context, versions, "ApprovedStatus") && !TableHasColumn(context, versions, "Approved"))) {
+		throw BinderException("%s: bom_version '%s' has ActivationDate / ApprovedStatus instead of FromDate / Approved: "
+		                      "that is the column contract of releases before v2026.11; see docs/UPGRADING.md for the "
+		                      "mapping to the D365 field names",
+		                      fn, versions);
+	}
 	auto item = D365RequiredColumn(context, fn, "bom_version", versions, {"ItemId"});
 	auto bom = D365RequiredColumn(context, fn, "bom_version", versions, {"BOMId"});
 	auto from = D365Date(D365Column(context, versions, {"FromDate"}));
@@ -258,6 +277,11 @@ unique_ptr<TableRef> D365HeaderBindReplace(ClientContext &context, TableFunction
 	}
 	const bool header_areas = !headers.empty() && TableHasColumn(context, headers, "DataAreaId");
 	auto chosen = ChosenVersions(context, fn, versions, reference);
+	if (header_areas && !chosen.areas) {
+		throw BinderException("%s: bom_table '%s' has DataAreaId but bom_version '%s' does not: add DataAreaId to the "
+		                      "versions, or filter bom_table to one company",
+		                      fn, headers, versions);
+	}
 	const bool match_areas = header_areas && chosen.areas;
 	string site_join, site_value = "NULL::VARCHAR";
 	if (!headers.empty() && !site.empty()) {
@@ -292,8 +316,9 @@ unique_ptr<TableRef> D365ComponentBindReplace(ClientContext &context, TableFunct
 	auto reference = D365ReferenceDate(input.named_parameters, fn);
 
 	// the old contract's scrap column would be read as 0: say what changed instead
-	if (TableHasColumn(context, lines, "ScrapPercent") && !TableHasColumn(context, lines, "ScrapVar")) {
-		throw BinderException("%s: bom_lines '%s' has ScrapPercent but no ScrapVar: that is the column contract of "
+	if ((TableHasColumn(context, lines, "ScrapPercent") && !TableHasColumn(context, lines, "ScrapVar")) ||
+	    (TableHasColumn(context, lines, "Quantity") && !TableHasColumn(context, lines, "BOMQty"))) {
+		throw BinderException("%s: bom_lines '%s' has ScrapPercent / Quantity instead of ScrapVar / BOMQty: that is the column contract of "
 		                      "releases before v2026.11; see docs/UPGRADING.md for the mapping to the D365 field names",
 		                      fn, lines);
 	}
@@ -310,6 +335,12 @@ unique_ptr<TableRef> D365ComponentBindReplace(ClientContext &context, TableFunct
 	auto from = D365Date(D365Column(context, lines, {"FromDate"}));
 	auto to = D365Date(D365Column(context, lines, {"ToDate"}));
 	auto chosen = ChosenVersions(context, fn, versions, reference);
+	if (!chosen.areas && TableHasColumn(context, lines, "DataAreaId")) {
+		// the lines of several companies would merge under one company-less header
+		throw BinderException("%s: bom_lines '%s' has DataAreaId but bom_version '%s' does not: add DataAreaId to the "
+		                      "versions, or filter the lines to one company",
+		                      fn, lines, versions);
+	}
 	const bool match_areas = chosen.areas && TableHasColumn(context, lines, "DataAreaId");
 
 	// quantity per one parent: BOMQty / BOMQtySerie (a series of 0 or none counts as 1)
@@ -432,7 +463,8 @@ void RegisterDynamics365TransformationMacros(ExtensionLoader &loader) {
 	    "bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie "
 	    "(per one parent), lines valid on reference_date only, one row per BOM, child, unit and consumption type "
 	    "(the quantities of a child's lines are added; constant and variable lines stay apart), company the "
-	    "lower-cased DataAreaId. bom_to_items over the two gives one edge per parent, child and unit and has no "
+	    "lower-cased DataAreaId. bom_to_items over the two gives one edge per component row (constant and variable "
+	    "lines of a child are two edges; sum them for one) and has no "
 	    "company column: filter one company first.",
 	    {"SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');"});
 }

@@ -197,6 +197,14 @@ static unique_ptr<TableRef> SapToBomItemsBindReplace(ClientContext &context, Tab
 	// SAP clients: with mandt in every table, rows of different clients never join
 	const bool clients = has(mast, "mandt") && has(stko, "mandt") && has(stpo, "mandt") &&
 	                     (stas.empty() || has(stas, "mandt"));
+	const bool some_clients = has(mast, "mandt") || has(stko, "mandt") || has(stpo, "mandt") ||
+	                          (!stas.empty() && has(stas, "mandt"));
+	if (some_clients && !clients) {
+		// clients would merge under a NULL client column, which reads like single-client data
+		throw BinderException("sap_to_bom_items: mandt is in some of the tables but not in all (MAST, STKO, STPO%s): "
+		                      "add it to every table, or filter one client and drop the column",
+		                      stas.empty() ? "" : ", STAS");
+	}
 	const string client_col = clients ? "mandt, " : "";
 	// newest datuv first, then the highest version counter (stkoz, stpoz, stasz) as a number
 	// ('10' after '9'), then the given columns so the choice is deterministic

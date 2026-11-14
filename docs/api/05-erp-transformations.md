@@ -193,7 +193,9 @@ FROM bom_versions_entity;   -- check the names against your own export
 - **Companies.** `company` is `DataAreaId`, lower-cased and trimmed (NULL without the column), on
   all three outputs; rows of different companies are never merged. With `DataAreaId` in
   BOMVersion the company is also part of `bom_id`; lines and BOMTable rows are matched on it when
-  they have it too (without it, a BOMId's lines match in every company). `bom_to_items` has no
+  they have it too. Lines or BOMTable rows with `DataAreaId` against a BOMVersion without it are an
+  error (their companies would merge). `bom_to_items` gives one edge per component row: constant
+  and variable lines of a child are two edges (sum them for one). `bom_to_items` has no
   company column, and the universal `materials.material_id` is a primary key, so **filter one
   company before flattening or inserting**: `CREATE VIEW h AS SELECT * FROM bom_header WHERE
   company = 'usmf'`, then `bom_to_items('h', 'bom_component')`.
@@ -310,7 +312,7 @@ SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_d
 
 *Table function*
 
-Maps Dynamics 365 BOM lines (BOMId, ItemId, BOMQty; optional BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child, unit and consumption type (the quantities of a child's lines are added; constant and variable lines stay apart), company the lower-cased DataAreaId. bom_to_items over the two gives one edge per parent, child and unit and has no company column: filter one company first.
+Maps Dynamics 365 BOM lines (BOMId, ItemId, BOMQty; optional BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child, unit and consumption type (the quantities of a child's lines are added; constant and variable lines stay apart), company the lower-cased DataAreaId. bom_to_items over the two gives one edge per component row (constant and variable lines of a child are two edges; sum them for one) and has no company column: filter one company first.
 
 ```sql
 dynamics365_to_bom_component(bom_lines, bom_version, reference_date)
