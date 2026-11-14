@@ -1,0 +1,24 @@
+{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:merge", "idShort": "Capabilities",
+    "submodelElements": [{
+      "modelType": "SubmodelElementCollection", "idShort": "Drive",
+      "value": [
+        {"modelType": "Property", "idShort": "RatedCurrent", "valueType": "xs:double", "value": "8",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-BAA120#008"}]},
+         "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+           "preferredName": [{"language": "en", "text": "rated current (as offered)"}]}}]},
+        {"modelType": "Property", "idShort": "PoleCount", "valueType": "xs:int", "value": "8",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ970#001"}]}}
+      ]
+    }]
+  }],
+  "conceptDescriptions": [
+    {"modelType": "ConceptDescription", "id": "0173-1#02-BAA120#008",
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+       "preferredName": [{"language": "en", "text": "rated current"}], "unit": "A"}}]},
+    {"modelType": "ConceptDescription", "id": "0173-1#02-AAZ970#001",
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+       "preferredName": [{"language": "en", "text": "number of poles"}]}}]}
+  ]
+}

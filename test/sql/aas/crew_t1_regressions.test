@@ -1,0 +1,323 @@
+# name: test/sql/aas/crew_t1_regressions.test
+# description: Regressions from the Tier 1 crew review (REVIEW_LOG.md, AAS-1). Each block names its
+#              finding. The fixtures in test/data/aas/fixtures are hand-written, not generated, so
+#              these cases come from outside the code's own assumptions.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE MACRO aas_attrs(content) AS TABLE
+    SELECT a.* FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n));
+
+#------------------------------------------------------------------------------
+# F1: a ConceptDescription is found by its exact release first; the stripped key only when every
+# release agrees on the unit. Two releases with mA and A never mix up, in any order.
+#------------------------------------------------------------------------------
+
+query TTRT
+SELECT attr_id, dimension, lo, unit
+FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/two_cd_releases.aas.json'))) ORDER BY attr_id;
+----
+PeakCurrentOld	current	3.0	A
+StandbyCurrent	current	0.25	A
+UnlistedRelease	NULL	7.0	NULL
+
+query TT
+SELECT i.path, i.issue FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/two_cd_releases.aas.json'));
+----
+TechnicalData.Electrical.UnlistedRelease	ambiguous_concept_description
+
+# the same with the ConceptDescriptions in the other order
+query TTRT
+SELECT attr_id, dimension, lo, unit
+FROM aas_attrs((SELECT replace(replace(replace(content, '"id": "0173-1#02-AAZ950#001"', '"id": "SWAP"'),
+                                                   '"id": "0173-1#02-AAZ950#002"', '"id": "0173-1#02-AAZ950#001"'),
+                                           '"id": "SWAP"', '"id": "0173-1#02-AAZ950#002"')
+                FROM read_text('test/data/aas/fixtures/two_cd_releases.aas.json'))) ORDER BY attr_id;
+----
+PeakCurrentOld	current	0.003	A
+StandbyCurrent	current	250.0	A
+UnlistedRelease	NULL	7.0	NULL
+
+#------------------------------------------------------------------------------
+# F2: list children take semanticIdListElement and valueTypeListElement from their list
+# (AASd-107/109), in JSON and in prefixed AAS 3.1 XML
+#------------------------------------------------------------------------------
+
+query TTTRR
+SELECT attr_id, name, attr_key, lo, hi
+FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/list_elements.aas.json'))) ORDER BY attr_id;
+----
+RatedSpeeds[0]	rated speed	0173-1#02-AAZ960#001	25.0	25.0
+RatedSpeeds[1]	rated speed	0173-1#02-AAZ960#001	50.0	50.0
+
+query I
+SELECT count(*) FROM (
+    SELECT * FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/list_elements.aas.json')))
+    EXCEPT ALL
+    SELECT * FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/list_elements.aas.xml'))));
+----
+0
+
+#------------------------------------------------------------------------------
+# F3, F4: typed values. Booleans are true/false/1/0; integers have no fraction; a comma is a
+# decimal separator only when it cannot be a thousands separator; an absent number is kept as
+# a gap (empty_value); a code written as text is a category
+#------------------------------------------------------------------------------
+
+query TTRTT
+SELECT attr_id, value_text, lo, category, dimension
+FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/typed_values.aas.json'))) ORDER BY attr_id;
+----
+Axes	1.5	NULL	NULL	NULL
+Fieldbus	EtherCAT	NULL	EtherCAT	NULL
+Inertia	NULL	NULL	NULL	NULL
+Mass	NULL	NULL	NULL	NULL
+Poles	8	8.0	NULL	NULL
+Protection	IP65	NULL	IP65	NULL
+Speed	1,500	NULL	NULL	NULL
+StoFalse	false	NULL	false	NULL
+StoOne	1	NULL	true	NULL
+StoYes	yes	NULL	NULL	NULL
+Torque	2,5	2.5	NULL	NULL
+Voltage	380,5..480	380.5	NULL	NULL
+
+query TTT
+SELECT split_part(i.path, '.', -1), i.issue, i.severity
+FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/typed_values.aas.json'))
+WHERE i.issue <> 'no_unit_information' ORDER BY 1, 2;
+----
+Axes	bad_value	warning
+Inertia	empty_value	warning
+Mass	empty_value	warning
+Speed	bad_value	warning
+StoYes	bad_value	warning
+Torque	decimal_comma	info
+Voltage	decimal_comma	info
+
+query T
+SELECT i.detail FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/typed_values.aas.json'))
+WHERE i.path LIKE '%Speed';
+----
+'1,500' is ambiguous: ',' may be a thousands or a decimal separator
+
+# Templates describe structure: their empty values are neither attributes nor issues
+query II
+SELECT (SELECT count(*) FROM aas_attrs((SELECT content FROM read_text('test/data/aas/idta/IDTA_02020_Template_Capability_Description_1_0_2.json')))),
+       (SELECT count(*) FROM (SELECT unnest(aas_issues(content)) FROM read_text('test/data/aas/idta/IDTA_02006_Template_Digital_Nameplate_3_0_3.json')));
+----
+0	0
+
+#------------------------------------------------------------------------------
+# F9: an embedded data specification without a unit does not hide the ConceptDescription's unit;
+# a dictionary entry without any unit is a count, and says so
+#------------------------------------------------------------------------------
+
+query TTTRT
+SELECT attr_id, name, dimension, lo, unit
+FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/spec_merge.aas.json'))) ORDER BY attr_id;
+----
+PoleCount	number of poles	count	8.0	1
+RatedCurrent	rated current (as offered)	current	8.0	A
+
+query TT
+SELECT split_part(i.path, '.', -1), i.issue FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/spec_merge.aas.json'));
+----
+PoleCount	assumed_dimensionless
+
+#------------------------------------------------------------------------------
+# F5: one broken file in a folder. aas_issues reports it as parse_error and does not throw, so the
+# audit names the file; aas_to_trees stays strict
+#------------------------------------------------------------------------------
+
+query TTT
+SELECT parse_filename(filename), i.issue, i.severity
+FROM (SELECT filename, unnest(aas_issues(content)) AS i FROM read_blob('test/data/aas/fixtures/mixed_folder/*'))
+WHERE i.severity = 'error';
+----
+truncated.aas.json	parse_error	error
+
+statement error
+SELECT aas_to_trees(content) FROM read_blob('test/data/aas/fixtures/mixed_folder/*');
+----
+AAS JSON:
+
+#------------------------------------------------------------------------------
+# F6, F11: unit tables
+#------------------------------------------------------------------------------
+
+# a licensed unit list with a quantity column attaches ids; it does not redefine mA as 1 A
+query RT
+SELECT n.value, n.unit FROM (SELECT normalize_quantity(250, '0173-1#05-AAA236#003',
+    (SELECT list(u) FROM (VALUES ('mA', '0173-1#05-AAA236#003', 'current')) u(symbol, unit_id, dimension))) AS n);
+----
+0.25	A
+
+statement error
+SELECT normalize_quantity(1, 'mA', (SELECT list(u) FROM (VALUES ('mA', 'X1', 'voltage')) u(symbol, unit_id, dimension)));
+----
+unit_table: 'mA' is a known current unit; a row for another dimension needs a factor
+
+# the documented copy of the seed round-trips, and an override without ids keeps the seed's codes
+query TT
+SELECT normalize_quantity(2, 'AMP', (SELECT list(u) FROM (SELECT symbol, alias, unit_id, dimension, factor, "offset" FROM quantity_units()) u)).unit,
+       normalize_quantity(2, 'AMP', (SELECT list(u) FROM (SELECT symbol, alias, dimension, factor, "offset" FROM quantity_units()) u)).unit;
+----
+A	A
+
+#------------------------------------------------------------------------------
+# F7: the given tree_id belongs to the shell; only the other trees get a suffix
+#------------------------------------------------------------------------------
+
+query TT
+SELECT DISTINCT n.tree_id, n.label FROM (SELECT unnest(aas_to_trees(content, 'RFQ-1')) AS n
+    FROM read_text('test/data/aas/fixtures/shell_with_orphan.aas.json')) WHERE n.parent_id IS NULL ORDER BY 1;
+----
+RFQ-1	RFQ
+RFQ-1/Notes	Notes
+
+#------------------------------------------------------------------------------
+# F8: ECLASS IRIs of BASIC/ADVANCED registration authorities, without version, with a query
+#------------------------------------------------------------------------------
+
+query TTT
+SELECT semantic_key('https://api.eclass-cdp.com/0173-1---BASIC_1_1-01-AAN431-007'),
+       semantic_key('https://api.eclass-cdp.com/0173-1-02-AAC895'),
+       semantic_key('https://api.eclass-cdp.com/0173-1-02-AAC895-008/?lang=en#top');
+----
+0173-1---BASIC_1_1#01-AAN431	0173-1#02-AAC895	0173-1#02-AAC895
+
+#------------------------------------------------------------------------------
+# F10: key_mismatch names the conflicting property; a property the offer does not state at all is
+# 'missing', not a mismatch
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE kn AS SELECT * FROM (VALUES
+    ('Q', 'Q', NULL, 'item', 'AND', 'drive', 'drive', 1.0),
+    ('O', 'O', NULL, 'item', 'AND', 'drive', 'drive', 1.0)
+) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE ka AS SELECT * FROM (VALUES
+    ('Q', 'Q', 'rated', 'rated current', '0173-1#02-BAA120#008', 'current', 'A', 7.6, 7.6, 'at_least', NULL),
+    ('Q', 'Q', 'brake', 'holding brake', '0173-1#02-AAZ980#001', NULL, NULL, NULL, NULL, NULL, 'true'),
+    ('O', 'O', 'peak', 'peak current', '0173-1#02-BAA121#008', 'current', 'A', 12.0, 12.0, NULL, NULL),
+    ('O', 'O', 'volt', 'supply voltage', '0173-1#02-AAB381#005', 'voltage', 'V', 400.0, 400.0, NULL, NULL)
+) t(tree_id, node_id, attr_id, name, attr_key, dimension, unit, lo, hi, bound, category);
+
+query TTT
+SELECT attr_id, prov_value, rule FROM tree_coverage_trace('Q', candidates := ['O'], nodes_table := 'kn', attrs_table := 'ka', labels := 'hard')
+ORDER BY attr_id;
+----
+brake	NULL	missing
+rated	12 A	key_mismatch
+
+#------------------------------------------------------------------------------
+# F12: coded categories compare canonically: the IRDI and the IRI of one enumeration value agree,
+# and so do rules written with release suffixes
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE ca AS SELECT * FROM (VALUES
+    ('Q', 'Q', 'bus', 'fieldbus', '0173-1#02-AAZ902#002', NULL, NULL, NULL, NULL, NULL, '0173-1#07-AAZ001#001'),
+    ('O', 'O', 'bus', 'fieldbus', '0173-1#02-AAZ902#002', NULL, NULL, NULL, NULL, NULL, 'https://api.eclass-cdp.com/0173-1-07-AAZ001-002')
+) t(tree_id, node_id, attr_id, name, attr_key, dimension, unit, lo, hi, bound, category);
+
+query TR
+SELECT rule, value_score FROM tree_coverage_trace('Q', candidates := ['O'], nodes_table := 'kn', attrs_table := 'ca', labels := 'hard');
+----
+compat	1.0
+
+statement ok
+CREATE TABLE cr AS SELECT * FROM (VALUES
+    ('Q', 'Q', 'bus', 'fieldbus', '0173-1#02-AAZ902#002', NULL, NULL, NULL, NULL, NULL, '0173-1#07-AAZ001#001'),
+    ('O', 'O', 'bus', 'fieldbus', '0173-1#02-AAZ902#002', NULL, NULL, NULL, NULL, NULL, '0173-1#07-AAZ003#001')
+) t(tree_id, node_id, attr_id, name, attr_key, dimension, unit, lo, hi, bound, category);
+
+statement ok
+CREATE TABLE bus_rules AS SELECT * FROM (VALUES (NULL, '0173-1#07-AAZ001#002', '0173-1#07-AAZ003#004', 0.7)) t(dimension, required, provided, score);
+
+query R
+SELECT value_score FROM tree_coverage_trace('Q', candidates := ['O'], nodes_table := 'kn', attrs_table := 'cr', labels := 'hard',
+                                            rules_table := 'bus_rules');
+----
+0.7
+
+#------------------------------------------------------------------------------
+# F13: reader parity and no silent empties
+#------------------------------------------------------------------------------
+
+# a lone shell as XML root, as JSON accepts it
+query TT
+SELECT n.tree_id, n.label FROM (SELECT unnest(aas_to_trees(content)) AS n FROM read_text('test/data/aas/fixtures/single_shell.aas.xml'));
+----
+urn:fx:aas:lone	LoneShell
+
+query TT
+SELECT i.issue, i.severity FROM (SELECT unnest(aas_issues(x)) AS i FROM (VALUES ('{}'), ('<environment xmlns="https://admin-shell.io/aas/3/0"/>')) t(x));
+----
+no_shell_or_submodel	warning
+no_shell_or_submodel	warning
+
+query TT
+SELECT i.issue, i.detail FROM (SELECT unnest(aas_issues('{"submodels": {"id": "not a list"}}')) AS i) WHERE i.issue = 'malformed_member';
+----
+malformed_member	'submodels' must be a list
+
+# AASX: a JSON spec part named by a relative target; a package without relationships
+query RR
+SELECT (SELECT lo FROM aas_attrs((SELECT content FROM read_blob('test/data/aas/fixtures/json_spec_relative.aasx')))),
+       (SELECT lo FROM aas_attrs((SELECT content FROM read_blob('test/data/aas/fixtures/no_relationships.aasx'))));
+----
+3.0	5.0
+
+statement error
+SELECT aas_to_trees(content) FROM read_blob('test/data/aas/fixtures/escaping_target.aasx');
+----
+AASX: the relationship target '../../../etc/passwd' leaves the package
+
+# an Entity's statements are its children; a UTF-8 byte order mark is fine
+query TTR
+SELECT n.node_id, n.class_id, n.attributes[1].lo FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_text('test/data/aas/fixtures/entity_statements.aas.json')) WHERE n.node_kind = 'item';
+----
+HierarchicalStructures.EntryNode.Gearbox	urn:fx:class:gearbox	12.5
+
+#------------------------------------------------------------------------------
+# F14: duplicate idShorts are renamed so the rows stay unique, and reported
+#------------------------------------------------------------------------------
+
+query TR
+SELECT attr_id, lo FROM aas_attrs((SELECT content FROM read_text('test/data/aas/fixtures/duplicate_id_shorts.aas.json'))) ORDER BY 1;
+----
+Axes	2.0
+Axes~2	4.0
+
+query TT
+SELECT i.issue, i.severity FROM (SELECT unnest(aas_issues(content)) AS i FROM read_text('test/data/aas/fixtures/duplicate_id_shorts.aas.json'))
+WHERE i.issue = 'duplicate_id_short';
+----
+duplicate_id_short	warning
+
+#------------------------------------------------------------------------------
+# F17: coded values read as their text in the trace
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
+UNION ALL SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/scenario/offers/driventa_ds12.aas.xml');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+query TT
+SELECT req_value, prov_value FROM tree_coverage_trace('RFQ-2026-117', candidates := ['https://driventa.example/aas/ds-12'], labels := 'hard')
+WHERE attr_id = 'Protocol';
+----
+point EtherCAT (0173-1#07-AAZ001)	PROFINET (0173-1#07-AAZ002)

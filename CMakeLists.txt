@@ -18,6 +18,9 @@ if(OpenVINO_FOUND)
 endif()
 
 find_package(nlohmann_json CONFIG REQUIRED)
+# AAS XML reader: tinyxml2, the same library as erpl-odata. AASX packages (zip) use a private
+# copy of DuckDB's bundled miniz (src/modules/aas/aasx_miniz.cpp), so no extra dependency.
+find_package(tinyxml2 CONFIG REQUIRED)
 
 set(EXTENSION_SOURCES
     src/anofox_similarity_extension.cpp
@@ -29,6 +32,17 @@ set(EXTENSION_SOURCES
     src/modules/quantity.cpp
     src/modules/property_tree.cpp
     src/modules/coverage_kernel.cpp
+    src/modules/aas/semantic_key.cpp
+    src/modules/aas/aas_functions.cpp
+    src/modules/aas/aas_model.cpp
+    src/modules/aas/aas_values.cpp
+    src/modules/aas/aas_json_reader.cpp
+    src/modules/aas/aas_xml_reader.cpp
+    src/modules/aas/aasx_package.cpp
+    src/modules/aas/aasx_miniz.cpp
+    src/modules/aas/aas_tree_mapper.cpp
+    src/modules/aas/aas_writer.cpp
+    src/modules/aas/aas_quality.cpp
     src/modules/pivot_classifier.cpp
     src/modules/vocabulary_review.cpp
     src/modules/evaluation.cpp
@@ -109,6 +123,8 @@ endif()
 
 target_link_libraries(${EXTENSION_NAME} nlohmann_json::nlohmann_json)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} nlohmann_json::nlohmann_json)
+target_link_libraries(${EXTENSION_NAME} tinyxml2::tinyxml2)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} tinyxml2::tinyxml2)
 
 # Link OpenVINO if available
 if(OpenVINO_FOUND)

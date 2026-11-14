@@ -18,16 +18,24 @@ struct UnitDef {
 	string dimension;
 	double factor;
 	double offset;
+	//! Unit identifiers (UN/ECE Rec 20 codes, ECLASS unit IRDIs, URIs). Resolved only by FindById,
+	//! never in free text: the Rec 20 code for newton is NEW.
+	vector<string> ids = {};
 };
 
 //! A unit lookup: the built-in seed, optionally extended or overridden by user units.
 class UnitTable {
 public:
 	static const UnitTable &Seed();
-	//! The seed plus user units (a LIST of STRUCT(symbol, alias, dimension, factor, offset)).
+	//! The seed plus user units (a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset)).
+	//! An entry without dimension attaches its aliases and unit ids to an existing unit.
 	static UnitTable WithUserUnits(const Value &units);
 
 	const UnitDef *Find(const string &token) const;
+	//! A unit by identifier, compared with semantic_key (IRDI and IRI forms, any release).
+	const UnitDef *FindById(const string &unit_id) const;
+	//! A unit by symbol or alias, else by identifier: for unit fields, not for free text.
+	const UnitDef *FindSymbolOrId(const string &unit) const;
 	//! The longest alias that is a prefix of text, or nullptr; matched is its length.
 	const UnitDef *LongestPrefix(const string &text, idx_t &matched) const;
 	string BaseUnit(const string &dimension) const;
@@ -37,10 +45,12 @@ public:
 
 private:
 	void Add(UnitDef unit);
+	void Extend(const UnitDef &extra);
 	void Index();
 	vector<UnitDef> units;
 	std::unordered_map<string, idx_t> by_alias;       // exact
 	std::unordered_map<string, idx_t> by_lower_alias; // words of 3+ letters, case-insensitive
+	std::unordered_map<string, idx_t> by_id;          // semantic_key of each unit id
 	std::unordered_map<string, string> base_units;
 	idx_t max_alias_length = 0;
 };

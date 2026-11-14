@@ -1,0 +1,24 @@
+{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:cd-releases", "idShort": "TechnicalData",
+    "submodelElements": [{
+      "modelType": "SubmodelElementCollection", "idShort": "Electrical",
+      "value": [
+        {"modelType": "Property", "idShort": "StandbyCurrent", "valueType": "xs:double", "value": "250",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ950#002"}]}},
+        {"modelType": "Property", "idShort": "PeakCurrentOld", "valueType": "xs:double", "value": "3",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ950#001"}]}},
+        {"modelType": "Property", "idShort": "UnlistedRelease", "valueType": "xs:double", "value": "7",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ950#003"}]}}
+      ]
+    }]
+  }],
+  "conceptDescriptions": [
+    {"modelType": "ConceptDescription", "id": "0173-1#02-AAZ950#001",
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+       "preferredName": [{"language": "en", "text": "current"}], "unit": "A"}}]},
+    {"modelType": "ConceptDescription", "id": "0173-1#02-AAZ950#002",
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+       "preferredName": [{"language": "en", "text": "current"}], "unit": "mA"}}]}
+  ]
+}

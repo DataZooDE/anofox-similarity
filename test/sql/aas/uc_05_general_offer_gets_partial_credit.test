@@ -1,0 +1,195 @@
+# name: test/sql/aas/uc_05_general_offer_gets_partial_credit.test
+# description: The buyer needs a sealing station composed of hot-plate sealing and film cutting
+#              (IDTA-02020 ComposedOf). One supplier offers exactly that. Another offers only
+#              generic heat sealing, which the shared capability taxonomy (GeneralizedBy) names as
+#              the parent of hot-plate sealing. The station has no properties of its own, so it is
+#              the sum of its parts (AAS-2). With a generalization credit the generic offer gets
+#              partial credit instead of a hard gap, and the trace marks the match as generalized.
+#              A specific offer fully meets a general requirement (is-a). Without a hierarchy,
+#              results are unchanged.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-204')) AS n FROM read_text('test/data/aas/scenario/sealing/rfq_2026_204.aas.json')
+UNION ALL
+SELECT unnest(aas_to_trees(content)) FROM read_blob('test/data/aas/scenario/sealing/offers/*');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+# ComposedOf: the parts hang under the composite (AND); a composite without properties is a
+# container, so the parts are the requirements and no offer is asked for the label 'station'
+query TTTT
+SELECT split_part(node_id, '.', -1), split_part(parent_id, '.', -1), node_kind, edge_type FROM tree_nodes
+WHERE tree_id = 'RFQ-2026-204' AND node_id LIKE '%Container' ORDER BY 1;
+----
+FilmCuttingContainer	SealingStationContainer	item	AND
+HotPlateSealingContainer	SealingStationContainer	item	AND
+SealingStationContainer	CapabilitySet	container	AND
+
+query I
+SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes');
+----
+0
+
+# GeneralizedBy from the taxonomy AAS: in-model references and an external ontology class
+statement ok
+CREATE TABLE class_hierarchy AS
+SELECT unnest(aas_class_hierarchy(content), recursive := true)
+FROM read_text('test/data/aas/scenario/sealing/capability_taxonomy.aas.json');
+
+query TT
+SELECT replace(class_id, 'https://vocab.machinery.example/capability/', ''),
+       replace(parent_class_id, 'https://vocab.machinery.example/capability/', '')
+FROM class_hierarchy ORDER BY 1;
+----
+FilmCutting	Cutting
+HotPlateSealing	HeatSealing
+ImpulseSealing	HeatSealing
+
+statement ok
+SET VARIABLE offers = ['https://siegtech.example/aas/st-3', 'https://varipack.example/aas/vp-9'];
+
+# Default: no credit for a more general offer; Varipack lacks hot-plate sealing
+query TRI
+SELECT split_part(candidate_id, '/', 3), round(coverage, 3), n_gaps
+FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels := 'hard') ORDER BY rank;
+----
+siegtech.example	1.0	0
+varipack.example	0.5	1
+
+# A hierarchy without credit gives a general offer nothing for a specific requirement
+query TRI
+SELECT split_part(candidate_id, '/', 3), round(coverage, 3), n_gaps
+FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels := 'hard',
+                   class_hierarchy := 'class_hierarchy') ORDER BY rank;
+----
+siegtech.example	1.0	0
+varipack.example	0.5	1
+
+# With generalization_credit 0.5 heat sealing answers hot-plate sealing at half the label agreement
+query TRI
+SELECT split_part(candidate_id, '/', 3), round(coverage, 3), n_gaps
+FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), labels := 'hard',
+                   class_hierarchy := 'class_hierarchy', generalization_credit := 0.5) ORDER BY rank;
+----
+siegtech.example	1.0	0
+varipack.example	0.75	0
+
+# The trace marks generalized matches
+query TTRTR
+SELECT split_part(req_node_id, '.', 3), split_part(matched_node_id, '.', 3), label_sim, label_rule, req_score
+FROM tree_coverage_trace('RFQ-2026-204', candidates := ['https://varipack.example/aas/vp-9'], labels := 'hard',
+                         class_hierarchy := 'class_hierarchy', generalization_credit := 0.5)
+GROUP BY ALL ORDER BY 1;
+----
+FilmCuttingContainer	FilmCuttingContainer	1.0	exact	1.0
+HotPlateSealingContainer	HeatSealingContainer	0.5	generalized	0.5
+
+# The other direction is is-a: a hot-plate sealer IS a heat sealer and a joining machine, so it
+# fully meets requirements for either, at any distance (label_rule 'specialized')
+statement ok
+CREATE TABLE deep_hierarchy AS SELECT * FROM class_hierarchy
+UNION ALL SELECT 'https://vocab.machinery.example/capability/HeatSealing', 'https://vocab.machinery.example/capability/Joining';
+
+statement ok
+CREATE TABLE probe_nodes AS SELECT * FROM (VALUES
+    ('Q-heat', 'Q-heat', NULL, 'item', 'AND', 'heat sealing', 'https://vocab.machinery.example/capability/HeatSealing', 1.0),
+    ('Q-join', 'Q-join', NULL, 'item', 'AND', 'joining', 'https://vocab.machinery.example/capability/Joining', 1.0),
+    ('O-hot', 'O-hot', NULL, 'item', 'AND', 'hot-plate sealing', 'https://vocab.machinery.example/capability/HotPlateSealing', 1.0)
+) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+query TRT
+SELECT query_id, req_score, label_rule
+FROM tree_coverage_trace(['Q-heat', 'Q-join'], candidates := ['O-hot'], nodes_table := 'probe_nodes', attrs_table := NULL,
+                         labels := 'hard', class_hierarchy := 'deep_hierarchy')
+ORDER BY 1;
+----
+Q-heat	1.0	specialized
+Q-join	1.0	specialized
+
+# Soft labels use the same relation: Bhattacharyya with related classes credited
+statement ok
+CREATE TABLE probe_labels AS SELECT * FROM (VALUES
+    ('Q-heat', 'Q-heat', 'https://vocab.machinery.example/capability/HeatSealing', 1.0),
+    ('O-hot', 'O-hot', 'https://vocab.machinery.example/capability/HotPlateSealing', 0.64),
+    ('O-hot', 'O-hot', 'https://vocab.machinery.example/capability/HeatSealing', 0.36)
+) t(tree_id, node_id, class_id, p);
+
+statement ok
+CREATE TABLE unlabelled AS SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM probe_nodes;
+
+# exact part sqrt(1 x 0.36) = 0.6, related part 0.5 x sqrt(1 x 0.64) = 0.4: L = 1.0 (capped);
+# without the hierarchy L = 0.6
+query RR
+SELECT (SELECT coverage FROM tree_coverage('Q-heat', candidates := ['O-hot'], nodes_table := 'unlabelled', attrs_table := NULL,
+                                           label_table := 'probe_labels')),
+       (SELECT coverage FROM tree_coverage('Q-heat', candidates := ['O-hot'], nodes_table := 'unlabelled', attrs_table := NULL,
+                                           label_table := 'probe_labels', class_hierarchy := 'class_hierarchy',
+                                           generalization_credit := 0.5));
+----
+0.6	1.0
+
+statement error
+SELECT * FROM tree_coverage('RFQ-2026-204', candidates := getvariable('offers'), generalization_credit := 1.5);
+----
+generalization_credit must be between 0 and 1
+
+#------------------------------------------------------------------------------
+# Regression: default results on the seating benchmark are unchanged (#32 acceptance)
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE b_req_nodes AS
+SELECT n.* EXCLUDE (class_id), g.class_id
+FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz') n
+LEFT JOIN read_csv_auto('test/data/coverage/gold_item_class.csv.gz') g USING (tree_id, node_id);
+
+statement ok
+CREATE TABLE b_req_attrs AS
+SELECT tree_id, node_id, attr_id, name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.category
+FROM (SELECT a.*, parse_quantity(a.value_text, r.lang) AS q
+      FROM read_csv_auto('test/data/coverage/request_attributes.csv.gz') a
+      JOIN read_csv_auto('test/data/coverage/requests.csv.gz') r ON r.request_id = a.tree_id);
+
+statement ok
+CREATE TABLE b_prog_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
+
+statement ok
+CREATE TABLE b_prog_attrs AS SELECT * FROM read_csv_auto('test/data/coverage/programme_attributes.csv.gz');
+
+statement ok
+CREATE TABLE b_overrides AS SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/gold_vocabulary.csv.gz');
+
+statement ok
+SET VARIABLE b_requests = (SELECT list(DISTINCT tree_id ORDER BY tree_id)[1:12] FROM b_req_nodes);
+
+statement ok
+CREATE TABLE baseline AS SELECT query_id, candidate_id, coverage, rank FROM tree_coverage(getvariable('b_requests'), k := 10,
+    nodes_table := 'b_req_nodes', attrs_table := 'b_req_attrs', candidate_nodes_table := 'b_prog_nodes',
+    candidate_attrs_table := 'b_prog_attrs', overrides_table := 'b_overrides');
+
+# an unrelated hierarchy with credit, and the AAS hierarchy without credit
+statement ok
+CREATE TABLE with_hierarchy AS SELECT query_id, candidate_id, coverage, rank FROM tree_coverage(getvariable('b_requests'), k := 10,
+    nodes_table := 'b_req_nodes', attrs_table := 'b_req_attrs', candidate_nodes_table := 'b_prog_nodes',
+    candidate_attrs_table := 'b_prog_attrs', overrides_table := 'b_overrides',
+    class_hierarchy := 'class_hierarchy', generalization_credit := 0.5);
+
+statement ok
+CREATE TABLE no_credit AS SELECT query_id, candidate_id, coverage, rank FROM tree_coverage(getvariable('b_requests'), k := 10,
+    nodes_table := 'b_req_nodes', attrs_table := 'b_req_attrs', candidate_nodes_table := 'b_prog_nodes',
+    candidate_attrs_table := 'b_prog_attrs', overrides_table := 'b_overrides', class_hierarchy := 'class_hierarchy');
+
+query III
+SELECT (SELECT count(*) FROM baseline),
+       (SELECT count(*) FROM (SELECT * FROM baseline EXCEPT ALL SELECT * FROM with_hierarchy)),
+       (SELECT count(*) FROM (SELECT * FROM baseline EXCEPT ALL SELECT * FROM no_credit));
+----
+120	0	0

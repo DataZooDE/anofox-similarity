@@ -1,0 +1,208 @@
+# name: test/sql/aas/uc_04_bounds_from_ranges_levels_and_constraints.test
+# description: AAS has no "at least", "at most" or "within". A requirement is stated as a
+#              one-sided Range, as an IEC 61360 levelType, or as an IDTA-02020 BasicConstraint
+#              on a property. The reader derives the bound the kernel needs, and the trace shows
+#              where it came from. Role is informational: the query tree is the requirement.
+# group: [aas]
+
+require anofox_similarity
+
+#------------------------------------------------------------------------------
+# Range: only min -> at_least, only max -> at_most, both -> within (the RFQ of the scenario)
+#------------------------------------------------------------------------------
+
+query TTT
+SELECT a.attr_id, a.bound, a.bound_source FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n
+    FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')))
+WHERE a.lo IS NOT NULL ORDER BY 1;
+----
+AmbientTemperature	at_least	range
+CycleTime	at_most	range
+RatedCurrent	at_least	range
+SupplyVoltage	within	range
+
+#------------------------------------------------------------------------------
+# levelType and text: a single value with a direction
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE MACRO level_prop(id_short, value, unit, levels) AS
+    '{"modelType": "Property", "idShort": "' || id_short || '", "valueType": "xs:double", "value": "' || value || '",
+      "embeddedDataSpecifications": [{"dataSpecification": {"type": "ExternalReference", "keys": [{"type": "GlobalReference",
+        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"}]},
+        "dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+          "preferredName": [{"language": "en", "text": "' || id_short || '"}], "unit": "' || unit || '",
+          "levelType": ' || levels || '}}]}';
+
+statement ok
+CREATE TABLE spec AS SELECT '{"modelType": "Submodel", "id": "urn:rfq:hydraulic-unit", "idShort": "Requirements",
+  "submodelElements": [' ||
+    level_prop('MinFlow', '40', 'l/min', '{"min": true, "nom": false, "typ": false, "max": false}') || ', ' ||
+    level_prop('MaxNoise', '72', 'dB(A)', '{"min": false, "nom": false, "typ": false, "max": true}') || ', ' ||
+    level_prop('NominalPressure', '160', 'bar', '{"min": false, "nom": true, "typ": false, "max": false}') || ', ' ||
+    level_prop('TypicalPower', '5.5', 'kW', '{"min": false, "nom": false, "typ": true, "max": false}') || ', ' ||
+    level_prop('PressureBand', '150', 'bar', '{"min": true, "nom": false, "typ": false, "max": true}') || ',
+    {"modelType": "Property", "idShort": "TankVolume", "valueType": "xs:string", "value": "mindestens 60 l"},
+    {"modelType": "Range", "idShort": "OilTemperature", "valueType": "xs:double", "min": "20", "max": "60",
+     "embeddedDataSpecifications": [{"dataSpecification": {"type": "ExternalReference", "keys": [{"type": "GlobalReference",
+        "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"}]},
+        "dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "preferredName": [{"language": "en", "text": "oil temperature"}],
+        "unit": "°C", "levelType": {"min": false, "nom": false, "typ": false, "max": true}}}]}
+  ]}' AS content;
+
+# min -> at_least, max -> at_most, nom -> equals; typ and several levels state no direction; text
+# states its own; a Range keeps its own bound, whatever the levelType says
+query TTT
+SELECT a.attr_id, a.bound, a.bound_source FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n FROM spec))
+ORDER BY 1;
+----
+MaxNoise	at_most	level_type
+MinFlow	at_least	level_type
+NominalPressure	equals	level_type
+OilTemperature	within	range
+PressureBand	NULL	NULL
+TankVolume	at_least	text
+TypicalPower	NULL	NULL
+
+#------------------------------------------------------------------------------
+# IDTA-02020 BasicConstraint: "<= 1 ms" on the cycle time, related by ConstraintHasProperty
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE MACRO cd_ref(path) AS '{"type": "ExternalReference", "keys": [{"type": "GlobalReference",
+    "value": "https://admin-shell.io/idta/CapabilityDescription/' || path || '/1/0"}]}';
+
+statement ok
+CREATE MACRO model_ref(container, rest) AS '{"type": "ModelReference", "keys": [
+    {"type": "Submodel", "value": "urn:rfq:sm:cap"},
+    {"type": "SubmodelElementCollection", "value": "CapabilitySet"},
+    {"type": "SubmodelElementCollection", "value": "' || container || '"}' || rest || ']}';
+
+statement ok
+CREATE MACRO constraint_container(id_short, expression, target) AS
+    '{"modelType": "SubmodelElementCollection", "idShort": "' || id_short || '", "semanticId": ' || cd_ref('PropertyConstraintContainer') || ',
+      "value": [
+        {"modelType": "Property", "idShort": "BasicConstraint", "valueType": "xs:string", "value": "' || expression || '",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference",
+           "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintType/BasicConstraint/1/0"}]}},
+        {"modelType": "SubmodelElementCollection", "idShort": "ConstraintPropertyRelations", "semanticId": ' || cd_ref('ConstraintPropertyRelations') || ',
+         "value": [{"modelType": "RelationshipElement", "idShort": "ConstraintHasProperty", "semanticId": ' || cd_ref('ConstraintHasProperty') || ',
+                    "first": ' || model_ref('FieldbusContainer', '') || ', "second": ' || target || '}]}]}';
+
+statement ok
+CREATE TABLE capability AS SELECT '{"modelType": "Submodel", "id": "urn:rfq:sm:cap", "idShort": "CapabilityDescription",
+  "submodelElements": [{"modelType": "SubmodelElementCollection", "idShort": "CapabilitySet", "value": [
+    {"modelType": "SubmodelElementCollection", "idShort": "FieldbusContainer", "semanticId": ' || cd_ref('CapabilityContainer') || ', "value": [
+      {"modelType": "Capability", "idShort": "FieldbusCommunication",
+       "qualifiers": [{"type": "Required", "valueType": "xs:boolean", "value": "true"}]},
+      {"modelType": "SubmodelElementCollection", "idShort": "PropertySet", "semanticId": ' || cd_ref('PropertySet') || ', "value": [
+        {"modelType": "SubmodelElementCollection", "idShort": "CycleTime", "semanticId": ' || cd_ref('PropertyContainer') || ', "value": [
+          {"modelType": "Property", "idShort": "PropertyProperty", "valueType": "xs:double", "value": "0.001"}]},
+        {"modelType": "SubmodelElementCollection", "idShort": "Jitter", "semanticId": ' || cd_ref('PropertyContainer') || ', "value": [
+          {"modelType": "Property", "idShort": "PropertyProperty", "valueType": "xs:double", "value": "0.00001"}]},
+        {"modelType": "SubmodelElementCollection", "idShort": "Nodes", "semanticId": ' || cd_ref('PropertyContainer') || ', "value": [
+          {"modelType": "Property", "idShort": "PropertyProperty", "valueType": "xs:int", "value": "32"}]}]},
+      {"modelType": "SubmodelElementCollection", "idShort": "CapabilityRelations", "semanticId": ' || cd_ref('CapabilityRelations') || ', "value": [
+        {"modelType": "SubmodelElementCollection", "idShort": "ConstraintSet", "semanticId": ' || cd_ref('ConstraintSet') || ', "value": [' ||
+          -- names the value element
+          constraint_container('CycleTimeLimit', '<= 1 ms',
+              model_ref('FieldbusContainer', ', {"type": "SubmodelElementCollection", "value": "PropertySet"},
+                  {"type": "SubmodelElementCollection", "value": "CycleTime"}, {"type": "Property", "value": "PropertyProperty"}')) || ', ' ||
+          -- names the PropertyContainer
+          constraint_container('NodesAtLeast', 'value >= 32',
+              model_ref('FieldbusContainer', ', {"type": "SubmodelElementCollection", "value": "PropertySet"},
+                  {"type": "SubmodelElementCollection", "value": "Nodes"}')) || ', ' ||
+          -- an expression without a comparison
+          constraint_container('JitterNote', 'see data sheet',
+              model_ref('FieldbusContainer', ', {"type": "SubmodelElementCollection", "value": "PropertySet"},
+                  {"type": "SubmodelElementCollection", "value": "Jitter"}')) || ', ' ||
+          -- names a property that does not exist
+          constraint_container('Dangling', '<= 5 ms',
+              model_ref('FieldbusContainer', ', {"type": "SubmodelElementCollection", "value": "PropertySet"},
+                  {"type": "SubmodelElementCollection", "value": "Latency"}')) || ']}]}]}]}]}' AS content;
+
+query TTT
+SELECT a.attr_id, a.bound, a.bound_source FROM (
+    SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n FROM capability))
+ORDER BY 1;
+----
+CycleTime	at_most	constraint
+Jitter	NULL	NULL
+Nodes	at_least	constraint
+
+query TT
+SELECT i.issue, i.detail FROM (SELECT unnest(aas_issues(content)) AS i FROM capability)
+WHERE i.issue LIKE '%constraint' ORDER BY 1;
+----
+unparsed_constraint	BasicConstraint 'see data sheet' states no bound
+unresolved_constraint	ConstraintHasProperty names Latency, which is not a mapped property
+
+#------------------------------------------------------------------------------
+# The trace says where a requirement's bound came from
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
+UNION ALL
+SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/scenario/offers/lenvaro_lx8.aas.json');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+query TTT
+SELECT attr_id, rule, bound_source FROM tree_coverage_trace('RFQ-2026-117', candidates := ['https://lenvaro.example/aas/lx-8'], labels := 'hard')
+ORDER BY attr_id;
+----
+AmbientTemperature	at_least	range
+CycleTime	at_most	range
+Protocol	compat	NULL
+RatedCurrent	at_least	range
+SafeTorqueOff	compat	NULL
+SupplyVoltage	within	range
+
+# tree_from_json records whether the bound was given or read from the text
+query TT
+SELECT a.bound, a.bound_source FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(tree_from_json(
+    '{"node_id": "q", "kind": "item", "attributes": [
+        {"attr_id": "a1", "lo": 8, "unit": "A", "bound": "at_most"},
+        {"attr_id": "a2", "text": "mindestens 24 cm"},
+        {"attr_id": "a3", "lo": 3}]}', 'Q')) AS n)) ORDER BY a.attr_id;
+----
+at_most	explicit
+at_least	text
+NULL	NULL
+
+#------------------------------------------------------------------------------
+# Role is informational (HLD §12): the query tree is the requirement, whatever its role says.
+# validate_trees warns about a tree that mixes required and provided attributes.
+#------------------------------------------------------------------------------
+
+query I
+SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes') WHERE issue = 'mixed_roles';
+----
+0
+
+statement ok
+CREATE TABLE swapped AS SELECT * REPLACE (CASE role WHEN 'required' THEN 'provided' ELSE 'required' END AS role) FROM tree_attributes;
+
+query RR
+SELECT (SELECT coverage FROM tree_coverage('RFQ-2026-117', candidates := ['https://lenvaro.example/aas/lx-8'], labels := 'hard')),
+       (SELECT coverage FROM tree_coverage('RFQ-2026-117', candidates := ['https://lenvaro.example/aas/lx-8'], labels := 'hard',
+                                           nodes_table := 'tree_nodes', attrs_table := 'swapped'));
+----
+1.0	1.0
+
+statement ok
+INSERT INTO tree_attributes (tree_id, node_id, attr_id, name, role)
+VALUES ('RFQ-2026-117', 'CapabilityDescription.CapabilitySet.FieldbusCommunicationContainer', 'Note', 'offered option', 'provided');
+
+query TTT
+SELECT tree_id, issue, severity FROM validate_trees('tree_nodes', 'tree_attributes') WHERE issue = 'mixed_roles';
+----
+RFQ-2026-117	mixed_roles	warning

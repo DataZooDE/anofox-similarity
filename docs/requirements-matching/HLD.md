@@ -717,3 +717,63 @@ precedence over the text above.
       to zero and got a uniform p. Item and catalogue vectors must share one dimension.
     - `cold_start_analogs` returns only materials with consumption history.
       `find_similar_materials_*` and `cold_start_analogs` break ties by material id.
+
+## 12. AAS integration (2026-11-11)
+
+Epic [#37](https://github.com/DataZooDE/anofox-similarity/issues/37). AAS v3.x and IDTA-02020
+(Capability Description) standardise how requirements and offers are written down, but not how
+they are matched. These decisions take precedence over the text above.
+
+1. **Dictionary keys decide when both sides have them** (#28). An optional `attr_key` column
+   holds the semanticId. Keys are compared after `semantic_key` (#29), which strips the release
+   suffix. Equal keys give `name_sim = 1`. Different keys are a hard gate (`rule =
+   'key_mismatch'`), like a dimension mismatch, not a `mu` discount. When only one side has a
+   key, names are compared as before. If an item has an attribute with the requirement's key,
+   only keyed attributes may answer that requirement.
+2. **Role is informational** (#31). `tree_coverage` reads the query tree as the requirement and
+   the candidates as offers, whatever `role` says. The reader still fills `role` from the
+   IDTA-02020 `CapabilityRoleQualifier` (Required → `required`, Offered → `provided`), and
+   `validate_trees` warns (`mixed_roles`) when one tree mixes both. Enforcing the role was
+   rejected: the same offer tree serves as candidate in one ranking and as query in another
+   (§4.6, request → past solution), and an error would block exactly that reuse.
+3. **Bounds are derived and traced** (#31). A one-sided `Range` gives `at_least` / `at_most`,
+   a two-sided one `within`. A single value with an IEC 61360 `levelType` of exactly min, max
+   or nom gives `at_least`, `at_most` or `equals`; `typ` or several levels give none. An
+   IDTA-02020 `BasicConstraint` (`<= 1 ms`) is read like a quantity text and applied to the
+   properties its `ConstraintHasProperty` relations name; it overrides the Range bound.
+   `bound_source` (`explicit`, `text`, `range`, `level_type`, `constraint`; `template` for a
+   catalogue default) is kept on the attribute and shown in the trace.
+4. **Unit identifiers are resolved before the unit text** (#30), and never in free text. The seed
+   carries UN/ECE Rec 20 codes; ECLASS unit IRDIs are licensed content and come from the user's
+   `unit_table`.
+5. **Composition and a class hierarchy, off by default** (#32). IDTA-02020 ComposedOf moves a
+   part's item under its composite, as an AND child: the composite is a requirement, and so is each
+   part. GeneralizedBy gives `(class_id, parent_class_id)` edges. With `class_hierarchy` and
+   `generalization_credit` c, label agreement becomes Bhattacharyya with a class-relatedness
+   kernel (1 for the same class, c^d for an ancestor or descendant at distance d). With c = 0 it
+   is the plain coefficient, so existing results are unchanged; the benchmark regression is in
+   `test/sql/aas/uc_05_general_offer_gets_partial_credit.test`. A related match must still pass
+   `partition_gate` and `count_gate`. Stage-1 recall stays class-exact.
+6. **A small AAS profile for what AAS cannot say** (#33, guide `docs/guides/10-aas-profile.md`).
+   A qualifier `anofox:VariantGroup` makes a collection's children OR alternatives; a qualifier
+   `anofox:Count` or a Property with semanticId `https://anofox.com/aas/Count/1/0` sets a
+   node count. Plain AAS without the markers loads unchanged.
+7. **Decisions of the Tier 2 review (AAS-2), with the product owner.**
+   - The class hierarchy is **is-a**: an offer of a subclass fully meets a requirement of its
+     superclass (`label_rule = 'specialized'`); only a superclass offer gets
+     `generalization_credit^d`. This revises item 5, where both directions got c^d.
+   - A ComposedOf composite **without properties of its own is a container**: only its parts are
+     requirements. This revises item 5.
+   - **One alternative per candidate OR group** for the whole request (`alternatives := 'joint'`,
+     default). This revises §4.6 and §11.9 ("best variant per requirement"), which remains
+     available as `alternatives := 'per_requirement'`. The full suite and the benchmark KPIs are
+     unchanged; the tender example's documented pitfall (a station built from two module
+     variants) is gone.
+   - A generalized item counts towards a required count relative to the best match (L / L(best)),
+     so superclass items cannot hide a count shortfall.
+8. **Writing AAS** (#34). `trees_to_aas` is the inverse of the reader: idShort paths come from the
+   node ids, so a tree read from AAS reads back unchanged (except `value_text`, written in base
+   units). Items with a role, and items without attributes, are written as IDTA-02020
+   CapabilityContainers; ComposedOf parts next to their composite with relations. The gap list is a
+   `CoverageResult` submodel in the `https://anofox.com/aas/` namespace. The output validates
+   against the AAS v3.2 JSON schema and opens in Eclipse BaSyx.

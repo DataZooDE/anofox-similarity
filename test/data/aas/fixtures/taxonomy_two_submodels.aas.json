@@ -1,0 +1,278 @@
+{
+ "assetAdministrationShells": [
+  {
+   "modelType": "AssetAdministrationShell",
+   "id": "urn:tax",
+   "idShort": "Taxonomy",
+   "assetInformation": {
+    "assetKind": "Type"
+   },
+   "submodels": [
+    {
+     "type": "ModelReference",
+     "keys": [
+      {
+       "type": "Submodel",
+       "value": "urn:tax:sm:specific"
+      }
+     ]
+    },
+    {
+     "type": "ModelReference",
+     "keys": [
+      {
+       "type": "Submodel",
+       "value": "urn:tax:sm:general"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "submodels": [
+  {
+   "modelType": "Submodel",
+   "id": "urn:tax:sm:specific",
+   "idShort": "Specific",
+   "submodelElements": [
+    {
+     "modelType": "SubmodelElementCollection",
+     "idShort": "CapabilitySet",
+     "value": [
+      {
+       "modelType": "SubmodelElementCollection",
+       "idShort": "HotPlateSealingContainer",
+       "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+         {
+          "type": "GlobalReference",
+          "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+         }
+        ]
+       },
+       "value": [
+        {
+         "modelType": "Capability",
+         "idShort": "HotPlateSealing",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+           }
+          ]
+         },
+         "supplementalSemanticIds": [
+          {
+           "type": "ExternalReference",
+           "keys": [
+            {
+             "type": "GlobalReference",
+             "value": "https://vocab.machinery.example/capability/HotPlateSealing"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "CapabilityRelations",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "GeneralizedBySet",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/GeneralizedBySet/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "RelationshipElement",
+             "idShort": "GeneralizedBy0",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityGeneralizedBy/1/0"
+               }
+              ]
+             },
+             "first": {
+              "type": "ModelReference",
+              "keys": [
+               {
+                "type": "Submodel",
+                "value": "urn:tax:sm:specific"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "CapabilitySet"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "HotPlateSealingContainer"
+               },
+               {
+                "type": "Capability",
+                "value": "HotPlateSealing"
+               }
+              ]
+             },
+             "second": {
+              "type": "ModelReference",
+              "keys": [
+               {
+                "type": "Submodel",
+                "value": "urn:tax:sm:general"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "CapabilitySet"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "HeatSealingContainer"
+               },
+               {
+                "type": "Capability",
+                "value": "HeatSealing"
+               }
+              ]
+             }
+            },
+            {
+             "modelType": "RelationshipElement",
+             "idShort": "GeneralizedBy1",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityGeneralizedBy/1/0"
+               }
+              ]
+             },
+             "first": {
+              "type": "ModelReference",
+              "keys": [
+               {
+                "type": "Submodel",
+                "value": "urn:tax:sm:specific"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "CapabilitySet"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "HotPlateSealingContainer"
+               },
+               {
+                "type": "Capability",
+                "value": "HotPlateSealing"
+               }
+              ]
+             },
+             "second": {
+              "type": "ModelReference",
+              "keys": [
+               {
+                "type": "Submodel",
+                "value": "urn:tax:sm:missing"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "CapabilitySet"
+               },
+               {
+                "type": "SubmodelElementCollection",
+                "value": "JoiningContainer"
+               },
+               {
+                "type": "Capability",
+                "value": "Joining"
+               }
+              ]
+             }
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "modelType": "Submodel",
+   "id": "urn:tax:sm:general",
+   "idShort": "General",
+   "submodelElements": [
+    {
+     "modelType": "SubmodelElementCollection",
+     "idShort": "CapabilitySet",
+     "value": [
+      {
+       "modelType": "SubmodelElementCollection",
+       "idShort": "HeatSealingContainer",
+       "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+         {
+          "type": "GlobalReference",
+          "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+         }
+        ]
+       },
+       "value": [
+        {
+         "modelType": "Capability",
+         "idShort": "HeatSealing",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+           }
+          ]
+         },
+         "supplementalSemanticIds": [
+          {
+           "type": "ExternalReference",
+           "keys": [
+            {
+             "type": "GlobalReference",
+             "value": "https://vocab.machinery.example/capability/HeatSealing"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

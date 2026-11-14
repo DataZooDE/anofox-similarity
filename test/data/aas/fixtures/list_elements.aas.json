@@ -1,0 +1,19 @@
+{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:lists", "idShort": "TechnicalData",
+    "submodelElements": [{
+      "modelType": "SubmodelElementCollection", "idShort": "Motor",
+      "value": [
+        {"modelType": "SubmodelElementList", "idShort": "RatedSpeeds", "orderRelevant": true,
+         "semanticIdListElement": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ960#001"}]},
+         "typeValueListElement": "Property", "valueTypeListElement": "xs:double",
+         "value": [{"modelType": "Property", "value": "1500"}, {"modelType": "Property", "value": "3000"}]}
+      ]
+    }]
+  }],
+  "conceptDescriptions": [
+    {"modelType": "ConceptDescription", "id": "0173-1#02-AAZ960#001",
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+       "preferredName": [{"language": "en", "text": "rated speed"}], "unit": "rpm"}}]}
+  ]
+}

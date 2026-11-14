@@ -1,0 +1,25 @@
+{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:typed", "idShort": "Spec",
+    "submodelElements": [{
+      "modelType": "SubmodelElementCollection", "idShort": "Drive",
+      "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "urn:fx:class:drive"}]},
+      "value": [
+        {"modelType": "Property", "idShort": "StoYes", "valueType": "xs:boolean", "value": "yes"},
+        {"modelType": "Property", "idShort": "StoOne", "valueType": "xs:boolean", "value": "1"},
+        {"modelType": "Property", "idShort": "StoFalse", "valueType": "xs:boolean", "value": "false"},
+        {"modelType": "Property", "idShort": "Axes", "valueType": "xs:int", "value": "1.5"},
+        {"modelType": "Property", "idShort": "Poles", "valueType": "xs:int", "value": "8"},
+        {"modelType": "Property", "idShort": "Speed", "valueType": "xs:double", "value": "1,500"},
+        {"modelType": "Property", "idShort": "Torque", "valueType": "xs:double", "value": "2,5"},
+        {"modelType": "Range", "idShort": "Voltage", "valueType": "xs:double", "min": "380,5", "max": "480"},
+        {"modelType": "Property", "idShort": "Inertia", "valueType": "xs:double"},
+        {"modelType": "Property", "idShort": "Mass", "valueType": "xs:double", "value": ""},
+        {"modelType": "Property", "idShort": "Protection", "valueType": "xs:string", "value": "IP65"},
+        {"modelType": "Property", "idShort": "Fieldbus", "valueType": "xs:string", "value": "EtherCAT",
+         "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ902#002"}]}},
+        {"modelType": "Property", "idShort": "Remark", "valueType": "xs:string", "value": "delivered with mounting kit"}
+      ]
+    }]
+  }]
+}

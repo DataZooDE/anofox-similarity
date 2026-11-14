@@ -1,0 +1,355 @@
+{
+ "assetAdministrationShells": [
+  {
+   "modelType": "AssetAdministrationShell",
+   "id": "urn:twin",
+   "idShort": "Twin",
+   "assetInformation": {
+    "assetKind": "Type"
+   },
+   "submodels": [
+    {
+     "type": "ModelReference",
+     "keys": [
+      {
+       "type": "Submodel",
+       "value": "urn:first"
+      }
+     ]
+    },
+    {
+     "type": "ModelReference",
+     "keys": [
+      {
+       "type": "Submodel",
+       "value": "urn:other"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "submodels": [
+  {
+   "modelType": "Submodel",
+   "id": "urn:first",
+   "idShort": "SM",
+   "submodelElements": [
+    {
+     "modelType": "SubmodelElementCollection",
+     "idShort": "CapabilitySet",
+     "value": [
+      {
+       "modelType": "SubmodelElementCollection",
+       "idShort": "BusContainer",
+       "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+         {
+          "type": "GlobalReference",
+          "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+         }
+        ]
+       },
+       "value": [
+        {
+         "modelType": "Capability",
+         "idShort": "Bus",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+           }
+          ]
+         },
+         "supplementalSemanticIds": [
+          {
+           "type": "ExternalReference",
+           "keys": [
+            {
+             "type": "GlobalReference",
+             "value": "https://vocab.machinery.example/capability/Fieldbus"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "PropertySet",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "CycleTime",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "Property",
+             "idShort": "PropertyProperty",
+             "valueType": "xs:double",
+             "value": "0.004",
+             "embeddedDataSpecifications": [
+              {
+               "dataSpecificationContent": {
+                "modelType": "DataSpecificationIec61360",
+                "preferredName": [
+                 {
+                  "language": "en",
+                  "text": "CycleTime"
+                 }
+                ],
+                "unit": "s"
+               }
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "CapabilityRelations",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "ConstraintSet",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintSet/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "SubmodelElementCollection",
+             "idShort": "Limit",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintContainer/1/0"
+               }
+              ]
+             },
+             "value": [
+              {
+               "modelType": "Property",
+               "idShort": "BasicConstraint",
+               "valueType": "xs:string",
+               "value": "<= 2 ms",
+               "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                 {
+                  "type": "GlobalReference",
+                  "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintType/BasicConstraint/1/0"
+                 }
+                ]
+               }
+              },
+              {
+               "modelType": "SubmodelElementCollection",
+               "idShort": "ConstraintPropertyRelations",
+               "value": [
+                {
+                 "modelType": "RelationshipElement",
+                 "idShort": "ConstraintHasProperty",
+                 "semanticId": {
+                  "type": "ExternalReference",
+                  "keys": [
+                   {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintHasProperty/1/0"
+                   }
+                  ]
+                 },
+                 "first": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:first"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   }
+                  ]
+                 },
+                 "second": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:other"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "BusContainer"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "PropertySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CycleTime"
+                   }
+                  ]
+                 }
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "modelType": "Submodel",
+   "id": "urn:other",
+   "idShort": "SM",
+   "submodelElements": [
+    {
+     "modelType": "SubmodelElementCollection",
+     "idShort": "CapabilitySet",
+     "value": [
+      {
+       "modelType": "SubmodelElementCollection",
+       "idShort": "BusContainer",
+       "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+         {
+          "type": "GlobalReference",
+          "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+         }
+        ]
+       },
+       "value": [
+        {
+         "modelType": "Capability",
+         "idShort": "Bus",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+           }
+          ]
+         },
+         "supplementalSemanticIds": [
+          {
+           "type": "ExternalReference",
+           "keys": [
+            {
+             "type": "GlobalReference",
+             "value": "https://vocab.machinery.example/capability/Fieldbus"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "PropertySet",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "CycleTime",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "Property",
+             "idShort": "PropertyProperty",
+             "valueType": "xs:double",
+             "value": "0.002",
+             "embeddedDataSpecifications": [
+              {
+               "dataSpecificationContent": {
+                "modelType": "DataSpecificationIec61360",
+                "preferredName": [
+                 {
+                  "language": "en",
+                  "text": "CycleTime"
+                 }
+                ],
+                "unit": "s"
+               }
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

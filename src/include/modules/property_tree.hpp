@@ -39,6 +39,10 @@ void ValidateTreeSource(ClientContext &context, TreeSource &source, const string
 //!   reviewed (true when class_id or the reviewed vocabulary gave the class)
 string ResolvedNodesSQL(const TreeSource &source);
 
+//! The row types of tree_from_json (and aas_to_trees): a node STRUCT with its attribute list.
+LogicalType TreeAttributeType();
+LogicalType TreeNodeType();
+
 void RegisterPropertyTreeFunctions(ExtensionLoader &loader);
 
 } // namespace anofox

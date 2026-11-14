@@ -1,0 +1,145 @@
+# name: test/sql/aas/crew_t3_regressions.test
+# description: Regressions from the final crew review (REVIEW_LOG.md, AAS-3): list order on export,
+#              per-submodel quality counts, NULLs in review tables, result ids, missing metrics.
+# group: [aas]
+
+require anofox_similarity
+
+#------------------------------------------------------------------------------
+# F1: lists of 11 or more keep their order through aas_export (ids sort as text: X[10] < X[2])
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE tree_nodes AS
+SELECT * FROM (VALUES ('T', 'T', NULL, 'container', 'AND', 'meter', NULL::VARCHAR, 1.0),
+                      ('T', 'T.Log', 'T', 'item', 'AND', 'log', 'urn:class:log', 1.0)) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count)
+UNION ALL
+SELECT 'T', 'T.Series[' || i || ']', 'T.Series', 'item', 'AND', 'sample ' || i, 'urn:class:sample', 1.0 FROM range(12) r(i)
+UNION ALL SELECT 'T', 'T.Series', 'T', 'container', 'AND', 'series', NULL, 1.0;
+
+statement ok
+CREATE TABLE tree_attributes AS
+SELECT 'T' AS tree_id, 'T.Log' AS node_id, 'Readings[' || i || ']' AS attr_id, 'reading' AS name, 'length' AS dimension, 'm' AS unit,
+       i::DOUBLE AS lo, i::DOUBLE AS hi, 'urn:prop:reading' AS attr_key FROM range(12) r(i)
+UNION ALL
+SELECT 'T', 'T.Series[' || i || ']', 'Index', 'index', 'count', '1', i::DOUBLE, i::DOUBLE, 'urn:prop:index' FROM range(12) r(i);
+
+statement ok
+CREATE TABLE back AS SELECT unnest(aas_to_trees(aas_json, tree_id)) AS n FROM aas_export();
+
+query I
+SELECT count(*) FROM (SELECT unnest(n.attributes) AS a FROM back) WHERE a.attr_id LIKE 'Readings[%' AND a.lo <> CAST(regexp_extract(a.attr_id, '\[(\d+)\]', 1) AS DOUBLE);
+----
+0
+
+query I
+SELECT count(*) FROM (SELECT n.node_id, unnest(n.attributes) AS a FROM back) WHERE node_id LIKE 'T.Series[%' AND a.lo <> CAST(regexp_extract(node_id, '\[(\d+)\]', 1) AS DOUBLE);
+----
+0
+
+# a tree without a root is an error, not an empty environment
+statement error
+SELECT trees_to_aas([{'tree_id': 'X', 'node_id': 'a', 'parent_id': 'b'}, {'tree_id': 'X', 'node_id': 'b', 'parent_id': 'a'}]);
+----
+trees_to_aas: tree 'X' has no root
+
+#------------------------------------------------------------------------------
+# F2, F10: quality counts per submodel id, not by idShort prefix; complete gap counts
+#------------------------------------------------------------------------------
+
+query TIII
+SELECT q.submodel, q.n_missing_concept_description, q.n_unresolved_units, q.n_issues FROM (SELECT unnest(aas_quality(
+    '{"submodels": [
+       {"modelType": "Submodel", "id": "urn:a", "idShort": "Tech", "submodelElements": [
+          {"modelType": "Property", "idShort": "Colour", "valueType": "xs:string", "value": "RAL 7035",
+           "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ990#001"}]}}]},
+       {"modelType": "Submodel", "id": "urn:b", "idShort": "TechnicalData", "submodelElements": [
+          {"modelType": "Property", "idShort": "Current", "valueType": "xs:double", "value": "4",
+           "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360",
+             "preferredName": [{"language": "en", "text": "current"}],
+             "unitId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "urn:unknown:unit"}]}}}]},
+          {"modelType": "Property", "idShort": "Width", "valueType": "xs:double", "value": "3",
+           "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ991#001"}]}}]}]}')) AS q)
+ORDER BY 1;
+----
+Tech	1	0	0
+TechnicalData	1	2	2
+
+#------------------------------------------------------------------------------
+# F3: a NULL in the overrides does not empty the suggestion queue
+#------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE uncoded_names AS SELECT node_id, tree_id, label, vec::DOUBLE[] AS vec, tokens::DOUBLE[][] AS tokens
+FROM read_csv('test/data/aas/scenario/enrichment/uncoded_names.csv');
+
+statement ok
+CREATE TABLE dictionary_examples AS SELECT class_id, label, vec::DOUBLE[] AS vec, exemplar_tokens::DOUBLE[][] AS exemplar_tokens
+FROM read_csv('test/data/aas/scenario/enrichment/dictionary_examples.csv');
+
+statement ok
+CREATE TABLE reviewed AS SELECT * FROM (VALUES ('Nennstrom', '0173-1#02-BAA120#008'), (NULL, '0173-1#02-AAZ903#001')) t(wording, class_id);
+
+query I
+SELECT count(*) FROM suggest_semantic_id('uncoded_names', 'dictionary_examples', overrides_table := 'reviewed');
+----
+9
+
+#------------------------------------------------------------------------------
+# F4, F11, F13: result ids per query and candidate, the kernel's coverage, environments
+#------------------------------------------------------------------------------
+
+query I
+SELECT count(DISTINCT j) FROM (VALUES
+    (coverage_result_to_aas('a/b', 'c', 1.0, [{'req_node_id': 'r'}])),
+    (coverage_result_to_aas('a', 'b/c', 1.0, [{'req_node_id': 'r'}]))) t(j);
+----
+2
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-311')) AS n FROM read_text('test/data/aas/scenario/io_profile/rfq_2026_311.aas.json')
+UNION ALL SELECT unnest(aas_to_trees(content, 'IO-S')) FROM read_text('test/data/aas/scenario/io_profile/ostwald_ios.aas.json');
+
+statement ok
+CREATE TABLE io_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE io_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+statement ok
+CREATE TABLE trace AS SELECT * FROM tree_coverage_trace('RFQ-2026-311', candidates := ['IO-S'], nodes_table := 'io_nodes',
+                                                        attrs_table := 'io_attributes', labels := 'hard');
+
+# the result's coverage is the kernel's, also for variant groups
+query RR
+SELECT (SELECT a.lo FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(aas_json)) AS n FROM aas_coverage_result('trace', id_prefix := 'urn:kroeger:results:'))) WHERE a.attr_id = 'Coverage'),
+       (SELECT coverage FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], nodes_table := 'io_nodes', attrs_table := 'io_attributes', labels := 'hard'));
+----
+0.9	0.9
+
+query T
+SELECT aas_json LIKE '%"id": "urn:kroeger:results:%' FROM aas_coverage_result('trace', id_prefix := 'urn:kroeger:results:');
+----
+true
+
+# an environment ready to upload, next to the bare submodel
+query I
+SELECT len(aas_to_trees(aas_environment)) > 0 FROM aas_coverage_result('trace');
+----
+true
+
+# a missing metric is written without a value, not as 0; read back it is a gap, not a zero
+query TT
+SELECT a.attr_id, a.lo FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(
+    coverage_result_to_aas('q', 'c', NULL, [{'req_node_id': 'r', 'req_score': NULL::DOUBLE}]))) AS n))
+WHERE a.attr_id IN ('Coverage', 'RequirementScore') ORDER BY 1;
+----
+Coverage	NULL
+RequirementScore	NULL
+
+# read back, a result raises no findings: its numbers carry a dictionary entry
+query I
+SELECT len(aas_issues(aas_environment)) FROM aas_coverage_result('trace');
+----
+0

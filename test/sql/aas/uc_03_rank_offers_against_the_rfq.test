@@ -1,0 +1,91 @@
+# name: test/sql/aas/uc_03_rank_offers_against_the_rfq.test
+# description: The buyer ranks four supplier AAS against the IDTA-02020 Required capabilities of
+#              RFQ 2026-117 and reads the gap list. Every per-property verdict must agree with
+#              the ground truth that the data generator computed from the clean values, apart
+#              from the extension. Driventa's peak current does not count as the rated current.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
+UNION ALL
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM read_csv('test/data/aas/scenario/eclass_units.csv') u)))
+FROM read_blob('test/data/aas/scenario/offers/*');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+statement ok
+SET VARIABLE offers = (SELECT list(DISTINCT tree_id ORDER BY tree_id) FROM tree_nodes WHERE tree_id <> 'RFQ-2026-117');
+
+# Capability classes come from a shared vocabulary: hard labels
+statement ok
+CREATE TABLE trace AS
+SELECT * FROM tree_coverage_trace('RFQ-2026-117', candidates := getvariable('offers'), labels := 'hard');
+
+statement ok
+CREATE TABLE gold AS SELECT * FROM read_csv('test/data/aas/scenario/gold_offer_verdicts.csv');
+
+statement ok
+CREATE TABLE shells AS SELECT * FROM (VALUES
+    ('https://lenvaro.example/aas/lx-8', 'Lenvaro_LX_8'), ('https://driventa.example/aas/ds-12', 'Driventa_DS_12'),
+    ('https://kessler-antriebe.example/aas/ksd-10', 'Kessler_KSD_10'), ('https://orbitec.example/aas/ox-6', 'Orbitec_OX_6')
+) t(candidate_id, offer);
+
+# All 24 verdicts (4 offers x 6 required properties) agree with the ground truth
+query II
+SELECT count(*), count(*) FILTER ((t.attr_score >= 0.99) <> g.met)
+FROM trace t JOIN shells s USING (candidate_id) JOIN gold g ON g.offer = s.offer AND g.requirement = t.attr_id;
+----
+24	0
+
+# The ranking: Lenvaro meets everything; Orbitec lacks current and grid voltage; Kessler cannot be
+# checked on two properties; Driventa misses on almost everything
+query TRI
+SELECT s.offer, round(coverage, 3), n_gaps
+FROM tree_coverage('RFQ-2026-117', candidates := getvariable('offers'), labels := 'hard') JOIN shells s USING (candidate_id)
+ORDER BY rank;
+----
+Lenvaro_LX_8	1.0	0
+Orbitec_OX_6	0.75	1
+Kessler_KSD_10	0.625	2
+Driventa_DS_12	0.372	2
+
+# The gap list says why. Driventa states a peak current, another dictionary property: a key
+# mismatch, shown with the value it offers instead, not partial credit for shared IRDI tokens.
+# Coded values read as their text
+query TTTT
+SELECT attr_id, req_value, prov_value, rule
+FROM trace JOIN shells s USING (candidate_id) WHERE s.offer = 'Driventa_DS_12' AND attr_score < 0.99 ORDER BY attr_id;
+----
+AmbientTemperature	at_least 318.15 K	313.15 K	at_least
+Protocol	point EtherCAT (0173-1#07-AAZ001)	PROFINET (0173-1#07-AAZ002)	compat
+RatedCurrent	at_least 7.6 A	12 A	key_mismatch
+SafeTorqueOff	point true	false	compat
+SupplyVoltage	within 380..480 V	400..480 V	within
+
+# Kessler states both properties, but one value has no unit and the other is not a number: the
+# trace shows the offered value and says gate / missing, not another property
+query TTT
+SELECT attr_id, prov_value, rule
+FROM trace JOIN shells s USING (candidate_id) WHERE s.offer = 'Kessler_KSD_10' AND attr_score < 0.99 ORDER BY attr_id;
+----
+AmbientTemperature	55	gate
+CycleTime	?	missing
+
+# Every matched property was found by its dictionary key, whatever the offer called it
+query T
+SELECT DISTINCT name_rule FROM trace WHERE name_rule IS NOT NULL;
+----
+key
+
+# Orbitec lists two protocols; EtherCAT, the required one, answers the requirement
+query TT
+SELECT prov_value, rule FROM trace JOIN shells s USING (candidate_id) WHERE s.offer = 'Orbitec_OX_6' AND attr_id = 'Protocol';
+----
+EtherCAT (0173-1#07-AAZ001)	compat

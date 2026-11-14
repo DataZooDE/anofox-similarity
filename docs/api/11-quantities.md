@@ -38,13 +38,43 @@ source_unit, category)`
   written and `dimension` is NULL, so every comparison with it is a gate.
 - A category is a single upper-case code with digits and no number in front (`IP54`, `F1`,
   `M8`); `1 F` is one farad.
-- `unit_table` is a LIST of `STRUCT(symbol, alias, dimension, factor, offset)`, e.g.
+- `unit_table` is a LIST of `STRUCT(symbol, alias, unit_id, dimension, factor, offset)` (`unit_id` optional), e.g.
   `(SELECT list(u) FROM my_units u)`. It extends the seed, and a symbol that is already in the
   seed is overridden. The seed itself can be passed back in. Pass `lang` before `unit_table`
   (on 1.5.6 scalar arguments bind by position).
 
 **`normalize_quantity(value, unit [, unit_table])`** → `STRUCT(value, unit, dimension)`: converts
-to the base unit; an unknown unit returns the input unchanged with `dimension` NULL.
+to the base unit; an unknown unit returns the input unchanged with `dimension` NULL. `unit` may
+also be a **unit identifier** (see below).
+
+**Unit identifiers (`unit_id`).** In AAS data the unit sits in the ConceptDescription as `unit`
+(symbol text) and `unitId` (a reference to a unit dictionary entry). Unit fields resolve by
+symbol or alias first, then by identifier; identifiers are compared with
+[`semantic_key`](17-aas.md), so the IRDI and the ECLASS IRI form and any release suffix match.
+
+- The seed carries **UN/ECE Recommendation 20** codes for its common units (`AMP`, `4K`, `VLT`,
+  `KWT`, `NU`, `CEL`, …; see the `unit_id` column of `quantity_units()`). Rec 20 is published
+  freely by UNECE.
+- **ECLASS unit IRDIs are not shipped.** ECLASS content is licensed; the extension redistributes
+  none of it. Attach your licensed unit list through `unit_table`: an entry with only `symbol` and
+  `unit_id` adds identifiers to a known unit, without restating factors:
+
+  ```sql
+  CREATE TABLE eclass_units (symbol VARCHAR, unit_id VARCHAR);  -- from your ECLASS licence
+  INSERT INTO eclass_units VALUES ('mA', '0173-1#05-AAA236#003');
+  SELECT normalize_quantity(7637.1, '0173-1#05-AAA236#004', (SELECT list(u) FROM eclass_units u));
+  -- {'value': 7.6371, 'unit': A, 'dimension': current}
+  ```
+- A new unit may bring its own ids (`unit_id` is a VARCHAR or a list). Two units claiming one
+  identifier is an error. An entry without dimension whose symbol is unknown is an error.
+- A row for a **known** symbol without a factor only attaches ids and aliases, also when it
+  carries the quantity column (`('mA', '0173-1#05-AAA236#003', 'current')`); with another
+  dimension it is an error. It never redefines the unit with factor 1. An override with a factor
+  but no ids keeps the seed's codes, so `SELECT symbol, alias, unit_id, dimension, factor, "offset"
+  FROM quantity_units()` copied, edited and passed back still resolves `AMP`.
+- Identifiers never take part in free-text parsing: `parse_quantity('5 NEW')` is not 5 newtons.
+- An unknown identifier is never guessed: the value comes back unchanged with `dimension` NULL,
+  and `validate_trees` reports `unknown_unit` for such attributes.
 
 **`value_satisfies(requirement, provided [, scale [, tol, soft_band [, default_bound]]])`** →
 `STRUCT(score, distance, rule)`
@@ -113,7 +143,7 @@ SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimensi
 
 *Table function*
 
-The built-in, read-only units seed of the quantity layer: symbol, alias (list), dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies have factor NULL and are never converted. Copy it into a table to extend it and pass (SELECT list(u) FROM my_units u) as unit_table.
+The built-in, read-only units seed of the quantity layer: symbol, alias (list), unit_id (UN/ECE Rec 20 codes; no ECLASS content), dimension, factor, offset (base = value * factor + offset) and base_unit. Currencies have factor NULL and are never converted. Copy it into a table to extend it and pass (SELECT list(u) FROM my_units u) as unit_table.
 
 ```sql
 quantity_units()
@@ -123,14 +153,14 @@ quantity_units()
 
 ```sql
 SELECT * FROM quantity_units() WHERE dimension = 'length';
-CREATE TABLE my_units AS SELECT symbol, alias, dimension, factor, "offset" FROM quantity_units();
+CREATE TABLE my_units AS SELECT symbol, alias, unit_id, dimension, factor, "offset" FROM quantity_units();
 ```
 
 ### `parse_quantity`
 
 *Scalar function*
 
-Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
+Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
 
 ```sql
 parse_quantity(text VARCHAR) → STRUCT(lo DOUBLE, hi DOUBLE, unit VARCHAR, dimension VARCHAR, bound VARCHAR, raw VARCHAR, source_unit VARCHAR, category VARCHAR)
@@ -154,7 +184,7 @@ SELECT parse_quantity('3 Stk.', ['de'], (SELECT list(u) FROM my_units u));
 
 *Scalar function*
 
-Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit_table extends the seed as in parse_quantity.
+Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit is a symbol, an alias or a unit identifier (UN/ECE Rec 20 code such as 'AMP', or a unit_id from unit_table such as an ECLASS unit IRDI, compared with semantic_key). unit_table extends the seed as in parse_quantity; an entry with only symbol and unit_id attaches identifiers to a known unit.
 
 ```sql
 normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)

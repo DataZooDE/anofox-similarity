@@ -1,0 +1,182 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://kroeger-vt.example/aas/rfq-2026-311",
+      "idShort": "RFQ_2026_311",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://kroeger-vt.example/asset/tray-sealer-ts40/io"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://kroeger-vt.example/aas/rfq-2026-311/sm/io"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://kroeger-vt.example/aas/rfq-2026-311/sm/io",
+      "idShort": "IORequirements",
+      "kind": "Instance",
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "DigitalInputs",
+          "value": [
+            {
+              "modelType": "Property",
+              "idShort": "ChannelCount",
+              "valueType": "xs:int",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://anofox.com/aas/Count/1/0"
+                  }
+                ]
+              },
+              "value": "20"
+            },
+            {
+              "modelType": "Property",
+              "idShort": "InputVoltage",
+              "valueType": "xs:double",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "0173-1#02-AAZ101#001"
+                  }
+                ]
+              },
+              "value": "24"
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "0173-1#01-AAZ100#001"
+              }
+            ]
+          }
+        },
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "DigitalOutputs",
+          "value": [
+            {
+              "modelType": "Property",
+              "idShort": "ChannelCount",
+              "valueType": "xs:int",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://anofox.com/aas/Count/1/0"
+                  }
+                ]
+              },
+              "value": "8"
+            },
+            {
+              "modelType": "Range",
+              "idShort": "OutputCurrent",
+              "valueType": "xs:double",
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "0173-1#02-AAZ111#001"
+                  }
+                ]
+              },
+              "min": "0.5"
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "0173-1#01-AAZ110#001"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": [
+    {
+      "modelType": "ConceptDescription",
+      "id": "0173-1#02-AAZ101#001",
+      "idShort": "InputVoltage",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "modelType": "DataSpecificationIec61360",
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "input voltage"
+              }
+            ],
+            "unit": "V"
+          }
+        }
+      ]
+    },
+    {
+      "modelType": "ConceptDescription",
+      "id": "0173-1#02-AAZ111#001",
+      "idShort": "OutputCurrentPerChannel",
+      "embeddedDataSpecifications": [
+        {
+          "dataSpecification": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+              }
+            ]
+          },
+          "dataSpecificationContent": {
+            "modelType": "DataSpecificationIec61360",
+            "preferredName": [
+              {
+                "language": "en",
+                "text": "output current per channel"
+              }
+            ],
+            "unit": "A"
+          }
+        }
+      ]
+    }
+  ]
+}

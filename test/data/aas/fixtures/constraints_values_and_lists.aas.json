@@ -1,0 +1,460 @@
+{
+ "submodels": [
+  {
+   "modelType": "Submodel",
+   "id": "urn:c",
+   "idShort": "CapabilityDescription",
+   "submodelElements": [
+    {
+     "modelType": "SubmodelElementCollection",
+     "idShort": "CapabilitySet",
+     "value": [
+      {
+       "modelType": "SubmodelElementCollection",
+       "idShort": "BusContainer",
+       "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+         {
+          "type": "GlobalReference",
+          "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+         }
+        ]
+       },
+       "value": [
+        {
+         "modelType": "Capability",
+         "idShort": "Bus",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+           }
+          ]
+         },
+         "supplementalSemanticIds": [
+          {
+           "type": "ExternalReference",
+           "keys": [
+            {
+             "type": "GlobalReference",
+             "value": "https://vocab.machinery.example/capability/Fieldbus"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "PropertySet",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "Nodes",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "SubmodelElementList",
+             "idShort": "Values",
+             "typeValueListElement": "Property",
+             "valueTypeListElement": "xs:int",
+             "value": [
+              {
+               "modelType": "Property",
+               "value": "32"
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "CycleTime",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "Property",
+             "idShort": "PropertyProperty",
+             "valueType": "xs:double",
+             "value": "0.002",
+             "embeddedDataSpecifications": [
+              {
+               "dataSpecificationContent": {
+                "modelType": "DataSpecificationIec61360",
+                "preferredName": [
+                 {
+                  "language": "en",
+                  "text": "cycle time"
+                 }
+                ],
+                "unit": "s"
+               }
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "OilTemperature",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "Range",
+             "idShort": "PropertyRange",
+             "valueType": "xs:double",
+             "min": "20",
+             "max": "60",
+             "embeddedDataSpecifications": [
+              {
+               "dataSpecificationContent": {
+                "modelType": "DataSpecificationIec61360",
+                "preferredName": [
+                 {
+                  "language": "en",
+                  "text": "oil temperature"
+                 }
+                ],
+                "unit": "\u00b0C"
+               }
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "modelType": "SubmodelElementCollection",
+         "idShort": "CapabilityRelations",
+         "semanticId": {
+          "type": "ExternalReference",
+          "keys": [
+           {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+           }
+          ]
+         },
+         "value": [
+          {
+           "modelType": "SubmodelElementCollection",
+           "idShort": "ConstraintSet",
+           "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+             {
+              "type": "GlobalReference",
+              "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintSet/1/0"
+             }
+            ]
+           },
+           "value": [
+            {
+             "modelType": "SubmodelElementCollection",
+             "idShort": "NodesAtLeast",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintContainer/1/0"
+               }
+              ]
+             },
+             "value": [
+              {
+               "modelType": "Property",
+               "idShort": "BasicConstraint",
+               "valueType": "xs:string",
+               "value": ">= 32",
+               "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                 {
+                  "type": "GlobalReference",
+                  "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintType/BasicConstraint/1/0"
+                 }
+                ]
+               }
+              },
+              {
+               "modelType": "SubmodelElementCollection",
+               "idShort": "ConstraintPropertyRelations",
+               "value": [
+                {
+                 "modelType": "RelationshipElement",
+                 "idShort": "ConstraintHasProperty",
+                 "semanticId": {
+                  "type": "ExternalReference",
+                  "keys": [
+                   {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintHasProperty/1/0"
+                   }
+                  ]
+                 },
+                 "first": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   }
+                  ]
+                 },
+                 "second": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "BusContainer"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "PropertySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "Nodes"
+                   }
+                  ]
+                 }
+                }
+               ]
+              }
+             ]
+            },
+            {
+             "modelType": "SubmodelElementCollection",
+             "idShort": "CycleLimit",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintContainer/1/0"
+               }
+              ]
+             },
+             "value": [
+              {
+               "modelType": "Property",
+               "idShort": "BasicConstraint",
+               "valueType": "xs:string",
+               "value": "<= 1 ms",
+               "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                 {
+                  "type": "GlobalReference",
+                  "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintType/BasicConstraint/1/0"
+                 }
+                ]
+               }
+              },
+              {
+               "modelType": "SubmodelElementCollection",
+               "idShort": "ConstraintPropertyRelations",
+               "value": [
+                {
+                 "modelType": "RelationshipElement",
+                 "idShort": "ConstraintHasProperty",
+                 "semanticId": {
+                  "type": "ExternalReference",
+                  "keys": [
+                   {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintHasProperty/1/0"
+                   }
+                  ]
+                 },
+                 "first": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   }
+                  ]
+                 },
+                 "second": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "BusContainer"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "PropertySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CycleTime"
+                   }
+                  ]
+                 }
+                }
+               ]
+              }
+             ]
+            },
+            {
+             "modelType": "SubmodelElementCollection",
+             "idShort": "OilMax",
+             "semanticId": {
+              "type": "ExternalReference",
+              "keys": [
+               {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintContainer/1/0"
+               }
+              ]
+             },
+             "value": [
+              {
+               "modelType": "Property",
+               "idShort": "BasicConstraint",
+               "valueType": "xs:string",
+               "value": "<= 50 \u00b0C",
+               "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                 {
+                  "type": "GlobalReference",
+                  "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyConstraintType/BasicConstraint/1/0"
+                 }
+                ]
+               }
+              },
+              {
+               "modelType": "SubmodelElementCollection",
+               "idShort": "ConstraintPropertyRelations",
+               "value": [
+                {
+                 "modelType": "RelationshipElement",
+                 "idShort": "ConstraintHasProperty",
+                 "semanticId": {
+                  "type": "ExternalReference",
+                  "keys": [
+                   {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/ConstraintHasProperty/1/0"
+                   }
+                  ]
+                 },
+                 "first": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   }
+                  ]
+                 },
+                 "second": {
+                  "type": "ModelReference",
+                  "keys": [
+                   {
+                    "type": "Submodel",
+                    "value": "urn:c"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "CapabilitySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "BusContainer"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "PropertySet"
+                   },
+                   {
+                    "type": "SubmodelElementCollection",
+                    "value": "OilTemperature"
+                   }
+                  ]
+                 }
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

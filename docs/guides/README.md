@@ -16,6 +16,7 @@ only the data in `test/data` or small inline tables.
 | 07 | [Evaluation and tuning](07-evaluation-and-tuning.md) | Measure ranking and calibration, set an auto-accept threshold, fit weights |
 | 08 | [Scale and deduplication](08-scale-and-dedup.md) | Use MinHash/LSH for large archives and cluster duplicate records |
 | 09 | [Nightly pipelines](09-nightly-pipelines.md) | Run it as a scheduled job on a database file: re-runs, data gates, rebuilds, readers |
+| 10 | [The DataZoo AAS profile](10-aas-profile.md) | Express configuration variants and additive counts in an Asset Administration Shell |
 
 ## Where to Start
 
@@ -27,6 +28,7 @@ only the data in `test/data` or small inline tables.
 | "Can we trust the matches?" | 07 |
 | "The archive has a million entries" or "the customer master has duplicates" | 08 |
 | "This has to run every night" | 09 |
+| "Requests and offers arrive as Asset Administration Shells" | [AAS API](../api/17-aas.md) → 10 |
 
 ## Tutorials
 

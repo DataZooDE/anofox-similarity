@@ -367,26 +367,31 @@ Value OptVarchar(const string &s) {
 	return s.empty() ? Value(LogicalType::VARCHAR) : Value(s);
 }
 
-LogicalType AttributeType() {
+} // namespace
+
+LogicalType TreeAttributeType() {
 	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},  {"node_id", LogicalType::VARCHAR},
 	                             {"attr_id", LogicalType::VARCHAR},  {"name", LogicalType::VARCHAR},
 	                             {"value_text", LogicalType::VARCHAR}, {"dimension", LogicalType::VARCHAR},
 	                             {"unit", LogicalType::VARCHAR},     {"lo", LogicalType::DOUBLE},
 	                             {"hi", LogicalType::DOUBLE},        {"role", LogicalType::VARCHAR},
 	                             {"bound", LogicalType::VARCHAR},    {"qualifier", LogicalType::VARCHAR},
-	                             {"category", LogicalType::VARCHAR}};
+	                             {"category", LogicalType::VARCHAR}, {"attr_key", LogicalType::VARCHAR},
+	                             {"bound_source", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
-LogicalType NodeType() {
+LogicalType TreeNodeType() {
 	child_list_t<LogicalType> c {{"tree_id", LogicalType::VARCHAR},   {"node_id", LogicalType::VARCHAR},
 	                             {"parent_id", LogicalType::VARCHAR}, {"node_kind", LogicalType::VARCHAR},
 	                             {"edge_type", LogicalType::VARCHAR}, {"label", LogicalType::VARCHAR},
 	                             {"context", LogicalType::VARCHAR},   {"class_id", LogicalType::VARCHAR},
 	                             {"count", LogicalType::DOUBLE},      {"source", LogicalType::VARCHAR},
-	                             {"attributes", LogicalType::LIST(AttributeType())}};
+	                             {"attributes", LogicalType::LIST(TreeAttributeType())}};
 	return LogicalType::STRUCT(c);
 }
+
+namespace {
 
 struct JsonTreeContext {
 	string tree_id;
@@ -446,7 +451,8 @@ void CheckKeys(const Json &object, std::initializer_list<const char *> known, co
 
 Value AttributeFromJson(const Json &a, const string &attr_id, const string &node_id, const JsonTreeContext &ctx) {
 	CheckKeys(a,
-	          {"attr_id", "name", "text", "value_text", "lo", "hi", "unit", "bound", "role", "qualifier", "category"},
+	          {"attr_id", "name", "text", "value_text", "lo", "hi", "unit", "bound", "role", "qualifier", "category",
+	           "attr_key"},
 	          "node '" + node_id + "', attribute '" + attr_id + "'");
 	auto &units = *ctx.units;
 	string text = JsonString(a.Get("text"));
@@ -460,6 +466,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		role = ctx.role;
 	}
 	string bound = JsonString(a.Get("bound"));
+	string bound_source = bound.empty() ? "" : "explicit";
 	double lo = 0, hi = 0;
 	bool has_lo = JsonNumber(a.Get("lo"), lo);
 	bool has_hi = JsonNumber(a.Get("hi"), hi);
@@ -491,6 +498,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		}
 		if (bound.empty() && !text.empty()) {
 			bound = ParseQuantity(text, ctx.langs, units).bound; // the text states the bound
+			bound_source = bound.empty() ? "" : "text";
 		}
 	} else if (category.empty() && !text.empty()) {
 		auto q = ParseQuantity(text, ctx.langs, units);
@@ -504,6 +512,7 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 		category = q.category;
 		if (bound.empty()) {
 			bound = q.bound; // the text states the bound when the extraction gave none
+			bound_source = bound.empty() ? "" : "text";
 		}
 	}
 	child_list_t<Value> v;
@@ -520,6 +529,8 @@ Value AttributeFromJson(const Json &a, const string &attr_id, const string &node
 	v.emplace_back("bound", OptVarchar(bound));
 	v.emplace_back("qualifier", OptVarchar(JsonString(a.Get("qualifier"))));
 	v.emplace_back("category", OptVarchar(category));
+	v.emplace_back("attr_key", OptVarchar(JsonString(a.Get("attr_key"))));
+	v.emplace_back("bound_source", OptVarchar(bound_source));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -616,7 +627,7 @@ void NodeFromJson(const Json &n, const string &parent_id, JsonTreeContext &ctx, 
 	v.emplace_back("class_id", OptVarchar(JsonString(n.Get("class_id"))));
 	v.emplace_back("count", Value::DOUBLE(count));
 	v.emplace_back("source", OptVarchar(source));
-	v.emplace_back("attributes", Value::LIST(AttributeType(), std::move(attrs)));
+	v.emplace_back("attributes", Value::LIST(TreeAttributeType(), std::move(attrs)));
 	ctx.rows.push_back(Value::STRUCT(std::move(v)));
 	if (children && children->kind == Json::Kind::ARRAY) {
 		for (auto &c : children->items) {
@@ -630,7 +641,7 @@ void TreeFromJsonFun(DataChunk &args, ExpressionState &, Vector &result) {
 	for (idx_t i = 0; i < count; i++) {
 		auto doc = args.data[0].GetValue(i);
 		if (doc.IsNull()) {
-			result.SetValue(i, Value(LogicalType::LIST(NodeType())));
+			result.SetValue(i, Value(LogicalType::LIST(TreeNodeType())));
 			continue;
 		}
 		auto text = doc.ToString();
@@ -681,7 +692,7 @@ void TreeFromJsonFun(DataChunk &args, ExpressionState &, Vector &result) {
 			ctx.units = &user_units;
 		}
 		NodeFromJson(*root, "", ctx, 0);
-		result.SetValue(i, Value::LIST(NodeType(), std::move(ctx.rows)));
+		result.SetValue(i, Value::LIST(TreeNodeType(), std::move(ctx.rows)));
 	}
 	if (args.AllConstant()) {
 		result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -1047,14 +1058,17 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		bool has_name = TableHasColumn(context, src.attrs_table, "name");
 		bool has_category = TableHasColumn(context, src.attrs_table, "category");
 		bool has_bound = TableHasColumn(context, src.attrs_table, "bound");
+		bool has_attr_key = TableHasColumn(context, src.attrs_table, "attr_key");
+		bool has_role = TableHasColumn(context, src.attrs_table, "role");
 		auto a = StringUtil::Format(
 		    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 		    "CAST(attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS lo, %s AS hi, %s AS category, "
-		    "%s AS bound FROM %s",
+		    "%s AS bound, %s AS attr_key, %s AS role FROM %s",
 		    CastOrNullSQL(has_name, "name", "VARCHAR"),
 		    CastOrNullSQL(has_dimension, "dimension", "VARCHAR"), CastOrNullSQL(has_lo, "lo", "DOUBLE"),
 		    CastOrNullSQL(has_hi, "hi", "DOUBLE"), CastOrNullSQL(has_category, "category", "VARCHAR"),
-		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
+		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), CastOrNullSQL(has_attr_key, "attr_key", "VARCHAR"),
+		    CastOrNullSQL(has_role, "role", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'null_key', 'error', 'an attribute row without tree_id or node_id'
@@ -1077,7 +1091,12 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'category_without_dimension', 'warning',
 			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair'
-			FROM a WHERE category IS NOT NULL AND dimension IS NULL
+			FROM a WHERE category IS NOT NULL AND dimension IS NULL AND attr_key IS NULL
+			UNION ALL
+			SELECT tree_id, NULL, NULL, 'mixed_roles', 'warning',
+			       'the tree has required and provided attributes; role is informational: tree_coverage reads the '
+			       || 'query tree as the requirement and the candidates as offers'
+			FROM a WHERE role IN ('required', 'provided') GROUP BY tree_id HAVING count(DISTINCT role) > 1
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'bad_interval', 'error', 'lo is greater than hi'
 			FROM a WHERE lo > hi
@@ -1237,7 +1256,7 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 		auto any = LogicalType::ANY;
 		for (auto args : {vector<LogicalType> {vc}, vector<LogicalType> {vc, vc}, vector<LogicalType> {vc, vc, any},
 		                  vector<LogicalType> {vc, vc, any, any}}) {
-			ScalarFunction f(duckdb_compat::FunctionName("tree_from_json"), args, LogicalType::LIST(NodeType()),
+			ScalarFunction f(duckdb_compat::FunctionName("tree_from_json"), args, LogicalType::LIST(TreeNodeType()),
 			                 DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, TreeFromJsonFun),
 			                 compat_anofox::ScalarBind<&TreeFromJsonBind>());
 			duckdb_compat::SetFallible(f);
@@ -1312,7 +1331,9 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "detail). Errors: duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orphan, "
 	                  "no_root, multiple_roots, cycle, and with an attribute table duplicate_attribute, "
 	                  "attribute_on_container, orphan_attribute, "
-	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension, mixed_dimensions (one "
+	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension (not for "
+	                  "attributes with an attr_key: the key identifies the property), mixed_roles (required and provided "
+	                  "attributes in one tree; role is informational), mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source).",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }

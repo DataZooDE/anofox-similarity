@@ -1,0 +1,110 @@
+# name: test/sql/aas/uc_01_irdis_never_match_by_token_overlap.test
+# description: A machine builder asks for a servo drive with a rated current of at least
+#              7.6 A and a supply voltage within 380..480 V. The properties carry ECLASS
+#              IRDIs (illustrative codes) as their keys. Offer B lists only a different current
+#              property (peak current, another IRDI sharing the tokens 0173, 1 and 02). Without
+#              keys token overlap gives it credit. With attr_key it must be a hard gap. Offer A uses
+#              an older dictionary release for the same property and still matches. Offer C
+#              comes without keys and is matched by name as before.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT * FROM (VALUES
+    ('RFQ-117', 'RFQ-117',       NULL,      'container', 'AND', 'RFQ 117 axis drives',       NULL, 1.0),
+    ('RFQ-117', 'RFQ-117/drive', 'RFQ-117', 'item',      'AND', 'Servo drive, Y axis',      'servo_drive', 1.0),
+    ('OFF-A',   'OFF-A',         NULL,      'container', 'AND', 'Lenvaro LX-8 offer',       NULL, 1.0),
+    ('OFF-A',   'OFF-A/LX-8',    'OFF-A',   'item',      'AND', 'LX-8 servo amplifier',     'servo_drive', 1.0),
+    ('OFF-B',   'OFF-B',         NULL,      'container', 'AND', 'Driventa DS-12 offer',     NULL, 1.0),
+    ('OFF-B',   'OFF-B/DS-12',   'OFF-B',   'item',      'AND', 'DS-12 drive module',       'servo_drive', 1.0),
+    ('OFF-C',   'OFF-C',         NULL,      'container', 'AND', 'Kessler KSD offer (PDF)',  NULL, 1.0),
+    ('OFF-C',   'OFF-C/KSD-10',  'OFF-C',   'item',      'AND', 'KSD-10 servo drive',       'servo_drive', 1.0)
+) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+# Attribute names are the IRDIs themselves: what a pipeline does today when it loads AAS data
+statement ok
+CREATE TABLE tree_attributes AS SELECT * FROM (VALUES
+    ('RFQ-117', 'RFQ-117/drive', 'a1', '0173-1#02-BAA120#008', '0173-1#02-BAA120#008', 'current', 'A', 7.6, 7.6, 'at_least'),
+    ('RFQ-117', 'RFQ-117/drive', 'a2', '0173-1#02-AAB381#005', '0173-1#02-AAB381#005', 'voltage', 'V', 380.0, 480.0, 'within'),
+    -- A: same properties, the current from an older release (#007), IRI form for the voltage
+    ('OFF-A', 'OFF-A/LX-8', 'p1', '0173-1#02-BAA120#007', '0173-1#02-BAA120#007', 'current', 'A', 8.0, 8.0, NULL),
+    ('OFF-A', 'OFF-A/LX-8', 'p2', 'https://api.eclass-cdp.com/0173-1-02-AAB381-005',
+                                  'https://api.eclass-cdp.com/0173-1-02-AAB381-005', 'voltage', 'V', 380.0, 480.0, NULL),
+    -- B: only a peak current (another property, same dimension) and the right voltage
+    ('OFF-B', 'OFF-B/DS-12', 'p1', '0173-1#02-BAA121#008', '0173-1#02-BAA121#008', 'current', 'A', 12.0, 12.0, NULL),
+    ('OFF-B', 'OFF-B/DS-12', 'p2', '0173-1#02-AAB381#005', '0173-1#02-AAB381#005', 'voltage', 'V', 380.0, 480.0, NULL),
+    -- C: extracted from a PDF data sheet, plain names, no keys
+    ('OFF-C', 'OFF-C/KSD-10', 'p1', 'rated current', NULL, 'current', 'A', 10.0, 10.0, NULL),
+    ('OFF-C', 'OFF-C/KSD-10', 'p2', 'supply voltage', NULL, 'voltage', 'V', 380.0, 480.0, NULL)
+) t(tree_id, node_id, attr_id, name, attr_key, dimension, unit, lo, hi, bound);
+
+# The problem this guards against: without keys, B's peak current gets token credit for the
+# rated-current requirement (name similarity 4/6 = 0.67: the IRDIs share 0173, 1, 02 and 008)
+statement ok
+CREATE TABLE unkeyed AS SELECT * EXCLUDE (attr_key) FROM tree_attributes;
+
+query TTRT
+SELECT candidate_id, attr_id, round(name_sim, 2), rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-B'], attrs_table := 'unkeyed', labels := 'hard')
+ORDER BY attr_id;
+----
+OFF-B	a1	0.67	at_least
+OFF-B	a2	1.0	within
+
+# With attr_key: B's current is a key mismatch, a hard gate with score 0 (not a 20 % discount)
+query TTTRRT
+SELECT candidate_id, attr_id, rule, attr_score, value_score, name_rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-B'], labels := 'hard')
+ORDER BY attr_id;
+----
+OFF-B	a1	key_mismatch	0.0	0.0	NULL
+OFF-B	a2	within	1.0	1.0	key
+
+# A matches although the current comes from an older release and the voltage is an IRI
+query TTRRT
+SELECT candidate_id, attr_id, name_sim, attr_score, name_rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-A'], labels := 'hard')
+ORDER BY attr_id;
+----
+OFF-A	a1	1.0	1.0	key
+OFF-A	a2	1.0	1.0	key
+
+# C carries no keys: name similarity as before (mixed case falls back)
+query TTT
+SELECT candidate_id, attr_id, name_rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-C'], labels := 'hard')
+ORDER BY attr_id;
+----
+OFF-C	a1	tokens
+OFF-C	a2	tokens
+
+# The ranking: A covers everything. C has the values but its plain names share no token with
+# the IRDI names, so each attribute keeps only 1 - mu = 0.8. B has a hard gap.
+query TRI
+SELECT candidate_id, round(coverage, 3), n_gaps
+FROM tree_coverage('RFQ-117', candidates := ['OFF-A', 'OFF-B', 'OFF-C'], labels := 'hard')
+ORDER BY rank;
+----
+OFF-A	1.0	0
+OFF-C	0.8	0
+OFF-B	0.5	1
+
+# An exact key match wins over an unkeyed attribute of the same dimension on the same item,
+# even when the unkeyed one has the better value
+statement ok
+INSERT INTO tree_attributes VALUES
+    ('OFF-A', 'OFF-A/LX-8', 'p3', 'Ausgangsstrom', NULL, 'current', 'A', 30.0, 30.0, NULL);
+
+query TTT
+SELECT attr_id, prov_value, name_rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-A'], labels := 'hard') WHERE attr_id = 'a1';
+----
+a1	8 A	key
+
+# The kernel compares keys without their release suffix (semantic_key(id)): a dictionary
+# update never turns a match into a gap
+query I
+SELECT count(*) FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-A'], labels := 'hard') WHERE rule = 'key_mismatch';
+----
+0
