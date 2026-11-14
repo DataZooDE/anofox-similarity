@@ -1,0 +1,704 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://siegtech.example/aas/st-3",
+      "idShort": "Siegtech_ST_3",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://siegtech.example/asset/st-3"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://siegtech.example/aas/st-3/sm/capabilities"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://siegtech.example/aas/st-3/sm/capabilities",
+      "idShort": "CapabilityDescription",
+      "kind": "Instance",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "CapabilitySet",
+          "value": [
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "SealingStationContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "SealingStation",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/SealingStation"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "CapabilityRelations",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "ComposedOfSet",
+                      "value": [
+                        {
+                          "modelType": "SubmodelElementCollection",
+                          "idShort": "ComposedOfContainer",
+                          "value": [
+                            {
+                              "modelType": "RelationshipElement",
+                              "idShort": "ComposedOf0",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityComposedOf/1/0"
+                                  }
+                                ]
+                              },
+                              "first": {
+                                "type": "ModelReference",
+                                "keys": [
+                                  {
+                                    "type": "Submodel",
+                                    "value": "https://siegtech.example/aas/st-3/sm/capabilities"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "CapabilitySet"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "SealingStationContainer"
+                                  },
+                                  {
+                                    "type": "Capability",
+                                    "value": "SealingStation"
+                                  }
+                                ]
+                              },
+                              "second": {
+                                "type": "ModelReference",
+                                "keys": [
+                                  {
+                                    "type": "Submodel",
+                                    "value": "https://siegtech.example/aas/st-3/sm/capabilities"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "CapabilitySet"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "HotPlateSealingContainer"
+                                  },
+                                  {
+                                    "type": "Capability",
+                                    "value": "HotPlateSealing"
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "modelType": "RelationshipElement",
+                              "idShort": "ComposedOf1",
+                              "semanticId": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityComposedOf/1/0"
+                                  }
+                                ]
+                              },
+                              "first": {
+                                "type": "ModelReference",
+                                "keys": [
+                                  {
+                                    "type": "Submodel",
+                                    "value": "https://siegtech.example/aas/st-3/sm/capabilities"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "CapabilitySet"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "SealingStationContainer"
+                                  },
+                                  {
+                                    "type": "Capability",
+                                    "value": "SealingStation"
+                                  }
+                                ]
+                              },
+                              "second": {
+                                "type": "ModelReference",
+                                "keys": [
+                                  {
+                                    "type": "Submodel",
+                                    "value": "https://siegtech.example/aas/st-3/sm/capabilities"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "CapabilitySet"
+                                  },
+                                  {
+                                    "type": "SubmodelElementCollection",
+                                    "value": "FilmCuttingContainer"
+                                  },
+                                  {
+                                    "type": "Capability",
+                                    "value": "FilmCutting"
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityDescription/ComposedOfContainer/1/0"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/ComposedOfSet/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRelations/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "HotPlateSealingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "HotPlateSealing",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/HotPlateSealing"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "PropertySet",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "SealingTemperature",
+                      "value": [
+                        {
+                          "modelType": "Range",
+                          "idShort": "PropertyRange",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Range/1/0"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ910#001"
+                                }
+                              ]
+                            }
+                          ],
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "sealing temperature"
+                                  }
+                                ],
+                                "unit": "°C",
+                                "unitId": {
+                                  "type": "ExternalReference",
+                                  "keys": [
+                                    {
+                                      "type": "GlobalReference",
+                                      "value": "0173-1#05-AAA567#002"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "min": "120",
+                          "max": "240"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "SealingForce",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "PropertyProperty",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Property/1/0"
+                              }
+                            ]
+                          },
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "sealing force"
+                                  }
+                                ],
+                                "unit": "kN"
+                              }
+                            }
+                          ],
+                          "value": "3",
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ911#001"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "FilmCuttingContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "FilmCutting",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/FilmCutting"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "PropertySet",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "CutLength",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "PropertyProperty",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Property/1/0"
+                              }
+                            ]
+                          },
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "cutting length"
+                                  }
+                                ],
+                                "unit": "mm"
+                              }
+                            }
+                          ],
+                          "value": "450",
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ912#001"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilitySet/1/0"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": []
+}

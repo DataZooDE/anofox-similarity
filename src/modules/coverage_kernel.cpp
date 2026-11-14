@@ -1,6 +1,7 @@
 #include "modules/coverage_kernel.hpp"
 #include "modules/property_tree.hpp"
 #include "modules/coverage_sql.hpp"
+#include "modules/aas/semantic_key.hpp"
 #include "modules/quantity.hpp"
 #include "duckdb_compat.hpp"
 #include "compat_anofox/scalar_bind.hpp"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -43,7 +45,10 @@ struct KAttr {
 	string bound;
 	string default_bound;
 	string scale; // the template's 'log' or 'linear'; empty: per dimension
-	string category;
+	string category; // canonical (semantic_key): an IRDI and the IRI of one enumeration value agree
+	string text;     // value_text as written, for the trace
+	string key; // canonical attr_key (semantic_key without version); empty: not keyed
+	string bound_source; // explicit | text | range | level_type | constraint (where bound came from)
 	vector<double> name_vec;
 };
 
@@ -131,7 +136,7 @@ void CheckScalarField(const string &fn, const string &name, const LogicalType &t
 	}
 	if (name == "count" || name == "lo" || name == "hi" || name == "score" || name == "label_weight" ||
 	    name == "mu" || name == "partition_gate" || name == "count_gate" || name == "name_floor" || name == "tol" ||
-	    name == "soft_band") {
+	    name == "soft_band" || name == "generalization_credit") {
 		if (!t.IsNumeric()) {
 			TypeError(fn, name + " must be numeric", t);
 		}
@@ -189,8 +194,8 @@ void CheckOptionsType(const string &fn, const LogicalType &t) {
 	}
 	for (auto &field : StructType::GetChildTypes(t)) {
 		auto fname = StringUtil::Lower(static_cast<const string &>(field.first));
-		if (fname == "rules") {
-			auto rule = ListOfStruct(fn, "rules", field.second);
+		if (fname == "rules" || fname == "hierarchy") {
+			auto rule = ListOfStruct(fn, fname, field.second);
 			if (rule) {
 				for (auto &rf : StructType::GetChildTypes(*rule)) {
 					CheckScalarField(fn, StringUtil::Lower(static_cast<const string &>(rf.first)), rf.second);
@@ -255,7 +260,10 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.bound = FieldText(a, "bound");
 		k.default_bound = FieldText(a, "default_bound");
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
-		k.category = FieldText(a, "category");
+		k.category = SemanticKey(FieldText(a, "category")).key;
+		k.text = FieldText(a, "value_text");
+		k.key = SemanticKey(FieldText(a, "attr_key")).key;
+		k.bound_source = FieldText(a, "bound_source");
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -372,6 +380,9 @@ KTree LoadTree(const Value &list) {
 struct Options {
 	bool soft = true;
 	string assignment = "auto";
+	//! Candidate OR groups (variant groups): 'joint' holds one request to one alternative per group
+	//! (one configuration of a product, AAS-2); 'per_requirement' lets each requirement use its best.
+	string alternatives = "joint";
 	double label_weight = 0.0; // lambda in HLD §4.6
 	double mu = 0.2;
 	double partition_gate = 0.3;
@@ -383,12 +394,82 @@ struct Options {
 	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
 	//! NaN when two dimensions disagree on the pair, so no rule is guessed
 	std::map<std::pair<string, string>, double> rules_any_dimension;
+	//! Class hierarchy (GitHub #32): related classes get generalization_credit^distance.
+	double generalization_credit = 0.0;
+	std::unordered_map<string, std::unordered_map<string, idx_t>> ancestors; // class -> ancestor -> distance
+
+	//! How a provided class relates to a required one (is-a, AAS-2): the same class, a subclass
+	//! (a hot-plate sealer is a heat sealer: full agreement) or a superclass at distance d (a heat
+	//! sealer for a hot-plate requirement: generalization_credit^d).
+	enum class Relation { NONE, SAME, SPECIALIZED, GENERALIZED };
+	struct Relatedness {
+		double value = 0;
+		Relation relation = Relation::NONE;
+	};
+
+	Relatedness Related(const string &required, const string &provided) const {
+		if (required == provided) {
+			return {1.0, Relation::SAME};
+		}
+		auto up = ancestors.find(provided);
+		if (up != ancestors.end() && up->second.count(required)) {
+			return {1.0, Relation::SPECIALIZED};
+		}
+		auto down = ancestors.find(required);
+		if (generalization_credit > 0 && down != ancestors.end()) {
+			auto d = down->second.find(provided);
+			if (d != down->second.end()) {
+				return {std::pow(generalization_credit, double(d->second)), Relation::GENERALIZED};
+			}
+		}
+		return {};
+	}
 };
+
+//! The deepest class hierarchy followed (levels above a class).
+constexpr idx_t MAX_HIERARCHY_DEPTH = 32;
+
+//! Every class's ancestors with their distance, from (class_id, parent_class_id) edges.
+void LoadHierarchy(const Value &edges, Options &o) {
+	std::unordered_map<string, vector<string>> parents;
+	for (auto &e : ListValue::GetChildren(edges)) {
+		if (e.IsNull()) {
+			continue;
+		}
+		auto child = FieldText(e, "class_id"), parent = FieldText(e, "parent_class_id");
+		if (!child.empty() && !parent.empty() && child != parent) {
+			parents[child].push_back(parent);
+		}
+	}
+	for (auto &entry : parents) {
+		auto &found = o.ancestors[entry.first];
+		vector<string> frontier {entry.first};
+		for (idx_t depth = 1; depth <= MAX_HIERARCHY_DEPTH && !frontier.empty(); depth++) {
+			vector<string> next;
+			for (auto &c : frontier) {
+				auto it = parents.find(c);
+				if (it == parents.end()) {
+					continue;
+				}
+				for (auto &p : it->second) {
+					if (p != entry.first && found.emplace(p, depth).second) {
+						next.push_back(p); // first visit is the shortest distance (breadth first); cycles end here
+					}
+				}
+			}
+			frontier = std::move(next);
+		}
+	}
+}
 
 //! The first invalid kernel setting as a message, or "" (shared by the coverage_kernel scalar and
 //! the table functions, which wrap it in their own exception type).
 string KernelSettingsError(const string &labels, const string &assignment, double label_weight, double mu,
-                           double partition_gate, double count_gate, double name_floor) {
+                           double partition_gate, double count_gate, double name_floor,
+                           double generalization_credit = 0) {
+	if (!(generalization_credit >= 0 && generalization_credit <= 1)) {
+		return "generalization_credit must be between 0 and 1";
+	}
 	if (!labels.empty() && labels != "soft" && labels != "hard") {
 		return "labels must be 'soft' or 'hard'";
 	}
@@ -418,6 +499,13 @@ Options LoadOptions(const Value &v) {
 	if (!assignment.empty()) {
 		o.assignment = StringUtil::Lower(assignment);
 	}
+	auto alternatives = FieldText(v, "alternatives");
+	if (!alternatives.empty()) {
+		o.alternatives = StringUtil::Lower(alternatives);
+	}
+	if (o.alternatives != "joint" && o.alternatives != "per_requirement") {
+		throw InvalidInputException("coverage_kernel: alternatives must be 'joint' or 'per_requirement'");
+	}
 	FieldNumber(v, "label_weight", o.label_weight);
 	FieldNumber(v, "mu", o.mu);
 	FieldNumber(v, "partition_gate", o.partition_gate);
@@ -425,6 +513,11 @@ Options LoadOptions(const Value &v) {
 	FieldNumber(v, "name_floor", o.name_floor);
 	FieldNumber(v, "tol", o.values.tol);
 	FieldNumber(v, "soft_band", o.values.soft_band);
+	FieldNumber(v, "generalization_credit", o.generalization_credit);
+	auto hierarchy = Field(v, "hierarchy");
+	if (hierarchy && !hierarchy->IsNull()) {
+		LoadHierarchy(*hierarchy, o);
+	}
 	if (!std::isfinite(o.values.tol) || !std::isfinite(o.values.soft_band) || o.values.tol < 0 ||
 	    o.values.soft_band < 0) {
 		throw InvalidInputException("coverage_kernel: tol and soft_band must be finite and not negative");
@@ -432,7 +525,7 @@ Options LoadOptions(const Value &v) {
 	auto trace = Field(v, "trace");
 	o.trace = trace && !trace->IsNull() && trace->GetValue<bool>();
 	auto error = KernelSettingsError(StringUtil::Lower(labels), o.assignment, o.label_weight, o.mu, o.partition_gate,
-	                                 o.count_gate, o.name_floor);
+	                                 o.count_gate, o.name_floor, o.generalization_credit);
 	if (!error.empty()) {
 		throw InvalidInputException("coverage_kernel: %s", error);
 	}
@@ -441,7 +534,8 @@ Options LoadOptions(const Value &v) {
 		for (auto &r : ListValue::GetChildren(*rules)) {
 			double score = 0;
 			if (!r.IsNull() && FieldNumber(r, "score", score)) {
-				auto required = FieldText(r, "required"), provided = FieldText(r, "provided");
+				auto required = SemanticKey(FieldText(r, "required")).key;
+				auto provided = SemanticKey(FieldText(r, "provided")).key;
 				o.rules[std::make_tuple(FieldText(r, "dimension"), required, provided)] = score;
 				auto key = std::make_pair(required, provided);
 				auto any = o.rules_any_dimension.find(key);
@@ -456,20 +550,59 @@ Options LoadOptions(const Value &v) {
 	return o;
 }
 
-double LabelSim(const KItem &q, const KItem &c, const Options &o) {
+//! Label agreement L(q, c) and how it arose: exact (same class), soft (overlapping
+//! distributions), specialized (a subclass was offered) or generalized (a superclass was offered,
+//! partial credit). count_weight is the agreement of a generalized match (1 otherwise); counting
+//! relates it to the agreement of the requirement's best match (ScoreRequirement).
+struct LabelMatch {
+	double value = 0;
+	const char *rule = "";
+	double count_weight = 1;
+};
+
+//! Hard labels: Related(class, class). Soft labels: Bhattacharyya with the class relation as kernel,
+//! sum over k, l of sqrt(p_k q_l) * Related(k, l), capped at 1. Without a hierarchy this is the plain
+//! Bhattacharyya coefficient.
+LabelMatch LabelSim(const KItem &q, const KItem &c, const Options &o) {
+	using Relation = Options::Relation;
 	if (!o.soft) {
-		return !q.cls.empty() && q.cls == c.cls ? 1.0 : 0.0;
-	}
-	auto &pq = q.probs;
-	auto &pc = c.probs;
-	double s = 0;
-	for (auto &kv : pq) {
-		auto it = pc.find(kv.first);
-		if (it != pc.end() && kv.second > 0 && it->second > 0) {
-			s += std::sqrt(kv.second * it->second);
+		if (q.cls.empty() || c.cls.empty()) {
+			return {};
+		}
+		auto r = o.Related(q.cls, c.cls);
+		switch (r.relation) {
+		case Relation::SAME:
+			return {1.0, "exact", 1};
+		case Relation::SPECIALIZED:
+			return {1.0, "specialized", 1};
+		case Relation::GENERALIZED:
+			return {r.value, "generalized", r.value};
+		default:
+			return {};
 		}
 	}
-	return MinValue(1.0, s);
+	double exact = 0, specialized = 0, generalized = 0;
+	for (auto &kq : q.probs) {
+		for (auto &kc : c.probs) {
+			if (kq.second <= 0 || kc.second <= 0) {
+				continue;
+			}
+			auto r = o.Related(kq.first, kc.first);
+			double part = r.value * std::sqrt(kq.second * kc.second);
+			(r.relation == Relation::SAME ? exact : r.relation == Relation::SPECIALIZED ? specialized : generalized) += part;
+		}
+	}
+	double value = MinValue(1.0, exact + specialized + generalized);
+	if (value <= 0) {
+		return {};
+	}
+	if (exact >= 1 - 1e-9) {
+		return {value, "exact", 1};
+	}
+	if (generalized > 0) {
+		return {value, "generalized", value};
+	}
+	return {value, specialized > 0 ? "specialized" : "soft", 1};
 }
 
 vector<string> Tokens(const string &name) {
@@ -491,7 +624,14 @@ vector<string> Tokens(const string &name) {
 	return out;
 }
 
-double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
+//! Name agreement of two attributes and how it was decided: vector (calibrated cosine of the
+//! name vectors), exact (same name, case-insensitive) or tokens (token Jaccard).
+struct NameMatch {
+	double sim = 0;
+	const char *rule = "tokens";
+};
+
+NameMatch NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 	if (!x.name_vec.empty() && x.name_vec.size() == y.name_vec.size()) {
 		double dot = 0, nx = 0, ny = 0;
 		for (idx_t i = 0; i < x.name_vec.size(); i++) {
@@ -502,22 +642,22 @@ double NameSim(const KAttr &x, const KAttr &y, const Options &o) {
 		if (nx > 0 && ny > 0) {
 			double cos = dot / std::sqrt(nx * ny);
 			double floor = o.name_floor; // validated to [0, 1)
-			return MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor)));
+			return {MaxValue(0.0, MinValue(1.0, (cos - floor) / (1 - floor))), "vector"};
 		}
 	}
-	if (StringUtil::CIEquals(x.name, y.name)) {
-		return x.name.empty() ? 0.0 : 1.0;
+	if (!x.name.empty() && StringUtil::CIEquals(x.name, y.name)) {
+		return {1.0, "exact"};
 	}
 	auto a = Tokens(x.name), b = Tokens(y.name);
 	if (a.empty() || b.empty()) {
-		return 0.0;
+		return {0.0, "tokens"};
 	}
 	std::unordered_set<string> sa(a.begin(), a.end()), sb(b.begin(), b.end());
 	idx_t inter = 0;
 	for (auto &t : sa) {
 		inter += sb.count(t);
 	}
-	return double(inter) / double(sa.size() + sb.size() - inter);
+	return {double(inter) / double(sa.size() + sb.size() - inter), "tokens"};
 }
 
 string FormatNumber(double v) {
@@ -531,7 +671,9 @@ string ValueText(const KAttr &a, bool requirement, const string &bound) {
 		s += " ";
 	}
 	if (!a.category.empty()) {
-		return s + a.category;
+		// a coded value (an enumeration IRDI) reads as its text: "PROFINET (0173-1#07-AAZ002)"
+		bool coded = a.category.find('#') != string::npos || a.category.find("://") != string::npos;
+		return s + (coded && !a.text.empty() && a.text != a.category ? a.text + " (" + a.category + ")" : a.category);
 	}
 	if (!a.has_lo && !a.has_hi) {
 		return s + "?";
@@ -553,9 +695,34 @@ struct AttrMatch {
 	bool has_distance = false;
 	double distance = 0;
 	string rule;
+	string name_rule; // key | vector | exact | tokens (see NameSim)
 	double score = 0;
 	string bound;
 };
+
+//! The attr_key gate (GitHub #28): when both attributes carry a key, the keys decide.
+enum class KeyRelation { UNKEYED, SAME, DIFFERENT };
+
+KeyRelation KeyRelationOf(const KAttr &x, const KAttr &y) {
+	if (x.key.empty() || y.key.empty()) {
+		return KeyRelation::UNKEYED;
+	}
+	return x.key == y.key ? KeyRelation::SAME : KeyRelation::DIFFERENT;
+}
+
+//! True when the item offers an attribute with the requirement's key: then only such
+//! attributes may answer it, whatever an unkeyed attribute of the same dimension offers.
+bool HasKeyedCounterpart(const KAttr &x, const KItem &c) {
+	if (x.key.empty()) {
+		return false;
+	}
+	for (auto &y : c.attrs) {
+		if (y.key == x.key) {
+			return true;
+		}
+	}
+	return false;
+}
 
 //! The best provided attribute for one required attribute.
 AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
@@ -563,13 +730,30 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	best.req = &x;
 	best.bound = !x.bound.empty() ? x.bound : x.default_bound;
 	best.rule = "gate";
+	bool exact_key = HasKeyedCounterpart(x, c);
+	const KAttr *key_conflict = nullptr; // a different dictionary property of the same kind
+	const KAttr *same_key_gated = nullptr; // the requirement's own property, stopped by the dimension gate
 	for (auto &y : c.attrs) {
+		auto relation = KeyRelationOf(x, y);
+		if (relation == KeyRelation::DIFFERENT) {
+			// a different dictionary property: a hard gate, like the dimension
+			bool comparable = x.category.empty() ? y.category.empty() && !x.dimension.empty() && x.dimension == y.dimension
+			                                     : !y.category.empty();
+			if (comparable && !key_conflict) {
+				key_conflict = &y;
+			}
+			continue;
+		}
+		if (exact_key && relation == KeyRelation::UNKEYED) {
+			continue;
+		}
 		AttrMatch m;
 		m.req = &x;
 		m.prov = &y;
 		m.bound = best.bound;
 		if (!x.category.empty()) {
 			if (y.category.empty() || (!x.dimension.empty() && x.dimension != y.dimension)) {
+				same_key_gated = relation == KeyRelation::SAME ? &y : same_key_gated;
 				continue;
 			}
 			auto dim = !y.dimension.empty() ? y.dimension : x.dimension;
@@ -590,6 +774,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.rule = "compat";
 		} else {
 			if (x.dimension.empty() || y.dimension.empty() || x.dimension != y.dimension) {
+				same_key_gated = relation == KeyRelation::SAME ? &y : same_key_gated;
 				continue;
 			}
 			ValueSide req, prov;
@@ -617,17 +802,37 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.rule = r.rule;
 		}
 		m.gate = false;
-		m.name_sim = NameSim(x, y, o);
+		if (relation == KeyRelation::SAME) {
+			m.name_sim = 1.0;
+			m.name_rule = "key";
+		} else {
+			auto name = NameSim(x, y, o);
+			m.name_sim = name.sim;
+			m.name_rule = name.rule;
+		}
 		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
 		if (best.gate || m.score > best.score) {
 			best = m;
 		}
+	}
+	if (best.gate && same_key_gated) {
+		// the offer states the property, but without a usable value (unknown unit, not a number):
+		// show it, so the trace says why rather than claiming another property
+		best.prov = same_key_gated;
+		best.rule = !same_key_gated->has_lo && !same_key_gated->has_hi && same_key_gated->category.empty() ? "missing"
+		                                                                                                 : "gate";
+	} else if (best.gate && key_conflict) {
+		best.prov = key_conflict; // shown, so the gap list names the property the offer has instead
+		best.rule = "key_mismatch";
+	} else if (best.gate && !x.key.empty()) {
+		best.rule = "missing"; // the offer does not state the property
 	}
 	return best;
 }
 
 struct ItemScore {
 	double label = 0;
+	string label_rule; // exact | soft | generalized
 	double a = 1;
 	double score = 0;
 	vector<AttrMatch> attrs;
@@ -635,7 +840,9 @@ struct ItemScore {
 
 ItemScore Score(const KItem &q, const KItem &c, const Options &o, bool with_attrs) {
 	ItemScore p;
-	p.label = LabelSim(q, c, o);
+	auto label = LabelSim(q, c, o);
+	p.label = label.value;
+	p.label_rule = label.rule;
 	if (p.label <= 0) {
 		p.a = 0;
 		return p; // no agreement: the score is 0 whatever the attributes
@@ -730,7 +937,9 @@ LogicalType TraceType() {
 	    {"value_score", LogicalType::DOUBLE},   {"distance", LogicalType::DOUBLE},
 	    {"rule", LogicalType::VARCHAR},         {"attr_score", LogicalType::DOUBLE},
 	    {"count_needed", LogicalType::DOUBLE},  {"count_available", LogicalType::DOUBLE},
-	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN}};
+	    {"req_score", LogicalType::DOUBLE},     {"is_gap", LogicalType::BOOLEAN},
+	    {"name_rule", LogicalType::VARCHAR},    {"bound_source", LogicalType::VARCHAR},
+	    {"label_rule", LogicalType::VARCHAR}};
 	return LogicalType::STRUCT(c);
 }
 
@@ -776,8 +985,12 @@ void ScoreRequirement(ReqResult &r, const vector<const KItem *> &pool, const Opt
 	r.pair = Score(*r.q, *best, o, true);
 	double available = 0;
 	for (auto c : pool) {
-		if (LabelSim(*r.q, *c, o) >= o.count_gate && Compatible(*c, *best)) {
-			available += c->count;
+		auto label = LabelSim(*r.q, *c, o);
+		if (label.value >= o.count_gate && Compatible(*c, *best)) {
+			// a superclass item counts relative to the match: fully when the match itself is at that
+			// level (its score already carries the discount), partly next to a closer match (AAS-2)
+			double weight = label.count_weight >= 1 ? 1.0 : MinValue(1.0, label.count_weight / MaxValue(r.pair.label, 1e-12));
+			available += c->count * weight;
 		}
 	}
 	r.count_available = available;
@@ -814,7 +1027,7 @@ vector<vector<const KItem *>> PartitionBlocks(const KTree &Q, const KTree &C, co
 		double best = 0;
 		vector<idx_t> tied;
 		for (idx_t i = 0; i < Q.items.size(); i++) {
-			double l = LabelSim(Q.items[i], c, o);
+			double l = LabelSim(Q.items[i], c, o).value;
 			if (l > best + SCORE_EPSILON) {
 				best = l;
 				tied.assign(1, i);
@@ -921,6 +1134,15 @@ void ImprovePartition(vector<ReqResult> &results, vector<vector<const KItem *>> 
 	}
 }
 
+//! Where the bound of a requirement came from: its own bound_source, 'template' for a catalogue
+//! default bound (default_bounds := 'catalogue'), empty for an unqualified value.
+string BoundSource(const KAttr &x) {
+	if (!x.bound.empty()) {
+		return x.bound_source.empty() ? "explicit" : x.bound_source;
+	}
+	return x.default_bound.empty() ? string() : "template";
+}
+
 //! One trace row: a requirement and one of its attributes (or none).
 Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	child_list_t<Value> v;
@@ -942,6 +1164,9 @@ Value TraceRow(const ReqResult &r, const AttrMatch *m) {
 	v.emplace_back("count_available", Value::DOUBLE(r.count_available));
 	v.emplace_back("req_score", Value::DOUBLE(r.score));
 	v.emplace_back("is_gap", Value::BOOLEAN(r.gap));
+	v.emplace_back("name_rule", m && !m->gate ? TextOrNull(m->name_rule) : Value(LogicalType::VARCHAR));
+	v.emplace_back("bound_source", m ? TextOrNull(BoundSource(*m->req)) : Value(LogicalType::VARCHAR));
+	v.emplace_back("label_rule", r.matched ? TextOrNull(r.pair.label_rule) : Value(LogicalType::VARCHAR));
 	return Value::STRUCT(std::move(v));
 }
 
@@ -965,27 +1190,36 @@ void AppendTrace(const ReqResult &r, vector<Value> &trace) {
 	}
 }
 
-Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
-	auto Q = LoadTree(query);
-	auto C = LoadTree(candidate);
-	string assignment = o.assignment;
-	if (assignment == "auto") {
-		assignment = Q.reviewed && C.reviewed ? "partition" : "best_match"; // HLD §11.12: both trees reviewed
+//! One evaluation of a request against a candidate (or one configuration of it). The results
+//! point into tree, which travels with them.
+struct Evaluation {
+	KTree tree;
+	vector<ReqResult> results;
+	AlternativeTotals totals;
+
+	double Coverage() const {
+		return totals.n == 0 ? 0.0 : totals.sum / double(totals.n);
 	}
-	vector<ReqResult> results(Q.items.size());
+};
+
+Evaluation Evaluate(const KTree &Q, KTree C, const string &assignment, const Options &o) {
+	Evaluation e;
+	e.tree = std::move(C);
+	auto &results = e.results;
+	results.resize(Q.items.size());
 	for (idx_t i = 0; i < Q.items.size(); i++) {
 		results[i].q = &Q.items[i];
 	}
 	if (assignment == "partition") {
 		vector<Placement> movable;
-		auto blocks = PartitionBlocks(Q, C, o, movable);
+		auto blocks = PartitionBlocks(Q, e.tree, o, movable);
 		for (idx_t i = 0; i < Q.items.size(); i++) {
 			ScoreRequirement(results[i], blocks[i], o);
 		}
 		ImprovePartition(results, blocks, movable, o);
 	} else {
 		vector<const KItem *> all;
-		for (auto &c : C.items) {
+		for (auto &c : e.tree.items) {
 			all.push_back(&c);
 		}
 		for (auto &r : results) {
@@ -997,7 +1231,94 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	for (idx_t i = 0; i < results.size(); i++) {
 		all_items[i] = i;
 	}
-	auto totals = AggregateAlternatives(results, all_items, 0);
+	e.totals = AggregateAlternatives(results, all_items, 0);
+	return e;
+}
+
+//! The candidate restricted to one choice per decided OR group.
+KTree Restrict(const KTree &C, const std::map<string, string> &selection) {
+	KTree out;
+	out.reviewed = C.reviewed;
+	for (auto &item : C.items) {
+		bool admissible = true;
+		for (auto &choice : item.choices) {
+			auto it = selection.find(choice.first);
+			if (it != selection.end() && it->second != choice.second) {
+				admissible = false;
+				break;
+			}
+		}
+		if (admissible) {
+			out.items.push_back(item);
+		}
+	}
+	return out;
+}
+
+//! One alternative per candidate OR group for the whole request (AAS-2): groups are decided outer
+//! first; each takes the alternative with the best coverage given the earlier decisions (ties: the
+//! lowest alternative id). The cost is the sum, not the product, of the alternatives.
+std::map<string, string> ChooseAlternatives(const KTree &Q, const KTree &C, const string &assignment,
+                                            const Options &o) {
+	std::map<string, std::set<string>> alternatives;
+	std::map<string, idx_t> depth;
+	for (auto &item : C.items) {
+		for (idx_t level = 0; level < item.choices.size(); level++) {
+			auto &choice = item.choices[level];
+			alternatives[choice.first].insert(choice.second);
+			auto d = depth.find(choice.first);
+			depth[choice.first] = d == depth.end() ? level : MinValue(d->second, level);
+		}
+	}
+	vector<string> order;
+	for (auto &g : alternatives) {
+		order.push_back(g.first);
+	}
+	std::sort(order.begin(), order.end(), [&](const string &a, const string &b) {
+		return depth[a] != depth[b] ? depth[a] < depth[b] : a < b;
+	});
+	std::map<string, string> selection;
+	for (auto &group : order) {
+		string best;
+		double best_coverage = -1;
+		for (auto &alternative : alternatives[group]) {
+			auto trial = selection;
+			trial[group] = alternative;
+			auto restricted = Restrict(C, trial);
+			bool reachable = false;
+			for (auto &item : restricted.items) {
+				for (auto &choice : item.choices) {
+					reachable = reachable || (choice.first == group && choice.second == alternative);
+				}
+			}
+			if (!reachable) {
+				continue; // inside an alternative of an outer group that was not chosen
+			}
+			double coverage = Evaluate(Q, std::move(restricted), assignment, o).Coverage();
+			if (coverage > best_coverage + SCORE_EPSILON) {
+				best_coverage = coverage;
+				best = alternative;
+			}
+		}
+		if (!best.empty()) {
+			selection[group] = best;
+		}
+	}
+	return selection;
+}
+
+Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
+	auto Q = LoadTree(query);
+	auto C = LoadTree(candidate);
+	string assignment = o.assignment;
+	if (assignment == "auto") {
+		assignment = Q.reviewed && C.reviewed ? "partition" : "best_match"; // HLD §11.12: both trees reviewed
+	}
+	bool reviewed = C.reviewed;
+	auto e = o.alternatives == "joint" ? Evaluate(Q, Restrict(C, ChooseAlternatives(Q, C, assignment, o)), assignment, o)
+	                                   : Evaluate(Q, std::move(C), assignment, o);
+	auto &results = e.results;
+	auto &totals = e.totals;
 	int64_t gaps = 0;
 	vector<Value> trace;
 	for (auto i : totals.chosen) {
@@ -1018,7 +1339,7 @@ Value RunKernel(const Value &query, const Value &candidate, const Options &o) {
 	out.emplace_back("coverage", totals.n == 0 ? Value(LogicalType::DOUBLE) : Value::DOUBLE(totals.sum / totals.n));
 	out.emplace_back("n_requirements", Value::BIGINT(int64_t(totals.n)));
 	out.emplace_back("n_gaps", Value::BIGINT(gaps));
-	out.emplace_back("reviewed", Value::BOOLEAN(C.reviewed));
+	out.emplace_back("reviewed", Value::BOOLEAN(reviewed));
 	out.emplace_back("assignment_used", Value(assignment));
 	out.emplace_back("trace", Value::LIST(TraceType(), std::move(trace)));
 	return Value::STRUCT(std::move(out));
@@ -1041,7 +1362,11 @@ void CoverageKernelFun(DataChunk &args, ExpressionState &, Vector &result) {
 			result.SetValue(i, Value(KernelResultType()));
 			continue;
 		}
-		auto o = options_constant ? cached : LoadOptions(args.data[2].GetValue(i));
+		Options per_row;
+		if (!options_constant) {
+			per_row = LoadOptions(args.data[2].GetValue(i));
+		}
+		const Options &o = options_constant ? cached : per_row; // no copy of the hierarchy per pair
 		result.SetValue(i, RunKernel(q, c, o));
 	}
 	if (args.AllConstant()) {
@@ -1069,11 +1394,14 @@ struct TreeCoverageParams {
 	TreeSource q, c;
 	string labels = "soft";
 	string assignment = "auto";
+	string alternatives = "joint";
 	double label_weight = 0.0, mu = 0.2, partition_gate = 0.3, count_gate = 0.5, stage1_weight = 0.05, tie_break = 0.01;
 	string recall_mode = "auto";
 	string default_bounds;
 	string templates_table = "catalogue_attributes";
 	string rules_table;
+	string class_hierarchy; // (class_id, parent_class_id); empty: none
+	double generalization_credit = 0.0;
 	string name_vectors;
 	double name_floor = 0.85;
 	double tol = 0.02;       // value_satisfies tolerance (hard limits: 0)
@@ -1156,6 +1484,13 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	if (p.assignment.empty()) {
 		p.assignment = "auto";
 	}
+	p.alternatives = StringUtil::Lower(r.Str("alternatives", p.alternatives));
+	if (p.alternatives.empty()) {
+		p.alternatives = "joint";
+	}
+	if (p.alternatives != "joint" && p.alternatives != "per_requirement") {
+		throw BinderException("%s: alternatives must be 'joint' or 'per_requirement'", r.fn);
+	}
 	p.label_weight = r.Dbl("label_weight", p.label_weight);
 	p.mu = r.Dbl("mu", p.mu);
 	p.partition_gate = r.Dbl("partition_gate", p.partition_gate);
@@ -1163,13 +1498,14 @@ void ReadKernelSettings(const CoverageParamReader &r, TreeCoverageParams &p) {
 	p.stage1_weight = r.Dbl("stage1_weight", p.stage1_weight);
 	p.tie_break = r.Dbl("tie_break", p.tie_break);
 	p.name_floor = r.Dbl("name_floor", p.name_floor);
+	p.generalization_credit = r.Dbl("generalization_credit", p.generalization_credit);
 	p.tol = r.Dbl("tol", p.tol);
 	p.soft_band = r.Dbl("soft_band", p.soft_band);
 	if (!std::isfinite(p.tol) || !std::isfinite(p.soft_band) || p.tol < 0 || p.soft_band < 0) {
 		throw BinderException("%s: tol and soft_band must be finite and not negative", r.fn);
 	}
 	auto error = KernelSettingsError(p.labels, p.assignment, p.label_weight, p.mu, p.partition_gate, p.count_gate,
-	                                 p.name_floor);
+	                                 p.name_floor, p.generalization_credit);
 	if (!error.empty()) {
 		throw BinderException("%s: %s", r.fn, error);
 	}
@@ -1200,6 +1536,7 @@ void ReadSideTables(const CoverageParamReader &r, TreeCoverageParams &p) {
 		ValidateTableColumns(r.context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
 	}
 	p.rules_table = r.Table("rules_table", "", {"dimension", "required", "provided", "score"});
+	p.class_hierarchy = r.Table("class_hierarchy", "", {"class_id", "parent_class_id"});
 	p.name_vectors = r.Table("name_vectors", "", {"name", "vec"});
 	p.multiset_table = r.Table("candidate_multiset_table", "", {"entity_id", "feature_id", "weight"});
 	p.multiset_has_reviewed = !p.multiset_table.empty() && r.Has(p.multiset_table, "reviewed");
@@ -1329,12 +1666,15 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	string base = StringUtil::Format(
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
-	    "%s AS bound, %s AS category FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source, %s AS value_text FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
 	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
 	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
 	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
 	    CastOrNullSQL(has("hi"), "hi", "DOUBLE", "a"), CastOrNullSQL(has("bound"), "bound", "VARCHAR", "a"),
-	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"),
+	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"),
+	    CastOrNullSQL(has("bound_source"), "bound_source", "VARCHAR", "a"),
+	    CastOrNullSQL(has("value_text"), "value_text", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
 	string scale = "NULL::VARCHAR";
@@ -1360,7 +1700,9 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	}
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
-	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, default_bound := %s, "
+	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, attr_key := x.attr_key, "
+	    "bound_source := x.bound_source, value_text := x.value_text, "
+	    "default_bound := %s, "
 	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
 	    default_bound, scale, vec, base, nodes_cte, templates_join, vec_join);
@@ -1409,12 +1751,19 @@ string OptionsSQL(const TreeCoverageParams &p, bool trace, const string &label_w
 	                                        ":= CAST(required AS VARCHAR), provided := CAST(provided AS VARCHAR), score "
 	                                        ":= CAST(score AS DOUBLE))) FROM %s)",
 	                                        QuotedIdentifier(p.rules_table));
+	string hierarchy = p.class_hierarchy.empty()
+	                       ? "NULL"
+	                       : StringUtil::Format("(SELECT list(struct_pack(class_id := CAST(class_id AS VARCHAR), "
+	                                            "parent_class_id := CAST(parent_class_id AS VARCHAR))) FROM %s)",
+	                                            QuotedIdentifier(p.class_hierarchy));
 	return StringUtil::Format(
-	    "struct_pack(labels := %s, assignment := %s, label_weight := %s, mu := %s, partition_gate := %s, count_gate := %s, "
-	    "name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s)",
-	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), label_weight, mu, DoubleLiteral(p.partition_gate),
+	    "struct_pack(labels := %s, assignment := %s, alternatives := %s, label_weight := %s, mu := %s, partition_gate := %s, "
+	    "count_gate := %s, name_floor := %s, tol := %s, soft_band := %s, trace := %s, rules := %s, "
+	    "generalization_credit := %s, hierarchy := %s)",
+	    QuoteSQLStringLiteral(p.labels), QuoteSQLStringLiteral(p.assignment), QuoteSQLStringLiteral(p.alternatives),
+	    label_weight, mu, DoubleLiteral(p.partition_gate),
 	    DoubleLiteral(p.count_gate), DoubleLiteral(p.name_floor), DoubleLiteral(p.tol), DoubleLiteral(p.soft_band),
-	    trace ? "true" : "false", rules);
+	    trace ? "true" : "false", rules, DoubleLiteral(p.generalization_credit), hierarchy);
 }
 
 string KernelSQL(ClientContext &context, const TreeCoverageParams &p, bool trace) {
@@ -1466,7 +1815,8 @@ unique_ptr<TableRef> TreeCoverageTraceBindReplace(ClientContext &context, TableF
 	auto sql = KernelSQL(context, p, true) + R"(
 		SELECT query_id, candidate_id, t.req_node_id, t.matched_node_id, t.matched_path, t.label_sim, t.attr_id,
 		       t.attr_name, t.req_value, t.prov_value, t.gate, t.name_sim, t.value_score, t.distance, t.rule,
-		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap
+		       t.attr_score, t.count_needed, t.count_available, t.req_score, t.is_gap, t.name_rule,
+		       t.bound_source, t.label_rule
 		FROM (SELECT query_id, candidate_id, unnest(trace) AS t FROM ranked)
 		ORDER BY query_id, candidate_id, t.req_node_id, t.attr_id
 	)";
@@ -1572,7 +1922,8 @@ NamedParameterList KernelParameters() {
 	return {{"attrs_table", vc},     {"candidate_attrs_table", vc}, {"labels", vc},         {"assignment", vc},
 	        {"label_weight", dbl},   {"mu", dbl},                   {"partition_gate", dbl}, {"count_gate", dbl},
 	        {"stage1_weight", dbl},  {"default_bounds", vc},        {"templates_table", vc}, {"rules_table", vc},
-	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl}};
+	        {"name_vectors", vc},    {"name_floor", dbl},           {"tol", dbl},            {"soft_band", dbl},
+	        {"class_hierarchy", vc}, {"generalization_credit", dbl}, {"alternatives", vc}};
 }
 
 void RegisterCoverageTable(ExtensionLoader &loader, const string &name, table_function_bind_replace_t fn,
@@ -1626,7 +1977,10 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
 	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
 	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
-	    "counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each "
+	    "counts are summed over compatible items (never across OR alternatives). alternatives 'joint' (default) holds "
+	    "the request to one alternative per candidate OR group (one configuration), 'per_requirement' lets each "
+	    "requirement pick its own. class_hierarchy (class_id, parent_class_id) makes a subclass offer meet a "
+	    "superclass requirement; generalization_credit c gives a superclass offer c^distance. assignment 'partition' gives each "
 	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
 	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
@@ -1641,8 +1995,13 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    loader, "tree_coverage_trace", TreeCoverageTraceBindReplace,
 	    "The explanation of tree_coverage: one row per request item and required attribute with the matched "
 	    "candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, "
-	    "attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a "
-	    "value below 1). Same parameters as tree_coverage." +
+	    "attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a "
+	    "value below 1), name_rule (how the names were compared: key when both attributes carry the same attr_key, "
+	    "vector, exact or tokens), bound_source (where the requirement's bound came from: explicit, text, range, "
+	    "level_type, constraint or template) and label_rule (exact, soft, specialized: a subclass was offered, "
+	    "generalized: a superclass was offered, see class_hierarchy). rule is the value rule; gate for a dimension or unit mismatch; "
+	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
+	    "different attr_keys. Same parameters as tree_coverage." +
 	        common,
 	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
 	RegisterCoverageTable(
@@ -1672,6 +2031,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		     {"default_bounds", vc},
 		     {"templates_table", vc},
 		     {"rules_table", vc},
+		     {"class_hierarchy", vc},
+		     {"generalization_credit", dbl},
+		     {"alternatives", vc},
 		     {"name_vectors", vc},
 		     {"name_floor", dbl},
 		     {"tol", dbl},

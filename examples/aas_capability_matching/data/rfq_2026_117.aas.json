@@ -1,0 +1,689 @@
+{
+  "assetAdministrationShells": [
+    {
+      "modelType": "AssetAdministrationShell",
+      "id": "https://kroeger-vt.example/aas/rfq-2026-117",
+      "idShort": "RFQ_2026_117",
+      "assetInformation": {
+        "assetKind": "Type",
+        "globalAssetId": "https://kroeger-vt.example/asset/tray-sealer-ts40/y-axis"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "https://kroeger-vt.example/aas/rfq-2026-117/sm/capabilities"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "submodels": [
+    {
+      "modelType": "Submodel",
+      "id": "https://kroeger-vt.example/aas/rfq-2026-117/sm/capabilities",
+      "idShort": "CapabilityDescription",
+      "kind": "Instance",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "modelType": "SubmodelElementCollection",
+          "idShort": "CapabilitySet",
+          "value": [
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "PositionControlledMotionContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "PositionControlledMotion",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/PositionControlledMotion"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "PropertySet",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "RatedCurrent",
+                      "value": [
+                        {
+                          "modelType": "Range",
+                          "idShort": "PropertyRange",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Range/1/0"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-BAA120#008"
+                                }
+                              ]
+                            }
+                          ],
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "rated output current"
+                                  }
+                                ],
+                                "unit": "A",
+                                "unitId": {
+                                  "type": "ExternalReference",
+                                  "keys": [
+                                    {
+                                      "type": "GlobalReference",
+                                      "value": "0173-1#05-AAA480#003"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "min": "7.6"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "SupplyVoltage",
+                      "value": [
+                        {
+                          "modelType": "Range",
+                          "idShort": "PropertyRange",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Range/1/0"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAB381#005"
+                                }
+                              ]
+                            }
+                          ],
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "supply voltage"
+                                  }
+                                ],
+                                "unit": "V",
+                                "unitId": {
+                                  "type": "ExternalReference",
+                                  "keys": [
+                                    {
+                                      "type": "GlobalReference",
+                                      "value": "0173-1#05-AAA597#003"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "min": "380",
+                          "max": "480"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "AmbientTemperature",
+                      "value": [
+                        {
+                          "modelType": "Range",
+                          "idShort": "PropertyRange",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Range/1/0"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-BAA039#012"
+                                }
+                              ]
+                            }
+                          ],
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "max. ambient temperature"
+                                  }
+                                ],
+                                "unit": "°C",
+                                "unitId": {
+                                  "type": "ExternalReference",
+                                  "keys": [
+                                    {
+                                      "type": "GlobalReference",
+                                      "value": "0173-1#05-AAA567#002"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "min": "45"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "SafeTorqueOff",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "PropertyProperty",
+                          "valueType": "xs:boolean",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Property/1/0"
+                              }
+                            ]
+                          },
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "safe torque off (STO)"
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "value": "true",
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ903#001"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            },
+            {
+              "modelType": "SubmodelElementCollection",
+              "idShort": "FieldbusCommunicationContainer",
+              "value": [
+                {
+                  "modelType": "Capability",
+                  "idShort": "FieldbusCommunication",
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"
+                      }
+                    ]
+                  },
+                  "supplementalSemanticIds": [
+                    {
+                      "type": "ExternalReference",
+                      "keys": [
+                        {
+                          "type": "GlobalReference",
+                          "value": "https://vocab.machinery.example/capability/FieldbusCommunication"
+                        }
+                      ]
+                    }
+                  ],
+                  "qualifiers": [
+                    {
+                      "type": "Required",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Required/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "true"
+                    },
+                    {
+                      "type": "Offered",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/Offered/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    },
+                    {
+                      "type": "NotAssigned",
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityRoleQualifier/NotAssigned/1/0"
+                          }
+                        ]
+                      },
+                      "kind": "ValueQualifier",
+                      "valueType": "xs:boolean",
+                      "value": "false"
+                    }
+                  ]
+                },
+                {
+                  "modelType": "SubmodelElementCollection",
+                  "idShort": "PropertySet",
+                  "value": [
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "Protocol",
+                      "value": [
+                        {
+                          "modelType": "Property",
+                          "idShort": "PropertyProperty",
+                          "valueType": "xs:string",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Property/1/0"
+                              }
+                            ]
+                          },
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "fieldbus protocol"
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "value": "EtherCAT",
+                          "valueId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "0173-1#07-AAZ001#001"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ902#002"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "modelType": "SubmodelElementCollection",
+                      "idShort": "CycleTime",
+                      "value": [
+                        {
+                          "modelType": "Range",
+                          "idShort": "PropertyRange",
+                          "valueType": "xs:double",
+                          "semanticId": {
+                            "type": "ExternalReference",
+                            "keys": [
+                              {
+                                "type": "GlobalReference",
+                                "value": "https://admin-shell.io/idta/CapabilityPropertyType/Range/1/0"
+                              }
+                            ]
+                          },
+                          "supplementalSemanticIds": [
+                            {
+                              "type": "ExternalReference",
+                              "keys": [
+                                {
+                                  "type": "GlobalReference",
+                                  "value": "0173-1#02-AAZ901#002"
+                                }
+                              ]
+                            }
+                          ],
+                          "embeddedDataSpecifications": [
+                            {
+                              "dataSpecification": {
+                                "type": "ExternalReference",
+                                "keys": [
+                                  {
+                                    "type": "GlobalReference",
+                                    "value": "https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0"
+                                  }
+                                ]
+                              },
+                              "dataSpecificationContent": {
+                                "modelType": "DataSpecificationIec61360",
+                                "preferredName": [
+                                  {
+                                    "language": "en",
+                                    "text": "minimum bus cycle time"
+                                  }
+                                ],
+                                "unit": "ms",
+                                "unitId": {
+                                  "type": "ExternalReference",
+                                  "keys": [
+                                    {
+                                      "type": "GlobalReference",
+                                      "value": "0173-1#05-AAA114#003"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "max": "1"
+                        }
+                      ],
+                      "semanticId": {
+                        "type": "ExternalReference",
+                        "keys": [
+                          {
+                            "type": "GlobalReference",
+                            "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "semanticId": {
+                    "type": "ExternalReference",
+                    "keys": [
+                      {
+                        "type": "GlobalReference",
+                        "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "semanticId": {
+                "type": "ExternalReference",
+                "keys": [
+                  {
+                    "type": "GlobalReference",
+                    "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"
+                  }
+                ]
+              }
+            }
+          ],
+          "semanticId": {
+            "type": "ExternalReference",
+            "keys": [
+              {
+                "type": "GlobalReference",
+                "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilitySet/1/0"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "conceptDescriptions": []
+}

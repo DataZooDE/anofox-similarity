@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<aas:environment xmlns:aas="https://admin-shell.io/aas/3/1">
+  <aas:submodels>
+    <aas:submodel>
+      <aas:idShort>TechnicalData</aas:idShort>
+      <aas:id>urn:fx:sm:lists</aas:id>
+      <aas:submodelElements>
+        <aas:submodelElementCollection>
+          <aas:idShort>Motor</aas:idShort>
+          <aas:value>
+            <aas:submodelElementList>
+              <aas:idShort>RatedSpeeds</aas:idShort>
+              <aas:orderRelevant>true</aas:orderRelevant>
+              <aas:semanticIdListElement><aas:type>ExternalReference</aas:type><aas:keys><aas:key><aas:type>GlobalReference</aas:type><aas:value>0173-1#02-AAZ960#001</aas:value></aas:key></aas:keys></aas:semanticIdListElement>
+              <aas:typeValueListElement>Property</aas:typeValueListElement>
+              <aas:valueTypeListElement>xs:double</aas:valueTypeListElement>
+              <aas:value>
+                <aas:property><aas:value>1500</aas:value></aas:property>
+                <aas:property><aas:value>3000</aas:value></aas:property>
+              </aas:value>
+            </aas:submodelElementList>
+          </aas:value>
+        </aas:submodelElementCollection>
+      </aas:submodelElements>
+    </aas:submodel>
+  </aas:submodels>
+  <aas:conceptDescriptions>
+    <aas:conceptDescription>
+      <aas:id>0173-1#02-AAZ960#001</aas:id>
+      <aas:embeddedDataSpecifications>
+        <aas:embeddedDataSpecification>
+          <aas:dataSpecification><aas:type>ExternalReference</aas:type><aas:keys><aas:key><aas:type>GlobalReference</aas:type><aas:value>https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0</aas:value></aas:key></aas:keys></aas:dataSpecification>
+          <aas:dataSpecificationContent>
+            <aas:dataSpecificationIec61360>
+              <aas:preferredName><aas:langStringPreferredNameTypeIec61360><aas:language>en</aas:language><aas:text>rated speed</aas:text></aas:langStringPreferredNameTypeIec61360></aas:preferredName>
+              <aas:unit>rpm</aas:unit>
+            </aas:dataSpecificationIec61360>
+          </aas:dataSpecificationContent>
+        </aas:embeddedDataSpecification>
+      </aas:embeddedDataSpecifications>
+    </aas:conceptDescription>
+  </aas:conceptDescriptions>
+</aas:environment>

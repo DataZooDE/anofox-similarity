@@ -7,6 +7,7 @@
 #include "modules/coverage_search.hpp"
 #include "modules/quantity.hpp"
 #include "modules/property_tree.hpp"
+#include "modules/aas/aas_functions.hpp"
 #include "modules/coverage_kernel.hpp"
 #include "modules/pivot_classifier.hpp"
 #include "modules/vocabulary_review.hpp"
@@ -136,6 +137,7 @@ static void LoadInternal(ExtensionLoader &loader) {
 	anofox::RegisterCoverageSearchFunctions(loader);
 	anofox::RegisterQuantityFunctions(loader);
 	anofox::RegisterPropertyTreeFunctions(loader);
+	anofox::RegisterAasFunctions(loader);
 	anofox::RegisterCoverageKernelFunctions(loader);
 	anofox::RegisterPivotClassifierFunctions(loader);
 	anofox::RegisterVocabularyReviewFunctions(loader);

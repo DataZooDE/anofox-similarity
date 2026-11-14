@@ -36,7 +36,7 @@ inline unique_ptr<SubqueryRef> CoverageSubquery(const string &query, ClientConte
 inline string QuotedIdentifier(const string &path) {
 	string out = "\"";
 	for (auto ch : path) {
-		out += ch == '.' ? string("\".\"") : string(1, ch);
+		out += ch == '.' ? string("\".\"") : ch == '"' ? string("\"\"") : string(1, ch);
 	}
 	return out + "\"";
 }

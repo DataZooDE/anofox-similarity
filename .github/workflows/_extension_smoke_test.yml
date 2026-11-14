@@ -143,3 +143,18 @@ jobs:
             --duckdb /tmp/duckdb_cli/duckdb \
             --preload vss \
             --check-examples >> "$GITHUB_STEP_SUMMARY"
+
+      # The AAS the extension writes must validate against the official AAS v3.2 JSON
+      # schema (GitHub #34, review AAS-3). A functional test, not a format check: it runs
+      # the writer in a stock DuckDB CLI with the release artifact loaded and fails the
+      # job on a schema violation. linux_amd64 only, like the audit above, whose CLI it uses.
+      - name: AAS output validates against the AAS JSON schema
+        if: steps.gate.outputs.skip != 'true' && matrix.arch == 'linux_amd64'
+        shell: bash
+        env:
+          DUCKDB: /tmp/duckdb_cli/duckdb
+          ANOFOX_EXTENSION: ${{ github.workspace }}/extension_artifact/${{ inputs.extension_name }}.duckdb_extension
+          REQUIRE_SHELL: '1'
+        run: |
+          python -m pip install --quiet pytest jsonschema
+          python -m pytest scripts/tests/test_aas_schema.py -q -p no:cacheprovider

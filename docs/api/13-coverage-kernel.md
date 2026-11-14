@@ -35,10 +35,18 @@ coverage    = mean req(q);  rank_score = coverage + stage1_weight · stage1_scor
 
 `assignment := 'partition'` gives each candidate item to the requirement it agrees with most
 (ties: the largest remaining count need, then the lowest node id). An item may then not stand
-in for another function, and one item serves one requirement. OR alternatives are
-options: every tied requirement may choose them, and each requirement uses its best variant.
-`'best_match'` lets requirements share items. `'auto'` (default) uses partition when both the
-query tree and the candidate tree are reviewed.
+in for another function, and one item serves one requirement. `'best_match'` lets requirements
+share items. `'auto'` (default) uses partition when both the query tree and the candidate tree
+are reviewed.
+
+**Candidate alternatives (`alternatives`).** A candidate's OR groups (variant groups: module
+variants, product configurations) are alternatives of one product. With `'joint'` (default) the
+whole request is held to **one alternative per group**: groups are decided outer first, each
+taking the alternative with the best coverage given the earlier decisions. A station that needs a
+quiet conveyor and a high stack therefore scores like the best single variant, not like a mix of
+two variants nobody can build. `'per_requirement'` lets each requirement use its best variant
+(the behaviour before AAS-2). The cost is one evaluation per alternative (the sum, not the
+product, over groups).
 
 **Named parameters**
 
@@ -58,13 +66,61 @@ query tree and the candidate tree are reviewed.
 | `recall_mode` (`mode` in `coverage_recall`) | `'auto'` | `'containment'`, `'jaccard'`, `'auto'` |
 | `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: an unqualified requirement takes the bound of its template with the same class and dimension (none when ambiguous) |
 | `rules_table` | NULL | compatibility rules for categorical attributes (no rule: equal → 1) |
-| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap |
+| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)`: attribute-name similarity is the cosine calibrated by the floor; without vectors, token overlap. Equal `attr_key`s override both (see below) |
+| `alternatives` | `'joint'` | `'joint'`: one alternative per candidate OR group for the whole request; `'per_requirement'`: each requirement picks its own |
+| `class_hierarchy`, `generalization_credit` | NULL, 0.0 | `(class_id, parent_class_id)`: a related class (ancestor or descendant at distance d) agrees by `generalization_credit^d` instead of 0 (see below); 0 = off |
 | `candidate_multiset_table` | NULL | a precomputed index of the candidate class multisets (`tree_class_multiset` output: `entity_id, feature_id, weight[, reviewed]`). Stage 1 reads it instead of resolving every candidate tree; the results are the same |
 
 **Gaps.** `is_gap` marks a requirement that has no counterpart, too few instances, or a
 value below 1. It does not depend on how soft the labels are. A required attribute that the
 matched item lacks gives a row with `gate = true`. `distance` is relative for the limit rules,
 a share for within and point (also for temperature), and in K for the temperature limit rules.
+
+**Dictionary keys (`attr_key`).** An optional `attr_key` column on the attributes tables
+holds a dictionary identifier, such as an AAS semanticId (ECLASS or IEC CDD IRDI, or ECLASS IRI).
+Keys are compared after [`semantic_key`](17-aas.md), so the IRDI and IRI forms and different
+release suffixes (`#007`, `#008`) are the same key. When **both** attributes carry a key:
+
+- equal keys give `name_sim = 1` (`name_rule = 'key'`);
+- different keys are a hard gate, like a dimension mismatch: score 0 and `rule = 'key_mismatch'`
+  in the trace, not a `mu` discount;
+- if the candidate item has an attribute with the requirement's key, only keyed attributes can
+  answer that requirement. An unkeyed attribute of the same dimension does not stand in.
+
+When only one side has a key, or neither, names are compared as before (`name_rule` = `vector`,
+`exact` or `tokens`). Without `attr_key`, IRDIs used as attribute names are **not** exact: two
+different IRDIs share the tokens `0173`, `1` and `02` and get partial name credit.
+
+```sql
+-- the AAS reader fills attr_key; hand-made tables can add it
+ALTER TABLE tree_attributes ADD COLUMN attr_key VARCHAR;
+UPDATE tree_attributes SET attr_key = name WHERE name LIKE '0173-1#%';
+SELECT attr_id, rule, name_rule, attr_score
+FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-B']);
+```
+
+**Class hierarchy (`class_hierarchy`, `generalization_credit`).** By default classes are flat: a
+requirement for hot-plate sealing gets nothing from an offer of heat sealing. With a hierarchy
+table `(class_id, parent_class_id)` (for AAS: [`aas_class_hierarchy`](17-aas.md) of an IDTA-02020
+GeneralizedBy taxonomy) the hierarchy is an **is-a** relation:
+
+```
+rel(required k, provided l) = 1     same class, or l a subclass of k at any distance (specialized)
+                            = c^d   l a superclass of k at distance d, up to 32 levels (generalized)
+                            = 0     otherwise
+L(q, c) = Σ_k,l √(p_k(q) · p_l(c)) · rel(k, l), capped at 1         (hard labels: rel(class, class))
+```
+
+A hot-plate sealer is a heat sealer, so it fully meets a heat-sealing requirement. A general
+heat sealer for a hot-plate requirement gets `generalization_credit` c (default 0: nothing).
+Without a table this is the Bhattacharyya coefficient, so results are unchanged. The trace column
+`label_rule` says `exact`, `soft`, `specialized` or `generalized`. A generalized item counts
+towards a required count relative to the match: fully when the best match is itself generalized
+(its score carries the discount), by L / L(best) next to a closer match, so superclass items cannot
+hide a count shortfall. A generalized item must still pass `partition_gate` (0.3, reviewed trees)
+and `count_gate` (0.5): with c = 0.5 a parent (0.5) passes, a grandparent (0.25) does not.
+Stage-1 recall does not use the hierarchy: pass `candidates :=`, or raise `k`, when the related
+offers would not be recalled by class.
 
 **Partition and repeated classes.** The partition first assigns items by class agreement, then
 moves or swaps items between requirements of the same class while that raises the summed score.
@@ -162,10 +218,10 @@ top-1 ≥ 0.85, MAE ≤ 0.05, precision at 0.9 ≥ 0.95).
 
 *Table function*
 
-Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; counts are summed over compatible items (never across OR alternatives). assignment 'partition' gives each candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score (coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). tol and soft_band (default 0.02, 0.05) are passed to value_satisfies; use 0 and 0 for hard limits. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
+Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; counts are summed over compatible items (never across OR alternatives). alternatives 'joint' (default) holds the request to one alternative per candidate OR group (one configuration), 'per_requirement' lets each requirement pick its own. class_hierarchy (class_id, parent_class_id) makes a subclass offer meet a superclass requirement; generalization_credit c gives a superclass offer c^distance. assignment 'partition' gives each candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score (coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). tol and soft_band (default 0.02, 0.05) are passed to value_satisfies; use 0 and 0 for hard limits. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
 
 ```sql
-tree_coverage(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor, tol, soft_band)
+tree_coverage(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor, tol, soft_band, class_hierarchy, generalization_credit, alternatives)
 ```
 
 **Examples**
@@ -179,10 +235,10 @@ SELECT * FROM tree_coverage(['R01', 'R02'], candidates := ['P001', 'P002']);
 
 *Table function*
 
-The explanation of tree_coverage: one row per request item and required attribute with the matched candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score, count_needed, count_available, req_score and is_gap (no counterpart, a count shortfall or a value below 1). Same parameters as tree_coverage. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
+The explanation of tree_coverage: one row per request item and required attribute with the matched candidate item and path, label_sim, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a value below 1), name_rule (how the names were compared: key when both attributes carry the same attr_key, vector, exact or tokens), bound_source (where the requirement's bound came from: explicit, text, range, level_type, constraint or template) and label_rule (exact, soft, specialized: a subclass was offered, generalized: a superclass was offered, see class_hierarchy). rule is the value rule; gate for a dimension or unit mismatch; missing when the offer states the property without a value; key_mismatch when both attributes carry different attr_keys. Same parameters as tree_coverage. query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default 'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip resolving every candidate tree.
 
 ```sql
-tree_coverage_trace(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor, tol, soft_band)
+tree_coverage_trace(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table, label_table, recall_mode, tie_break, candidate_multiset_table, attrs_table, candidate_attrs_table, labels, assignment, label_weight, mu, partition_gate, count_gate, stage1_weight, default_bounds, templates_table, rules_table, name_vectors, name_floor, tol, soft_band, class_hierarchy, generalization_credit, alternatives)
 ```
 
 **Examples**
@@ -214,7 +270,7 @@ SELECT * FROM coverage_recall('R01', k := 20, candidate_nodes_table := 'programm
 The stage-2 coverage kernel over two packed trees (LIST of STRUCT(node_id, parent_id, node_kind, edge_type, class_id, reviewed, count, probs MAP, attrs LIST(STRUCT(attr_id, name, dimension, unit, lo, hi, bound, category, default_bound, scale, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, partition_gate, count_gate, name_floor, tol, soft_band, trace, rules). Returns STRUCT(coverage, n_requirements, n_gaps, reviewed, assignment_used, trace). tree_coverage and tree_coverage_trace build its inputs; use it directly for custom pipelines.
 
 ```sql
-coverage_kernel(query ANY, candidate ANY, options ANY) → STRUCT(coverage DOUBLE, n_requirements BIGINT, n_gaps BIGINT, reviewed BOOLEAN, assignment_used VARCHAR, trace STRUCT(req_node_id VARCHAR, matched_node_id VARCHAR, matched_path VARCHAR, label_sim DOUBLE, attr_id VARCHAR, attr_name VARCHAR, req_value VARCHAR, prov_value VARCHAR, gate BOOLEAN, name_sim DOUBLE, value_score DOUBLE, distance DOUBLE, "rule" VARCHAR, attr_score DOUBLE, count_needed DOUBLE, count_available DOUBLE, req_score DOUBLE, is_gap BOOLEAN)[])
+coverage_kernel(query ANY, candidate ANY, options ANY) → STRUCT(coverage DOUBLE, n_requirements BIGINT, n_gaps BIGINT, reviewed BOOLEAN, assignment_used VARCHAR, trace STRUCT(req_node_id VARCHAR, matched_node_id VARCHAR, matched_path VARCHAR, label_sim DOUBLE, attr_id VARCHAR, attr_name VARCHAR, req_value VARCHAR, prov_value VARCHAR, gate BOOLEAN, name_sim DOUBLE, value_score DOUBLE, distance DOUBLE, "rule" VARCHAR, attr_score DOUBLE, count_needed DOUBLE, count_available DOUBLE, req_score DOUBLE, is_gap BOOLEAN, name_rule VARCHAR, bound_source VARCHAR, label_rule VARCHAR)[])
 ```
 
 **Examples**

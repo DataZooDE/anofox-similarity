@@ -1,0 +1,115 @@
+# name: test/sql/aas/uc_06_variants_and_channel_counts.test
+# description: The buyer needs 20 digital inputs and 8 outputs. Ostwald's remote I/O station
+#              comes in three configurations, one of them with two 8-channel input cards. Plain
+#              AAS cannot say "one of these configurations" or "8 channels per card, 2 cards".
+#              The DataZoo AAS profile (anofox:VariantGroup, anofox:Count, the Count semanticId)
+#              can, and the kernel then counts channels within one configuration. Plain AAS
+#              without the profile still loads.
+# group: [aas]
+
+require anofox_similarity
+
+statement ok
+CREATE TABLE raw AS
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-311')) AS n FROM read_text('test/data/aas/scenario/io_profile/rfq_2026_311.aas.json')
+UNION ALL SELECT unnest(aas_to_trees(content, 'IO-S')) FROM read_text('test/data/aas/scenario/io_profile/ostwald_ios.aas.json')
+UNION ALL SELECT unnest(aas_to_trees(content, 'IO-S-plain')) FROM read_text('test/data/aas/scenario/io_profile/ostwald_ios_plain.aas.json');
+
+statement ok
+CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
+
+statement ok
+CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
+
+query I
+SELECT count(*) FROM validate_trees('tree_nodes', 'tree_attributes');
+----
+0
+
+# anofox:VariantGroup: the configurations are alternatives (OR) of a variant group
+query TTT
+SELECT split_part(node_id, '.', -1), node_kind, edge_type FROM tree_nodes
+WHERE tree_id = 'IO-S' AND parent_id IN ('Configurations', 'Configurations.Configuration') ORDER BY 1;
+----
+Config16DI	container	OR
+Config16DI8DO	container	OR
+Config8DI8DO	container	OR
+Configuration	variant_group	AND
+
+# anofox:Count on a card and the Count property on a channel block: 2 cards x 8 channels
+query TR
+SELECT node_id, count FROM tree_nodes WHERE tree_id = 'IO-S' AND node_id LIKE 'Configurations.Configuration.Config16DI8DO%' ORDER BY 1;
+----
+Configurations.Configuration.Config16DI8DO	1.0
+Configurations.Configuration.Config16DI8DO.DI8Card	2.0
+Configurations.Configuration.Config16DI8DO.DI8Card.DigitalInputs	8.0
+Configurations.Configuration.Config16DI8DO.DigitalOutputs	8.0
+
+# A Count property is a count, not an attribute; the request's counts come the same way
+query TRI
+SELECT split_part(n.node_id, '.', -1), n.count, (SELECT count(*) FROM tree_attributes a WHERE a.tree_id = n.tree_id AND a.node_id = n.node_id)
+FROM tree_nodes n WHERE tree_id = 'RFQ-2026-311' AND node_kind = 'item' ORDER BY 1;
+----
+DigitalInputs	20.0	1
+DigitalOutputs	8.0	1
+
+# Within one configuration there are at most 16 inputs: 16/20 inputs, 8/8 outputs
+query TRI
+SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard');
+----
+IO-S	0.9	1
+
+# One configuration for the whole request (alternatives := 'joint', the default): inputs and
+# outputs come from the same configuration, 16DI8DO
+query TRRT
+SELECT split_part(req_node_id, '.', -1), count_needed, count_available, split_part(matched_node_id, '.', 3)
+FROM tree_coverage_trace('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard') ORDER BY 1;
+----
+DigitalInputs	20.0	16.0	Config16DI8DO
+DigitalOutputs	8.0	8.0	Config16DI8DO
+
+# per_requirement lets each requirement take its own configuration (the inputs from 16DI)
+query TT
+SELECT split_part(req_node_id, '.', -1), split_part(matched_node_id, '.', 3)
+FROM tree_coverage_trace('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard', alternatives := 'per_requirement') ORDER BY 1;
+----
+DigitalInputs	Config16DI
+DigitalOutputs	Config16DI8DO
+
+statement error
+SELECT * FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], alternatives := 'all');
+----
+alternatives must be 'joint' or 'per_requirement'
+
+# Without the profile the file still loads: the configurations are siblings and every channel
+# block counts once, so the station looks far smaller than it is
+query TI
+SELECT node_kind, count(*) FROM tree_nodes WHERE tree_id = 'IO-S-plain' AND node_id LIKE 'Configurations.Configuration%' GROUP BY 1 ORDER BY 1;
+----
+container	6
+item	5
+
+query I
+SELECT count(*) FROM tree_nodes WHERE tree_id = 'IO-S-plain' AND (edge_type = 'OR' OR count <> 1);
+----
+0
+
+query TR
+SELECT candidate_id, coverage FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S-plain'], labels := 'hard');
+----
+IO-S-plain	0.2
+
+# Profile misuse is reported, not guessed
+query TT
+SELECT split_part(i.path, '.', -1), i.issue FROM (SELECT unnest(aas_issues(
+    '{"submodels": [{"modelType": "Submodel", "id": "urn:p", "idShort": "P", "submodelElements": [
+       {"modelType": "SubmodelElementCollection", "idShort": "Options",
+        "qualifiers": [{"type": "anofox:VariantGroup", "valueType": "xs:string", "value": "true"}],
+        "value": [{"modelType": "Property", "idShort": "Colour", "valueType": "xs:int", "value": "3"},
+                  {"modelType": "SubmodelElementCollection", "idShort": "Small", "value": []}]},
+       {"modelType": "SubmodelElementCollection", "idShort": "Card",
+        "qualifiers": [{"type": "anofox:Count", "valueType": "xs:int", "value": "-2"}], "value": []}]}]}')) AS i)
+ORDER BY 1;
+----
+Card	bad_count
+Colour	value_in_variant_group

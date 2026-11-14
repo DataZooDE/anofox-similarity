@@ -628,3 +628,108 @@ stack in tree_from_json; MAX_TREE_DEPTH is now 256 (HLD §11.14).
 | R9 | med | `cluster_matches` closes chains across a missing attribute | Example guard re-checks every whole cluster; an optional conflict check is backlog |
 | R10, S6, S7 | low | Trace tie keeps the first value; OR variants scored per requirement item; base units in the trace; no per-attribute gap flag | Backlog; examples show the workarounds |
 | S8 | med | `infer_predecessors` misses the clean cut-over (0.356 < 0.5) | Known (UR-2 D-2); planner folder shows the recipe |
+
+## AAS-1 — 2026-11-11 — Tier 1 of the AAS epic (#27–#30), crew review (user request)
+
+- **Crew** (review mode, one round): usability (claude), correctness (muse), design (codex),
+  maintainability (claude), testing (muse) on `git diff 86ef2be..589e113..4d419e0..993ae68`
+  (semantic_key, the attr_key gate, unit identifiers, the AAS reader). Verdict: request changes.
+  The design held up (format-neutral model, three readers, an independent gold oracle), but
+  several paths failed silently on supplier data.
+- **Evidence after the fixes:** `test/sql/aas/crew_t1_regressions.test` uses hand-written
+  fixtures (`test/data/aas/fixtures/`), not the scenario generator. All 8 AAS test files and the
+  full suite pass on DuckDB 1.5.6 and 2.0. The loadable extension loads in the stock 1.5.6 shell
+  and in the 2.0 shell, and reads the XML AASX sample.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | ConceptDescriptions indexed version-stripped, first wins: mA vs A by input order | Exact release first; another release only when all agree on unit and unitId, else `ambiguous_concept_description` and no unit. Tested in both CD orders |
+| F2 | high | `semanticIdListElement` / `valueTypeListElement` ignored | Parsed in JSON and XML; list children inherit them (`AasInheritListElement`) |
+| F3 | high | `"yes"` → false, `xs:int "1.5"` accepted, `"1,500"` → 1.5 | `aas_values`: strict booleans, integers without fraction, the comma is a decimal separator only when it cannot be a thousands separator; Range uses the same parser |
+| F4 | high | Absent numbers and coded strings dropped silently | Absent or blank numbers stay as valueless attributes (a gap) with `empty_value`; codes (IP65) and short keyed texts become categories; template submodels only contribute stated values |
+| F5 | high | One broken file aborts a folder load, no file name | `aas_issues` reports `parse_error` and never raises; the docs open with a filename audit. `aas_to_trees` stays strict (decision below) |
+| F6 | medium | `('mA', id, 'current')` redefined mA with factor 1 | A known symbol without a factor only attaches ids and aliases; another dimension is an error |
+| F7 | medium | Given `tree_id` suffixed when the file had an orphan submodel | The first tree gets the given id; others `tree_id/idShort` (id on collision) with `tree_id_suffixed` |
+| F8 | medium | ECLASS IRIs of BASIC/ADVANCED, versionless | Right-anchored parsing, query/fragment and trailing slash ignored. The canonical CDP spellings are not confirmed by a source (open) |
+| F9 | medium | An embedded spec with only a name hid the CD's unit | Field-by-field merge; `assumed_dimensionless` when no unit anywhere |
+| F10 | medium | `key_mismatch` hid unstated properties | `key_mismatch` only for a differently-keyed attribute of the same kind, shown as `prov_value`; otherwise `missing` |
+| F11 | medium | Seed copy recipe dropped `unit_id` | Recipe fixed; an override without ids keeps the seed codes |
+| F12 | medium | Categories compared raw | Categories and rules canonicalised with `semantic_key` in the kernel |
+| F13 | medium | XML single roots, silent empties, `..` targets | XML accepts a lone shell / CD; `no_shell_or_submodel`, `malformed_member`; AASX targets normalised, escapes are an error |
+| F14 | medium | Duplicate idShorts renamed silently | Renamed `X~2` and reported as `duplicate_id_short` (kept, so a load is not blocked) |
+| F15 | medium | Fixtures only from the own generator, no 2.0 / loadable evidence | Hand-written fixtures; 1.5.6 and 2.0 suites, loadable smoke on both |
+| F16 | low | Unbounded AASX extraction | 256 MB cap per spec part (`mz_zip_reader_file_stat`) |
+| F17 | low | Cleanups | Helpers in `aas_model.cpp` / `aas_values.cpp`; property_tree wrappers removed; page title; raw `attr_key` documented; coded values read as text in the trace. Kept the base64url encoder: `Blob::ToBase64` writes padded base64, not base64url |
+
+Decisions and open questions:
+- **Strict `aas_to_trees`, lenient `aas_issues`.** A pipeline should stop on unreadable input, an
+  audit should not. Changing the load to NULL-plus-issue remains possible later.
+- **Open:** the canonical ECLASS CDP IRI spellings for BASIC/ADVANCED and versionless ids, and how
+  BaSyx and FA³ST serialise `CapabilityRoleQualifier` values (`true` / `1` are read; the template's
+  `[1, 0]` placeholder is not a value). Both need real exporter samples.
+
+## AAS-2 — 2026-11-11 — Tier 2 of the AAS epic (#31–#33) and the AAS-1 fixes, crew review (user request)
+
+- **Crew** (review mode, one round) on `git diff 993ae68..d130bff`: correctness (codex), design
+  (claude), testing (codex) reported. Usability and maintainability (muse) failed on a quota
+  error and are covered by the final review. Verdict: request changes. The two codex members
+  reproduced the same reader bugs against the 1.5.6 build independently.
+- **Product decisions** (asked and answered in the session, recorded in HLD §12.7): is-a class
+  hierarchy; transparent composites; one alternative per candidate OR group.
+- **Evidence:** `test/sql/aas/crew_t2_regressions.test` (hand-written fixtures), updated `uc_05`,
+  `uc_06` and `examples/tender_reuse/03`. The full suite (133 test cases) and all 26 examples pass
+  on 1.5.6 and 2.0.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | Relations and constraints resolved per submodel by idShort: cross-submodel GeneralizedBy fell back to a bare idShort, duplicate idShorts misresolved a constraint | One input-wide index keyed by submodel id and path, applied after all trees; the external-class fallback only for ExternalReferences; unresolved ModelReferences reported |
+| F2 | high | Superclass items added their full count | A generalized item counts relative to the best match (L / L(best)): fully at its own level, partly next to a closer match. Test: 2 needed, 1 exact + 3 superclass → 2.5 |
+| F3 | high | A classed collection with only a profile count became a container | Item when it has a dictionary semanticId and a profile count |
+| F4 | medium | BasicConstraint kept its comparator and dropped its number; overwrote a Range's `within` | The value is the limit in the attribute's dimension; `constraint_conflict` for a different stated value, a two-sided Range (kept) or another dimension (not applied) |
+| F5 | medium | Constraint on a container holding a list unresolved | Attributes indexed under every enclosing path up to the PropertyContainer or list |
+| F6 | medium | Credit symmetric in both directions | Decided: is-a. A subclass offer fully meets a superclass requirement (`specialized`); only a superclass offer gets c^d |
+| F7 | medium | Composite without properties counted as a requirement | Decided: it becomes a container, only its parts are requirements |
+| F8 | medium | Soft-label trace said `soft` with hierarchy credit | `specialized` / `generalized` whenever related classes contribute |
+| F9 | medium | The #32 regression test compared the new build with itself | The default path is pinned by the golden suites under `test/sql/coverage/r0`–`r5` (2589 assertions, soft and hard labels), which passed unchanged after #32 and after AAS-2. With a hierarchy, results now change by design (is-a), so a "hierarchy, credit 0 = no hierarchy" golden no longer holds in general |
+| F10 | medium | Options deep-copied per row | Bound by reference |
+| F11 | low | Guide described a writer that did not exist | Future tense until #34 lands |
+| F12 | low | TreeBuilder responsibilities, O(n²) ancestor walk | Node index; relation and constraint passes run once over the input-wide index; value typing and dictionary lookups in their own units (AAS-1) |
+| F13 | low | Small API inconsistencies | `aas_class_hierarchy(content)` only; the credit check in `KernelSettingsError`; qualifier-over-property precedence for counts documented; `bad_value` for role qualifiers, `unclassed_capability` |
+| new | — | Open question "one configuration per request" | Decided: `alternatives := 'joint'` (default). The suite and benchmark KPIs are unchanged; `examples/tender_reuse/03` step 4 had documented the mixing pitfall and now shows it solved, with `'per_requirement'` for the old behaviour |
+
+## AAS-3 — 2026-11-11 — Tier 3 of the AAS epic (#34–#36) and a whole-epic usability pass, crew review (user request)
+
+- **Crew** (review mode, one round, codex and claude only, so usability and maintainability ran
+  this time): usability, correctness, design, maintainability, testing on `git diff
+  52287b2..8582182`, plus the AAS docs and tests as a user meets them. Verdict: request changes.
+  Several bugs were reproduced against the build, two of them by two members independently.
+- **Evidence:** `test/sql/aas/crew_t3_regressions.test` and generated edge cases in
+  `scripts/tests/test_aas_schema.py`. The generated cases found one more bug, empty lists in the
+  output, which the schema forbids. The full suite (136 test cases), all 30 examples and the
+  schema test pass on 1.5.6 and 2.0; the 2.0 schema test runs with the loadable artifact.
+
+| # | Sev | Finding | Resolution |
+|---|---|---|---|
+| F1 | high | `aas_export` reordered lists of 11+ members (text sort, positional indices) | The writer sorts list members (attributes and nodes) by numeric index. Test: 12 members each |
+| F2 | high | `aas_quality` matched submodels by idShort prefix (`Tech` got `TechnicalData`'s counts) | The mapper tags every node and finding with its submodel id; the report groups by id |
+| F3 | high | A NULL wording in overrides emptied the suggestion queue (`NOT IN`) | `NOT EXISTS` |
+| F4 | high | CoverageResult ids collided (`a/b`+`c` = `a`+`b/c`), unencoded IRIs | `id_prefix` + base64url-encoded query and candidate |
+| F5 | medium | idShorts could end in `-` or exceed 128 characters | Cut first, then trim; uniqueness suffixes within the limit; umlauts transliterated |
+| F6 | medium | `nan` / `inf` written | `NaN`, `INF`, `-INF` (XSD) |
+| F7 | medium | Schema validation not in CI | A step in `_extension_smoke_test.yml` (linux_amd64): stock CLI + release artifact, `REQUIRE_SHELL=1` |
+| F8 | medium | Suggestions averaged top-2-truncated probabilities | Full distribution, averaged per wording with absent classes as 0 |
+| F9 | medium | Similarity scored every item against the whole dictionary | Only for each wording's top suggestion |
+| F10 | medium | Quality columns overlapped and missed cases | Missing ConceptDescriptions counted for every coded value from the environment; unresolved units from the final unit resolution |
+| F11 | medium | Coverage recomputed in SQL; missing metrics written as 0 | Asserted equal to `tree_coverage` (variant groups included); missing metrics without a value; result numbers carry a dimensionless entry, so a re-read is clean |
+| F12 | medium | Role-less items without attributes written as Capabilities | Kept: a collection without values reads back as a container and would lose its class. Documented in the mapping table |
+| F13 | medium | Fragile file recipe; results not uploadable | One recipe with a one-file-per-row warning; `aas_environment` column |
+| F14 | low | Hidden state in the row mapper | `AasRowReader` returns `{environment, mapping}` with an explicit argument layout |
+| F15 | low | Round-trip contract overstated | Documented what does not survive (`value_text`, `bound_source`, `kind`, invalid idShorts) |
+| F16 | low | `C#` became a valueId; dead branch; quadratic placement | IRDI/URI test; one expression for the tree role. Placement kept: composites are few |
+| F17 | low | Test gaps; `QuotedIdentifier` did not escape `"` | Full-row `aas_export` round trip in `uc_08`; no-root error; escaping added (also protected by the existence check) |
+| new | — | `submodelElements: []` violated the schema (found by the generated cases) | Empty lists are omitted |
+| 2.0 | — | STRUCT field names are `Identifier`s on DuckDB 2.0 | Cast as in `quantity.cpp` |
+
+Open, for the product owner:
+- the CoverageResult namespace and id scheme before results are published outside DataZoo;
+- whether `trees_to_aas` should keep `kind = Template`.

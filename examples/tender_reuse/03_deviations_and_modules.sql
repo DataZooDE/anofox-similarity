@@ -129,8 +129,8 @@ ORDER BY candidate_id, clause_id;
 .print ''
 .print '>>> 3. Modules: which variant alone covers a station?'
 -- The modules export holds 5 module trees with 10 variants under OR groups. Each
--- variant becomes its own candidate tree, because tree_coverage picks the best
--- variant per requirement item, not per station (see step 4).
+-- variant becomes its own candidate tree here, to list every variant's coverage
+-- (step 4 scores the whole OR tree, holding the station to one variant).
 CREATE OR REPLACE TABLE module_nodes AS SELECT * FROM read_csv('examples/tender_reuse/data/module_nodes.csv');
 CREATE OR REPLACE TABLE module_attributes AS
 SELECT * FROM read_csv('examples/tender_reuse/data/module_attributes.csv');
@@ -178,18 +178,19 @@ ORDER BY station, variant;
 -- built from modules; F needs engineering (no single variant covers it).
 
 .print ''
-.print '>>> 4. Pitfall: scoring the whole OR tree mixes variants'
--- MOD-FEED.V1 is too loud and MOD-FEED.V2 stacks too low, yet the OR tree "covers"
--- the station: the conveyor comes from V2 and the denester from V1.
-SELECT candidate_id, coverage, n_gaps
+.print '>>> 4. The whole OR tree: one variant for the station'
+-- MOD-FEED.V1 is too loud and MOD-FEED.V2 stacks too low. tree_coverage holds the station
+-- to one variant of each OR group (alternatives := 'joint', the default), so the whole
+-- module tree scores like its best variant, V1, with the noise gap.
+SELECT candidate_id, round(coverage, 4) AS coverage, n_gaps
 FROM tree_coverage('RFQ-2026-014.F', candidates := ['MOD-FEED'],
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
   mu := 0.0, default_bounds := 'catalogue');
 -- Expected:
 -- | candidate_id | coverage | n_gaps |
--- | MOD-FEED     | 1.0      | 0      |
-SELECT req_node_id, matched_node_id, attr_id, req_value, prov_value, value_score
+-- | MOD-FEED     | 0.9333   | 1      |
+SELECT req_node_id, matched_node_id, attr_id, req_value, prov_value, round(value_score, 4) AS value_score
 FROM tree_coverage_trace('RFQ-2026-014.F', candidates := ['MOD-FEED'],
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
@@ -197,8 +198,17 @@ FROM tree_coverage_trace('RFQ-2026-014.F', candidates := ['MOD-FEED'],
 ORDER BY req_node_id, attr_id;
 -- Expected:
 -- | req_node_id     | matched_node_id | attr_id      | req_value        | prov_value | value_score |
--- | RFQ-2026-014.F1 | MOD-FEED.V2.F1  | noise        | at_most 75 dB(A) | 72 dB(A)   | 1.0         |
--- | RFQ-2026-014.F1 | MOD-FEED.V2.F1  | speed        | at_least 0.5 m/s | 0.6 m/s    | 1.0         |
--- | RFQ-2026-014.F1 | MOD-FEED.V2.F1  | width        | at_least 0.3 m   | 0.35 m     | 1.0         |
+-- | RFQ-2026-014.F1 | MOD-FEED.V1.F1  | noise        | at_most 75 dB(A) | 78 dB(A)   | 0.6         |
+-- | RFQ-2026-014.F1 | MOD-FEED.V1.F1  | speed        | at_least 0.5 m/s | 0.6 m/s    | 1.0         |
+-- | RFQ-2026-014.F1 | MOD-FEED.V1.F1  | width        | at_least 0.3 m   | 0.35 m     | 1.0         |
 -- | RFQ-2026-014.F2 | MOD-FEED.V1.F2  | stack_height | at_least 0.6 m   | 0.7 m      | 1.0         |
--- Score variants one by one (step 3) whenever a variant is a whole configuration.
+-- With alternatives := 'per_requirement' each requirement takes its best variant: the
+-- conveyor from V2 and the denester from V1, a station nobody can build (coverage 1.0).
+SELECT candidate_id, coverage, n_gaps
+FROM tree_coverage('RFQ-2026-014.F', candidates := ['MOD-FEED'],
+  nodes_table := 'station_nodes', attrs_table := 'station_attributes',
+  candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
+  mu := 0.0, default_bounds := 'catalogue', alternatives := 'per_requirement');
+-- Expected:
+-- | candidate_id | coverage | n_gaps |
+-- | MOD-FEED     | 1.0      | 0      |

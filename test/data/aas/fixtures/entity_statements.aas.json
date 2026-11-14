@@ -1,0 +1,13 @@
+﻿{
+  "submodels": [{
+    "modelType": "Submodel", "id": "urn:fx:sm:bom", "idShort": "HierarchicalStructures",
+    "submodelElements": [{
+      "modelType": "Entity", "idShort": "EntryNode", "entityType": "SelfManagedEntity",
+      "statements": [{
+        "modelType": "Entity", "idShort": "Gearbox", "entityType": "CoManagedEntity",
+        "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "urn:fx:class:gearbox"}]},
+        "statements": [{"modelType": "Property", "idShort": "Ratio", "valueType": "xs:double", "value": "12.5"}]
+      }]
+    }]
+  }]
+}
