@@ -104,7 +104,7 @@ true
 query I
 SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 ----
-24
+21
 
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';

@@ -129,37 +129,30 @@ SELECT parent_id, child_id FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_m
 P1	C1
 
 # ------------------------------------------------------------------------------
-# dynamics365_to_bom_header: a BOM with several BOMVersion rows gives one header (the
-# approved version, then the latest), not one per version.
+# dynamics365_to_bom_header: an item with several BOMVersion rows gives one header (active first,
+# approved first, then the newest), not one per version. (Native D365 columns since v2026.11;
+# the full rules are in test/sql/hardening/d365_bom.test.)
 # ------------------------------------------------------------------------------
 statement ok
-CREATE TABLE d_bomtable AS SELECT * FROM (VALUES ('B1', 'PUMP', 0), ('B2', 'FAN', 0)) t(BOMId, ItemId, Status);
-
-statement ok
 CREATE TABLE d_bomversion AS SELECT * FROM (VALUES
-  ('B1', 'V1', DATE '2024-01-01', 1),
-  ('B1', 'V2', DATE '2025-01-01', 0),
-  ('B2', 'V1', DATE '2023-01-01', 0),
-  ('B2', 'V2', DATE '2024-01-01', 0)) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
+  ('PUMP', 'B1', DATE '2024-01-01', NULL, 1, 1),
+  ('PUMP', 'B2', DATE '2025-01-01', NULL, 0, 0),
+  ('FAN',  'B3', DATE '2023-01-01', NULL, 1, 0),
+  ('FAN',  'B4', DATE '2024-01-01', NULL, 1, 0)) t(ItemId, BOMId, FromDate, ToDate, Active, Approved);
 
-statement ok
-INSERT INTO d_bomtable VALUES ('B3', 'VALVE', 0);
-
-# B3 has no version: kept, with NULL revision and not approved
 query TTT
-SELECT bom_id, revision, is_approved FROM dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion')
+SELECT bom_id, source_bom_id, is_approved FROM dynamics365_to_bom_header(bom_version := 'd_bomversion')
 ORDER BY 1;
 ----
-B1	V1	true
-B2	V2	false
-B3	NULL	false
+FAN/B4	B4	false
+PUMP/B1	B1	true
 
-# a self-join of the macro (two QUALIFY subqueries) binds on DuckDB 2.0
+# a self-join of the function binds on DuckDB 2.0
 query I
-SELECT count(*) FROM dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion') a
-JOIN dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion') b USING (bom_id);
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'd_bomversion') a
+JOIN dynamics365_to_bom_header(bom_version := 'd_bomversion') b USING (bom_id);
 ----
-3
+2
 
 # ------------------------------------------------------------------------------
 # check_statistics_freshness on an empty statistics table: last_updated is NULL (it used to

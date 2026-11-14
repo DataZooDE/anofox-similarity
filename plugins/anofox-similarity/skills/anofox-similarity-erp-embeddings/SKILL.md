@@ -65,7 +65,7 @@ every similarity search reads, and builds per-material vectors in `material_embe
   `stlnr, stlal`; STPO `stlnr, idnrk, menge, meins`. A missing column is a Binder Error naming it.
 - **Transforms emit the universal schema and write nothing** (wrap in `CREATE TABLE ... AS`).
   `sap_to_bom_items` is already flat but names the quantity `qty`, typed like MENGE (DECIMAL); rename
-  and cast to `quantity`. The D365 macros emit `bom_header` + `bom_component`: flatten with `bom_to_items`.
+  and cast to `quantity`. The D365 functions emit `bom_header` + `bom_component`: flatten with `bom_to_items`.
 - **`sap_to_bom_items` uses the SAP columns your extract has; pass STAS.** With `stlty` only material
   BOMs (`'M'`) are read (a document BOM can share the `stlnr`); MAST `stlal` must be the
   `bom_alternative`; `datuv` + `stkoz` / `stlkn` + `stpoz` pick the header and item versions valid on
@@ -227,61 +227,77 @@ ORDER BY child_id;
 
 ## Dynamics 365 transforms
 
+Native D365 columns, as table fields (`BOMVersion.ItemId`, `FromDate`, ...) or OData entity fields
+(`BillOfMaterialsVersionsV2.ItemNumber`, `ValidFromDate`, ...), detected per table. Full column
+table: `docs/api/05-erp-transformations.md`.
+
 ```text
-dynamics365_to_materials(invent_table := 'InventTable')          -- reads ItemId, ItemName, ItemType
-  → (material_id, material_number, description, material_type, material_group, procurement_type,
-     base_uom, weight, cost_per_unit, source_system, is_active, created_at)
-     ItemType 0/1/2 → 'ASSEMBLY'/'FINISHED'/'COMPONENT', else 'OTHER'
-dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
-     reads BOMTable(BOMId, ItemId, Status), BOMVersion(BOMId, VersionId, ActivationDate, ApprovedStatus)
-  → (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
-     revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
-     keeps Status = 0; one header per BOM: ApprovedStatus = 1 first, then latest ActivationDate;
-     is_approved = (ApprovedStatus = 1)
-dynamics365_to_bom_component(bom_lines := 'BOM')     -- reads BOMId, LineNum, ItemId, Quantity, ScrapPercent
-  → (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
+dynamics365_to_materials(invent_table := 'InventTable')       -- also positional
+     needs ItemId (or ItemNumber); uses ItemName, ItemGroupId, ItemType (0 Item, 1 BOM, 2 Service)
+  → (material_id, material_number, description, material_type 'ITEM'/'BOM'/'SERVICE', material_group,
+     procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
+dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '9999-12-31')
+     needs BOMVersion ItemId, BOMId; uses FromDate, ToDate, Active, Approved, DataAreaId;
+     bom_table (BOMTable) only adds plant_id from SiteId
+  → (bom_id '<item>/<BOMId>', source_system, source_bom_id, parent_material_id, bom_type,
+     alternative_number, revision, base_quantity, base_uom, valid_from, valid_to, plant_id,
+     is_approved, created_at)
+dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '9999-12-31')
+     needs BOM BOMId, ItemId, BOMQty; uses BOMQtySerie, UnitId, LineNum, FromDate, ToDate,
+     BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId
+  → (component_id, bom_id, line_number, child_material_id, quantity_per DECIMAL(18,6), quantity_uom,
      is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
      supply_type, operation_sequence, is_alternative, alternative_group, created_at)
 ```
 
-`dynamics365_to_materials` maps the sample below to PUMP-A/PUMP-B
-`FINISHED` and SEAL/MOTOR/SENSOR `COMPONENT`.
+- **One BOM per item on `reference_date`**: versions with `FromDate <= date` and `ToDate` empty,
+  `1900-01-01` (D365's "none") or `>= date`; active first, approved first, newest `FromDate`,
+  lowest `BOMId`. The default date `9999-12-31` takes the newest version, so pass today's date
+  (or the planning date) for "what is built now".
+- **Pass both functions the same `bom_version` and `reference_date`**: the component function
+  picks the lines of the BOMs the header function chooses, and `bom_id` is built the same way.
+  `bom_id` is `<item>/<BOMId>` (a BOM can serve several items); `source_bom_id` is the BOMId.
+- `quantity_per` = `BOMQty / BOMQtySerie` (per one parent); one row per BOM, child and unit, the
+  quantities of a child's lines added. Lines outside their `FromDate`/`ToDate` are dropped.
+- The column contract of earlier releases (`Status`, `VersionId`, `ActivationDate`,
+  `ApprovedStatus`, `ScrapPercent`) is gone; the error names it, `docs/UPGRADING.md` maps it.
 
 ```sql
 CREATE TABLE InventTable AS SELECT * FROM (VALUES
   ('PUMP-A', 'Pump A', 1), ('PUMP-B', 'Pump B', 1),
-  ('SEAL', 'Seal', 2), ('MOTOR', 'Motor', 2), ('SENSOR', 'Sensor', 2)
+  ('SEAL', 'Seal', 0), ('MOTOR', 'Motor', 0), ('SENSOR', 'Sensor', 0)
 ) t(ItemId, ItemName, ItemType);
 ```
 
 ```sql
-CREATE TABLE BOMTable AS SELECT * FROM (VALUES
-  ('B1', 'PUMP-A', 0), ('B2', 'PUMP-B', 0), ('B3', 'PUMP-B', 1)   -- B3: Status 1, dropped
-) t(BOMId, ItemId, Status);
-```
-
-```sql
+-- PUMP-B has an older version (expired 2023) and the current one; ToDate 1900-01-01 = open
 CREATE TABLE BOMVersion AS SELECT * FROM (VALUES
-  ('B1', 'V1', '2024-01-01', 1), ('B2', 'V1', '2024-06-01', 0)
-) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
+  ('PUMP-A', 'B1', DATE '2024-01-01', DATE '1900-01-01', 1, 1),
+  ('PUMP-B', 'B2-OLD', DATE '2020-01-01', DATE '2023-12-31', 1, 1),
+  ('PUMP-B', 'B2', DATE '2024-06-01', DATE '1900-01-01', 1, 0)
+) t(ItemId, BOMId, FromDate, ToDate, Active, Approved);
 ```
 
 ```sql
+-- SEAL of B1 on two lines; B2 lists 100 sensors per series of 100 pumps
 CREATE TABLE BOM AS SELECT * FROM (VALUES
-  ('B1', 1, 'SEAL', 2.0, 0.0), ('B1', 2, 'MOTOR', 1.0, NULL),
-  ('B2', 1, 'SEAL', 2.0, 0.0), ('B2', 2, 'MOTOR', 1.0, 0.0), ('B2', 3, 'SENSOR', 1.0, 5.0)
-) t(BOMId, LineNum, ItemId, Quantity, ScrapPercent);
+  ('B1', 1, 'SEAL', 1.0, 1.0, 'pcs'), ('B1', 2, 'MOTOR', 1.0, 1.0, 'pcs'), ('B1', 3, 'SEAL', 1.0, 1.0, 'pcs'),
+  ('B2-OLD', 1, 'MOTOR', 1.0, 1.0, 'pcs'),
+  ('B2', 1, 'SEAL', 2.0, 1.0, 'pcs'), ('B2', 2, 'MOTOR', 1.0, 1.0, 'pcs'), ('B2', 3, 'SENSOR', 100.0, 100.0, 'pcs')
+) t(BOMId, LineNum, ItemId, BOMQty, BOMQtySerie, UnitId);
 ```
 
 ```sql
 CREATE TABLE d365_bom_header AS
-SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
--- B1 (PUMP-A, approved) and B2 (PUMP-B, not approved); B3 dropped
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-12-31');
+SELECT bom_id, source_bom_id, is_approved FROM d365_bom_header ORDER BY bom_id;
+-- => PUMP-A/B1 | B1 | true
+-- => PUMP-B/B2 | B2 | false
 ```
 
 ```sql
 CREATE TABLE d365_bom_component AS
-SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '2024-12-31');
 ```
 
 ## `bom_to_items` and the `items_to_*` converters
@@ -302,12 +318,12 @@ items_to_bom_component(items_table)                  -- one row per edge, compon
 ```sql
 SELECT * FROM bom_to_items(header_table := 'd365_bom_header', component_table := 'd365_bom_component')
 ORDER BY parent_id, child_id;
--- PUMP-A: MOTOR, SEAL; PUMP-B: MOTOR, SEAL, SENSOR (quantity is DECIMAL, from Quantity)
--- => PUMP-A | MOTOR | 1.0
--- => PUMP-A | SEAL | 2.0
--- => PUMP-B | MOTOR | 1.0
--- => PUMP-B | SEAL | 2.0
--- => PUMP-B | SENSOR | 1.0
+-- PUMP-A: MOTOR, SEAL (two lines added); PUMP-B: MOTOR, SEAL, SENSOR (100 per 100 = 1)
+-- => PUMP-A | MOTOR | 1.000000
+-- => PUMP-A | SEAL | 2.000000
+-- => PUMP-B | MOTOR | 1.000000
+-- => PUMP-B | SEAL | 2.000000
+-- => PUMP-B | SENSOR | 1.000000
 ```
 
 The `items_to_*` converters go the other way. `items_table` needs `parent_id` and `child_id`;

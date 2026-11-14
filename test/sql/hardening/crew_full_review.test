@@ -75,25 +75,18 @@ GLUE	0.000001
 NONE	0.000000
 
 # ------------------------------------------------------------------------------
-# dynamics365_to_bom_header: text ActivationDate values compare as dates, not as text
-# ('2024-1-5' < '2024-01-10'), and VersionId numbers as numbers ('V9' < 'V10').
+# dynamics365_to_bom_header: text dates (an OData export) compare as dates, not as text
+# ('2024-1-5' < '2024-01-10').
 # ------------------------------------------------------------------------------
 statement ok
-CREATE TABLE dv_bomtable AS SELECT * FROM (VALUES ('B1', 'PUMP', 0), ('B2', 'FAN', 0)) t(BOMId, ItemId, Status);
-
-statement ok
 CREATE TABLE dv_bomversion AS SELECT * FROM (VALUES
-  ('B1', 'V1', '2024-1-5', 1),
-  ('B1', 'V2', '2024-01-10', 1),
-  ('B2', 'V9', '2024-03-01', 1),
-  ('B2', 'V10', '2024-03-01', 1)) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
+  ('PUMP', 'B1', '2024-1-5', 'Yes', 'Yes'),
+  ('PUMP', 'B2', '2024-01-10T00:00:00Z', 'Yes', 'Yes')) t(ItemNumber, BOMId, ValidFromDate, IsActive, IsApproved);
 
-query TTT
-SELECT bom_id, revision, valid_from FROM dynamics365_to_bom_header(bom_table := 'dv_bomtable', bom_version := 'dv_bomversion')
-ORDER BY 1;
+query TT
+SELECT bom_id, valid_from FROM dynamics365_to_bom_header(bom_version := 'dv_bomversion');
 ----
-B1	V2	2024-01-10
-B2	V10	2024-03-01
+PUMP/B2	2024-01-10
 
 # ------------------------------------------------------------------------------
 # fuse_embeddings normalises the weights in double: two huge FLOAT weights no longer sum to inf

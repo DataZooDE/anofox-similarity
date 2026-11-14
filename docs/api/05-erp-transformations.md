@@ -125,39 +125,65 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 ### Dynamics 365 Transformations
 
-Convert Microsoft Dynamics 365 BOM format.
+Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs.
 
-These are table macros that RETURN **universal-schema** rows (materials / bom_header / bom_component
-shapes) — they do not write an output table, and the component macro does **not** return flat
-`bom_items`. Expected input column names are exactly as listed (they mirror D365 field names).
+These table functions RETURN **universal-schema** rows (materials / bom_header / bom_component
+shapes). They do not write an output table, and the component function does **not** return flat
+`bom_items`: flatten with `bom_to_items`. They read the native D365 columns, in either spelling,
+detected per table: the table field names (`BOMVersion.ItemId`, `FromDate`, ...) or the OData
+data-entity names (`BillOfMaterialsVersionsV2.ItemNumber`, `ValidFromDate`, ...).
 
 ```sql
--- InventTable → universal materials. Reads columns: ItemId, ItemName, ItemType (0/1/2).
-dynamics365_to_materials(invent_table := 'InventTable')
+dynamics365_to_materials(invent_table := 'InventTable')     -- also positional
     → TABLE (material_id, material_number, description, material_type, material_group,
              procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
 
--- BOMTable + BOMVersion → universal bom_header. Reads BOMTable.(BOMId, ItemId, Status) and
--- BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); keeps rows with Status = 0.
--- One header per BOM: with several BOMVersion rows it picks ApprovedStatus = 1 first, then the
--- latest ActivationDate.
-dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
+dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '9999-12-31')
     → TABLE (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
              revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
 
--- BOM lines → universal bom_component (singular). Reads columns: BOMId, LineNum, ItemId,
--- Quantity, ScrapPercent.
-dynamics365_to_bom_component(bom_lines := 'BOM')
+dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '9999-12-31')
     → TABLE (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
              is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
              supply_type, operation_sequence, is_alternative, alternative_group, created_at)
 ```
 
+**Input columns** (table field / entity field):
+
+| Table | Required | Optional, used when present |
+|-------|----------|-----------------------------|
+| InventTable / ReleasedProductsV2 | `ItemId` / `ItemNumber` | `ItemName` (or `ProductName`, `SearchName`, `NameAlias`), `ItemGroupId`, `ItemType` (0 Item, 1 BOM, 2 Service, or the names) |
+| BOMVersion / BillOfMaterialsVersionsV2 | `ItemId` / `ItemNumber`, `BOMId` | `FromDate` / `ValidFromDate`, `ToDate` / `ValidToDate`, `Active` / `IsActive`, `Approved` / `IsApproved`, `DataAreaId` |
+| BOM / BillOfMaterialsLinesV2 | `BOMId`, `ItemId` / `ItemNumber`, `BOMQty` / `Quantity` | `BOMQtySerie` / `QuantityDenominator`, `UnitId` / `UnitSymbol`, `LineNum` / `LineNumber`, `FromDate` / `ValidFromDate`, `ToDate` / `ValidToDate`, `BOMType` / `BOMLineType`, `BOMConsump`, `ScrapVar`, `OprNum`, `DataAreaId` |
+| BOMTable / BillOfMaterialsHeadersV2 (`bom_table`, optional) | `BOMId` | `SiteId` (→ `plant_id`), `DataAreaId` |
+
+Dates may be DATE, TIMESTAMP or ISO text (`2024-01-01T00:00:00Z`); `1900-01-01` means "no date".
+Flags may be BOOLEAN, 0/1 or `Yes`/`No`.
+
+**Rules:**
+
+- **One BOM per item.** BOMVersion links items to BOMs. On `reference_date` (default
+  `9999-12-31`, the newest) a version counts when `FromDate <= date` and `ToDate` is empty or
+  `>= date`; of those, active first, approved first, then the newest `FromDate`, then the lowest
+  `BOMId`. An item with only an unapproved version still gets it, with `is_approved = false`.
+- **`bom_id` is `<item>/<BOMId>`** (with `DataAreaId`: `<company>/<item>/<BOMId>`) because a BOM can
+  serve several items; `source_bom_id` is the BOMId. Both functions build the same ids, so pass them
+  the same `bom_version` and `reference_date`.
+- **Lines** of the chosen BOMs count when valid on `reference_date`. `quantity_per` = `BOMQty /
+  BOMQtySerie` (per one parent; a series of 0 or none counts as 1), `quantity_uom` = `UnitId`
+  (`EA` without a unit column). A child on several lines of a BOM gives one row per unit with the
+  quantities added; `component_type` is `ITEM`, `PHANTOM`, `PEGGED` or `VENDOR` from `BOMType`,
+  `is_fixed_quantity` is `BOMConsump` = Constant, `scrap_percent` is `ScrapVar`.
+- **Companies.** With `DataAreaId` in BOMVersion, the company is part of `bom_id`; lines and
+  BOMTable rows are matched on it when they have it too.
+- Columns D365 does not have are typed NULLs (`revision`, `alternative_number`, `base_uom`,
+  `supply_type`, ...).
+
 **Example — D365 to a `bom_items` table usable by the similarity functions:**
 ```sql
-CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable');
-CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
-CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
+CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials('InventTable');
+CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable');
+CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');
 -- Flatten header + component into the parent_id/child_id/quantity shape the algorithms expect:
 CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_component');
 ```
@@ -237,41 +263,42 @@ SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language :
 
 ### `dynamics365_to_bom_header`
 
-*Table macro*
+*Table function*
 
-Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate (as a date), then the highest trailing number in VersionId.
+Maps Dynamics 365 BOMVersion (table fields ItemId, BOMId, FromDate, ToDate, Active, Approved, or the BillOfMaterialsVersionsV2 entity fields ItemNumber, ValidFromDate, ValidToDate, IsActive, IsApproved) to the universal bom_header shape: one header per manufactured item, the version valid on reference_date (default 9999-12-31; ToDate empty or 1900-01-01 = open), active first, approved first, newest FromDate, lowest BOMId. bom_id is '<item>/<BOMId>' (with DataAreaId '<company>/<item>/<BOMId>'), source_bom_id the BOMId. bom_table (BOMTable, optional) gives plant_id from SiteId.
 
 ```sql
-dynamics365_to_bom_header(bom_table, bom_version)
+dynamics365_to_bom_header(bom_version, bom_table, reference_date)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable');
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30');
 ```
 
 ### `dynamics365_to_bom_component`
 
-*Table macro*
+*Table function*
 
-Maps Dynamics 365 BOM lines into the universal bom_component shape (singular) — note this is not the flat bom_items form. Reads BOMId, LineNum, ItemId, Quantity and ScrapPercent.
+Maps Dynamics 365 BOM lines (table fields BOMId, ItemId, BOMQty, BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, or the BillOfMaterialsLinesV2 entity fields ItemNumber, Quantity, QuantityDenominator, UnitSymbol, LineNumber, ValidFromDate, ValidToDate, BOMLineType) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child and unit (the quantities of a child's lines are added). bom_to_items over the two gives one edge per parent and child and unit.
 
 ```sql
-dynamics365_to_bom_component(bom_lines)
+dynamics365_to_bom_component(bom_lines, bom_version, reference_date)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');
 ```
 
 ### `dynamics365_to_materials`
 
-*Table macro*
+*Table function*
 
-Maps a Dynamics 365 InventTable to the universal materials shape. Reads ItemId, ItemName and ItemType (0/1/2) and returns the full materials column set. Projects a shape; it does not write an output table.
+Maps a Dynamics 365 InventTable (or the ReleasedProductsV2 entity) to the universal materials shape. Needs ItemId (or ItemNumber); uses ItemName (or ProductName, SearchName, NameAlias), ItemGroupId and ItemType (0 Item, 1 BOM, 2 Service, or the enum names) when present. Columns not in D365 are typed NULLs.
 
 ```sql
 dynamics365_to_materials(invent_table)
@@ -280,7 +307,7 @@ dynamics365_to_materials(invent_table)
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable');
+SELECT * FROM dynamics365_to_materials('InventTable');
 ```
 
 <!-- generated:functions:end -->
