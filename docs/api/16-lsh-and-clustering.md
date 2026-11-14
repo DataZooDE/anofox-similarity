@@ -97,7 +97,7 @@ SELECT weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 128, 7);
 
 *Scalar function*
 
-Share of equal positions of two MinHash signatures of the same length: the estimate of their (weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or FLOAT[n] MinHash embeddings (the jaccard_embedding of compute_jaccard_embeddings).
+Share of equal positions of two MinHash signatures of the same length: the estimate of their (weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or the FLOAT[n] MinHash jaccard_embedding of compute_jaccard_embeddings (on other embeddings, such as textual or fused ones, the result is meaningless). A NULL element counts as unequal.
 
 ```sql
 minhash_similarity(signature_a FLOAT[ANY], signature_b FLOAT[ANY]) → DOUBLE

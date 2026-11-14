@@ -199,7 +199,7 @@ void RegisterBOMConversionMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := 'MIGRATED')")});
 	reg.RegisterTableMacro(ITEMS_TO_BOM_COMPONENT_MACRO,
 	           {ddoc::Doc()
-	                .Describe(string("One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back.") + items)
+	                .Describe(string("One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6) (quantities of 1e12 or more do not fit). Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back.") + items)
 	                .Example("SELECT * FROM items_to_bom_component(items_table := 'bom_items')")});
 }
 

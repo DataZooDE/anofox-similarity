@@ -148,6 +148,11 @@ private:
 	static std::map<string, std::shared_ptr<EmbeddingProvider>> provider_cache;
 
 public:
+	static bool IsKnown(const string &provider_name) {
+		return provider_name == "gemma-local" || provider_name == "openai" || provider_name == "anthropic" ||
+		       provider_name == "cohere";
+	}
+
 	static std::shared_ptr<EmbeddingProvider> GetProvider(const string &provider_name, const string &config) {
 		string cache_key = provider_name + ":" + config;
 
@@ -232,8 +237,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 			continue;
 		}
 		string provider_name = provider_data[i].GetString();
-		if (provider_name != "gemma-local" && provider_name != "openai" && provider_name != "anthropic" &&
-		    provider_name != "cohere") {
+		if (!EmbeddingProviderFactory::IsKnown(provider_name)) {
 			throw InvalidInputException("embedding_backend: unknown provider '%s' (expected gemma-local, openai, "
 			                            "anthropic or cohere)",
 			                            provider_name);

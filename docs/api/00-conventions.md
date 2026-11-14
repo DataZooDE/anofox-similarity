@@ -73,6 +73,10 @@ EXECUTE search(MAP {'y': 1});
 - **MinHash signatures for LSH are `UBIGINT[]`** (`weighted_minhash`, `minhash_index`,
   `lsh_bands`): hashes compared for equality, not by distance. `minhash_similarity` takes either
   (the share of equal positions), so it also compares the `FLOAT[128]` Jaccard embeddings.
+- **DuckDB 1.5.6 cannot `CASE` over an array**: `CASE WHEN c THEN embed_text(t) END` fails with
+  "Unimplemented type for case expression: FLOAT[384]" (2.0 is fine). Cast inside and back:
+  `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
+- Upgrading from a release with list-typed embeddings: see [upgrading](../UPGRADING.md).
 
 ### Read-only databases
 

@@ -6,7 +6,7 @@
 New here? Start with the [getting-started guide](guides/01-getting-started.md), then the
 [guides](guides/README.md) for your use case and the runnable [examples](../examples/README.md).
 
-Working with Claude Code? The [skills plugin](../README.md#-claude-code-skills-ai-pair-programming)
+Upgrading? See [what changed](UPGRADING.md). Working with Claude Code? The [skills plugin](../README.md#-claude-code-skills-ai-pair-programming)
 condenses this reference into six tested cheat sheets.
 
 ## Conventions

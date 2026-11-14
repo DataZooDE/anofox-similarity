@@ -271,6 +271,7 @@ this whole area.
 | **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
 | **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
 | **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |
+| **[Upgrading](docs/UPGRADING.md)** | Changes that need action when you upgrade |
 | **[Background](docs/background/)** | Design notes and research (not the product contract) |
 | **[Claude Code skills](plugins/anofox-similarity/skills/)** | Condensed, tested cheat sheets for AI assistants ([install](#-claude-code-skills-ai-pair-programming)) |
 

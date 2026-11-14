@@ -57,7 +57,7 @@ static const DefaultTableMacro DYNAMICS365_TO_BOM_HEADER_MACRO = {
 			CURRENT_TIMESTAMP AS created_at
 		FROM query_table(bom_table) bt
 		-- one version per BOM (approved first, then the newest), so a BOM with several BOMVersion rows
-		-- gives one header; inline window in QUALIFY (see recall_accelerators.cpp on QUALIFY aliases)
+		-- gives one header. QUALIFY with an inline window expression (not a select-list alias) binds on 2.0
 		LEFT JOIN (
 			SELECT * FROM query_table(bom_version)
 			QUALIFY row_number() OVER (PARTITION BY BOMId

@@ -341,7 +341,7 @@ SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := '
 
 *Table macro*
 
-One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6) (quantities of 1e12 or more do not fit). Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
 
 ```sql
 items_to_bom_component(items_table)

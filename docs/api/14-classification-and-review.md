@@ -8,7 +8,7 @@
 
 The pivot classifier maps items onto the catalogue as a distribution over classes. The review
 functions turn its uncertainty into a short work list. The extension ships no
-models: bring your own vectors. `FLOAT[n]` arrays (token sets `FLOAT[n][]`) are the canonical
+models: bring your own vectors. `FLOAT[n]` arrays (token sets `FLOAT[n][]`) are the preferred
 vector type, as in DuckDB `vss`; lists (`FLOAT[]`, `DOUBLE[]`) work too.
 
 `classify_to_catalogue`, `vocabulary_review_queue` and `uncertain_decisions` take **only named

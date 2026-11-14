@@ -24,6 +24,12 @@ every similarity search reads, and builds per-material vectors in `material_embe
 
 ## Critical gotchas
 
+- **Stored `jaccard_embedding`s from before the FLOAT-array release are incompatible.** MinHash values
+  are now scaled to [0, 1); old ones (~1e18) compare as 0.0 with new ones, silently. Recompute them
+  all (`UPDATE material_embeddings SET jaccard_embedding = NULL`, then re-run the upsert below).
+  Full list of changes: `docs/UPGRADING.md`.
+- **DuckDB 1.5.6 cannot `CASE` over a `FLOAT[n]`** ("Unimplemented type for case expression"). Cast
+  inside and back: `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
 - **Textual embeddings are a placeholder.** No language model ships. `compute_textual_embeddings`,
   `embed_text` and `embedding_backend` return a deterministic *hash* vector for every provider
   (`gemma-local`, `openai`, `anthropic`, `cohere`; any other name is an error); similar texts do **not** get

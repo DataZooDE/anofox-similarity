@@ -142,12 +142,24 @@ CREATE TABLE d_bomversion AS SELECT * FROM (VALUES
   ('B2', 'V1', DATE '2023-01-01', 0),
   ('B2', 'V2', DATE '2024-01-01', 0)) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
 
+statement ok
+INSERT INTO d_bomtable VALUES ('B3', 'VALVE', 0);
+
+# B3 has no version: kept, with NULL revision and not approved
 query TTT
 SELECT bom_id, revision, is_approved FROM dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion')
 ORDER BY 1;
 ----
 B1	V1	true
 B2	V2	false
+B3	NULL	false
+
+# a self-join of the macro (two QUALIFY subqueries) binds on DuckDB 2.0
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion') a
+JOIN dynamics365_to_bom_header(bom_table := 'd_bomtable', bom_version := 'd_bomversion') b USING (bom_id);
+----
+3
 
 # ------------------------------------------------------------------------------
 # check_statistics_freshness on an empty statistics table: last_updated is NULL (it used to
@@ -199,6 +211,15 @@ CREATE TABLE jac_bom AS SELECT * FROM (VALUES ('P1', 'a'), ('P1', 'b'), ('P2', '
 
 query T
 SELECT bool_and(minhash_value >= 0 AND minhash_value < 1) FROM compute_jaccard_embeddings(bom_table := 'jac_bom');
+----
+true
+
+# '45755761' hashes so close to 2^64 for seed 0 that the FLOAT cast rounded it up to 1.0
+statement ok
+CREATE TABLE jac_edge AS SELECT 'P' AS parent_id, '45755761' AS child_id;
+
+query T
+SELECT max(minhash_value) < 1 FROM compute_jaccard_embeddings(bom_table := 'jac_edge');
 ----
 true
 

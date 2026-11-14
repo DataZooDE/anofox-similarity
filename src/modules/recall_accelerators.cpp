@@ -1,6 +1,8 @@
 #include "modules/recall_accelerators.hpp"
 #include "modules/coverage_sql.hpp"
 #include "compat_anofox/scalar_bind.hpp"
+#include "compat_anofox/array_vector.hpp"
+#include "duckdb_compat.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
@@ -138,25 +140,55 @@ vector<uint64_t> Signature(const Value &v, const char *fn) {
 	return out;
 }
 
+// FLOAT[n] MinHash embeddings (jaccard_embedding of compute_jaccard_embeddings): the share of equal
+// positions, read straight from the array children. A NULL element counts as unequal.
+static void MinhashSimilarityArrayFun(DataChunk &args, Vector &result) {
+	auto &va = args.data[0], &vb = args.data[1];
+	auto n = ArrayType::GetSize(va.GetType());
+	if (ArrayType::GetSize(vb.GetType()) != n) {
+		throw InvalidInputException("minhash_similarity: signatures must have the same length");
+	}
+	auto count = args.size();
+	UnifiedVectorFormat ua, ub, ca, cb;
+	duckdb_compat::ToUnifiedFormat(va, count, ua);
+	duckdb_compat::ToUnifiedFormat(vb, count, ub);
+	auto &child_a = compat_anofox::ArrayChild(va);
+	auto &child_b = compat_anofox::ArrayChild(vb);
+	duckdb_compat::ToUnifiedFormat(child_a, ArrayVector::GetTotalSize(va), ca);
+	duckdb_compat::ToUnifiedFormat(child_b, ArrayVector::GetTotalSize(vb), cb);
+	auto da = UnifiedVectorFormat::GetData<float>(ca);
+	auto db = UnifiedVectorFormat::GetData<float>(cb);
+	result.SetVectorType(VectorType::FLAT_VECTOR);
+	auto out = duckdb_compat::FlatData<double>(result);
+	auto &validity = duckdb_compat::MutableValidity(result);
+	for (idx_t row = 0; row < count; row++) {
+		auto ia = ua.sel->get_index(row), ib = ub.sel->get_index(row);
+		if (!ua.validity.RowIsValid(ia) || !ub.validity.RowIsValid(ib) || n == 0) {
+			validity.SetInvalid(row);
+			continue;
+		}
+		idx_t same = 0;
+		for (idx_t j = 0; j < n; j++) {
+			auto ja = ca.sel->get_index(ia * n + j), jb = cb.sel->get_index(ib * n + j);
+			same += ca.validity.RowIsValid(ja) && cb.validity.RowIsValid(jb) && da[ja] == db[jb];
+		}
+		out[row] = double(same) / double(n);
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
 void MinhashSimilarityFun(DataChunk &args, ExpressionState &, Vector &result) {
+	if (args.data[0].GetType().id() == LogicalTypeId::ARRAY) {
+		MinhashSimilarityArrayFun(args, result);
+		return;
+	}
 	for (idx_t row = 0; row < args.size(); row++) {
 		auto a = args.data[0].GetValue(row);
 		auto b = args.data[1].GetValue(row);
 		if (a.IsNull() || b.IsNull()) {
 			result.SetValue(row, Value(LogicalType::DOUBLE));
-			continue;
-		}
-		if (a.type().id() == LogicalTypeId::ARRAY) {
-			// FLOAT[n] MinHash embeddings (compute_jaccard_embeddings): the same share of equal positions
-			auto &ca = ArrayValue::GetChildren(a), &cb = ArrayValue::GetChildren(b);
-			if (ca.size() != cb.size()) {
-				throw InvalidInputException("minhash_similarity: signatures must have the same length");
-			}
-			idx_t same = 0;
-			for (idx_t i = 0; i < ca.size(); i++) {
-				same += !ca[i].IsNull() && !cb[i].IsNull() && ca[i] == cb[i];
-			}
-			result.SetValue(row, ca.empty() ? Value(LogicalType::DOUBLE) : Value::DOUBLE(double(same) / double(ca.size())));
 			continue;
 		}
 		auto sa = Signature(a, "minhash_similarity"), sb = Signature(b, "minhash_similarity");
@@ -444,8 +476,9 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	                  DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, MinhashSimilarityFun),
 	                  compat_anofox::ScalarBind<&MinhashSimilarityBind>(),
 	                  "Share of equal positions of two MinHash signatures of the same length: the estimate of their "
-	                  "(weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or FLOAT[n] "
-	                  "MinHash embeddings (the jaccard_embedding of compute_jaccard_embeddings).",
+	                  "(weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or the FLOAT[n] "
+	                  "MinHash jaccard_embedding of compute_jaccard_embeddings (on other embeddings, such as textual "
+	                  "or fused ones, the result is meaningless). A NULL element counts as unequal.",
 	                  {{{sig, sig},
 	                    {"signature_a", "signature_b"},
 	                    {"SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 64), weighted_minhash(MAP {'a': 1.0, "

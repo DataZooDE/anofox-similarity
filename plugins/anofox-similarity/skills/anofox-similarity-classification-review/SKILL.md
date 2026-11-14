@@ -29,7 +29,7 @@ model you like and pass `FLOAT[n]` vectors (the type DuckDB `vss` indexes).
 ## Critical gotchas
 
 - **Bring your own vectors.** Items and catalogue must come from the same model and have the
-  same dimension (checked: error mentions `dimension`). `FLOAT[n]` arrays are canonical (what a vss
+  same dimension (checked: error mentions `dimension`). `FLOAT[n]` arrays are preferred (what a vss
   HNSW index holds; token sets `FLOAT[n][]`); lists (`FLOAT[]`, `DOUBLE[]`) work too.
   Items with a NULL `vec` are skipped.
 - **`classify_to_catalogue`, `vocabulary_review_queue` and `uncertain_decisions` take named

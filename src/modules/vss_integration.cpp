@@ -215,7 +215,8 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 					t.seed,
 					-- the minimum hash scaled to [0, 1) as FLOAT, so the 128 values form a FLOAT[128]
 					-- embedding; equal positions estimate Jaccard (minhash_similarity), not L2/cosine
-					(MIN(HASH(c || ':' || t.seed::VARCHAR))::DOUBLE / 18446744073709551616.0)::FLOAT AS minhash_value,
+					LEAST((MIN(HASH(c || ':' || t.seed::VARCHAR))::DOUBLE / 18446744073709551616.0)::FLOAT,
+					      0.99999994::FLOAT) AS minhash_value, -- the FLOAT cast can round up to 1.0
 					mc.num_components
 				FROM material_components mc
 				CROSS JOIN generate_series(0, 127) AS t(seed)
