@@ -1,0 +1,88 @@
+# name: test/sql/aas/unmapped_text.test
+# description: aas_issues reports a text value without any semanticId (unmapped_text, info) instead
+#              of dropping it silently. Found by exploratory testing with the Claude Code skills: a
+#              data-quality check of nordwerk_nd5 lost Feldbusschnittstelle = 'EtherCAT' without a
+#              trace, so suggest_semantic_id never saw it. Trees and aas_quality.n_issues are unchanged.
+# group: [aas]
+
+require anofox_similarity
+
+# the uncoded fieldbus property of the Nordwerk drive is reported, with its value
+query TTTT
+SELECT i.path, i.issue, i.severity, contains(i.detail, '''EtherCAT''')
+FROM (SELECT unnest(aas_issues(content)) AS i
+      FROM read_text('test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json'))
+WHERE i.issue = 'unmapped_text' AND i.path LIKE '%Feldbusschnittstelle';
+----
+TechnicalData.TechnicalProperties.Feldbusschnittstelle	unmapped_text	info	1
+
+# it stays out of the tree, as before
+query I
+SELECT count(*) FROM (SELECT unnest(n.attributes) AS a
+                      FROM (SELECT unnest(aas_to_trees(content)) AS n
+                            FROM read_text('test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json')))
+WHERE a.attr_id = 'Feldbusschnittstelle';
+----
+0
+
+# the same text WITH a semanticId is a category, not an unmapped_text issue
+statement ok
+CREATE TABLE env AS SELECT '{
+  "submodels": [{"id": "urn:sm:1", "idShort": "TechnicalData", "modelType": "Submodel", "submodelElements": [
+    {"modelType": "Property", "idShort": "Coded", "valueType": "xs:string", "value": "EtherCAT",
+     "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ001#001"}]}},
+    {"modelType": "Property", "idShort": "Uncoded", "valueType": "xs:string", "value": "EtherCAT"},
+    {"modelType": "MultiLanguageProperty", "idShort": "Remark", "value": [{"language": "de", "text": "Sonderausführung"}]},
+    {"modelType": "File", "idShort": "Datasheet", "contentType": "application/pdf", "value": "ds.pdf"},
+    {"modelType": "Property", "idShort": "Empty", "valueType": "xs:string", "value": ""}
+  ]}]}' AS content;
+
+query TT
+SELECT i.path, i.issue FROM (SELECT unnest(aas_issues(content)) AS i FROM env) ORDER BY ALL;
+----
+TechnicalData.Remark	unmapped_text
+TechnicalData.Uncoded	unmapped_text
+
+query TT
+SELECT a.attr_id, a.category FROM (SELECT unnest(n.attributes) AS a FROM (SELECT unnest(aas_to_trees(content)) AS n FROM env));
+----
+Coded	EtherCAT
+
+# aas_quality.n_issues leaves unmapped_text out: values without an id are counted by
+# n_values - n_with_semantic_id already
+query III
+SELECT q.n_values, q.n_with_semantic_id, q.n_issues FROM (SELECT unnest(aas_quality(content)) AS q FROM env);
+----
+4	1	0
+
+# inside an IDTA-02020 capability container: an uncoded text in a PropertyContainer is reported
+# too; one whose container carries a dictionary id inherits it and is a value, not an issue
+statement ok
+CREATE TABLE cap_env AS SELECT '{"submodels": [{"modelType": "Submodel", "id": "urn:c", "idShort": "Caps", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "FieldbusContainer",
+   "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://admin-shell.io/idta/CapabilityDescription/CapabilityContainer/1/0"}]},
+   "value": [
+    {"modelType": "Capability", "idShort": "FieldbusCommunication", "supplementalSemanticIds": [{"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "urn:cap:fieldbus"}]}]},
+    {"modelType": "SubmodelElementCollection", "idShort": "PropertySet",
+     "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://admin-shell.io/idta/CapabilityDescription/PropertySet/1/0"}]},
+     "value": [
+      {"modelType": "SubmodelElementCollection", "idShort": "Bus",
+       "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"}]},
+       "value": [{"modelType": "Property", "idShort": "PropertyProperty", "valueType": "xs:string", "value": "EtherCAT"}]},
+      {"modelType": "SubmodelElementCollection", "idShort": "Protocol",
+       "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "https://admin-shell.io/idta/CapabilityDescription/PropertyContainer/1/0"}]},
+       "supplementalSemanticIds": [{"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ001#001"}]}],
+       "value": [{"modelType": "Property", "idShort": "PropertyProperty", "valueType": "xs:string", "value": "PROFINET"}]}]}]}]}]}' AS content;
+
+query TT
+SELECT i.path, i.issue FROM (SELECT unnest(aas_issues(content)) AS i FROM cap_env) WHERE i.issue = 'unmapped_text';
+----
+Caps.FieldbusContainer.PropertySet.Bus.PropertyProperty	unmapped_text
+
+# a long text is cut in the issue detail
+query I
+SELECT max(length(i.detail)) < 250 FROM (SELECT unnest(aas_issues(
+  '{"submodels": [{"modelType": "Submodel", "id": "urn:l", "idShort": "T", "submodelElements": [
+    {"modelType": "Property", "idShort": "Note", "valueType": "xs:string", "value": "' || repeat('ä', 5000) || '"}]}]}')) AS i);
+----
+true

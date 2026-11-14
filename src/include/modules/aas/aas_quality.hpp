@@ -25,7 +25,7 @@ struct SubmodelQuality {
 	size_t n_unresolved_units = 0;  // numbers whose unit is unknown
 	size_t n_unparseable = 0;       // bad_value
 	size_t n_mixed_releases = 0;    // concepts referenced in more than one dictionary release
-	size_t n_issues = 0;            // all issues of the submodel
+	size_t n_issues = 0;            // issues of the submodel, except unmapped_text (a value without an id)
 };
 
 std::vector<SubmodelQuality> AssessAasQuality(const AasEnvironment &env, const AasMapping &mapping);

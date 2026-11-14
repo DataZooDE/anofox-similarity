@@ -62,7 +62,7 @@ void RegisterPropertyGraphMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "graph"});
 	reg.RegisterTableMacro(CREATE_BOM_PROPERTY_GRAPH_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Summarises the BOM graph for one source system as (graph_name, source, num_nodes, num_edges), counting distinct parent materials in bom_header and the components beneath them.")
+	                .Describe("Summarises the BOM graph for one source system as (graph_name, source, num_nodes, num_edges BIGINT): num_nodes counts distinct parent materials, num_edges their components. Reads the tables named bom_header (with source_system) and bom_component; the default source_system is 'TEST', so pass yours.")
 	                .Example("SELECT * FROM create_bom_property_graph(source_system := 'SAP')")});
 }
 
@@ -174,7 +174,7 @@ void RegisterBOMTraversalMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM bom_explosion_1level(query_material_id := 'PUMP-A')")});
 	reg.RegisterTableMacro(BOM_EXPLOSION_MULTILEVEL_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Full multi-level BOM explosion under one parent, to 'max_depth' levels. Uses UNION rather than UNION ALL so a shared subassembly reached by many paths is expanded once -- no exponential blow-up on diamond BOMs -- and the depth gate is clamped to a hard ceiling of 64 so a cyclic BOM cannot iterate unbounded.")
+	                .Describe("Full multi-level BOM explosion under one parent, to 'max_depth' levels: every reachable edge (parent_material_id, child_material_id, quantity_per) once, with no depth column and no rolled-up quantity (multiply quantity_per along the path yourself). Uses UNION rather than UNION ALL so a shared subassembly reached by many paths is expanded once -- no exponential blow-up on diamond BOMs -- and the depth gate is clamped to a hard ceiling of 64 so a cyclic BOM cannot iterate unbounded.")
 	                .Example("SELECT * FROM bom_explosion_multilevel(query_material_id := 'PUMP-A', max_depth := 5)")});
 	reg.RegisterTableMacro(BOM_WHERE_USED_MACRO,
 	           {ddoc::Doc()

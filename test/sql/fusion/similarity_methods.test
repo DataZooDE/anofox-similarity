@@ -32,7 +32,7 @@ SELECT * FROM (VALUES
 
 query III
 SELECT COUNT(*) as found, MIN(similarity)::FLOAT as min_sim, MAX(similarity)::FLOAT as max_sim
-FROM find_similar_materials_jaccard('MAT-001', 5, bom_table := 'test_boms')
+FROM find_similar_materials_jaccard('MAT-001', 5, bom_table := 'test_boms', min_similarity := 0)
 WHERE material_id != 'MAT-001';
 ----
 3
@@ -67,10 +67,10 @@ true
 # Test 5: Verify disjoint BOMs give similarity = 0
 # ============================================================================
 
-# MAT-001 vs MAT-003: no shared components
+# MAT-001 vs MAT-003: no shared components (kept with min_similarity := 0)
 query I
 SELECT similarity = 0.0
-FROM find_similar_materials_jaccard('MAT-001', 5, bom_table := 'test_boms')
+FROM find_similar_materials_jaccard('MAT-001', 5, bom_table := 'test_boms', min_similarity := 0)
 WHERE material_id = 'MAT-003';
 ----
 true

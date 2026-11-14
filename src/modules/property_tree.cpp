@@ -1221,7 +1221,7 @@ void RegisterTreeTable(ExtensionLoader &loader, const string &name, table_functi
 		desc.examples = examples;
 		desc.categories = {"coverage", "tree"};
 		vector<NamedParameterSpec> named;
-		if (positional == 1) {
+		if (positional == 1 && with_attr_table) { // tree_class_multiset reads no attributes
 			named.emplace_back("attrs_table", LogicalType(LogicalTypeId::VARCHAR));
 		}
 		named.emplace_back("overrides_table", LogicalType(LogicalTypeId::VARCHAR));

@@ -39,7 +39,8 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'create_bom_property_graph','dynamics365_to_bom_component','dynamics365_to_bom_header',
   'dynamics365_to_materials','embed_text','embedding_backend','extract_material_descriptions',
   'extract_ts_features','filter_recent_movements','find_similar_materials_jaccard',
-  'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors','items_to_bom',
+  'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors',
+  'items_to_materials','items_to_bom_header','items_to_bom_component',
   'jaccard_similarity','recompute_embedding_statistics','sap_to_bom_items','sap_to_materials',
   'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity',
   -- coverage matching (R1)
@@ -65,7 +66,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-79
+81
 
 # ============================================================================
 # ...and every one of them is documented
@@ -103,7 +104,7 @@ true
 query I
 SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 ----
-23
+21
 
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';
@@ -123,10 +124,11 @@ SELECT parameters FROM ours WHERE function_name = 'bom_explosion_1level';
 ----
 [query_material_id, header_table, component_table]
 
+# Two overloads (positional tables, or the tables named); both list the same names
 query I
-SELECT parameters FROM ours WHERE function_name = 'sap_to_bom_items';
+SELECT DISTINCT parameters FROM ours WHERE function_name = 'sap_to_bom_items';
 ----
-[mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage]
+[mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage, stas_table]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
@@ -147,10 +149,12 @@ SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
 # the order in the source trustworthy rather than a guess that happened to work.
 # ============================================================================
 
+# The four material searches have a batch overload without material_id (materials_table :=
+# ...): a table function takes constants, not a column of another table.
 query I
-SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_jaccard';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'find_similar_materials_jaccard';
 ----
-[material_id, k, bom_table, min_similarity, mode]
+[[k, bom_table, min_similarity, mode, materials_table], [material_id, k, bom_table, min_similarity, mode]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_covering_entities';
@@ -168,19 +172,19 @@ SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name =
 [[query, candidate], [query, candidate, alpha, beta]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
 ----
-[material_id, k, bom_table, min_similarity, iterations]
+[[k, bom_table, min_similarity, iterations, materials_table], [material_id, k, bom_table, min_similarity, iterations]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'cold_start_analogs';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'cold_start_analogs';
 ----
-[material_id, k, movements_table, bom_table, min_similarity, min_history_months]
+[[k, movements_table, bom_table, min_similarity, min_history_months, materials_table], [material_id, k, movements_table, bom_table, min_similarity, min_history_months]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'infer_predecessors';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'infer_predecessors';
 ----
-[material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months]
+[[material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months], [movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months, materials_table]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'compute_transactional_embeddings';

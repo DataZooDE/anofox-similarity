@@ -1,0 +1,258 @@
+# name: test/sql/hardening/plugin_findings.test
+# description: Regression guards for the bugs found while writing the Claude Code skills
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ------------------------------------------------------------------------------
+# find_covering_entities_lsh joined to itself or to a table. On DuckDB 2.0 two copies of its
+# SQL (CTE + error() gate + QUALIFY on the window alias) failed to bind with an INTERNAL
+# "Conflicting or cyclic column binding replacement" error.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE lsh_feats AS SELECT * FROM (VALUES
+  ('A', 'x', 1.0), ('A', 'y', 1.0), ('B', 'x', 1.0), ('C', 'z', 1.0)) t(entity_id, feature_id, weight);
+
+statement ok
+CREATE TABLE lsh_q AS SELECT * FROM (VALUES ('q', 'x', 1.0), ('q', 'y', 1.0)) t(query_id, feature_id, weight);
+
+statement ok
+CREATE TABLE lsh_idx AS SELECT * FROM minhash_index(feature_table := 'lsh_feats', num_hashes := 16);
+
+query I
+SELECT count(*) FROM find_covering_entities_lsh('lsh_q', 'lsh_idx', k := 3) a
+JOIN find_covering_entities_lsh('lsh_q', 'lsh_idx', k := 3) b USING (entity_id);
+----
+2
+
+statement ok
+CREATE TABLE lsh_expected AS SELECT 'q' AS query_id, 'A' AS entity_id;
+
+query T
+SELECT l.entity_id FROM lsh_expected e
+LEFT JOIN find_covering_entities_lsh('lsh_q', 'lsh_idx', k := 3) l
+  ON l.query_id = e.query_id AND l.entity_id = e.entity_id;
+----
+A
+
+# ------------------------------------------------------------------------------
+# items_to_materials / items_to_bom_header / items_to_bom_component: the universal
+# shapes with their own column names and types (items_to_bom mixed three row types into one
+# all-VARCHAR result with shifted columns), and a round trip through bom_to_items.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE flat AS SELECT * FROM (VALUES
+  ('PROD-A', 'COMP-1', 2.0), ('PROD-A', 'COMP-2', NULL), ('PROD-B', 'COMP-1', 3.0)) t(parent_id, child_id, quantity);
+
+query TTTT
+SELECT material_id, material_number, source_system, typeof(weight) FROM items_to_materials('flat', 'LEGACY') ORDER BY 1;
+----
+COMP-1	COMP-1	LEGACY	DECIMAL(12,4)
+COMP-2	COMP-2	LEGACY	DECIMAL(12,4)
+PROD-A	PROD-A	LEGACY	DECIMAL(12,4)
+PROD-B	PROD-B	LEGACY	DECIMAL(12,4)
+
+query TTTTT
+SELECT bom_id, source_system, parent_material_id, base_quantity, typeof(valid_from)
+FROM items_to_bom_header('flat', 'LEGACY') ORDER BY 1;
+----
+BOM_PROD-A	LEGACY	PROD-A	1.000000	DATE
+BOM_PROD-B	LEGACY	PROD-B	1.000000	DATE
+
+query TTITT
+SELECT component_id, bom_id, line_number, child_material_id, quantity_per
+FROM items_to_bom_component('flat') ORDER BY 1;
+----
+COMP_PROD-A_1	BOM_PROD-A	1	COMP-1	2.000000
+COMP_PROD-A_2	BOM_PROD-A	2	COMP-2	1.000000
+COMP_PROD-B_1	BOM_PROD-B	1	COMP-1	3.000000
+
+statement ok
+CREATE TABLE rt_header AS SELECT * FROM items_to_bom_header('flat');
+
+statement ok
+CREATE TABLE rt_component AS SELECT * FROM items_to_bom_component('flat');
+
+query TTR
+SELECT parent_id, child_id, quantity FROM bom_to_items(header_table := 'rt_header', component_table := 'rt_component')
+ORDER BY 1, 2;
+----
+PROD-A	COMP-1	2.0
+PROD-A	COMP-2	1.0
+PROD-B	COMP-1	3.0
+
+statement error
+SELECT * FROM items_to_bom('flat');
+----
+items_to_bom
+
+# ------------------------------------------------------------------------------
+# sap_to_materials: an ersda that is already a DATE (or an ISO string) gives created_date,
+# not NULL. sap_to_bom_items: STPO needs only the documented stlnr, idnrk, menge, meins.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE mara_dates AS SELECT * FROM (VALUES
+  ('M1', 'FERT', 'G1', DATE '2021-01-15', NULL),
+  ('M2', 'ROH', 'G2', DATE '2022-06-01', '')) t(matnr, mtart, matkl, ersda, lvorm);
+
+query TT
+SELECT material_id, created_date FROM sap_to_materials('mara_dates') ORDER BY 1;
+----
+M1	2021-01-15
+M2	2022-06-01
+
+statement ok
+CREATE TABLE mara_text AS SELECT * FROM (VALUES ('M3', 'FERT', 'G1', '20200102', NULL), ('M4', 'FERT', 'G1', '2020-03-04', NULL))
+  t(matnr, mtart, matkl, ersda, lvorm);
+
+query TT
+SELECT material_id, created_date FROM sap_to_materials('mara_text') ORDER BY 1;
+----
+M3	2020-01-02
+M4	2020-03-04
+
+statement ok
+CREATE TABLE mast_min AS SELECT * FROM (VALUES ('P1', '00000001')) t(matnr, stlnr);
+
+statement ok
+CREATE TABLE stko_min AS SELECT * FROM (VALUES ('00000001', '01', '20200101')) t(stlnr, stlal, datuv);
+
+statement ok
+CREATE TABLE stpo_min AS SELECT * FROM (VALUES ('00000001', 'C1', 2.0, 'EA')) t(stlnr, idnrk, menge, meins);
+
+query TT
+SELECT parent_id, child_id FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min');
+----
+P1	C1
+
+# ------------------------------------------------------------------------------
+# dynamics365_to_bom_header: an item with several BOMVersion rows gives one header (active first,
+# approved first, then the newest), not one per version. (Native D365 columns since v2026.11;
+# the full rules are in test/sql/hardening/d365_bom.test.)
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE d_bomversion AS SELECT * FROM (VALUES
+  ('PUMP', 'B1', DATE '2024-01-01', NULL, 1, 1),
+  ('PUMP', 'B2', DATE '2025-01-01', NULL, 0, 0),
+  ('FAN',  'B3', DATE '2023-01-01', NULL, 1, 0),
+  ('FAN',  'B4', DATE '2024-01-01', NULL, 1, 0)) t(ItemId, BOMId, FromDate, ToDate, Active, Approved);
+
+query TTT
+SELECT bom_id, source_bom_id, is_approved FROM dynamics365_to_bom_header(bom_version := 'd_bomversion')
+ORDER BY 1;
+----
+FAN/B4	B4	false
+PUMP/B1	B1	true
+
+# a self-join of the function binds on DuckDB 2.0
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'd_bomversion') a
+JOIN dynamics365_to_bom_header(bom_version := 'd_bomversion') b USING (bom_id);
+----
+2
+
+# ------------------------------------------------------------------------------
+# check_statistics_freshness on an empty statistics table: last_updated is NULL (it used to
+# report a made-up timestamp of now - 8 days).
+# ------------------------------------------------------------------------------
+query IT
+SELECT stat_count, last_updated IS NULL AND NOT is_fresh FROM check_statistics_freshness();
+----
+0	true
+
+# ------------------------------------------------------------------------------
+# embedding_backend: an unknown provider is an error (it silently returned the placeholder).
+# ------------------------------------------------------------------------------
+statement error
+SELECT embedding_backend('pump', 'foo', '');
+----
+unknown provider 'foo'
+
+# ------------------------------------------------------------------------------
+# Embeddings are FLOAT[n] arrays (the vss type): textual FLOAT[384], fused FLOAT[768], and
+# lists of the right length still cast in. jaccard_embedding values lie in [0, 1) and
+# minhash_similarity takes them.
+# ------------------------------------------------------------------------------
+query TT
+SELECT typeof(embed_text('pump')), typeof(embedding_backend('pump', 'openai', ''));
+----
+FLOAT[384]	FLOAT[384]
+
+query TI
+SELECT typeof(f), len(f) FROM (SELECT fuse_embeddings(
+    list_resize([1.0]::FLOAT[], 256, 1.0)::FLOAT[256], embed_text('pump'), NULL,
+    {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f);
+----
+FLOAT[768]	768
+
+query I
+SELECT fuse_embeddings(list_resize([1.0]::FLOAT[], 256, 1.0), embed_text('pump'), NULL,
+    {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) IS NOT NULL;
+----
+true
+
+statement error
+SELECT fuse_embeddings([1.0, 2.0], embed_text('pump'), NULL, {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0});
+----
+256
+
+statement ok
+CREATE TABLE jac_bom AS SELECT * FROM (VALUES ('P1', 'a'), ('P1', 'b'), ('P2', 'a'), ('P2', 'b'), ('P3', 'z')) t(parent_id, child_id);
+
+query T
+SELECT bool_and(minhash_value >= 0 AND minhash_value < 1) FROM compute_jaccard_embeddings(bom_table := 'jac_bom');
+----
+true
+
+# '45755761' hashes so close to 2^64 for seed 0 that the FLOAT cast rounded it up to 1.0
+statement ok
+CREATE TABLE jac_edge AS SELECT 'P' AS parent_id, '45755761' AS child_id;
+
+query T
+SELECT max(minhash_value) < 1 FROM compute_jaccard_embeddings(bom_table := 'jac_edge');
+----
+true
+
+statement ok
+CREATE TABLE jac AS SELECT material_id, list(minhash_value ORDER BY seed)::FLOAT[128] AS e
+FROM compute_jaccard_embeddings(bom_table := 'jac_bom') GROUP BY material_id;
+
+query RR
+SELECT minhash_similarity(a.e, b.e), minhash_similarity(a.e, c.e)
+FROM jac a, jac b, jac c WHERE a.material_id = 'P1' AND b.material_id = 'P2' AND c.material_id = 'P3';
+----
+1.0	0.0
+
+# ------------------------------------------------------------------------------
+# tree_class_multiset reads no attributes; it no longer accepts an attrs_table it ignored.
+# cosine_floor names its positional parameters table_name / column_name.
+# ------------------------------------------------------------------------------
+query I
+SELECT count(*) FROM duckdb_functions()
+WHERE function_name = 'tree_class_multiset' AND list_contains(parameters, 'attrs_table');
+----
+0
+
+query I
+SELECT count(*) FROM duckdb_functions()
+WHERE function_name = 'cosine_floor' AND parameters[1:2] = ['table_name', 'column_name'];
+----
+1
+
+# ------------------------------------------------------------------------------
+# A fused embedding is a FLOAT[768] array, which the core array distances take directly
+# (the HNSW index over it is tested in test/sql/fusion/fused_embedding_hnsw.test, require vss).
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE fused AS SELECT i AS material_id,
+  fuse_embeddings((SELECT list(((i * 7 + j) % 11)::FLOAT ORDER BY j) FROM range(256) r(j))::FLOAT[256], embed_text('m' || i), NULL,
+                  {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f
+FROM range(20) t(i);
+
+query I
+SELECT material_id FROM fused ORDER BY array_cosine_distance(f, (SELECT f FROM fused WHERE material_id = 3)) LIMIT 1;
+----
+3

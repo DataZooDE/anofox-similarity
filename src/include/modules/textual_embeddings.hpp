@@ -17,7 +17,7 @@ namespace anofox {
 // Scalar Function: embedding_backend(text VARCHAR, provider VARCHAR, config VARCHAR) -> FLOAT[384]
 //   - Generates 384-D embeddings from text input
 //   - Providers: 'gemma-local' (OpenVINO), 'openai', 'anthropic', 'custom-http'
-//   - Config: Optional JSON string with provider-specific parameters (api_key, endpoint, etc.)
+//   - Config: Optional JSON string, accepted but not read yet (never put API keys in it)
 //   - Returns 384-D float array for semantic embeddings
 //   - Fallback to HTTP if local provider unavailable
 void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader);

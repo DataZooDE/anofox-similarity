@@ -34,7 +34,7 @@ statement ok
 INSERT INTO alt_moves VALUES ('A', DATE '2024-01-01', 1), ('A', DATE '2024-01-03', 2);
 
 query I
-SELECT count(*) FROM find_similar_materials_jaccard('A', 5);
+SELECT count(*) FROM find_similar_materials_jaccard('A', 5, min_similarity := 0);
 ----
 4
 

@@ -22,83 +22,112 @@ SELECT * FROM (VALUES
 ) AS t(parent_id, child_id, quantity)
 
 # ============================================================================
-# Test 2: Verify items_to_bom conversion produces all tables
+# Test 2: items_to_materials, items_to_bom_header, items_to_bom_component
 # ============================================================================
 
 query I
-SELECT COUNT(DISTINCT table_type) FROM items_to_bom('legacy_bom_items', 'LEGACY')
-----
-3
-
-# ============================================================================
-# Test 3: Verify items_to_bom produces materials
-# ============================================================================
-
-query I
-SELECT COUNT(*) FROM (
-    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-    WHERE table_type = 'materials'
-)
+SELECT COUNT(*) FROM items_to_materials('legacy_bom_items', 'LEGACY')
 ----
 4
 
-# ============================================================================
-# Test 4: Verify items_to_bom produces bom_header
-# ============================================================================
-
 query I
-SELECT COUNT(*) FROM (
-    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-    WHERE table_type = 'bom_header'
-)
+SELECT COUNT(*) FROM items_to_bom_header('legacy_bom_items', 'LEGACY')
 ----
 2
 
-# ============================================================================
-# Test 5: Verify items_to_bom produces bom_component
-# ============================================================================
-
 query I
-SELECT COUNT(*) FROM (
-    SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-    WHERE table_type = 'bom_component'
-)
+SELECT COUNT(*) FROM items_to_bom_component('legacy_bom_items')
 ----
 3
 
+# Every header row carries the source system in its own column (it used to shift columns).
+query TT
+SELECT DISTINCT source_system, typeof(valid_from) FROM items_to_bom_header('legacy_bom_items', 'LEGACY')
+----
+LEGACY	DATE
+
 # ============================================================================
-# Test 6: Round-trip test - convert and convert back
+# Test 3: The results insert into the universal schema tables unchanged
 # ============================================================================
 
 statement ok
-CREATE TABLE test_materials AS
-SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-WHERE table_type = 'materials'
+CREATE TABLE test_materials AS SELECT * FROM items_to_materials('legacy_bom_items', 'LEGACY')
 
 statement ok
-CREATE TABLE test_bom_header AS
-SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-WHERE table_type = 'bom_header'
+CREATE TABLE test_bom_header AS SELECT * FROM items_to_bom_header('legacy_bom_items', 'LEGACY')
 
 statement ok
-CREATE TABLE test_bom_component AS
-SELECT * FROM items_to_bom('legacy_bom_items', 'LEGACY')
-WHERE table_type = 'bom_component'
+CREATE TABLE test_bom_component AS SELECT * FROM items_to_bom_component('legacy_bom_items')
 
 # ============================================================================
-# Test 7: Verify bom_header count
+# Test 4: Round trip back to bom_items
 # ============================================================================
+
+query TTR
+SELECT parent_id, child_id, quantity
+FROM bom_to_items(header_table := 'test_bom_header', component_table := 'test_bom_component')
+ORDER BY parent_id, child_id
+----
+PROD-A	COMP-1	2.0
+PROD-A	COMP-2	1.5
+PROD-B	COMP-1	3.0
+
+# ============================================================================
+# Test 5: The results insert into the universal schema's own DDL (types and column order)
+# ============================================================================
+
+statement ok
+CREATE TABLE u_materials (material_id VARCHAR PRIMARY KEY, material_number VARCHAR UNIQUE NOT NULL,
+  description VARCHAR(500), material_type VARCHAR(20), material_group VARCHAR(50), procurement_type VARCHAR(20),
+  base_uom VARCHAR(10), weight DECIMAL(12,4), cost_per_unit DECIMAL(12,4), source_system VARCHAR(20),
+  is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT current_timestamp, company VARCHAR)
+
+statement ok
+CREATE TABLE u_bom_header (bom_id VARCHAR PRIMARY KEY, source_system VARCHAR NOT NULL, source_bom_id VARCHAR,
+  parent_material_id VARCHAR NOT NULL REFERENCES u_materials(material_id), bom_type VARCHAR, alternative_number VARCHAR,
+  revision VARCHAR, base_quantity DECIMAL(18,6) DEFAULT 1, base_uom VARCHAR(10), valid_from DATE, valid_to DATE,
+  plant_id VARCHAR(20), is_approved BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT current_timestamp,
+  company VARCHAR)
+
+statement ok
+CREATE TABLE u_bom_component (component_id VARCHAR PRIMARY KEY, bom_id VARCHAR NOT NULL REFERENCES u_bom_header(bom_id),
+  line_number INTEGER NOT NULL, child_material_id VARCHAR NOT NULL REFERENCES u_materials(material_id),
+  quantity_per DECIMAL(18,6) NOT NULL, quantity_uom VARCHAR(10) NOT NULL, is_fixed_quantity BOOLEAN DEFAULT FALSE,
+  scrap_percent DECIMAL(8,4) DEFAULT 0, effective_from DATE, effective_to DATE, component_type VARCHAR(20),
+  supply_type VARCHAR(20), operation_sequence INTEGER, is_alternative BOOLEAN DEFAULT FALSE,
+  alternative_group VARCHAR(20), created_at TIMESTAMP DEFAULT current_timestamp, company VARCHAR)
+
+statement ok
+INSERT INTO u_materials SELECT * FROM items_to_materials('legacy_bom_items', 'LEGACY')
+
+statement ok
+INSERT INTO u_bom_header SELECT * FROM items_to_bom_header('legacy_bom_items', 'LEGACY')
+
+statement ok
+INSERT INTO u_bom_component SELECT * FROM items_to_bom_component('legacy_bom_items')
+
+query III
+SELECT (SELECT count(*) FROM u_materials), (SELECT count(*) FROM u_bom_header), (SELECT count(*) FROM u_bom_component)
+----
+4	2	3
+
+# A materials table made before the company column: INSERT ... SELECT * needs the one added column
+# (docs/UPGRADING.md), after which the converters insert again
+statement ok
+CREATE TABLE old_materials AS SELECT * EXCLUDE (company) FROM items_to_materials('legacy_bom_items', 'LEGACY') LIMIT 0;
+
+statement error
+INSERT INTO old_materials SELECT * FROM items_to_materials('legacy_bom_items', 'LEGACY');
+----
+values were supplied
+
+statement ok
+ALTER TABLE old_materials ADD COLUMN company VARCHAR;
+
+statement ok
+INSERT INTO old_materials SELECT * FROM items_to_materials('legacy_bom_items', 'LEGACY');
 
 query I
-SELECT COUNT(*) FROM test_bom_header
+SELECT count(*) = count(*) FILTER (WHERE company IS NULL) FROM old_materials;
 ----
-2
-
-# ============================================================================
-# Test 8: Verify bom_component count
-# ============================================================================
-
-query I
-SELECT COUNT(*) FROM test_bom_component
-----
-3
+true

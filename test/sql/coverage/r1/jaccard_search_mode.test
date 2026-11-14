@@ -16,14 +16,13 @@ INSERT INTO bom_items VALUES
     ('D3','a'), ('D3','b'),
     ('D4','x');
 
-# Jaccard from D1: D3 2/3 = 0.6667, D2 3/5 = 0.6, D4 0/4 = 0
+# Jaccard from D1: D3 2/3 = 0.6667, D2 3/5 = 0.6; D4 (0/4 = 0) is left out by default
 query TRII
 SELECT material_id, round(similarity, 4), shared_components, total_components
 FROM find_similar_materials_jaccard('D1', 10);
 ----
 D3	0.6667	2	3
 D2	0.6	3	5
-D4	0.0	0	4
 
 # mode := 'jaccard' is the default: identical rows
 query I
@@ -36,7 +35,7 @@ SELECT count(*) FROM (
 ----
 0
 
-# containment of D1 in each design: D2 3/3 = 1.0, D3 2/3 = 0.6667, D4 0
+# containment of D1 in each design: D2 3/3 = 1.0, D3 2/3 = 0.6667, D4 0 (left out)
 # the richer D2 now ranks first; the other columns keep their meaning
 query TRII
 SELECT material_id, round(similarity, 4), shared_components, total_components
@@ -44,7 +43,6 @@ FROM find_similar_materials_jaccard('D1', 10, mode := 'containment');
 ----
 D2	1.0	3	5
 D3	0.6667	2	3
-D4	0.0	0	4
 
 # min_similarity applies to the chosen measure
 query T

@@ -626,7 +626,7 @@ class SyntheticBOMGenerator:
         products = []
 
         for gen in range(chain_length):
-            created = f"201{8+gen}-01-01"
+            created = f"{2018 + gen}-01-01"
             product = self._create_material(f"S12-GEN-{gen:02d}", "FERT", created)
             self.materials.append(product)
             products.append(product)

@@ -48,7 +48,7 @@ CREATE TABLE test_stko AS SELECT * FROM (VALUES
 # ============================================================================
 
 statement ok
-CREATE TABLE test_stpo AS SELECT * FROM (VALUES
+CREATE TABLE test_stpo AS SELECT 'M' AS stlty, * FROM (VALUES
     ('00000001', '0001', '0010', '000000000000000002', NULL, 2.0, 'EA', NULL, '2020-01-01'::DATE),
     ('00000001', '0002', '0020', '000000000000000003', NULL, 5.0, 'KG', NULL, '2020-01-01'::DATE),
     ('00000001', '0003', '0030', 'COMP-A', NULL, 1.5, 'EA', NULL, '2020-01-01'::DATE),
@@ -128,6 +128,7 @@ WHERE parent_id = '000000000000000001';
 
 # ============================================================================
 # Test 8: Verify multiple BOMs present in result set
+# (alternative 01 only; 00000003 is dropped because its header is deleted, see test 9)
 # ============================================================================
 
 query I
@@ -138,10 +139,10 @@ SELECT COUNT(DISTINCT bom_id) FROM sap_to_bom_items(
     reference_date := '2024-01-01'::DATE
 );
 ----
-9
+8
 
 # ============================================================================
-# Test 9: BOMs are included from STKO even if marked (lkenz handling)
+# Test 9: A BOM whose valid STKO header version is deleted (lkenz = 'X') is dropped
 # ============================================================================
 
 query I
@@ -153,7 +154,7 @@ SELECT COUNT(*) FROM sap_to_bom_items(
 )
 WHERE parent_id = '000000000000000003';
 ----
-1
+0
 
 # ============================================================================
 # Test 10: Quantity preservation
@@ -353,7 +354,7 @@ true
 # ✅ Test 4-5: Basic BOM extraction and column verification
 # ✅ Test 6-7: Date versioning (multiple BOM versions)
 # ✅ Test 8: Alternative BOM selection (stlal parameter)
-# ✅ Test 9: Deleted BOM exclusion (lkenz flag)
+# ✅ Test 9: Deleted BOM exclusion (STKO lkenz on the valid header version)
 # ✅ Test 10-11: Quantity and unit preservation
 # ✅ Test 12-13: Multi-component BOMs with mixed types
 # ✅ Test 14: Plant filtering
@@ -365,7 +366,8 @@ true
 #
 # Coverage Focus:
 # - Date versioning: ✅ Multiple reference dates tested
-# - Deleted BOMs: ✅ lkenz flag filtering validated
+# - Deleted BOMs: ✅ STKO lkenz header filtering (test 9). Item-level deletion (STPO lkenz,
+#   STAS), categories (stlty) and item versions are in test/sql/hardening/sap_bom_items.test
 # - Quantity aggregation: ✅ Quantities preserved correctly
 # - Plant-specific: ✅ Plant filtering works
 # - Complex hierarchies: ✅ Multi-level and multi-component BOMs
