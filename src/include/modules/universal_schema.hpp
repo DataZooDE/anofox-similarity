@@ -21,7 +21,8 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing = false);
 // Registers conversion macros between flat bom_items and universal schema
 // Macros:
 //   bom_to_items(header_table, component_table) - Converts universal to flat format
-//   items_to_bom(items_table, source_system) - Converts flat to universal format
+//   items_to_materials / items_to_bom_header (items_table, source_system) and
+//   items_to_bom_component(items_table) - Convert flat to the universal tables
 void RegisterBOMConversionMacros(ExtensionLoader &loader);
 
 } // namespace anofox

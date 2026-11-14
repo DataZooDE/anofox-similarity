@@ -3,6 +3,7 @@
 #include "duckdb_compat/list_vector.hpp"
 #include "duckdb_compat/struct_vector.hpp"
 #include "compat_anofox/scalar_bind.hpp"
+#include "compat_anofox/array_vector.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
@@ -36,7 +37,7 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	// args[2]: transactional_embedding (FLOAT[128])
 	// args[3]: weights (STRUCT with fields: structural, textual, transactional)
 	//
-	// Output: combined_embedding (FLOAT[768] = [√w_s·φ || √w_t·ψ || √w_x·χ])
+	// Output: combined_embedding (FLOAT[768] array = [√w_s·φ || √w_t·ψ || √w_x·χ])
 
 	auto &structural_vector = args.data[0];
 	auto &textual_vector = args.data[1];
@@ -53,27 +54,20 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	duckdb_compat::ToUnifiedFormat(transactional_vector, count, transactional_vdata);
 	duckdb_compat::ToUnifiedFormat(weights_vector, count, weights_vdata);
 
-	auto structural_data = UnifiedVectorFormat::GetData<list_entry_t>(structural_vdata);
-	auto textual_data = UnifiedVectorFormat::GetData<list_entry_t>(textual_vdata);
-	auto transactional_data = UnifiedVectorFormat::GetData<list_entry_t>(transactional_vdata);
-
-	// Get child vectors for list entries
-	auto &structural_child = ListVector::GetEntry(structural_vector);
-	auto &textual_child = ListVector::GetEntry(textual_vector);
-	auto &transactional_child = ListVector::GetEntry(transactional_vector);
-	// Reserve the result child vector to hold count * COMBINED_DIM floats BEFORE taking a pointer
-	// into it. The list child starts at STANDARD_VECTOR_SIZE capacity; without this reserve, any
-	// batch whose count * 768 exceeds that capacity overflowed the heap (SIGSEGV). Reserve may
-	// reallocate, so result_child_data is fetched afterwards (below).
-	ListVector::Reserve(result, count * COMBINED_DIM);
-	auto &result_child = ListVector::GetEntry(result);
+	// FLOAT[n] arrays: row r's elements are child[r * n, (r + 1) * n), r = the row's index in the
+	// parent's unified format. The result FLOAT[768] child already holds count * 768 floats.
+	auto &structural_child = compat_anofox::ArrayChild(structural_vector);
+	auto &textual_child = compat_anofox::ArrayChild(textual_vector);
+	auto &transactional_child = compat_anofox::ArrayChild(transactional_vector);
+	auto &result_child = compat_anofox::ArrayChild(result);
 
 	UnifiedVectorFormat structural_child_vdata;
 	UnifiedVectorFormat textual_child_vdata;
 	UnifiedVectorFormat transactional_child_vdata;
-	duckdb_compat::ToUnifiedFormat(structural_child, ListVector::GetListSize(structural_vector), structural_child_vdata);
-	duckdb_compat::ToUnifiedFormat(textual_child, ListVector::GetListSize(textual_vector), textual_child_vdata);
-	duckdb_compat::ToUnifiedFormat(transactional_child, ListVector::GetListSize(transactional_vector), transactional_child_vdata);
+	duckdb_compat::ToUnifiedFormat(structural_child, ArrayVector::GetTotalSize(structural_vector), structural_child_vdata);
+	duckdb_compat::ToUnifiedFormat(textual_child, ArrayVector::GetTotalSize(textual_vector), textual_child_vdata);
+	duckdb_compat::ToUnifiedFormat(transactional_child, ArrayVector::GetTotalSize(transactional_vector),
+	                               transactional_child_vdata);
 
 	auto structural_child_data = UnifiedVectorFormat::GetData<float>(structural_child_vdata);
 	auto textual_child_data = UnifiedVectorFormat::GetData<float>(textual_child_vdata);
@@ -97,8 +91,6 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 	auto textual_weight_data = UnifiedVectorFormat::GetData<float>(textual_weight_vdata);
 	auto transactional_weight_data = UnifiedVectorFormat::GetData<float>(transactional_weight_vdata);
 
-	ListVector::SetListSize(result, count * COMBINED_DIM);
-	auto result_entries = duckdb_compat::FlatData<list_entry_t>(result);
 	auto &result_validity = duckdb_compat::MutableValidity(result);
 
 	for (idx_t i = 0; i < count; i++) {
@@ -118,9 +110,6 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 			result_validity.SetInvalid(i);
 			continue;
 		}
-
-		result_entries[i].offset = i * COMBINED_DIM;
-		result_entries[i].length = COMBINED_DIM;
 
 		try {
 			auto w_structural = structural_weight_data[ws_idx];
@@ -160,48 +149,36 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 			w_textual /= weight_sum;
 			w_transactional /= weight_sum;
 
-			auto struct_entry = use_structural ? structural_data[struct_idx] : list_entry_t {0, 0};
-			auto text_entry = use_textual ? textual_data[text_idx] : list_entry_t {0, 0};
-			auto trans_entry = use_transactional ? transactional_data[trans_idx] : list_entry_t {0, 0};
-
-			// Validate dimensions of every contributing modality instead of silently zero-padding a
-			// short vector or truncating a long one — a wrong-length embedding is a caller bug, so
-			// the fused result for that row is NULL rather than a quietly-corrupted vector.
-			if ((use_structural && struct_entry.length != STRUCTURAL_DIM) ||
-			    (use_textual && text_entry.length != TEXTUAL_DIM) ||
-			    (use_transactional && trans_entry.length != TRANSACTIONAL_DIM)) {
-				result_validity.SetInvalid(i);
-				continue;
-			}
-
+			// The array types fix the lengths (256 / 384 / 128): a list of another length fails to cast
+			// to the parameter type, so there is nothing to validate here.
 			const auto scale_structural = std::sqrt(w_structural);
 			const auto scale_textual = std::sqrt(w_textual);
 			const auto scale_transactional = std::sqrt(w_transactional);
 
 			idx_t result_idx = i * COMBINED_DIM;
 
-			// Always zero-initialize output slice to avoid uninitialized values when input lists are short.
+			// Zero the output slice: an unused (weight 0) modality contributes zeros.
 			std::fill_n(result_child_data + result_idx, COMBINED_DIM, 0.0f);
 
 			// Copy structural (256-D)
-			for (idx_t j = 0; j < STRUCTURAL_DIM && j < struct_entry.length; j++) {
-				auto child_idx = structural_child_vdata.sel->get_index(struct_entry.offset + j);
+			for (idx_t j = 0; use_structural && j < STRUCTURAL_DIM; j++) {
+				auto child_idx = structural_child_vdata.sel->get_index(struct_idx * STRUCTURAL_DIM + j);
 				if (structural_child_vdata.validity.RowIsValid(child_idx)) {
 					result_child_data[result_idx + j] = structural_child_data[child_idx] * scale_structural;
 				}
 			}
 
 			// Copy textual (384-D)
-			for (idx_t j = 0; j < TEXTUAL_DIM && j < text_entry.length; j++) {
-				auto child_idx = textual_child_vdata.sel->get_index(text_entry.offset + j);
+			for (idx_t j = 0; use_textual && j < TEXTUAL_DIM; j++) {
+				auto child_idx = textual_child_vdata.sel->get_index(text_idx * TEXTUAL_DIM + j);
 				if (textual_child_vdata.validity.RowIsValid(child_idx)) {
 					result_child_data[result_idx + STRUCTURAL_DIM + j] = textual_child_data[child_idx] * scale_textual;
 				}
 			}
 
 			// Copy transactional (128-D)
-			for (idx_t j = 0; j < TRANSACTIONAL_DIM && j < trans_entry.length; j++) {
-				auto child_idx = transactional_child_vdata.sel->get_index(trans_entry.offset + j);
+			for (idx_t j = 0; use_transactional && j < TRANSACTIONAL_DIM; j++) {
+				auto child_idx = transactional_child_vdata.sel->get_index(trans_idx * TRANSACTIONAL_DIM + j);
 				if (transactional_child_vdata.validity.RowIsValid(child_idx)) {
 					result_child_data[result_idx + STRUCTURAL_DIM + TEXTUAL_DIM + j] =
 					    transactional_child_data[child_idx] * scale_transactional;
@@ -228,16 +205,15 @@ static unique_ptr<FunctionData> FuseEmbeddingsBind() {
 //------------------------------------------------------------------------------
 
 void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
-	// Takes: structural (LIST(FLOAT)), textual (LIST(FLOAT)), transactional (LIST(FLOAT)), weights (STRUCT)
-	// Returns: fused embedding (LIST(FLOAT))
+	// FLOAT[n] arrays in and out (the material_embeddings column types, the type vss indexes)
+	auto weights_type = LogicalType::STRUCT({{"structural", LogicalType(LogicalTypeId::FLOAT)},
+	                                         {"textual", LogicalType(LogicalTypeId::FLOAT)},
+	                                         {"transactional", LogicalType(LogicalTypeId::FLOAT)}});
 	auto fuse_embeddings_function =
 	    ScalarFunction("fuse_embeddings",
-	                   {LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
-	                    LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
-	                    LogicalType::STRUCT({{"structural", LogicalType(LogicalTypeId::FLOAT)},
-	                                         {"textual", LogicalType(LogicalTypeId::FLOAT)},
-	                                         {"transactional", LogicalType(LogicalTypeId::FLOAT)}})},
-	                   LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsBind)>());
+	                   {LogicalType::ARRAY(LogicalType::FLOAT, 256), LogicalType::ARRAY(LogicalType::FLOAT, 384),
+	                    LogicalType::ARRAY(LogicalType::FLOAT, 128), weights_type},
+	                   LogicalType::ARRAY(LogicalType::FLOAT, 768), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, FuseEmbeddingsBind)>());
 	// SPECIAL_HANDLING so the function is invoked even when a modality vector is NULL; the body
 	// decides per-modality whether a NULL is acceptable (it is, when that modality's weight is 0).
 	// With default handling DuckDB would short-circuit the whole result to NULL, which is why a
@@ -247,19 +223,16 @@ void RegisterMultimodalFusionFunctions(ExtensionLoader &loader) {
 	duckdb_compat::SetFallible(fuse_embeddings_function);
 	CreateScalarFunctionInfo info(fuse_embeddings_function);
 	FunctionDescription desc;
-	desc.description = "Fuses structural (FLOAT[256]), textual (FLOAT[384]), and transactional (FLOAT[128]) "
-	                   "embeddings into a single 768-dimensional combined embedding using weighted concatenation. "
-	                   "Each component is scaled by sqrt(weight). Weights do not need to sum to 1.0.";
-	desc.examples    = {"SELECT fuse_embeddings(se, te, xe, {'structural':0.5,'textual':0.5,'transactional':0.0}) "
-	                    "FROM material_embeddings;"};
+	desc.description = "Fuses structural (FLOAT[256]), textual (FLOAT[384]) and transactional (FLOAT[128]) "
+	                   "embeddings into one FLOAT[768] array by weighted concatenation, each part scaled by "
+	                   "sqrt(weight). Weights are normalised to sum to 1; a modality with weight 0 may be NULL. "
+	                   "Lists cast to the array types (a list of another length is an error).";
+	desc.examples    = {"SELECT fuse_embeddings(structural_embedding, textual_embedding, transactional_embedding, "
+	                    "{'structural':0.5,'textual':0.5,'transactional':0.0}) FROM material_embeddings;"};
 	desc.categories  = {"embeddings", "fusion"};
 	desc.parameter_names = {"structural_embedding", "textual_embedding", "transactional_embedding", "weights"};
-	desc.parameter_types = {LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
-	                         LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
-	                         LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)),
-	                         LogicalType::STRUCT({{"structural", LogicalType(LogicalTypeId::FLOAT)},
-	                                              {"textual", LogicalType(LogicalTypeId::FLOAT)},
-	                                              {"transactional", LogicalType(LogicalTypeId::FLOAT)}})};
+	desc.parameter_types = {LogicalType::ARRAY(LogicalType::FLOAT, 256), LogicalType::ARRAY(LogicalType::FLOAT, 384),
+	                         LogicalType::ARRAY(LogicalType::FLOAT, 128), weights_type};
 	info.descriptions.push_back(std::move(desc));
 	duckdb_compat::NameArgumentsFromDescriptions(info);
 	loader.RegisterFunction(std::move(info));

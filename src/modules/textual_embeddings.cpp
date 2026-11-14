@@ -2,6 +2,7 @@
 #include "duckdb_compat.hpp"
 #include "duckdb_compat/list_vector.hpp"
 #include "compat_anofox/scalar_bind.hpp"
+#include "compat_anofox/array_vector.hpp"
 #include "core/error_handling.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
@@ -217,14 +218,9 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 	auto &provider_validity = FlatVector::Validity(provider_vector);
 	auto &config_validity = FlatVector::Validity(config_vector);
 
-	// Reserve the child vector to hold count*384 floats BEFORE taking a pointer into it. Without
-	// this reserve, any batch whose count*384 exceeds the child's initial STANDARD_VECTOR_SIZE
-	// capacity overflowed the heap (SIGSEGV). Reserve may reallocate, so child_data is taken after.
-	ListVector::Reserve(result, count * 384);
-	auto &child = ListVector::GetEntry(result);
-	ListVector::SetListSize(result, count * 384);
-
-	auto result_entries = duckdb_compat::FlatData<list_entry_t>(result);
+	// FLOAT[384] (ARRAY): the child vector of an ARRAY result already holds count * 384 floats,
+	// row i at [i * 384, (i + 1) * 384).
+	auto &child = compat_anofox::ArrayChild(result);
 	auto child_data = duckdb_compat::FlatData<float>(child);
 	auto &result_validity = duckdb_compat::MutableValidity(result);
 
@@ -235,13 +231,19 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 			result_validity.SetInvalid(i);
 			continue;
 		}
-
-		result_entries[i].offset = i * 384;
-		result_entries[i].length = 384;
+		string provider_name = provider_data[i].GetString();
+		if (provider_name != "gemma-local" && provider_name != "openai" && provider_name != "anthropic" &&
+		    provider_name != "cohere") {
+			throw InvalidInputException("embedding_backend: unknown provider '%s' (expected gemma-local, openai, "
+			                            "anthropic or cohere)",
+			                            provider_name);
+		}
+		for (idx_t j = 0; j < 384; j++) {
+			child_data[i * 384 + j] = 0.0f;
+		}
 
 		try {
 			string text = text_data[i].GetString();
-			string provider_name = provider_data[i].GetString();
 			string config = config_validity.RowIsValid(i) ? config_data[i].GetString() : "";
 
 			auto provider = EmbeddingProviderFactory::GetProvider(provider_name, config);
@@ -271,10 +273,10 @@ static unique_ptr<FunctionData> EmbeddingBackendBind() {
 //------------------------------------------------------------------------------
 
 void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
-	// Note: Returns LIST(FLOAT) - dimension (384) is enforced at runtime
+	// Returns FLOAT[384] (ARRAY), the type vss indexes and the array_* distance functions take
 	auto embedding_backend_function =
 	    ScalarFunction("embedding_backend", {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
-	                   LogicalType::LIST(LogicalType(LogicalTypeId::FLOAT)), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendBind)>());
+	                   LogicalType::ARRAY(LogicalType::FLOAT, 384), DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendFunction), compat_anofox::ScalarBind<DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, EmbeddingBackendBind)>());
 	// SPECIAL_HANDLING so the function is still invoked when provider_config is NULL, instead of
 	// DuckDB short-circuiting the whole result to NULL. This is why compute_textual_embeddings used
 	// to return NULL for every row on its documented default (provider_config := NULL).
@@ -283,8 +285,8 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	duckdb_compat::SetFallible(embedding_backend_function);
 	CreateScalarFunctionInfo info(embedding_backend_function);
 	FunctionDescription desc;
-	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384]) for the given text. "
-	                   "provider selects the backend and provider_config is a JSON string of provider-specific "
+	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384] array) for the given text. "
+	                   "provider (gemma-local, openai, anthropic or cohere; anything else is an error) selects the backend and provider_config is a JSON string of provider-specific "
 	                   "options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO "
 	                   "model or a real API backend is configured, all providers return a deterministic, "
 	                   "hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).";

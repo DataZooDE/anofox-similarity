@@ -103,81 +103,84 @@ static const DefaultTableMacro BOM_TO_ITEMS_MACRO = {
 		-- is_approved was not TRUE — including the schema's own DEFAULT FALSE — which lost data.
 		-- Filter on is_approved yourself if you only want approved BOMs.))"};
 
-static const DefaultTableMacro ITEMS_TO_BOM_MACRO = {
+// The inverse of bom_to_items, as three macros with the universal schema's columns and types
+// (CreateUniversalBOMSchema above), so each result can be inserted into its table directly.
+// items_table needs parent_id, child_id and quantity (NULL quantity counts as 1).
+static const DefaultTableMacro ITEMS_TO_MATERIALS_MACRO = {
     DEFAULT_SCHEMA,
-    "items_to_bom",
+    "items_to_materials",
     {nullptr},
     {{"items_table", "'bom_items'"}, {"source_system", "'MIGRATED'"}, {nullptr, nullptr}},
     R"(
-		WITH
-		unique_materials AS (
-			SELECT DISTINCT parent_id AS material_id FROM query_table(items_table)
-			UNION
-			SELECT DISTINCT child_id AS material_id FROM query_table(items_table)
-		),
-		bom_headers AS (
-			SELECT DISTINCT
-				'BOM_' || parent_id AS bom_id,
-				source_system,
-				parent_id AS source_bom_id,
-				parent_id AS parent_material_id,
-				'MANUFACTURING' AS bom_type,
-				'01' AS alternative_number,
-				'MIGRATED' AS revision,
-				1 AS base_quantity,
-				'EA' AS base_uom,
-				DATE '2024-01-01' AS valid_from,
-				NULL::DATE AS valid_to,
-				NULL AS plant_id,
-				TRUE AS is_approved,
-				CURRENT_TIMESTAMP AS created_at
-			FROM query_table(items_table)
-		),
-		bom_components AS (
-			SELECT
-				'COMP_' || parent_id || '_' || ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY child_id) AS component_id,
-				'BOM_' || parent_id AS bom_id,
-				ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY child_id)::INTEGER AS line_number,
-				child_id AS child_material_id,
-				COALESCE(quantity, 1) AS quantity_per,
-				'EA' AS quantity_uom,
-				FALSE AS is_fixed_quantity,
-				0 AS scrap_percent,
-				NULL::DATE AS effective_from,
-				NULL::DATE AS effective_to,
-				'STOCK' AS component_type,
-				'PUSH' AS supply_type,
-				NULL::INTEGER AS operation_sequence,
-				FALSE AS is_alternative,
-				NULL AS alternative_group,
-				CURRENT_TIMESTAMP AS created_at
-			FROM query_table(items_table)
-		)
-		SELECT 'materials' AS table_type,
-			material_id::VARCHAR, material_id AS material_number, '' AS description,
-			NULL::VARCHAR AS material_type, NULL::VARCHAR AS material_group, NULL::VARCHAR AS procurement_type,
-			'EA' AS base_uom, NULL::VARCHAR AS weight, NULL::VARCHAR AS cost_per_unit,
-			source_system::VARCHAR, TRUE::VARCHAR AS is_active, CURRENT_TIMESTAMP::VARCHAR AS created_at,
-			NULL::VARCHAR AS col13, NULL::VARCHAR AS col14, NULL::VARCHAR AS col15,
-			NULL::VARCHAR AS col16
+		SELECT
+			m.material_id::VARCHAR AS material_id,
+			m.material_id::VARCHAR AS material_number,
+			NULL::VARCHAR AS description,
+			NULL::VARCHAR AS material_type,
+			NULL::VARCHAR AS material_group,
+			NULL::VARCHAR AS procurement_type,
+			'EA' AS base_uom,
+			NULL::DECIMAL(12,4) AS weight,
+			NULL::DECIMAL(12,4) AS cost_per_unit,
+			source_system::VARCHAR AS source_system,
+			TRUE AS is_active,
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
 		FROM (
-			SELECT material_id, source_system FROM unique_materials
-			CROSS JOIN (SELECT source_system FROM bom_headers LIMIT 1)
-		)
-		UNION ALL
-		SELECT 'bom_header' AS table_type,
-			bom_id::VARCHAR, source_bom_id::VARCHAR, parent_material_id::VARCHAR, bom_type::VARCHAR,
-			alternative_number::VARCHAR, revision::VARCHAR, base_quantity::VARCHAR, base_uom::VARCHAR,
-			valid_from::VARCHAR, valid_to::VARCHAR, plant_id::VARCHAR, is_approved::VARCHAR, created_at::VARCHAR,
-			NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR
-		FROM bom_headers
-		UNION ALL
-		SELECT 'bom_component' AS table_type,
-			component_id::VARCHAR, bom_id::VARCHAR, line_number::VARCHAR, child_material_id::VARCHAR,
-			quantity_per::VARCHAR, quantity_uom::VARCHAR, is_fixed_quantity::VARCHAR, scrap_percent::VARCHAR,
-			effective_from::VARCHAR, effective_to::VARCHAR, component_type::VARCHAR, supply_type::VARCHAR,
-			operation_sequence::VARCHAR, is_alternative::VARCHAR, alternative_group::VARCHAR, created_at::VARCHAR
-		FROM bom_components)"};
+			SELECT parent_id AS material_id FROM query_table(items_table)
+			UNION
+			SELECT child_id FROM query_table(items_table)
+		) m
+		WHERE m.material_id IS NOT NULL)"};
+
+static const DefaultTableMacro ITEMS_TO_BOM_HEADER_MACRO = {
+    DEFAULT_SCHEMA,
+    "items_to_bom_header",
+    {nullptr},
+    {{"items_table", "'bom_items'"}, {"source_system", "'MIGRATED'"}, {nullptr, nullptr}},
+    R"(
+		SELECT DISTINCT
+			('BOM_' || parent_id)::VARCHAR AS bom_id,
+			source_system::VARCHAR AS source_system,
+			parent_id::VARCHAR AS source_bom_id,
+			parent_id::VARCHAR AS parent_material_id,
+			'MANUFACTURING' AS bom_type,
+			'01' AS alternative_number,
+			'MIGRATED' AS revision,
+			1::DECIMAL(18,6) AS base_quantity,
+			'EA' AS base_uom,
+			NULL::DATE AS valid_from,
+			NULL::DATE AS valid_to,
+			NULL::VARCHAR AS plant_id,
+			TRUE AS is_approved,
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
+		FROM query_table(items_table)
+		WHERE parent_id IS NOT NULL)"};
+
+static const DefaultTableMacro ITEMS_TO_BOM_COMPONENT_MACRO = {
+    DEFAULT_SCHEMA,
+    "items_to_bom_component",
+    {nullptr},
+    {{"items_table", "'bom_items'"}, {nullptr, nullptr}},
+    R"(
+		SELECT
+			('COMP_' || parent_id || '_' || ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY child_id))::VARCHAR AS component_id,
+			('BOM_' || parent_id)::VARCHAR AS bom_id,
+			ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY child_id)::INTEGER AS line_number,
+			child_id::VARCHAR AS child_material_id,
+			COALESCE(quantity, 1)::DECIMAL(18,6) AS quantity_per,
+			'EA' AS quantity_uom,
+			FALSE AS is_fixed_quantity,
+			0::DECIMAL(8,4) AS scrap_percent,
+			NULL::DATE AS effective_from,
+			NULL::DATE AS effective_to,
+			'STOCK' AS component_type,
+			'PUSH' AS supply_type,
+			NULL::INTEGER AS operation_sequence,
+			FALSE AS is_alternative,
+			NULL::VARCHAR AS alternative_group,
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
+		FROM query_table(items_table)
+		WHERE parent_id IS NOT NULL AND child_id IS NOT NULL)"};
 
 void RegisterBOMConversionMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "erp"});
@@ -185,10 +188,19 @@ void RegisterBOMConversionMacros(ExtensionLoader &loader) {
 	           {ddoc::Doc()
 	                .Describe("Flattens the universal bom_header + bom_component pair into the flat (parent_id, child_id, quantity) bom_items shape that the similarity algorithms expect.")
 	                .Example("SELECT * FROM bom_to_items(header_table := 'bom_header', component_table := 'bom_component')")});
-	reg.RegisterTableMacro(ITEMS_TO_BOM_MACRO,
+	const char *items = " items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).";
+	reg.RegisterTableMacro(ITEMS_TO_MATERIALS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("The inverse of bom_to_items: expands a flat bom_items edge list back into the universal bom_header and bom_component shapes, tagging rows with 'source_system'.")
-	                .Example("SELECT * FROM items_to_bom(items_table := 'bom_items', source_system := 'MIGRATED')")});
+	                .Describe(string("The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system.") + items)
+	                .Example("SELECT * FROM items_to_materials(items_table := 'bom_items', source_system := 'MIGRATED')")});
+	reg.RegisterTableMacro(ITEMS_TO_BOM_HEADER_MACRO,
+	           {ddoc::Doc()
+	                .Describe(string("One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items.") + items)
+	                .Example("SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := 'MIGRATED')")});
+	reg.RegisterTableMacro(ITEMS_TO_BOM_COMPONENT_MACRO,
+	           {ddoc::Doc()
+	                .Describe(string("One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back.") + items)
+	                .Example("SELECT * FROM items_to_bom_component(items_table := 'bom_items')")});
 }
 
 } // namespace anofox

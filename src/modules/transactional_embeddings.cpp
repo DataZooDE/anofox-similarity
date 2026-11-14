@@ -99,6 +99,12 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 			    "loaded. Install and load it first: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
 		}
 	}
+	// The statistics table is created on load, but not on a read-only database.
+	if (!TableExists(context, "transactional_embedding_statistics")) {
+		throw InvalidInputException(
+		    "compute_transactional_embeddings needs the table transactional_embedding_statistics, which the "
+		    "extension creates on load but not on a read-only database. Open the database writable once.");
+	}
 
 	// movement_type is optional: use it when the column exists, otherwise substitute NULL so the
 	// movement-type ERP features (indices 92-97) degrade to 0 instead of failing to bind.

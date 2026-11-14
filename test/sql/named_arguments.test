@@ -7,10 +7,10 @@ statement ok
 CREATE TABLE named_arg_values(text VARCHAR, provider VARCHAR, provider_config VARCHAR);
 
 statement ok
-INSERT INTO named_arg_values VALUES ('x', 'p', '');
+INSERT INTO named_arg_values VALUES ('x', 'openai', '');
 
 query I
-SELECT embedding_backend('x', 'p', '') = embedding_backend(text := 'x', provider := 'p', provider_config := '');
+SELECT embedding_backend('x', 'openai', '') = embedding_backend(text := 'x', provider := 'openai', provider_config := '');
 ----
 true
 
@@ -32,8 +32,8 @@ true
 # the ELSE branch checks that name-based binding gives the positional result.
 query I
 SELECT CASE WHEN starts_with(version(), 'v1.5.6') THEN true ELSE
-       embedding_backend('x', 'p', '') =
-       embedding_backend(provider := 'p', text := 'x', provider_config := '') END;
+       embedding_backend('x', 'openai', '') =
+       embedding_backend(provider := 'openai', text := 'x', provider_config := '') END;
 ----
 true
 

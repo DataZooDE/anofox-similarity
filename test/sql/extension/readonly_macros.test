@@ -56,3 +56,10 @@ statement error
 CREATE TABLE proof_readonly(x INTEGER);
 ----
 read-only
+
+# The embedding tables are not created on a read-only database. check_statistics_freshness
+# reports "no statistics" instead of a Catalog Error.
+query IT
+SELECT stat_count, last_updated IS NULL AND NOT is_fresh FROM check_statistics_freshness();
+----
+0	true

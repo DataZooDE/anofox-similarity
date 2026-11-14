@@ -1964,14 +1964,21 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		duckdb_compat::NameArgumentsFromDescriptions(info);
 		loader.RegisterFunction(std::move(info));
 	}
-	const string common =
-	    " query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default "
-	    "'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the "
-	    "same tables). Naming a nodes table without its attributes table is an error (pass NULL for none). Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
+	const string stage1_tail =
+	    " Classes resolve class_id -> overrides_table (reviewed vocabulary) -> label_table (classifier). "
 	    "Stage 1 ranks candidates by containment (+ tie_break x jaccard) when every candidate tree is reviewed, else "
 	    "by weighted jaccard (mode 'auto'). candidate_multiset_table: a precomputed index of the candidate class "
 	    "multisets (tree_class_multiset output: entity_id, feature_id, weight[, reviewed]) makes stage 1 skip "
 	    "resolving every candidate tree.";
+	// stage 2 reads attributes; stage 1 (coverage_recall) only nodes
+	const string common =
+	    " query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table/attrs_table (default "
+	    "'tree_nodes'/'tree_attributes'); candidates from candidate_nodes_table/candidate_attrs_table (default: the "
+	    "same tables). Naming a nodes table without its attributes table is an error (pass NULL for none)." +
+	    stage1_tail;
+	const string stage1_common = " query_tree_id is a tree id or a LIST of ids. Trees come from nodes_table (default "
+	                             "'tree_nodes'); candidates from candidate_nodes_table (default: the same table)." +
+	                             stage1_tail;
 	RegisterCoverageTable(
 	    loader, "tree_coverage", TreeCoverageBindReplace,
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
@@ -2009,7 +2016,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "Stage-1 recall over class multisets: the top-k candidate trees per query with score, "
 	    "containment, jaccard, reviewed, mode_used and rank. mode 'auto' uses containment when every candidate tree "
 	    "is reviewed and weighted jaccard otherwise." +
-	        common,
+	        stage1_common,
 	    {"SELECT * FROM coverage_recall('R01', k := 20, candidate_nodes_table := 'programme_nodes');"}, false);
 	{
 		auto vc = LogicalType(LogicalTypeId::VARCHAR);
@@ -2041,8 +2048,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		    "Fits the kernel weights on reviewed matches: for every grid point of label_weights "
 		    "(lambda, default 0, 0.1, 0.2, 0.3, 0.5) x mus (default 0, 0.1, 0.2, 0.3), the mean absolute error of "
 		    "the kernel's coverage against reviewed_matches (query_id, candidate_id, true_coverage), with n_pairs, "
-		    "n_unresolved (reviewed pairs whose trees are missing) and rank (best first). At most 20 values per axis. The trees and options are given as for tree_coverage. The classifier's beta "
-		    "and tau are tuned with classify_to_catalogue and eval_ranking instead.",
+		    "n_unresolved (reviewed pairs whose trees are missing) and rank (best first). At most 20 values per axis. The trees and options are given as for tree_coverage. The classifier's attr_bonus "
+		    "and temperature are tuned with classify_to_catalogue and eval_ranking instead.",
 		    {"SELECT * FROM fit_coverage_weights('reviewed_matches', candidate_nodes_table := 'programme_nodes', "
 		     "candidate_attrs_table := 'programme_attributes') LIMIT 3;"},
 		    {"coverage", "evaluation"});

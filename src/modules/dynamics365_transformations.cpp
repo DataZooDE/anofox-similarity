@@ -56,7 +56,13 @@ static const DefaultTableMacro DYNAMICS365_TO_BOM_HEADER_MACRO = {
 			CASE WHEN bv.ApprovedStatus = 1 THEN TRUE ELSE FALSE END AS is_approved,
 			CURRENT_TIMESTAMP AS created_at
 		FROM query_table(bom_table) bt
-		LEFT JOIN query_table(bom_version) bv ON bt.BOMId = bv.BOMId
+		-- one version per BOM (approved first, then the newest), so a BOM with several BOMVersion rows
+		-- gives one header; inline window in QUALIFY (see recall_accelerators.cpp on QUALIFY aliases)
+		LEFT JOIN (
+			SELECT * FROM query_table(bom_version)
+			QUALIFY row_number() OVER (PARTITION BY BOMId
+			        ORDER BY ApprovedStatus = 1 DESC NULLS LAST, ActivationDate DESC NULLS LAST, VersionId DESC) = 1
+		) bv ON bt.BOMId = bv.BOMId
 		WHERE bt.Status = 0)"};
 
 static const DefaultTableMacro DYNAMICS365_TO_BOM_COMPONENT_MACRO = {
@@ -92,7 +98,7 @@ void RegisterDynamics365TransformationMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable')")});
 	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_HEADER_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus).")
+	                .Describe("Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate.")
 	                .Example("SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')")});
 	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_COMPONENT_MACRO,
 	           {ddoc::Doc()

@@ -39,7 +39,8 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
   'create_bom_property_graph','dynamics365_to_bom_component','dynamics365_to_bom_header',
   'dynamics365_to_materials','embed_text','embedding_backend','extract_material_descriptions',
   'extract_ts_features','filter_recent_movements','find_similar_materials_jaccard',
-  'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors','items_to_bom',
+  'find_similar_materials_wl_kernel','fuse_embeddings','infer_predecessors',
+  'items_to_materials','items_to_bom_header','items_to_bom_component',
   'jaccard_similarity','recompute_embedding_statistics','sap_to_bom_items','sap_to_materials',
   'sap_to_materials_with_desc','wl_fingerprint','wl_kernel_similarity',
   -- coverage matching (R1)
@@ -65,7 +66,7 @@ SELECT * FROM duckdb_functions() WHERE function_name IN (
 query I
 SELECT count(DISTINCT function_name) FROM ours;
 ----
-79
+81
 
 # ============================================================================
 # ...and every one of them is documented
@@ -103,7 +104,7 @@ true
 query I
 SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 ----
-23
+25
 
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';

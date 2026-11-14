@@ -150,8 +150,8 @@ bool CreateEmbeddingTables(Connection &conn) {
 void CreateHNSWIndexes(Connection &conn) {
 	// HNSW indexes are performance optimizations - continue if creation fails
 
-	// NOTE: no HNSW index is built over jaccard_embedding. Those are raw 64-bit MinHash values
-	// stored as FLOAT (~1e18); an L2/cosine distance over them does NOT approximate the Jaccard
+	// NOTE: no HNSW index is built over jaccard_embedding. Those are MinHash values (minimum hashes
+	// scaled to [0, 1)); an L2/cosine distance over them does NOT approximate the Jaccard
 	// index (MinHash estimates Jaccard via the *rate of equal coordinates*, not vector distance).
 	// A vector index there would silently return wrong neighbours. Jaccard similarity search is
 	// served exactly and quickly by find_similar_materials_jaccard() instead.
@@ -213,7 +213,9 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 				SELECT
 					mc.material_id,
 					t.seed,
-					MIN(CAST(ABS(HASH(c || ':' || t.seed::VARCHAR)) AS FLOAT)) AS minhash_value,
+					-- the minimum hash scaled to [0, 1) as FLOAT, so the 128 values form a FLOAT[128]
+					-- embedding; equal positions estimate Jaccard (minhash_similarity), not L2/cosine
+					(MIN(HASH(c || ':' || t.seed::VARCHAR))::DOUBLE / 18446744073709551616.0)::FLOAT AS minhash_value,
 					mc.num_components
 				FROM material_components mc
 				CROSS JOIN generate_series(0, 127) AS t(seed)
@@ -240,14 +242,20 @@ static unique_ptr<TableRef> ComputeJaccardEmbeddingsBindReplace(ClientContext &c
 static unique_ptr<TableRef> CheckStatisticsFreshnessBindReplace(ClientContext &context, TableFunctionBindInput &input) {
 	PostHogTelemetry::Instance().RecordFunctionCall("check_statistics_freshness");
 
+	// No statistics table (a read-only database, where it is not created): report "no statistics".
+	if (!TableExists(context, "transactional_embedding_statistics")) {
+		return ParseSubquery("SELECT 0::BIGINT AS stat_count, 0::INTEGER AS max_samples, 0::INTEGER AS current_version, "
+		                     "NULL::TIMESTAMP AS last_updated, FALSE AS is_fresh",
+		                     context, "Failed to parse check_statistics_freshness query");
+	}
 	string sql = R"(
 		SELECT
-			COALESCE(COUNT(*), 0) AS stat_count,
+			COUNT(*) AS stat_count,
 			COALESCE(MAX(num_samples), 0) AS max_samples,
 			COALESCE(MAX(version), 0) AS current_version,
-			COALESCE(MAX(updated_at), CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '8 days') AS last_updated,
-			(COALESCE(COUNT(*), 0) >= 30
-			 AND COALESCE(MAX(updated_at), CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '8 days') > CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '7 days') AS is_fresh
+			MAX(updated_at) AS last_updated,
+			(COUNT(*) >= 30
+			 AND COALESCE(MAX(updated_at) > CAST(CURRENT_TIMESTAMP AS TIMESTAMP) - INTERVAL '7 days', FALSE)) AS is_fresh
 		FROM transactional_embedding_statistics
 	)";
 
@@ -264,9 +272,10 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 		TableFunction compute_jaccard("compute_jaccard_embeddings", {}, nullptr, nullptr);
 		compute_jaccard.bind_replace = ComputeJaccardEmbeddingsBindReplace;
 		FunctionDescription desc;
-		desc.description = "Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed) from "
-		                   "BOM component sets; it does not write to material_embeddings — aggregate and upsert the "
-		                   "result yourself. Each material's embedding is derived from its set of direct child "
+		desc.description = "Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed, "
+		                   "minhash_value FLOAT in [0, 1)) from BOM component sets; it does not write to "
+		                   "material_embeddings: aggregate them in seed order into the FLOAT[128] jaccard_embedding "
+		                   "yourself. minhash_similarity of two such arrays estimates the Jaccard index. Each material's embedding is derived from its set of direct child "
 		                   "components. Requires bom_table with columns parent_id and child_id.";
 		desc.examples    = {"SELECT * FROM compute_jaccard_embeddings();",
 		                    "SELECT * FROM compute_jaccard_embeddings(bom_table := 'sap_stpo');"};
@@ -287,7 +296,9 @@ void RegisterEmbeddingFunctions(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description = "Returns a single-row summary of the transactional_embedding_statistics table including "
 		                   "stat_count, max_samples, current_version, last_updated, and is_fresh. "
-		                   "is_fresh is TRUE when >= 30 statistics rows exist and last_updated is within 7 days.";
+		                   "is_fresh is TRUE when >= 30 statistics rows exist and the newest was updated within 7 days. "
+		                   "last_updated is NULL when there are no statistics (also on a read-only database, "
+		                   "where the table is not created).";
 		desc.examples    = {"SELECT * FROM check_statistics_freshness();"};
 		desc.categories  = {"embeddings", "transactional", "diagnostics"};
 		info.descriptions.push_back(std::move(desc));

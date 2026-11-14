@@ -19,7 +19,8 @@ static const DefaultTableMacro SAP_TO_MATERIALS_MACRO = {
 			mtart AS material_type,
 			matkl AS material_group,
 			'' AS description,
-			TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE AS created_date
+			-- SAP YYYYMMDD text, or an ersda that is already a DATE / ISO string
+			COALESCE(TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(ersda AS DATE)) AS created_date
 		FROM query_table(mara_table)
 		WHERE lvorm IS NULL OR lvorm = '' OR lvorm = ' ')"};
 
@@ -102,7 +103,6 @@ static const DefaultTableMacro SAP_TO_BOM_ITEMS_MACRO = {
 				stpo_components AS (
 					SELECT
 						stlnr AS bom_id,
-						TRIM(stlkn) AS line_num,
 						TRIM(idnrk) AS component_id,
 						menge AS qty,
 						meins AS unit
