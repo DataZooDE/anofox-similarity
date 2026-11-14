@@ -127,6 +127,15 @@ SELECT count(*) FROM results;
 ----
 4
 
+# The ids are in the anofox namespace: the submodel id is the results prefix plus the base64url
+# query and candidate ids, the semanticId the CoverageResult term (docs/aas/index.md)
+query II
+SELECT bool_and(aas_json LIKE '%"id": "https://anofox.com/aas/results/' || aas_id_b64url(query_id) || '/' || aas_id_b64url(candidate_id) || '"%'),
+       bool_and(aas_json LIKE '%"value": "https://anofox.com/aas/CoverageResult/1/0"%')
+FROM results;
+----
+true	true
+
 # The CoverageResult is AAS itself: the reader reads its coverage and gap count back
 query TRR
 SELECT split_part(r.candidate_id, '/', 3), a.lo AS coverage, g.lo AS gaps

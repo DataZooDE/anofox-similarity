@@ -10,9 +10,22 @@ namespace anofox {
 //! The extension's own AAS identifiers (the profile of docs/guides/10-aas-profile.md and the
 //! CoverageResult submodel) live under this namespace.
 constexpr const char *ANOFOX_AAS_NAMESPACE = "https://anofox.com/aas/";
-//! The profile's Count semanticId, matched as a substring so that version suffixes (/1/0) and
-//! the http spelling are accepted.
-constexpr const char *ANOFOX_AAS_COUNT_ID = "anofox.com/aas/Count";
+//! The profile's Count semanticId: https://anofox.com/aas/Count, any version (/1/0). http and a
+//! leading www. are accepted; another host, a longer term (CountryCode) or anything around it is not.
+inline bool IsAnofoxCountId(const std::string &id) {
+	std::string rest = id;
+	for (const char *scheme : {"https://", "http://"}) {
+		if (rest.rfind(scheme, 0) == 0) {
+			rest = rest.substr(std::string(scheme).size());
+			break;
+		}
+	}
+	if (rest.rfind("www.", 0) == 0) {
+		rest = rest.substr(4);
+	}
+	const std::string term = "anofox.com/aas/Count";
+	return rest == term || rest.rfind(term + "/", 0) == 0;
+}
 
 //------------------------------------------------------------------------------
 // A format-neutral, read-only view of an AAS v3.x environment (IDTA-01001 Part 1).

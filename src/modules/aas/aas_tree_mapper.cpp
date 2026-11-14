@@ -60,7 +60,7 @@ const AasQualifier *FindQualifier(const AasElement &e, const char *type) {
 
 //! A Property with the profile's Count semanticId: the count of its collection, not a value.
 bool IsCountProperty(const AasElement &e) {
-	return e.model_type == "Property" && Contains(e.semantic_id, ANOFOX_AAS_COUNT_ID);
+	return e.model_type == "Property" && IsAnofoxCountId(e.semantic_id);
 }
 
 //! An idShort path in one spelling for lookups: list indices as path segments (a[0] -> a.0).

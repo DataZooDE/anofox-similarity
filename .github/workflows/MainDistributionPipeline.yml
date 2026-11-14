@@ -15,7 +15,8 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}
+  # event_name: a manual run (workflow_dispatch) on main must not cancel the push run of the same sha
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -27,8 +28,8 @@ jobs:
       duckdb_version: v1.5.6
       ci_tools_version: v1.5.6
       extension_name: anofox_similarity
-      # macOS gating: build osx_amd64/osx_arm64 ONLY on tag (release) pushes. On PRs /
-      # branch pushes / main the two osx archs are excluded -- macOS runners are the
+      # macOS gating: build osx_amd64/osx_arm64 on tag (release) pushes, and on a manual run
+      # (workflow_dispatch) with build_macos. On PRs / branch pushes / main the two osx archs are excluded -- macOS runners are the
       # dominant CI cost and don't need to run on every change. On a tag the exclude is
       # empty, so both osx archs build natively on macos-latest -- a real Mac, never
       # mocked (the live acceptance gate). Unfiltered `push:` above already fires on tags,
