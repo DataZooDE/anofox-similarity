@@ -1,0 +1,468 @@
+# name: test/sql/hardening/d365_bom.test
+# description: The Dynamics 365 functions read the D365 table fields: one BOM version per company
+#   and item on reference_date, line validity, BOMQty / BOMQtySerie, one component row per BOM, child,
+#   unit and consumption type, companies kept apart, unambiguous ids, typed output, and the round
+#   trip through bom_to_items.
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ------------------------------------------------------------------------------
+# Native D365 tables (field names of BOMTable, BOMVersion, BOM)
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE BOMTable AS SELECT * FROM (VALUES
+    ('B-PUMP-OLD', 'Pump 2020', 'S1', 1),
+    ('B-PUMP', 'Pump', 'S1', 1),
+    ('B-PUMP-NEXT', 'Pump 2030', 'S1', 1),
+    ('B-PUMP-ALT', 'Pump alternative', 'S9', 1),
+    ('B-FAN', 'Fan', 'S2', 0),
+    ('B-SHARED', 'Valve body', 'S3', 1)
+) t(BOMId, Name, SiteId, Approved);
+
+# PUMP: an expired version (2020-2023), the current open-ended one (ToDate 1900-01-01 = none), a
+# future one (2030) and an inactive alternative; FAN only has an unapproved version; VALVE and
+# MIXER share one BOM
+statement ok
+CREATE TABLE BOMVersion AS SELECT * FROM (VALUES
+    ('PUMP', 'B-PUMP-OLD', DATE '2020-01-01', DATE '2023-12-31', 1, 1),
+    ('PUMP', 'B-PUMP', DATE '2024-01-01', DATE '1900-01-01', 1, 1),
+    ('PUMP', 'B-PUMP-NEXT', DATE '2030-01-01', DATE '1900-01-01', 1, 1),
+    ('PUMP', 'B-PUMP-ALT', DATE '2024-01-01', NULL, 0, 1),
+    ('FAN', 'B-FAN', DATE '2024-01-01', NULL, 1, 0),
+    ('VALVE', 'B-SHARED', DATE '2024-01-01', NULL, 1, 1),
+    ('MIXER', 'B-SHARED', DATE '2024-01-01', NULL, 1, 1)
+) t(ItemId, BOMId, FromDate, ToDate, Active, Approved);
+
+# B-PUMP: SCREW on two lines (4 + 2), OIL per series of 100 pumps, a GASKET line from 2030, an
+# expired SEAL line, CABLE in metres (phantom) and in centimetres
+statement ok
+CREATE TABLE BOM AS SELECT * FROM (VALUES
+    ('B-PUMP', 1, 'MOTOR', 1.0, 1.0, 'pcs', NULL, NULL, 0, 0.0),
+    ('B-PUMP', 2, 'SCREW', 4.0, 1.0, 'pcs', NULL, NULL, 0, 2.0),
+    ('B-PUMP', 3, 'SCREW', 2.0, 1.0, 'pcs', NULL, NULL, 0, 5.0),
+    ('B-PUMP', 4, 'OIL', 50.0, 100.0, 'l', NULL, NULL, 0, 0.0),
+    ('B-PUMP', 5, 'GASKET', 1.0, 1.0, 'pcs', DATE '2030-01-01', NULL, 0, 0.0),
+    ('B-PUMP', 6, 'SEAL', 1.0, 1.0, 'pcs', DATE '2020-01-01', DATE '2023-12-31', 0, 0.0),
+    ('B-PUMP', 7, 'CABLE', 2.0, 1.0, 'm', NULL, NULL, 1, 0.0),
+    ('B-PUMP', 8, 'CABLE', 50.0, 1.0, 'cm', NULL, NULL, 0, 0.0),
+    ('B-PUMP-OLD', 1, 'OLD-MOTOR', 1.0, 1.0, 'pcs', NULL, NULL, 0, 0.0),
+    ('B-PUMP-NEXT', 1, 'NEW-MOTOR', 1.0, 1.0, 'pcs', NULL, NULL, 0, 0.0),
+    ('B-PUMP-ALT', 1, 'ALT-MOTOR', 1.0, 1.0, 'pcs', NULL, NULL, 0, 0.0),
+    ('B-FAN', 1, 'BLADE', 3.0, 1.0, 'pcs', NULL, NULL, 0, 0.0),
+    ('B-SHARED', 1, 'BODY', 1.0, 1.0, 'pcs', NULL, NULL, 0, 0.0)
+) t(BOMId, LineNum, ItemId, BOMQty, BOMQtySerie, UnitId, FromDate, ToDate, BOMType, ScrapVar);
+
+# ------------------------------------------------------------------------------
+# Headers: one per item, the version valid on the date (active, approved, newest, lowest BOMId)
+# ------------------------------------------------------------------------------
+
+query TTTTTTT
+SELECT bom_id, source_bom_id, parent_material_id, valid_from, valid_to, plant_id, is_approved
+FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable', reference_date := '2024-06-30')
+ORDER BY bom_id;
+----
+FAN/B-FAN	B-FAN	FAN	2024-01-01	NULL	S2	false
+MIXER/B-SHARED	B-SHARED	MIXER	2024-01-01	NULL	S3	true
+PUMP/B-PUMP	B-PUMP	PUMP	2024-01-01	NULL	S1	true
+VALVE/B-SHARED	B-SHARED	VALVE	2024-01-01	NULL	S3	true
+
+# the default date (9999-12-31) takes the newest valid version; 2022 the expired one
+query TT
+SELECT bom_id, valid_to FROM dynamics365_to_bom_header(bom_version := 'BOMVersion') WHERE parent_material_id = 'PUMP';
+----
+PUMP/B-PUMP-NEXT	NULL
+
+query TT
+SELECT bom_id, valid_to FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2022-06-30')
+WHERE parent_material_id = 'PUMP';
+----
+PUMP/B-PUMP-OLD	2023-12-31
+
+# before any version an item has no header
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2019-01-01');
+----
+0
+
+# ------------------------------------------------------------------------------
+# Components of the chosen BOMs: lines valid on the date, BOMQty / BOMQtySerie, one row per
+# BOM, child and unit
+# ------------------------------------------------------------------------------
+
+query ITRTTR
+SELECT line_number, child_material_id, quantity_per, quantity_uom, component_type, scrap_percent
+FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '2024-06-30')
+WHERE bom_id = 'PUMP/B-PUMP' ORDER BY line_number;
+----
+1	MOTOR	1.000000	pcs	ITEM	0.0000
+2	SCREW	6.000000	pcs	ITEM	2.0000
+3	OIL	0.500000	l	ITEM	0.0000
+4	CABLE	2.000000	m	PHANTOM	0.0000
+5	CABLE	50.000000	cm	ITEM	0.0000
+
+# component ids are unique, also across the two items sharing B-SHARED
+query II
+SELECT count(*), count(DISTINCT component_id)
+FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '2024-06-30');
+----
+8	8
+
+# on the default date the 2030 version B-PUMP-NEXT is chosen, with its one line
+query T
+SELECT child_material_id FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion')
+WHERE bom_id = 'PUMP/B-PUMP-NEXT';
+----
+NEW-MOTOR
+
+# ------------------------------------------------------------------------------
+# Round trip: the two shapes stored as tables give one edge per parent, child and unit
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE h AS SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30');
+
+statement ok
+CREATE TABLE c AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '2024-06-30');
+
+query TTR
+SELECT parent_id, child_id, quantity FROM bom_to_items(header_table := 'h', component_table := 'c') ORDER BY ALL;
+----
+FAN	BLADE	3.000000
+MIXER	BODY	1.000000
+PUMP	CABLE	2.000000
+PUMP	CABLE	50.000000
+PUMP	MOTOR	1.000000
+PUMP	OIL	0.500000
+PUMP	SCREW	6.000000
+VALVE	BODY	1.000000
+
+# typed columns, so the output can be stored and updated (no untyped NULL columns)
+query TTTTTT
+SELECT typeof(plant_id), typeof(valid_to), typeof(revision), typeof(base_uom), typeof(alternative_number), typeof(created_at)
+FROM h LIMIT 1;
+----
+VARCHAR	DATE	VARCHAR	VARCHAR	VARCHAR	TIMESTAMP
+
+query TTTTTT
+SELECT typeof(quantity_per), typeof(quantity_uom), typeof(line_number), typeof(effective_to), typeof(supply_type), typeof(operation_sequence)
+FROM c LIMIT 1;
+----
+DECIMAL(18,6)	VARCHAR	INTEGER	DATE	VARCHAR	INTEGER
+
+statement ok
+UPDATE h SET plant_id = 'SITE2' WHERE bom_id = 'FAN/B-FAN';
+
+# ------------------------------------------------------------------------------
+# A minimal export: BOMVersion (ItemId, BOMId), BOM (BOMId, ItemId, BOMQty)
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE v_min AS SELECT * FROM (VALUES ('P', 'B1')) t(ItemId, BOMId);
+
+statement ok
+CREATE TABLE l_min AS SELECT * FROM (VALUES ('B1', 'X', 2.0), ('B1', 'X', 1.0), ('B1', 'Y', 1.0)) t(BOMId, ItemId, BOMQty);
+
+query TTRT
+SELECT bom_id, child_material_id, quantity_per, quantity_uom
+FROM dynamics365_to_bom_component(bom_lines := 'l_min', bom_version := 'v_min') ORDER BY 2;
+----
+P/B1	X	3.000000	EA
+P/B1	Y	1.000000	EA
+
+# ------------------------------------------------------------------------------
+# Companies (DataAreaId): the same item and BOM in two companies are two BOMs; the company is a
+# column (lower case: exports differ in case) and part of bom_id
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE ver_co AS SELECT * FROM (VALUES
+    ('USMF', 'PUMP', 'B1', DATE '2024-01-01', DATE '1900-01-01', 1, 1),
+    ('demf', 'PUMP', 'B1', DATE '2024-01-01', DATE '1900-01-01', 1, 0)
+) t(DataAreaId, ItemId, BOMId, FromDate, ToDate, Active, Approved);
+
+statement ok
+CREATE TABLE lines_co AS SELECT * FROM (VALUES
+    ('usmf', 'B1', 10, 'MOTOR-US', 1.0, 1.0, 'ea', 0),
+    (' DEMF ', 'B1', 10, 'MOTOR-DE', 1.0, 1.0, 'Stk', 1),
+    ('demf', 'B1', 20, 'SHARED', 2.0, 1.0, 'Stk', 0),
+    ('usmf', 'B1', 20, 'SHARED', 5.0, 1.0, 'Stk', 0)
+) t(DataAreaId, BOMId, LineNum, ItemId, BOMQty, BOMQtySerie, UnitId, BOMType);
+
+query TTTT
+SELECT bom_id, company, source_bom_id, is_approved FROM dynamics365_to_bom_header(bom_version := 'ver_co') ORDER BY 1;
+----
+demf/PUMP/B1	demf	B1	false
+usmf/PUMP/B1	usmf	B1	true
+
+# the case of DataAreaId does not matter; SHARED keeps its quantity per company (2 and 5, not 7)
+query TTTRT
+SELECT company, bom_id, child_material_id, quantity_per, component_type
+FROM dynamics365_to_bom_component(bom_lines := 'lines_co', bom_version := 'ver_co') ORDER BY 1, 3;
+----
+demf	demf/PUMP/B1	MOTOR-DE	1.000000	PHANTOM
+demf	demf/PUMP/B1	SHARED	2.000000	ITEM
+usmf	usmf/PUMP/B1	MOTOR-US	1.000000	ITEM
+usmf	usmf/PUMP/B1	SHARED	5.000000	ITEM
+
+# bom_to_items has no company column: filter one company first (a view per company)
+statement ok
+CREATE TABLE h_co AS SELECT * FROM dynamics365_to_bom_header(bom_version := 'ver_co');
+
+statement ok
+CREATE TABLE c_co AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'lines_co', bom_version := 'ver_co');
+
+statement ok
+CREATE VIEW h_usmf AS SELECT * FROM h_co WHERE company = 'usmf';
+
+query TTR
+SELECT parent_id, child_id, quantity FROM bom_to_items(header_table := 'h_usmf', component_table := 'c_co') ORDER BY 2;
+----
+PUMP	MOTOR-US	1.000000
+PUMP	SHARED	5.000000
+
+# without a filter both companies' lines come through for PUMP (four edges)
+query I
+SELECT count(*) FROM bom_to_items(header_table := 'h_co', component_table := 'c_co');
+----
+4
+
+# materials: one row per company and item
+statement ok
+CREATE TABLE invent_co AS SELECT * FROM (VALUES ('USMF', 'PUMP', 'Pump'), ('demf', 'PUMP', 'Pumpe')) t(DataAreaId, ItemId, ItemName);
+
+query TTT
+SELECT company, material_id, description FROM dynamics365_to_materials('invent_co') ORDER BY 1;
+----
+demf	PUMP	Pumpe
+usmf	PUMP	Pump
+
+# without DataAreaId the company is NULL
+query T
+SELECT DISTINCT typeof(company) || ':' || COALESCE(company, 'NULL') FROM dynamics365_to_bom_header(bom_version := 'v_min');
+----
+VARCHAR:NULL
+
+# ------------------------------------------------------------------------------
+# Materials: ItemType is D365's enum (0 Item, 1 BOM, 2 Service), the columns are typed
+# ------------------------------------------------------------------------------
+
+statement ok
+CREATE TABLE InventTable AS SELECT * FROM (VALUES
+    ('PUMP', 'Pump', 1, 'FG'), ('MOTOR', 'Motor', 0, 'RAW'), ('SETUP', 'Set-up', 2, 'SRV')
+) t(ItemId, ItemName, ItemType, ItemGroupId);
+
+query TTTTT
+SELECT material_id, description, material_type, material_group, typeof(procurement_type)
+FROM dynamics365_to_materials('InventTable') ORDER BY 1;
+----
+MOTOR	Motor	ITEM	RAW	VARCHAR
+PUMP	Pump	BOM	FG	VARCHAR
+SETUP	Set-up	SERVICE	SRV	VARCHAR
+
+query I
+SELECT count(*) FROM dynamics365_to_materials(invent_table := 'InventTable');
+----
+3
+
+# ------------------------------------------------------------------------------
+# Errors
+# ------------------------------------------------------------------------------
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion;drop');
+----
+Invalid identifier for bom_version
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := NULL);
+----
+bom_lines must not be NULL
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := 'garbage');
+----
+reference_date 'garbage' is not a date
+
+# a NULL bom_table is just not used
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '2024-06-30');
+----
+4
+
+# the column contract of earlier releases is named in the error
+statement ok
+CREATE TABLE old_version AS SELECT * FROM (VALUES ('B1', 'V1', DATE '2024-01-01', 1)) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'old_version');
+----
+column contract of releases before v2026.11
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'v_min', bom_version := 'v_min');
+----
+has no column BOMQty
+
+# ------------------------------------------------------------------------------
+# Crew review of the rewrite
+# ------------------------------------------------------------------------------
+
+# ids never collide: item 'P/A' with BOM 'B' and item 'P' with BOM 'A/B' are two BOMs with their
+# own quantities (they were both 'P/A/B' and merged 2 + 5 into 7)
+statement ok
+CREATE TABLE v_slash AS SELECT * FROM (VALUES ('P/A', 'B'), ('P', 'A/B')) t(ItemId, BOMId);
+
+statement ok
+CREATE TABLE l_slash AS SELECT * FROM (VALUES ('B', 'X', 2.0), ('A/B', 'X', 5.0)) t(BOMId, ItemId, BOMQty);
+
+query TTR
+SELECT bom_id, child_material_id, quantity_per
+FROM dynamics365_to_bom_component(bom_lines := 'l_slash', bom_version := 'v_slash') ORDER BY 1;
+----
+P/A\/B	X	5.000000
+P\/A/B	X	2.000000
+
+query II
+SELECT count(DISTINCT bom_id), count(DISTINCT component_id)
+FROM dynamics365_to_bom_component(bom_lines := 'l_slash', bom_version := 'v_slash');
+----
+2	2
+
+query T
+SELECT bom_id FROM dynamics365_to_bom_header(bom_version := 'v_slash') ORDER BY 1;
+----
+P/A\/B
+P\/A/B
+
+# a backslash is escaped as well, so 'P\' + '/x' and 'P' + '\/x' stay apart
+statement ok
+CREATE TABLE v_bs AS SELECT * FROM (VALUES ('P\', 'x'), ('P', '\/x')) t(ItemId, BOMId);
+
+query I
+SELECT count(DISTINCT bom_id) FROM dynamics365_to_bom_header(bom_version := 'v_bs');
+----
+2
+
+# constant (BOMConsump 1) and variable (0) lines of one child are separate rows, not added up
+statement ok
+CREATE TABLE l_consump AS SELECT * FROM (VALUES
+    ('B1', 1, 'GLUE', 2.0, 0), ('B1', 2, 'GLUE', 5.0, 1), ('B1', 3, 'GLUE', 1.0, 0)) t(BOMId, LineNum, ItemId, BOMQty, BOMConsump);
+
+query TRT
+SELECT child_material_id, quantity_per, is_fixed_quantity
+FROM dynamics365_to_bom_component(bom_lines := 'l_consump', bom_version := 'v_min') ORDER BY line_number;
+----
+GLUE	3.000000	false
+GLUE	5.000000	true
+
+query I
+SELECT count(DISTINCT component_id) FROM dynamics365_to_bom_component(bom_lines := 'l_consump', bom_version := 'v_min');
+----
+2
+
+# the old lines contract (ScrapPercent, no ScrapVar) is an error, not scrap 0
+statement ok
+CREATE TABLE l_old AS SELECT * FROM (VALUES ('B1', 'X', 1.0, 5.0)) t(BOMId, ItemId, BOMQty, ScrapPercent);
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'l_old', bom_version := 'v_min');
+----
+has ScrapPercent / Quantity instead of ScrapVar / BOMQty
+
+# BOMTable repeating a BOM: the site is the lowest, every time
+statement ok
+CREATE TABLE t_dup AS SELECT * FROM (VALUES ('B1', 'S9'), ('B1', 'S1'), ('B1', NULL)) t(BOMId, SiteId);
+
+query T
+SELECT plant_id FROM dynamics365_to_bom_header(bom_version := 'v_min', bom_table := 't_dup');
+----
+S1
+
+# reference_date: ISO, ISO with a time and YYYYMMDD are dates; trailing text is an error
+query III
+SELECT (SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30')),
+       (SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30T12:00:00Z')),
+       (SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '20240630'));
+----
+4	4	4
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30x');
+----
+reference_date '2024-06-30x' is not a date
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-301');
+----
+reference_date '2024-06-301' is not a date
+
+# data-entity (OData) names are not read: map them with a view
+statement ok
+CREATE TABLE ver_entity AS SELECT * FROM (VALUES ('PUMP', 'B1')) t(ItemNumber, BOMId);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'ver_entity');
+----
+has no column ItemId
+
+statement ok
+CREATE VIEW ver_mapped AS SELECT ItemNumber AS ItemId, BOMId FROM ver_entity;
+
+query T
+SELECT bom_id FROM dynamics365_to_bom_header(bom_version := 'ver_mapped');
+----
+PUMP/B1
+
+# ------------------------------------------------------------------------------
+# Follow-up review: companies only on the lines, the old BOMVersion contract, an old line table
+# with Quantity, and text after the time of reference_date are errors, not silent results
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE fv AS SELECT * FROM (VALUES ('P', 'B1')) t(ItemId, BOMId);
+
+statement ok
+CREATE TABLE fl AS SELECT * FROM (VALUES ('usmf', 'B1', 'X', 2.0), ('demf', 'B1', 'X', 5.0)) t(DataAreaId, BOMId, ItemId, BOMQty);
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'fl', bom_version := 'fv');
+----
+has DataAreaId but bom_version 'fv' does not
+
+statement ok
+CREATE TABLE fb AS SELECT * FROM (VALUES ('usmf', 'B1', 'S1')) t(DataAreaId, BOMId, SiteId);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'fv', bom_table := 'fb');
+----
+has DataAreaId but bom_version 'fv' does not
+
+statement ok
+CREATE TABLE old_v AS SELECT * FROM (VALUES ('P', 'B1', 'V1', DATE '2030-01-01', 1)) t(ItemId, BOMId, VersionId, ActivationDate, ApprovedStatus);
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'old_v', reference_date := '2024-01-01');
+----
+has ActivationDate / ApprovedStatus instead of FromDate / Approved
+
+statement ok
+CREATE TABLE old_l AS SELECT * FROM (VALUES ('B1', 'X', 2.0)) t(BOMId, ItemId, Quantity);
+
+statement error
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'old_l', bom_version := 'fv');
+----
+has ScrapPercent / Quantity instead of ScrapVar / BOMQty
+
+statement error
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'fv', reference_date := '2024-06-30Tjunk');
+----
+is not a date
+
+query I
+SELECT count(*) FROM dynamics365_to_bom_header(bom_version := 'fv', reference_date := '2024-06-30T12:00:00Z');
+----
+1

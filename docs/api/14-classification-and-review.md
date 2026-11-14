@@ -8,18 +8,23 @@
 
 The pivot classifier maps items onto the catalogue as a distribution over classes. The review
 functions turn its uncertainty into a short work list. The extension ships no
-models: bring your own vectors.
+models: bring your own vectors. `FLOAT[n]` arrays (token sets `FLOAT[n][]`) are the preferred
+vector type, as in DuckDB `vss`; lists (`FLOAT[]`, `DOUBLE[]`) work too.
+
+`classify_to_catalogue`, `vocabulary_review_queue` and `uncertain_decisions` take **only named
+arguments** (`items_table := 'items'`, not `'items'`). `cosine_floor` and
+`apply_vocabulary_review` take their table (and column) positionally.
 
 | Function | Purpose |
 |---|---|
 | `maxsim(query_tokens, document_tokens)` | Late-interaction score: mean over query tokens of the best cosine over the document tokens |
 | `bhattacharyya(p MAP, q MAP)` | Σ √(p_k q_k): the soft label agreement used by the kernel |
 | `calibrated_cosine(a, b, floor)` | clip((cos − floor) / (1 − floor), 0, 1) |
-| `cosine_floor(table, column [, sample := 10000, seed := 7])` | `(floor, n_pairs)`: median cosine of distinct pairs. Exact when all pairs fit into `sample`, otherwise a seeded sample |
+| `cosine_floor(table_name, column_name [, sample := 10000, seed := 7])` (table and column positional only) | `(floor, n_pairs)`: median cosine of distinct pairs. Exact when all pairs fit into `sample`, otherwise a seeded sample |
 | `classify_to_catalogue(...)` | `(tree_id, node_id, source, class_id, p, rank, margin, overridden)`, one row per item and class |
 | `vocabulary_review_queue(trees_table, decisions [, sources, overrides_table])` | `(wording, source, n_occurrences, n_trees_affected, top1, p1, top2, p2, margin, impact)`, highest impact first |
 | `apply_vocabulary_review(review_table [, overrides_table])` | The merged overrides; the review wins per wording and source |
-| `uncertain_decisions(decisions [, threshold \| share, top, texts_table, catalogue_table])` | `(tree_id, node_id, margin, request)` with `request` as JSON text |
+| `uncertain_decisions(decisions [, threshold \| share, top, texts_table, catalogue_table])` | `(tree_id, node_id, margin, request)` with `request` as JSON text. When the decisions carry tree ids, `texts_table` needs a `tree_id` column |
 
 `cosine_floor` returns `NULL` when fewer than two vectors make a pair, and can return `1.0`
 when every sampled pair is identical. `calibrated_cosine` requires a floor below `1.0`;
@@ -35,8 +40,8 @@ the empty sample as a measured value.
 | `catalogue_table` | `'catalogue_vectors'` | `class_id, vec[, exemplar_tokens]` |
 | `mode` | `'centroid'` | `'centroid'`: cosine to the class vector; `'late_interaction'`: `maxsim(tokens, exemplar_tokens)` |
 | `center_by_source` | true | subtract the mean vector of the item's source (centroid mode) |
-| `attr_bonus` | 1.0 | β × the attribute-template match: mean over the item's attributes of the best same-dimension template |
-| `temperature` | 0.3 | softmax temperature τ |
+| `attr_bonus` | 1.0 | weight (β) of the attribute-template match: mean over the item's attributes of the best same-dimension template |
+| `temperature` | 0.3 | softmax temperature (τ) |
 | `overrides_table` | NULL | reviewed wordings `(wording, source, class_id)`, matched on the item's `label` |
 | `answers_table` | NULL | per-item answers `([tree_id,] node_id, class_id)`; they beat overrides |
 | `attrs_table`, `templates_table` | NULL | `([tree_id,] node_id, name, dimension)` and `(class_id, dimension[, name, name_en, name_de])` for the bonus |
@@ -50,10 +55,10 @@ softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p`
 **Workflow: review the archive's vocabulary** (runs on the benchmark files)
 
 ```sql
-CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[] AS vec, exemplar_tokens::FLOAT[][] AS exemplar_tokens
+CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[64] AS vec, exemplar_tokens::FLOAT[64][] AS exemplar_tokens
 FROM read_csv_auto('catalogue_vectors.csv.gz');
 CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('programme_nodes.csv.gz');
-CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[] AS vec
+CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[64] AS vec
 FROM read_csv_auto('vocabulary_vectors.csv.gz');
 
 -- classify every wording once; the archive's items take the distribution of their wording
@@ -77,7 +82,7 @@ CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_r
 -- rank with the reviewed wordings; the rest keep the classifier's soft labels. The request
 -- items need classes too: one label_table serves both sides
 CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('request_nodes.csv.gz');
-CREATE TABLE request_items AS SELECT tree_id, node_id, source, vec::FLOAT[] AS vec
+CREATE TABLE request_items AS SELECT tree_id, node_id, source, vec::FLOAT[64] AS vec
 FROM read_csv_auto('request_item_vectors.csv.gz');
 CREATE TABLE labels AS
 SELECT tree_id, node_id, class_id, p FROM programme_labels
@@ -150,7 +155,7 @@ drops other control characters.
 
 *Table function*
 
-Pivot classifier: maps every item onto the catalogue as a distribution p(class). Steps: per-source mean-centring of the item vectors (center_by_source, centroid mode; sources with fewer than min_source_items items, default 10, use the batch mean); cosine to the class vector, or maxsim(tokens, exemplar_tokens) in mode 'late_interaction'; z-score across the catalogue; plus attr_bonus x the attribute-template match (mean over the item's attributes of the best same-dimension template, name similarity by calibrated cosine of name_vectors, or 1 without vectors); softmax with temperature; margin = p1 - p2. Reviewed wordings (overrides_table: wording, source, class_id; matched on the item's label) and per-item decisions (answers_table: tree_id, node_id, class_id) give a one-hot p and overridden = true. items_table: node_id, vec[, tree_id, source, label, tokens]; catalogue_table: class_id, vec[, exemplar_tokens]; attrs_table: [tree_id,] node_id, name, dimension; templates_table: class_id, dimension[, name, name_en, name_de]. Returns tree_id, node_id, source, class_id, p, rank, margin, overridden; tree_id, node_id, class_id and p make it a label_table for tree_coverage.
+Pivot classifier: maps every item onto the catalogue as a distribution p(class). Steps: per-source mean-centring of the item vectors (center_by_source, centroid mode; a source with fewer than min_source_items items, default 10, is centred with the batch mean when the whole batch has at least min_source_items items, and not centred otherwise); cosine to the class vector, or maxsim(tokens, exemplar_tokens) in mode 'late_interaction'; z-score across the catalogue; plus attr_bonus x the attribute-template match (mean over the item's attributes of the best same-dimension template, name similarity by calibrated cosine of name_vectors, or 1 without vectors); softmax with temperature; margin = p1 - p2. Reviewed wordings (overrides_table: wording, source, class_id; matched on the item's label) and per-item decisions (answers_table: tree_id, node_id, class_id) give a one-hot p and overridden = true. items_table: node_id, vec[, tree_id, source, label, tokens]; catalogue_table: class_id, vec[, exemplar_tokens]; attrs_table: [tree_id,] node_id, name, dimension; templates_table: class_id, dimension[, name, name_en, name_de]. Returns tree_id, node_id, source, class_id, p, rank, margin, overridden; tree_id, node_id, class_id and p make it a label_table for tree_coverage.
 
 ```sql
 classify_to_catalogue(items_table, catalogue_table, mode, center_by_source, attr_bonus, temperature, overrides_table, answers_table, attrs_table, templates_table, name_vectors, name_floor, top, min_source_items)
@@ -218,7 +223,7 @@ SELECT calibrated_cosine([1.0, 0.0], [0.8, 0.6], 0.5); -- 0.6
 Estimates the cosine floor b of a vector corpus: the median cosine of pairs of distinct vectors. With at most `sample` pairs (default 10 000) all pairs count; otherwise `sample` pairs are drawn deterministically from `seed` (default 7). Returns floor and n_pairs. Use the floor with calibrated_cosine or as name_floor.
 
 ```sql
-cosine_floor(table, column, sample, seed)
+cosine_floor(table_name, column_name, sample, seed)
 ```
 
 **Examples**
@@ -263,7 +268,7 @@ CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_r
 
 *Table function*
 
-The external re-rank hook: the low-margin items of a classify_to_catalogue result (margin < threshold, default 0.2, or the lowest-margin share of the items), overridden items excluded, lowest margin first. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: [tree_id,] node_id, text), margin and the top candidates with p, label and definition (catalogue_table: class_id[, label_en|label, definition]). Write the answers back as an answers_table for classify_to_catalogue, or as vocabulary_overrides per wording.
+The external re-rank hook: the low-margin items of a classify_to_catalogue result (margin < threshold, default 0.2, or the lowest-margin share of the items), overridden items excluded, lowest margin first. All parameters are named. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: [tree_id,] node_id, text; tree_id is required when the decisions carry tree ids), margin and the top candidates with p, label and definition (catalogue_table: class_id[, label_en|label, definition]). Write the answers back as an answers_table for classify_to_catalogue, or as vocabulary_overrides per wording.
 
 ```sql
 uncertain_decisions(decisions, threshold, share, top, texts_table, catalogue_table)

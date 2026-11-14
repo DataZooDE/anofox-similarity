@@ -10,7 +10,7 @@
 
 Convert SAP-format BOM to universal schema.
 
-**sap_to_bom_items** - Convert MAST/STKO/STPO to universal BOM schema:
+**sap_to_bom_items** - Convert MAST/STKO/STPO (and optionally STAS) to flat BOM edges:
 ```sql
 sap_to_bom_items(
     mast_table VARCHAR,
@@ -18,12 +18,13 @@ sap_to_bom_items(
     stpo_table VARCHAR,
     bom_alternative := '01',
     reference_date := '9999-12-31',
-    bom_usage := NULL
+    bom_usage := NULL,
+    stas_table := NULL
 ) → TABLE (
     bom_id VARCHAR,
     parent_id VARCHAR,
     child_id VARCHAR,
-    qty DOUBLE,
+    qty,              -- type of STPO.menge (DECIMAL in SAP)
     unit VARCHAR,
     valid_from DATE,
     valid_to DATE,
@@ -36,25 +37,58 @@ sap_to_bom_items(
 |-----------|------|---------|-------------|
 | `mast_table` | VARCHAR | Required | MAST table (material-BOM link) |
 | `stko_table` | VARCHAR | Required | STKO table (BOM header) |
-| `stpo_table` | VARCHAR | Required | STPO table (BOM components) |
-| `bom_alternative` | VARCHAR | '01' | BOM alternative to extract |
-| `reference_date` | VARCHAR | '9999-12-31' | Validity reference date |
-| `bom_usage` | VARCHAR | NULL | Reserved — accepted but **not currently applied** as a filter |
+| `stpo_table` | VARCHAR | Required | STPO table (BOM items) |
+| `bom_alternative` | VARCHAR | '01' | BOM alternative (`stlal`) to extract |
+| `reference_date` | VARCHAR or DATE | '9999-12-31' | Header, item and selection versions valid on this date (`YYYYMMDD` or `YYYY-MM-DD`; anything else is an error) |
+| `bom_usage` | VARCHAR | NULL | Keep only MAST rows with this `stlan` (NULL: every usage) |
+| `stas_table` | VARCHAR | NULL | STAS table: apply the item selection of the alternative |
+
+**Input columns.** The required columns must exist (a missing one is a Binder Error naming it).
+Every optional column is used when the table has it, so a minimal extract works and a full SAP
+extract gets the SAP rules:
+
+| Table | Required | Optional, used when present |
+|-------|----------|-----------------------------|
+| MAST | `matnr`, `stlnr` | `stlal` (must equal `bom_alternative`), `stlan` (required with `bom_usage`) |
+| STKO | `stlnr`, `stlal` | `stlty` (only `'M'`, material BOMs), `datuv` + `stkoz` (header version), `lkenz`, `loekz` (deleted header) |
+| STPO | `stlnr`, `idnrk`, `menge`, `meins` | `stlty` (only `'M'`), `stlkn` + `datuv` + `stpoz` (item version), `lkenz` (deleted item) |
+| STAS | `stlnr`, `stlal`, `stlkn` (with `stas_table`) | `stlty`, `datuv` + `stasz` (selection version), `lkenz` (item removed from the alternative) |
+| all | | `mandt`: when every table has it, rows of different SAP clients never join or merge, and the output column `client` carries it (NULL otherwise); filter one client before searching |
+
+With `stlty` on STKO, STPO (and STAS) need `stlty` too: otherwise a document item could replace a
+material item of the same node, so this is a Binder Error. Version counters (`stkoz`, `stpoz`,
+`stasz`) are compared as numbers; a blank or `'00000000'` `datuv` counts as undated.
+`reference_date` is checked when the query is bound.
+
+Each `(parent_id, child_id)` edge comes once. Without `bom_usage` every usage (production,
+engineering, sales ...) and every BOM number of a material is read, and an edge is taken from the
+lowest usage, then the lowest BOM number; the quantities of that BOM's positions of the child are
+added per unit (a child in two units gives two rows). The result can therefore hold parts of
+several BOMs of a material: pass `bom_usage := '1'` (or the usage you compare) for one usage.
+
+**Rules:**
+
+- **Category.** SAP numbers BOMs per category, so a document BOM (`stlty = 'D'`) can share
+  `stlnr` with a material BOM. With `stlty`, only material BOMs are read.
+- **Alternative.** The material's MAST row and the STKO header must both be of `bom_alternative`.
+- **Versions.** Of the header versions with `datuv <= reference_date`, the newest (then the highest
+  `stkoz`) is used; it gives `valid_from`, and the BOM is dropped when that version has `lkenz` or
+  `loekz` set. Items are versioned the same way per item node `stlkn` (`stpoz` breaks ties): an
+  item whose valid version is deleted (`lkenz`) or that starts after `reference_date` is left out.
+- **Item selection (STAS).** With `stas_table`, an item is kept only when the alternative selects it:
+  its newest STAS row for the alternative on `reference_date` exists and has no `lkenz`. Without
+  STAS, every item of the BOM number is returned, whichever alternative it belongs to.
+- **Plants** collapse: a material with the same BOM in several plants gives one set of rows.
+- `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
 
 > [!NOTE]
-> SAP dates (`STKO.datuv`, `reference_date`) may be passed as `YYYYMMDD` strings or ISO `YYYY-MM-DD`;
-> both are parsed. `valid_from` is derived from the selected header's `datuv`. `bom_usage` is a
-> placeholder and does not yet filter results.
->
-> **Limitations:** `reference_date` selects the applicable STKO **header** slice (and thus
-> `valid_from`), but the component set is joined by BOM number only, so it does not change the
-> component composition. Likewise, `bom_alternative` filters the header; if one BOM number (`stlnr`)
-> carries several alternatives, all of their STPO components are returned. These require SAP STAS
-> resolution, which this macro does not model — provide STPO already scoped to one alternative.
-> `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
+> On a real SAP extract the rules matter: on the test extract in `test/data/sap`, joining by BOM
+> number alone returned document and class BOM items and items that STAS had removed. Pass
+> `stas_table` whenever you have STAS.
 
 **sap_to_materials** - Extract materials from MARA. Requires MARA columns `matnr`, `mtart`, `matkl`,
-`ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). Its `description`
+`ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). `ersda` may be SAP
+`YYYYMMDD` text (or integer), a `DATE`, or an ISO `YYYY-MM-DD` string. Its `description`
 column is always empty; use **`sap_to_materials_with_desc`** (below) to populate descriptions from MAKT:
 ```sql
 sap_to_materials(
@@ -83,7 +117,7 @@ extract_material_descriptions(
 **Example:**
 ```sql
 -- Convert SAP BOM to universal format
-SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', bom_alternative := '01');
 
 -- Extract materials with descriptions
 SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
@@ -91,39 +125,97 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 ### Dynamics 365 Transformations
 
-Convert Microsoft Dynamics 365 BOM format.
+Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs.
 
-These are table macros that RETURN **universal-schema** rows (materials / bom_header / bom_component
-shapes) — they do not write an output table, and the component macro does **not** return flat
-`bom_items`. Expected input column names are exactly as listed (they mirror D365 field names).
+These table functions RETURN **universal-schema** rows (materials / bom_header / bom_component
+shapes). They do not write an output table, and the component function does **not** return flat
+`bom_items`: flatten with `bom_to_items`. They read the D365 **table field names**
+(`BOMVersion.ItemId`, `FromDate`, ...). A data-entity (OData) export names the fields differently;
+map it with a view first (example below).
 
 ```sql
--- InventTable → universal materials. Reads columns: ItemId, ItemName, ItemType (0/1/2).
-dynamics365_to_materials(invent_table := 'InventTable')
+dynamics365_to_materials(invent_table := 'InventTable')     -- also positional
     → TABLE (material_id, material_number, description, material_type, material_group,
-             procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
+             procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at, company)
 
--- BOMTable + BOMVersion → universal bom_header. Reads BOMTable.(BOMId, ItemId, Status) and
--- BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); keeps rows with Status = 0.
-dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
+dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '9999-12-31')
     → TABLE (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
-             revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
+             revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at, company)
 
--- BOM lines → universal bom_component (singular). Reads columns: BOMId, LineNum, ItemId,
--- Quantity, ScrapPercent.
-dynamics365_to_bom_component(bom_lines := 'BOM')
+dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '9999-12-31')
     → TABLE (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
              is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
-             supply_type, operation_sequence, is_alternative, alternative_group, created_at)
+             supply_type, operation_sequence, is_alternative, alternative_group, created_at, company)
 ```
+
+**Input columns** (D365 table field names):
+
+| Table | Required | Optional, used when present |
+|-------|----------|-----------------------------|
+| InventTable | `ItemId` | `ItemName` (or `NameAlias`), `ItemGroupId`, `ItemType` (0 Item, 1 BOM, 2 Service, or the names), `DataAreaId` |
+| BOMVersion | `ItemId`, `BOMId` | `FromDate`, `ToDate`, `Active`, `Approved`, `DataAreaId` |
+| BOM (lines) | `BOMId`, `ItemId`, `BOMQty` | `BOMQtySerie`, `UnitId`, `LineNum`, `FromDate`, `ToDate`, `BOMType`, `BOMConsump`, `ScrapVar`, `OprNum`, `DataAreaId` |
+| BOMTable (`bom_table`, optional) | `BOMId` | `SiteId` (→ `plant_id`), `DataAreaId` |
+
+Dates may be DATE, TIMESTAMP or ISO text (`2024-01-01T00:00:00Z`); `1900-01-01` means "no date".
+Flags may be BOOLEAN, 0/1 or `Yes`/`No`. `reference_date` is `YYYY-MM-DD` (optionally followed by
+a time) or `YYYYMMDD`; anything else is an error.
+
+A data-entity export (OData, e.g. a BOM versions or BOM lines entity) has other names, such as an
+item number instead of `ItemId`. They are not read directly; map them to the table names with a
+view and pass the view:
+
+```sql
+CREATE VIEW BOMVersion_v AS
+SELECT ItemNumber AS ItemId, BOMId, ValidFromDate AS FromDate, ValidToDate AS ToDate,
+       IsActive AS Active, IsApproved AS Approved, dataAreaId AS DataAreaId
+FROM bom_versions_entity;   -- check the names against your own export
+```
+
+**Rules:**
+
+- **One BOM per company and item.** BOMVersion links items to BOMs. On `reference_date` (default
+  `9999-12-31`, the newest) a version counts when `FromDate <= date` and `ToDate` is empty or
+  `>= date`; of those, active first, approved first, then the newest `FromDate`, then the lowest
+  `BOMId`. An item with only an unapproved version still gets it, with `is_approved = false`.
+- **`bom_id` is `<item>/<BOMId>`** (with `DataAreaId`: `<company>/<item>/<BOMId>`) because a BOM can
+  serve several items; `source_bom_id` is the BOMId. A backslash or `/` inside a segment gets a
+  backslash in front (`P/A` + `B` is `P\/A/B`, `P` + `A/B` is `P/A\/B`), so ids never collide.
+  `component_id` is `COMP/<bom_id>/<child>/<unit>/constant|variable` with the same escaping. Both
+  functions build the same ids, so pass them the same `bom_version` and `reference_date`.
+- **Lines** of the chosen BOMs count when valid on `reference_date`. `quantity_per` = `BOMQty /
+  BOMQtySerie` (per one parent; a series of 0 or none counts as 1), `quantity_uom` = `UnitId`
+  (`EA` without a unit column). A child on several lines of a BOM gives one row per unit and
+  consumption type with the quantities added (constant lines, `BOMConsump` = 1, do not scale with
+  the production quantity, so they are not added to variable ones); `component_type` is `ITEM`,
+  `PHANTOM`, `PEGGED` or `VENDOR` from `BOMType`, `is_fixed_quantity` is `BOMConsump` = Constant,
+  `scrap_percent` is `ScrapVar`.
+- **Companies.** `company` is `DataAreaId`, lower-cased and trimmed (NULL without the column), on
+  all three outputs; rows of different companies are never merged. With `DataAreaId` in
+  BOMVersion the company is also part of `bom_id`; lines and BOMTable rows are matched on it when
+  they have it too. Lines or BOMTable rows with `DataAreaId` against a BOMVersion without it are an
+  error (their companies would merge). `bom_to_items` gives one edge per component row: constant
+  and variable lines of a child are two edges (sum them for one). `bom_to_items` has no
+  company column, and the universal `materials.material_id` is a primary key, so **filter one
+  company before flattening or inserting**: `CREATE VIEW h AS SELECT * FROM bom_header WHERE
+  company = 'usmf'`, then `bom_to_items('h', 'bom_component')`.
+- **A simplification.** One version per company and item: several versions active at the same time
+  for different sites (`InventDimId`), from-quantities (`FromQty`) or configurations (`ConfigId`)
+  are not distinguished; the ranking above picks one. Filter BOMVersion to one site first if your
+  BOMs differ per site.
+- **The column contract of earlier releases** (`Status`, `VersionId`, `ActivationDate`,
+  `ApprovedStatus`, `Quantity`, `ScrapPercent`) is an error that points to `docs/UPGRADING.md`.
+- Columns D365 does not have are typed NULLs (`revision`, `alternative_number`, `base_uom`,
+  `supply_type`, ...).
 
 **Example — D365 to a `bom_items` table usable by the similarity functions:**
 ```sql
-CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable');
-CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
-CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
--- Flatten header + component into the parent_id/child_id/quantity shape the algorithms expect:
-CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_component');
+CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials('InventTable');
+CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable');
+CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');
+-- One company (skip with a single-company export), then flatten into parent_id/child_id/quantity:
+CREATE VIEW bom_header_usmf AS SELECT * FROM bom_header WHERE company = 'usmf';
+CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header_usmf', 'bom_component');
 ```
 
 ---
@@ -136,18 +228,19 @@ CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_comp
 
 ### `sap_to_bom_items`
 
-*Table macro*
+*Table function*
 
-Converts the SAP MAST/STKO/STPO trio into the universal BOM shape. 'bom_alternative' picks the alternative BOM, 'reference_date' selects the version valid on that date, and 'bom_usage' is accepted but not applied yet (every usage is returned; filter on MAST.STLAN yourself). Quantity passes through the source MENGE column's type, which is DECIMAL in SAP -- cast if you need DOUBLE.
+Converts SAP MAST/STKO/STPO (and optionally STAS) into flat BOM edges (bom_id, parent_id, child_id, qty, unit, valid_from, valid_to, bom_version, client). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, menge, meins. Each further SAP column is used when the table has it: stlty keeps material BOMs (M) only; MAST.stlal must equal bom_alternative (default '01', also matched on STKO.stlal); datuv picks the STKO header and, per STPO item node stlkn, the item version valid on reference_date (YYYYMMDD or a date, default 9999-12-31), stkoz / stpoz breaking ties; a header version with lkenz or loekz set and an item version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item selection: an item is kept only when its newest STAS row for the alternative on reference_date exists and is not deleted (lkenz). With stlty on STKO, STPO (and STAS) need it too; with mandt in every table, clients are kept apart. Each (parent_id, child_id) edge comes once: without bom_usage every usage and BOM number of a material is read, and an edge is taken from the lowest usage, then the lowest BOM number, per SAP client (the client column is MANDT when every table has it, else NULL; filter one client before searching, the searches do not see it), with the quantities of that BOM's positions of the child added per unit (pass bom_usage, e.g. '1' for production, to compare one usage). qty is the sum of MENGE (a DECIMAL MENGE becomes DECIMAL(38, scale)).
 
 ```sql
-sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage)
+sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage, stas_table)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', reference_date := '2024-01-01', bom_usage := '1');
 ```
 
 ### `sap_to_materials`
@@ -200,41 +293,42 @@ SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language :
 
 ### `dynamics365_to_bom_header`
 
-*Table macro*
+*Table function*
 
-Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus).
+Maps Dynamics 365 BOMVersion (ItemId, BOMId; optional FromDate, ToDate, Active, Approved, DataAreaId) to the universal bom_header shape: one header per company and manufactured item, the version valid on reference_date (YYYY-MM-DD or YYYYMMDD, default 9999-12-31; ToDate empty or 1900-01-01 = open), active first, approved first, newest FromDate, lowest BOMId. bom_id is '<item>/<BOMId>' ('<company>/<item>/<BOMId>' with DataAreaId; a backslash or '/' inside a segment gets a backslash in front), source_bom_id the BOMId, company the lower-cased DataAreaId. bom_table (BOMTable, optional) gives plant_id from SiteId.
 
 ```sql
-dynamics365_to_bom_header(bom_table, bom_version)
+dynamics365_to_bom_header(bom_version, bom_table, reference_date)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion');
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable');
+SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_date := '2024-06-30');
 ```
 
 ### `dynamics365_to_bom_component`
 
-*Table macro*
+*Table function*
 
-Maps Dynamics 365 BOM lines into the universal bom_component shape (singular) — note this is not the flat bom_items form. Reads BOMId, LineNum, ItemId, Quantity and ScrapPercent.
+Maps Dynamics 365 BOM lines (BOMId, ItemId, BOMQty; optional BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child, unit and consumption type (the quantities of a child's lines are added; constant and variable lines stay apart), company the lower-cased DataAreaId. bom_to_items over the two gives one edge per component row (constant and variable lines of a child are two edges; sum them for one) and has no company column: filter one company first.
 
 ```sql
-dynamics365_to_bom_component(bom_lines)
+dynamics365_to_bom_component(bom_lines, bom_version, reference_date)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
+SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');
 ```
 
 ### `dynamics365_to_materials`
 
-*Table macro*
+*Table function*
 
-Maps a Dynamics 365 InventTable to the universal materials shape. Reads ItemId, ItemName and ItemType (0/1/2) and returns the full materials column set. Projects a shape; it does not write an output table.
+Maps a Dynamics 365 InventTable to the universal materials shape, one row per company and item. Needs ItemId; uses ItemName (or NameAlias), ItemGroupId, ItemType (0 Item, 1 BOM, 2 Service, or the enum names) and DataAreaId (the company column, lower case) when present. Columns not in D365 are typed NULLs.
 
 ```sql
 dynamics365_to_materials(invent_table)
@@ -243,7 +337,7 @@ dynamics365_to_materials(invent_table)
 **Examples**
 
 ```sql
-SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable');
+SELECT * FROM dynamics365_to_materials('InventTable');
 ```
 
 <!-- generated:functions:end -->

@@ -96,7 +96,9 @@ normalised first.
 
 - `score` is 1 within `tol` (default 0.02: decades on a log scale, i.e. 4.5 % relative;
   relative on a linear scale) and falls linearly to 0 across `soft_band` (default 0.05).
-  With `soft_band` 0 the limit is strict.
+  With `soft_band` 0 the limit is strict. For `within` and `point` the score with a band is the
+  covered share of the required range; with `soft_band` 0 it is 1 when the range (widened by
+  `tol`) is covered and 0 otherwise.
 - `scale` defaults per dimension: linear for time, currency, percent and sound level, log
   otherwise; a non-positive value falls back to linear.
 - A limit of 0 uses an absolute distance and a strict score.

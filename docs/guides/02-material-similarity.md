@@ -35,11 +35,10 @@ FROM find_similar_materials_jaccard('FAMILY-00-BASE', 5);
 | FAMILY-00-VAR-1 | 0.8182     | 9                 | 11               |
 | FAMILY-00-VAR-2 | 0.5385     | 7                 | 13               |
 | FAMILY-00-VAR-3 | 0.3333     | 5                 | 15               |
-| DISJ-PROD-A     | 0.0        | 0                 | 15               |
-| DISJ-PROD-B     | 0.0        | 0                 | 15               |
 
-The search fills `k` rows, also with materials that share nothing. Ties are ordered by material id.
-Use `min_similarity` to drop weak matches:
+Materials that share nothing are left out, so you can get fewer than `k` rows
+(`min_similarity := 0` keeps them). Ties are ordered by material id. Use `min_similarity` to drop
+weak matches:
 
 ```sql
 SELECT material_id, round(similarity, 4) AS similarity, shared_components
@@ -100,7 +99,6 @@ FROM find_similar_materials_wl_kernel('S10-PROD-LINEAR', 3);
 |-------------------|-----------:|
 | S10-PROD-STAR     | 0.8571     |
 | S10-SUBASM-LINEAR | 0.4286     |
-| DISJ-PROD-A       | 0.0        |
 
 `iterations` (default 3) sets how many levels the kernel looks at. Values above 5 behave like 5.
 

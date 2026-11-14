@@ -1,0 +1,91 @@
+# name: test/sql/fusion/fuse_embeddings_vectors.test
+# description: fuse_embeddings over FLOAT[n] arrays reads the right elements for flat, NULL, constant and dictionary inputs across chunks
+# group: [fusion]
+
+require anofox_similarity
+
+# 5000 rows (several vector chunks); structural element j of row i is i + j / 1000, textual
+# element j is -(i + j / 1000), transactional is NULL (weight 0) or i. Every 7th structural is NULL.
+statement ok
+CREATE TABLE src AS
+SELECT i,
+       CASE WHEN i % 7 = 3 THEN NULL
+            ELSE (SELECT list((i + j / 1000.0)::FLOAT ORDER BY j) FROM range(256) r(j))::FLOAT[] END AS s,
+       (SELECT list((-(i + j / 1000.0))::FLOAT ORDER BY j) FROM range(384) r(j))::FLOAT[] AS t,
+       (SELECT list(i::FLOAT ORDER BY j) FROM range(128) r(j))::FLOAT[] AS x
+FROM range(5000) g(i);
+
+statement ok
+CREATE TABLE arr AS SELECT i, s::FLOAT[256] AS s, t::FLOAT[384] AS t, x::FLOAT[128] AS x FROM src;
+
+# weights 0.25 / 0.25 / 0.5 -> scales 0.5 / 0.5 / sqrt(0.5). Elements 1, 300 (textual 43) and 700
+# (transactional 60) of every non-NULL row hold the expected values; NULL structural rows are NULL.
+statement ok
+CREATE TABLE fused AS SELECT i, fuse_embeddings(s, t, x, {'structural': 0.25, 'textual': 0.25, 'transactional': 0.5}) AS f FROM arr;
+
+query III
+SELECT count(*) FILTER (WHERE f IS NULL),
+       count(*) FILTER (WHERE f IS NOT NULL AND (abs(f[1] - 0.5 * i) > 1e-3
+                        OR abs(f[300] - (-0.5 * (i + 43 / 1000.0))) > 1e-3
+                        OR abs(f[700] - sqrt(0.5) * i) > 1e-2)),
+       count(*) FILTER (WHERE i % 7 = 3 AND f IS NOT NULL)
+FROM fused;
+----
+714	0	0
+
+# A constant argument (the same textual vector for every row) and a zero-weight NULL modality.
+# weights 0.5 / 0.5 -> both scales sqrt(0.5)
+query I
+SELECT count(*) FILTER (WHERE abs(f[257] - (-sqrt(0.5) * 5)) > 1e-3 OR abs(f[1] - sqrt(0.5) * i) > 1e-3)
+FROM (SELECT i, fuse_embeddings(s, (SELECT t FROM arr WHERE i = 5), NULL,
+                                {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f
+      FROM arr WHERE s IS NOT NULL) q;
+----
+0
+
+# Dictionary inputs: the vectors come through a join that repeats and reorders rows.
+statement ok
+CREATE TABLE pick AS SELECT (k * 37) % 5000 AS i FROM range(3000) r(k) WHERE (k * 37) % 7 <> 3;
+
+query I
+SELECT count(*) FILTER (WHERE abs(f[1] - 0.5 * p.i) > 1e-3 OR abs(f[700] - sqrt(0.5) * p.i) > 1e-2)
+FROM pick p JOIN arr a USING (i),
+     LATERAL (SELECT fuse_embeddings(a.s, a.t, a.x, {'structural': 0.25, 'textual': 0.25, 'transactional': 0.5}) AS f);
+----
+0
+
+# A stored list of the wrong length fails the whole query (no silent NULL row).
+statement ok
+CREATE TABLE bad AS SELECT [1.0, 2.0]::FLOAT[] AS s, (SELECT t FROM arr WHERE i = 1) AS t;
+
+statement error
+SELECT fuse_embeddings(s, t, NULL, {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) FROM bad;
+----
+array with length 256
+
+# minhash_similarity over FLOAT[n]: NULL elements count as unequal, lengths must match, and a
+# FLOAT[n] does not mix with a UBIGINT[] signature.
+query RR
+SELECT minhash_similarity([0.1, NULL, 0.3]::FLOAT[3], [0.1, NULL, 0.3]::FLOAT[3]),
+       minhash_similarity([0.1, 0.2]::FLOAT[2], [0.1, 0.5]::FLOAT[2]);
+----
+0.6666666666666666	0.5
+
+statement error
+SELECT minhash_similarity([0.1, 0.2]::FLOAT[2], [0.1, 0.2, 0.3]::FLOAT[3]);
+----
+same length
+
+statement error
+SELECT minhash_similarity([0.1, 0.2]::FLOAT[2], weighted_minhash(MAP {'a': 1.0}, 2));
+----
+minhash_similarity
+
+query R
+SELECT minhash_similarity(a.e, b.e) FROM
+  (SELECT [0.5, 0.25, 0.125, 1.0]::FLOAT[4] AS e) a,
+  (SELECT unnest([[0.5, 0.25, 0.0, 1.0]::FLOAT[4], [0.5, 0.25, 0.125, 1.0]::FLOAT[4]]) AS e) b
+ORDER BY 1;
+----
+0.75
+1.0

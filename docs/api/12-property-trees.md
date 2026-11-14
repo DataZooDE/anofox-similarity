@@ -102,7 +102,7 @@ SELECT * FROM tree_anchors('tree_nodes', tree_ids := ['M1']);
 The class multiset per tree for stage-1 recall: entity_id (tree), feature_id (class), weight (summed counts, maximum across OR alternatives), reviewed (every item's class came from class_id or the reviewed vocabulary). Classes resolve in the order class_id, overrides_table (wording, source, class_id), label_table (classifier arg-max).
 
 ```sql
-tree_class_multiset(nodes_table, attrs_table, overrides_table, label_table, tree_ids)
+tree_class_multiset(nodes_table, overrides_table, label_table, tree_ids)
 ```
 
 **Examples**

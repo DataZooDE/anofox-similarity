@@ -308,8 +308,8 @@ void RegisterVocabularyReviewFunctions(ExtensionLoader &loader) {
 	     {"catalogue_table", vc}},
 	    "The external re-rank hook: the low-margin items of a classify_to_catalogue result "
 	    "(margin < threshold, default 0.2, or the lowest-margin share of the items), overridden items excluded, "
-	    "lowest margin first. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: "
-	    "[tree_id,] node_id, text), margin and the top candidates with p, label and definition (catalogue_table: "
+	    "lowest margin first. All parameters are named. request is JSON text for an LLM or a human: tree_id, node_id, text (texts_table: "
+	    "[tree_id,] node_id, text; tree_id is required when the decisions carry tree ids), margin and the top candidates with p, label and definition (catalogue_table: "
 	    "class_id[, label_en|label, definition]). Write the answers back as an answers_table for "
 	    "classify_to_catalogue, or as vocabulary_overrides per wording.",
 	    {"SELECT request FROM uncertain_decisions(decisions := 'decided', share := 0.15, texts_table := 'texts', "

@@ -1,6 +1,8 @@
 #include "modules/recall_accelerators.hpp"
 #include "modules/coverage_sql.hpp"
 #include "compat_anofox/scalar_bind.hpp"
+#include "compat_anofox/array_vector.hpp"
+#include "duckdb_compat.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
@@ -138,7 +140,50 @@ vector<uint64_t> Signature(const Value &v, const char *fn) {
 	return out;
 }
 
+// FLOAT[n] MinHash embeddings (jaccard_embedding of compute_jaccard_embeddings): the share of equal
+// positions, read straight from the array children. A NULL element counts as unequal.
+static void MinhashSimilarityArrayFun(DataChunk &args, Vector &result) {
+	auto &va = args.data[0], &vb = args.data[1];
+	auto n = ArrayType::GetSize(va.GetType());
+	if (ArrayType::GetSize(vb.GetType()) != n) {
+		throw InvalidInputException("minhash_similarity: signatures must have the same length");
+	}
+	auto count = args.size();
+	UnifiedVectorFormat ua, ub, ca, cb;
+	duckdb_compat::ToUnifiedFormat(va, count, ua);
+	duckdb_compat::ToUnifiedFormat(vb, count, ub);
+	auto &child_a = compat_anofox::ArrayChild(va);
+	auto &child_b = compat_anofox::ArrayChild(vb);
+	duckdb_compat::ToUnifiedFormat(child_a, ArrayVector::GetTotalSize(va), ca);
+	duckdb_compat::ToUnifiedFormat(child_b, ArrayVector::GetTotalSize(vb), cb);
+	auto da = UnifiedVectorFormat::GetData<float>(ca);
+	auto db = UnifiedVectorFormat::GetData<float>(cb);
+	result.SetVectorType(VectorType::FLAT_VECTOR);
+	auto out = duckdb_compat::FlatData<double>(result);
+	auto &validity = duckdb_compat::MutableValidity(result);
+	for (idx_t row = 0; row < count; row++) {
+		auto ia = ua.sel->get_index(row), ib = ub.sel->get_index(row);
+		if (!ua.validity.RowIsValid(ia) || !ub.validity.RowIsValid(ib) || n == 0) {
+			validity.SetInvalid(row);
+			continue;
+		}
+		idx_t same = 0;
+		for (idx_t j = 0; j < n; j++) {
+			auto ja = ca.sel->get_index(ia * n + j), jb = cb.sel->get_index(ib * n + j);
+			same += ca.validity.RowIsValid(ja) && cb.validity.RowIsValid(jb) && da[ja] == db[jb];
+		}
+		out[row] = double(same) / double(n);
+	}
+	if (args.AllConstant()) {
+		result.SetVectorType(VectorType::CONSTANT_VECTOR);
+	}
+}
+
 void MinhashSimilarityFun(DataChunk &args, ExpressionState &, Vector &result) {
+	if (args.data[0].GetType().id() == LogicalTypeId::ARRAY) {
+		MinhashSimilarityArrayFun(args, result);
+		return;
+	}
 	for (idx_t row = 0; row < args.size(); row++) {
 		auto a = args.data[0].GetValue(row);
 		auto b = args.data[1].GetValue(row);
@@ -393,12 +438,17 @@ unique_ptr<TableRef> LshSearchBindReplace(ClientContext &context, TableFunctionB
 			SELECT c.query_id, c.entity_id, minhash_similarity(q.sig, i.signature) AS j, q.total AS qt, i.total_weight AS ct
 			FROM cand c JOIN qs q USING (query_id) JOIN idx i USING (entity_id)
 		)
-		SELECT s.query_id, s.entity_id, %s AS estimate, s.j AS jaccard_estimate,
-		       row_number() OVER (PARTITION BY s.query_id ORDER BY %s DESC, s.j DESC, s.entity_id) AS rank,
-		       n.n_candidates
-		FROM scored s JOIN n_cand n USING (query_id)
-		QUALIFY rank <= %lld
-		ORDER BY s.query_id, rank
+		-- filter the rank in an outer query, not with QUALIFY on the alias: DuckDB 2.0 fails to bind
+		-- two such subqueries (CTE + volatile error() + QUALIFY <window alias>) in one query, e.g. when
+		-- the result is joined ("Conflicting or cyclic column binding replacement")
+		SELECT * FROM (
+			SELECT s.query_id, s.entity_id, %s AS estimate, s.j AS jaccard_estimate,
+			       row_number() OVER (PARTITION BY s.query_id ORDER BY %s DESC, s.j DESC, s.entity_id) AS rank,
+			       n.n_candidates
+			FROM scored s JOIN n_cand n USING (query_id)
+		) ranked
+		WHERE rank <= %lld
+		ORDER BY query_id, rank
 	)",
 	                              QuotedIdentifier(index), weight, QuotedIdentifier(queries), combine, jstar, bands_sql, estimate,
 	                              estimate, (long long)k);
@@ -426,11 +476,18 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	                  DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, MinhashSimilarityFun),
 	                  compat_anofox::ScalarBind<&MinhashSimilarityBind>(),
 	                  "Share of equal positions of two MinHash signatures of the same length: the estimate of their "
-	                  "(weighted) Jaccard similarity.",
+	                  "(weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or the FLOAT[n] "
+	                  "MinHash jaccard_embedding of compute_jaccard_embeddings (on other embeddings, such as textual "
+	                  "or fused ones, the result is meaningless). In a FLOAT[n] array a NULL element counts as unequal; in a "
+	                  "UBIGINT[] signature a NULL element is an error (a corrupt signature).",
 	                  {{{sig, sig},
 	                    {"signature_a", "signature_b"},
 	                    {"SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 64), weighted_minhash(MAP {'a': 1.0, "
-	                     "'b': 1.0}, 64)); -- about 0.5"}}});
+	                     "'b': 1.0}, 64)); -- about 0.5"}},
+	                   {{LogicalType::ARRAY(LogicalType::FLOAT, optional_idx()),
+	                     LogicalType::ARRAY(LogicalType::FLOAT, optional_idx())},
+	                    {"signature_a", "signature_b"},
+	                    {"SELECT minhash_similarity([0.1, 0.2, 0.3]::FLOAT[3], [0.1, 0.5, 0.3]::FLOAT[3]); -- 0.667"}}});
 	RegisterScalarSet(loader, "lsh_bands", sig, DATAZOO_GUARD(ANOFOX_SIMILARITY_BANNER, LshBandsFun),
 	                  compat_anofox::ScalarBind<&LshBandsBind>(),
 	                  "LSH band hashes of a MinHash signature: one hash per band of len(signature) / bands rows. Two "
@@ -459,9 +516,11 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	    loader, "find_covering_entities_lsh", {vc, vc}, {"queries_table", "index_table"}, LshSearchBindReplace,
 	    {{"k", bi}, {"mode", vc}, {"threshold", LogicalType::DOUBLE}, {"bands_table", vc}},
 	    "Sub-linear candidate search over a minhash_index (LSH-Ensemble style). queries_table holds "
-	    "(query_id, feature_id[, weight]) multisets. Per query and size partition, the containment threshold "
-	    "(default 0.5) is turned into the Jaccard threshold for the partition's largest set, and the rows per band "
-	    "are chosen so that the LSH S-curve passes below it; candidates share a band. Ranked by the estimate: "
+	    "(query_id, feature_id[, weight]) multisets. threshold (default 0.5) is a containment "
+	    "threshold in mode 'containment' (default): per query and size partition it is turned into the Jaccard "
+	    "threshold for the partition's largest set; in mode 'jaccard' it is the Jaccard threshold itself. The rows "
+	    "per band are chosen so that the LSH S-curve passes below it; candidates share a band, so fewer than k rows "
+	    "can come back. threshold sets recall, it does not filter the results. Ranked by the estimate: "
 	    "containment = J (|q| + |c|) / ((1 + J) |q|) (capped at 1) or J (mode 'jaccard'). Returns query_id, "
 	    "entity_id, estimate, jaccard_estimate, rank (top k, default 20) and n_candidates (scored per query). An "
 	    "approximate accelerator: exact find_covering_entities stays the reference. Without bands_table the "

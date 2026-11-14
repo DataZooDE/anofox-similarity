@@ -25,7 +25,6 @@ FROM find_similar_materials_jaccard('PUMP-A', 3, bom_table := 'bom_items')
 ORDER BY similarity DESC;
 ----
 PUMP-B	0.75	3	4
-PUMP-C	0.0	0	5
 
 # ------------------------------------------------------------------------------
 # README "Detecting Predecessors" — the corrected example must run (bom_items +

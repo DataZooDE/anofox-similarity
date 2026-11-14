@@ -6,7 +6,7 @@
 
 ## Overview
 
-The extension registers 79 functions: scalar functions, table functions and SQL macros. The
+The extension registers 93 functions: scalar functions, table functions and SQL macros. The
 [API index](../API_REFERENCE.md) lists them by topic; each topic page ends with a generated
 reference (kind, signature, description, examples).
 
@@ -41,6 +41,12 @@ SELECT * FROM macro_name(
 )
 ```
 
+`duckdb_functions()` lists the named parameters of a table function with their types in DuckDB's
+own order, which does not line up with `parameters`; take the types from these pages.
+
+Table parameters take a table or view name, qualified names included (`'db.schema.table'`), so a
+database attached `READ_ONLY` can be read directly.
+
 Arguments of table functions must be constants: DuckDB rejects a subquery there ("Table
 function cannot contain subqueries"), and table parameters take a table name, not a query.
 Compute a value first and pass it with a variable, or materialise the rows as a table:
@@ -60,6 +66,43 @@ PREPARE search AS SELECT entity_id FROM find_covering_entities_for($1, 1);
 EXECUTE search(MAP {'x': 1});
 EXECUTE search(MAP {'y': 1});
 ```
+
+### Embedding vs signature
+
+- **Embeddings are `FLOAT[n]` arrays**: `FLOAT[384]` textual, `FLOAT[128]` transactional and
+  Jaccard, `FLOAT[256]` structural, `FLOAT[768]` fused. That is the type DuckDB `vss` indexes (HNSW
+  indexes only `FLOAT[n]` ARRAY columns) and the type `array_distance`, `array_cosine_distance` and
+  `array_negative_inner_product` take. Functions that take your own vectors (`calibrated_cosine`,
+  `maxsim`, `cosine_floor`, `classify_to_catalogue`, tree name vectors) accept `FLOAT[n]` arrays as
+  well as lists; a list of the right length casts into a `FLOAT[n]` parameter, another length is a
+  cast error.
+- **MinHash signatures for LSH are `UBIGINT[]`** (`weighted_minhash`, `minhash_index`,
+  `lsh_bands`): hashes compared for equality, not by distance. `minhash_similarity` takes either
+  (the share of equal positions), so it also compares the `FLOAT[128]` Jaccard embeddings; a
+  `FLOAT[]` list must be cast to `FLOAT[n]` first.
+- **DuckDB 1.5.6 cannot `CASE` over an array**: `CASE WHEN c THEN embed_text(t) END` fails with
+  "Unimplemented type for case expression: FLOAT[384]" (2.0 is fine). Cast inside and back:
+  `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
+- Upgrading from a release with list-typed embeddings: see [upgrading](../UPGRADING.md).
+
+### What LOAD creates
+
+On a writable database (including `:memory:`) LOAD creates, if missing, `material_embeddings`,
+`material_embeddings_dirty`, `transactional_embedding_statistics` and
+`transactional_feature_mapping`, and, when `vss` is available and `material_embeddings` is new, the
+HNSW indexes `hnsw_structural_idx` (`l2sq`), `hnsw_textual_idx` and `hnsw_combined_idx` (`cosine`).
+Nothing fills these tables. To keep them out of a file, open the shell without it and `ATTACH` the
+file; dropped indexes stay dropped. Change a metric with `DROP INDEX` and `CREATE INDEX ... USING
+HNSW (...) WITH (metric = 'cosine')`.
+
+### Read-only databases
+
+Every function works on a database opened read-only (the SQL macros are registered inside the
+extension, not in your catalog), except those that read the embedding tables, which LOAD creates
+only on a writable database: `compute_fused_embeddings` (Catalog Error: `material_embeddings`
+does not exist) and `compute_transactional_embeddings` (an error saying so). Open the database
+writable once to create them. `check_statistics_freshness` returns `stat_count = 0`,
+`last_updated = NULL`, `is_fresh = false` there.
 
 ---
 

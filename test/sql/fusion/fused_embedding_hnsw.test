@@ -1,0 +1,21 @@
+# name: test/sql/fusion/fused_embedding_hnsw.test
+# description: vss indexes fuse_embeddings output (FLOAT[768]) without a cast
+# group: [fusion]
+
+require anofox_similarity
+
+require vss
+
+statement ok
+CREATE TABLE fused AS SELECT i AS material_id,
+  fuse_embeddings((SELECT list(((i * 7 + j) % 11)::FLOAT ORDER BY j) FROM range(256) r(j))::FLOAT[256], embed_text('m' || i), NULL,
+                  {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f
+FROM range(20) t(i);
+
+statement ok
+CREATE INDEX fused_idx ON fused USING HNSW (f) WITH (metric = 'cosine');
+
+query I
+SELECT material_id FROM fused ORDER BY array_cosine_distance(f, (SELECT f FROM fused WHERE material_id = 3)) LIMIT 1;
+----
+3

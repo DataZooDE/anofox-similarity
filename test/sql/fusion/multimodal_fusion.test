@@ -101,9 +101,9 @@ SELECT COUNT(*) FROM duckdb_functions() WHERE function_name = 'compute_fused_emb
 
 statement ok
 SELECT fuse_embeddings(
-    embed_text('test structural'),
+    list_resize([0.1]::FLOAT[], 256, 0.1)::FLOAT[256],
     embed_text('test textual'),
-    NULL::FLOAT[],
+    NULL::FLOAT[128],
     {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}::STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)
 );
 

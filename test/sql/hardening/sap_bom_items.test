@@ -1,0 +1,374 @@
+# name: test/sql/hardening/sap_bom_items.test
+# description: sap_to_bom_items uses the SAP columns an extract has: BOM category (stlty), the MAST
+#   alternative (stlal), header and item versions (datuv, stkoz/stpoz), deletion flags (lkenz,
+#   loekz), usage (stlan) and STAS item selection; a minimal extract still works.
+# group: [hardening]
+
+require anofox_similarity
+
+# MAST: M1 in two plants (one row out), M2 only alternative 02, M3 usage 5, M4 deleted header
+statement ok
+CREATE TABLE mast AS SELECT * FROM (VALUES
+    ('M1', '1000', '1', '0001', '01'),
+    ('M1', '2000', '1', '0001', '01'),
+    ('M2', '1000', '1', '0002', '02'),
+    ('M3', '1000', '5', '0003', '01'),
+    ('M4', '1000', '1', '0004', '01')
+) t(matnr, werks, stlan, stlnr, stlal);
+
+# STKO: the document BOM (D) 0001 shares its number with the material BOM 0001
+statement ok
+CREATE TABLE stko AS SELECT * FROM (VALUES
+    ('M', '0001', '01', '1', '20200101', NULL, NULL),
+    ('D', '0001', '01', '1', '20190101', NULL, NULL),
+    ('M', '0002', '01', '1', '20200101', NULL, NULL),
+    ('M', '0002', '02', '1', '20200101', NULL, NULL),
+    ('M', '0003', '01', '1', '20200101', NULL, NULL),
+    ('M', '0004', '01', '1', '20200101', NULL, 'X')
+) t(stlty, stlnr, stlal, stkoz, datuv, lkenz, loekz);
+
+# STPO: node 2 has a newer version from 2030 (qty 5), node 3 starts 2030, node 4 is deleted,
+# node 5 belongs to alternative 02 only (STAS), DOC-1 is an item of the document BOM
+statement ok
+CREATE TABLE stpo AS SELECT * FROM (VALUES
+    ('M', '0001', '1', '1', '20200101', NULL, 'C-A',    1.0, 'EA'),
+    ('M', '0001', '2', '1', '20200101', NULL, 'C-B',    1.0, 'EA'),
+    ('M', '0001', '2', '2', '20300101', NULL, 'C-B',    5.0, 'EA'),
+    ('M', '0001', '3', '1', '20300101', NULL, 'C-FUT',  1.0, 'EA'),
+    ('M', '0001', '4', '1', '20200101', 'X',  'C-DEL',  1.0, 'EA'),
+    ('M', '0001', '5', '1', '20200101', NULL, 'C-ALT2', 1.0, 'EA'),
+    ('D', '0001', '1', '1', '20190101', NULL, 'DOC-1',  1.0, 'ST'),
+    ('M', '0002', '1', '1', '20200101', NULL, 'C-02A',  1.0, 'EA'),
+    ('M', '0003', '1', '1', '20200101', NULL, 'C-U',    1.0, 'EA'),
+    ('M', '0004', '1', '1', '20200101', NULL, 'C-X',    1.0, 'EA')
+) t(stlty, stlnr, stlkn, stpoz, datuv, lkenz, idnrk, menge, meins);
+
+# STAS: alternative 01 selects nodes 1-4; node 2 is removed from it in 2022; node 5 is in 02 only
+statement ok
+CREATE TABLE stas AS SELECT * FROM (VALUES
+    ('M', '0001', '01', '1', '1', '20200101', NULL),
+    ('M', '0001', '01', '2', '1', '20200101', NULL),
+    ('M', '0001', '01', '2', '2', '20220101', 'X'),
+    ('M', '0001', '01', '3', '1', '20200101', NULL),
+    ('M', '0001', '01', '4', '1', '20200101', NULL),
+    ('M', '0001', '02', '5', '1', '20200101', NULL)
+) t(stlty, stlnr, stlal, stlkn, stasz, datuv, lkenz);
+
+# Default: material BOMs only (no DOC-1), plants collapsed, deleted item and header dropped,
+# the newest item version (C-B qty 5); without STAS every item of the BOM number is kept
+query TTRT
+SELECT parent_id, child_id, qty, bom_version FROM sap_to_bom_items('mast', 'stko', 'stpo')
+ORDER BY parent_id, child_id;
+----
+M1	C-A	1.0	01
+M1	C-ALT2	1.0	01
+M1	C-B	5.0	01
+M1	C-FUT	1.0	01
+M3	C-U	1.0	01
+
+# The header comes from the material BOM, not the document BOM sharing the number
+query TT
+SELECT DISTINCT bom_id, valid_from FROM sap_to_bom_items('mast', 'stko', 'stpo') WHERE parent_id = 'M1';
+----
+0001	2020-01-01
+
+# On 2024-01-01: the item version valid then (C-B qty 1), and C-FUT does not exist yet
+query TR
+SELECT child_id, qty FROM sap_to_bom_items('mast', 'stko', 'stpo', reference_date := '20240101')
+WHERE parent_id = 'M1' ORDER BY child_id;
+----
+C-A	1.0
+C-ALT2	1.0
+C-B	1.0
+
+# The reference date may be a DATE as well
+query I
+SELECT count(*) FROM sap_to_bom_items('mast', 'stko', 'stpo', reference_date := DATE '2024-01-01')
+WHERE parent_id = 'M1';
+----
+3
+
+# With STAS: only the items alternative 01 selects, and node 2 is deleted from it since 2022
+query T
+SELECT child_id FROM sap_to_bom_items('mast', 'stko', 'stpo', stas_table := 'stas')
+WHERE parent_id = 'M1' ORDER BY child_id;
+----
+C-A
+C-FUT
+
+# ... before 2022 node 2 is still selected; C-FUT starts only in 2030
+query T
+SELECT child_id FROM sap_to_bom_items('mast', 'stko', 'stpo', stas_table := 'stas', reference_date := '2021-01-01')
+WHERE parent_id = 'M1' ORDER BY child_id;
+----
+C-A
+C-B
+
+# Alternative 02 follows MAST.stlal: M2 points to 0002/02; M1 has no alternative 02 in MAST
+query TT
+SELECT parent_id, child_id FROM sap_to_bom_items('mast', 'stko', 'stpo', bom_alternative := '02')
+ORDER BY parent_id, child_id;
+----
+M2	C-02A
+
+# bom_usage filters MAST.stlan
+query T
+SELECT DISTINCT parent_id FROM sap_to_bom_items('mast', 'stko', 'stpo', bom_usage := '5');
+----
+M3
+
+# A minimal extract: MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, menge, meins
+statement ok
+CREATE TABLE mast_min AS SELECT * FROM (VALUES ('P', '9')) t(matnr, stlnr);
+
+statement ok
+CREATE TABLE stko_min AS SELECT * FROM (VALUES ('9', '01')) t(stlnr, stlal);
+
+statement ok
+CREATE TABLE stpo_min AS SELECT * FROM (VALUES ('9', 'A', 2, 'EA'), ('9', 'B', 1, 'EA')) t(stlnr, idnrk, menge, meins);
+
+query TTTI
+SELECT bom_id, parent_id, child_id, qty FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min')
+ORDER BY child_id;
+----
+9	P	A	2
+9	P	B	1
+
+# Named table arguments still work
+query I
+SELECT count(*) FROM sap_to_bom_items(mast_table := 'mast_min', stko_table := 'stko_min', stpo_table := 'stpo_min');
+----
+2
+
+# STAS needs the item node of STPO
+statement error
+SELECT * FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min', stas_table := 'stas');
+----
+stpo_table (with stas_table) 'stpo_min' is missing required column(s): stlkn
+
+# bom_usage needs MAST.stlan
+statement error
+SELECT * FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min', bom_usage := '1');
+----
+missing required column(s): stlan
+
+statement error
+SELECT * FROM sap_to_bom_items('mast', 'stko', 'stpo', reference_date := 'yesterday');
+----
+reference_date 'yesterday' is not a date
+
+statement error
+SELECT * FROM sap_to_bom_items('mast;drop', 'stko', 'stpo');
+----
+Invalid identifier for mast_table
+
+statement error
+SELECT * FROM sap_to_bom_items('mast', 'stko', 'stpo', stas_table := 'stas)--');
+----
+Invalid identifier for stas_table
+
+statement error
+SELECT * FROM sap_to_bom_items(NULL, 'stko', 'stpo');
+----
+mast_table must not be NULL
+
+# A value with a quote is a literal, not SQL
+query I
+SELECT count(*) FROM sap_to_bom_items('mast', 'stko', 'stpo', bom_alternative := 'x'' OR ''1''=''1');
+----
+0
+
+# ------------------------------------------------------------------------------
+# Crew review of the rewrite
+# ------------------------------------------------------------------------------
+
+# STKO has stlty but STPO does not: the document item could replace the material item of the
+# same node, so that is an error instead of a silent swap (MOTOR vs DRAWING)
+statement ok
+CREATE TABLE c_mast AS SELECT * FROM (VALUES ('P', '0001', '01')) t(matnr, stlnr, stlal);
+
+statement ok
+CREATE TABLE c_stko AS SELECT * FROM (VALUES ('M', '0001', '01'), ('D', '0001', '01')) t(stlty, stlnr, stlal);
+
+statement ok
+CREATE TABLE c_stpo_untyped AS SELECT * FROM (VALUES
+    ('0001', '1', '20200101', 'MOTOR', 1.0, 'EA'),
+    ('0001', '1', '20210101', 'DRAWING', 1.0, 'ST')) t(stlnr, stlkn, datuv, idnrk, menge, meins);
+
+statement error
+SELECT * FROM sap_to_bom_items('c_mast', 'c_stko', 'c_stpo_untyped');
+----
+stpo_table (STKO has stlty) 'c_stpo_untyped' is missing required column(s): stlty
+
+statement ok
+CREATE TABLE c_stpo AS SELECT * FROM (VALUES
+    ('M', '0001', '1', '20200101', 'MOTOR', 1.0, 'EA'),
+    ('D', '0001', '1', '20210101', 'DRAWING', 1.0, 'ST')) t(stlty, stlnr, stlkn, datuv, idnrk, menge, meins);
+
+query T
+SELECT child_id FROM sap_to_bom_items('c_mast', 'c_stko', 'c_stpo');
+----
+MOTOR
+
+# version counters are numbers: stpoz '10' is newer than '9' on the same date, and a header
+# version 10 that is deleted drops the BOM although version 9 is not
+statement ok
+CREATE TABLE n_stko AS SELECT * FROM (VALUES ('0001', '01', '9', '20200101', NULL), ('0002', '01', '9', '20200101', NULL),
+    ('0002', '01', '10', '20200101', 'X')) t(stlnr, stlal, stkoz, datuv, lkenz);
+
+statement ok
+CREATE TABLE n_mast AS SELECT * FROM (VALUES ('P', '0001', '01'), ('Q', '0002', '01')) t(matnr, stlnr, stlal);
+
+statement ok
+CREATE TABLE n_stpo AS SELECT * FROM (VALUES
+    ('0001', '1', '9', '20200101', 'OLD', 1.0, 'EA'),
+    ('0001', '1', '10', '20200101', 'NEW', 2.0, 'EA'),
+    ('0002', '1', '1', '20200101', 'X-1', 1.0, 'EA')) t(stlnr, stlkn, stpoz, datuv, idnrk, menge, meins);
+
+query TTR
+SELECT parent_id, child_id, qty FROM sap_to_bom_items('n_mast', 'n_stko', 'n_stpo');
+----
+P	NEW	2.0
+
+# STAS: a removal row with stasz 10 beats the selection row 9 on the same date
+statement ok
+CREATE TABLE n_stas AS SELECT * FROM (VALUES ('0001', '01', '1', '9', '20200101', NULL),
+    ('0001', '01', '1', '10', '20200101', 'X')) t(stlnr, stlal, stlkn, stasz, datuv, lkenz);
+
+query I
+SELECT count(*) FROM sap_to_bom_items('n_mast', 'n_stko', 'n_stpo', stas_table := 'n_stas');
+----
+0
+
+# a bad reference_date is an error even when no table has datuv (checked at bind time)
+statement error
+SELECT * FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min', reference_date := 'garbage');
+----
+reference_date 'garbage' is not a date
+
+query I
+SELECT count(*) > 0 FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min', reference_date := '20240101');
+----
+true
+
+# stas_table := '' is an invalid name, not "no item selection"
+statement error
+SELECT * FROM sap_to_bom_items('mast', 'stko', 'stpo', stas_table := '');
+----
+stas_table must not be empty
+
+# a blank or SAP-initial datuv ('00000000') counts as undated, it does not drop the row
+statement ok
+CREATE TABLE b_stko AS SELECT * FROM (VALUES ('0001', '01', '00000000'), ('0002', '01', '')) t(stlnr, stlal, datuv);
+
+statement ok
+CREATE TABLE b_stpo AS SELECT * FROM (VALUES ('0001', '1', '', 'C-1', 1.0, 'EA'), ('0002', '1', '00000000', 'C-2', 1.0, 'EA'))
+    t(stlnr, stlkn, datuv, idnrk, menge, meins);
+
+query TT
+SELECT parent_id, child_id FROM sap_to_bom_items('n_mast', 'b_stko', 'b_stpo') ORDER BY 1;
+----
+P	C-1
+Q	C-2
+
+# SAP clients (mandt in every table) are kept apart: BOM 0001 of client 100 is not client 200's
+statement ok
+CREATE TABLE k_mast AS SELECT * FROM (VALUES ('100', 'P', '0001', '01'), ('200', 'Q', '0001', '01')) t(mandt, matnr, stlnr, stlal);
+
+statement ok
+CREATE TABLE k_stko AS SELECT * FROM (VALUES ('100', '0001', '01'), ('200', '0001', '01')) t(mandt, stlnr, stlal);
+
+statement ok
+CREATE TABLE k_stpo AS SELECT * FROM (VALUES ('100', '0001', '1', 'A', 1.0, 'EA'), ('200', '0001', '1', 'B', 1.0, 'EA'))
+    t(mandt, stlnr, stlkn, idnrk, menge, meins);
+
+query TT
+SELECT parent_id, child_id FROM sap_to_bom_items('k_mast', 'k_stko', 'k_stpo') ORDER BY 1;
+----
+P	A
+Q	B
+
+# two versions of a node with neither datuv nor a counter: the choice is deterministic
+statement ok
+CREATE TABLE d_stpo AS SELECT * FROM (VALUES ('0001', '1', 'B', 1.0, 'EA'), ('0001', '1', 'A', 1.0, 'EA'))
+    t(stlnr, stlkn, idnrk, menge, meins);
+
+query T
+SELECT child_id FROM sap_to_bom_items('n_mast', 'b_stko', 'd_stpo') WHERE parent_id = 'P';
+----
+A
+
+# ------------------------------------------------------------------------------
+# One edge per (parent_id, child_id): a material with a production (1) and an engineering (2)
+# BOM listing the same child gets it once, from the lowest usage; two positions of a child in
+# one BOM add up per unit; bom_usage still selects one usage
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE u_mast AS SELECT * FROM (VALUES ('P', '1', '0001', '01'), ('P', '2', '0002', '01')) t(matnr, stlan, stlnr, stlal);
+
+statement ok
+CREATE TABLE u_stko AS SELECT * FROM (VALUES ('0001', '01'), ('0002', '01')) t(stlnr, stlal);
+
+statement ok
+CREATE TABLE u_stpo AS SELECT * FROM (VALUES
+    ('0001', '1', 'MOTOR', 1.0, 'EA'),
+    ('0001', '2', 'SCREW', 4.0, 'EA'),
+    ('0001', '3', 'SCREW', 2.0, 'EA'),
+    ('0001', '4', 'GLUE', 0.5, 'KG'),
+    ('0001', '5', 'GLUE', 20.0, 'G'),
+    ('0002', '1', 'MOTOR', 1.0, 'EA'),
+    ('0002', '2', 'DRAWING-ONLY', 1.0, 'EA')) t(stlnr, stlkn, idnrk, menge, meins);
+
+query TTRT
+SELECT bom_id, child_id, qty, unit FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo') ORDER BY child_id, unit;
+----
+0002	DRAWING-ONLY	1.0	EA
+0001	GLUE	20.0	G
+0001	GLUE	0.5	KG
+0001	MOTOR	1.0	EA
+0001	SCREW	6.0	EA
+
+query I
+SELECT count(*) FROM (SELECT parent_id, child_id, unit FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo')
+                      GROUP BY ALL HAVING count(*) > 1);
+----
+0
+
+query TT
+SELECT bom_id, child_id FROM sap_to_bom_items('u_mast', 'u_stko', 'u_stpo', bom_usage := '2') ORDER BY 2;
+----
+0002	DRAWING-ONLY
+0002	MOTOR
+
+# The same material, BOM number and child in two SAP clients: two rows with their own quantity
+# and client, never summed; a third client with another BOM number is not dropped by the dedupe
+statement ok
+CREATE TABLE k2_mast AS SELECT * FROM (VALUES ('100', 'P', '0001', '01'), ('200', 'P', '0001', '01'), ('300', 'P', '0009', '01'))
+    t(mandt, matnr, stlnr, stlal);
+
+statement ok
+CREATE TABLE k2_stko AS SELECT * FROM (VALUES ('100', '0001', '01'), ('200', '0001', '01'), ('300', '0009', '01')) t(mandt, stlnr, stlal);
+
+statement ok
+CREATE TABLE k2_stpo AS SELECT * FROM (VALUES ('100', '0001', '1', 'C', 2.0, 'EA'), ('200', '0001', '1', 'C', 5.0, 'EA'),
+    ('300', '0009', '1', 'C', 7.0, 'EA'), ('300', '0009', '2', 'D', 1.0, 'EA')) t(mandt, stlnr, stlkn, idnrk, menge, meins);
+
+query TTTR
+SELECT client, bom_id, child_id, qty FROM sap_to_bom_items('k2_mast', 'k2_stko', 'k2_stpo') ORDER BY client, child_id;
+----
+100	0001	C	2.0
+200	0001	C	5.0
+300	0009	C	7.0
+300	0009	D	1.0
+
+# without mandt the column is NULL
+query T
+SELECT DISTINCT client FROM sap_to_bom_items('mast_min', 'stko_min', 'stpo_min');
+----
+NULL
+
+# mandt in some tables only: clients would merge under a NULL client, so that is an error
+statement error
+SELECT * FROM sap_to_bom_items('k2_mast', 'stko_min', 'stpo_min');
+----
+mandt is in some of the tables but not in all

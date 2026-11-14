@@ -68,7 +68,9 @@ FROM find_similar_materials_jaccard('PUMP-A', 3);
 | material_id | similarity | shared_components | total_components |
 |-------------|-----------:|------------------:|-----------------:|
 | PUMP-B      | 0.75       | 3                 | 4                |
-| PUMP-C      | 0.0        | 0                 | 5                |
+
+PUMP-C shares no component with PUMP-A, so it is left out. `min_similarity := 0` keeps such
+materials, with similarity 0.0.
 
 The search reads the table `bom_items` by default. Pass `bom_table := 'my_table'` to read another one.
 
@@ -128,7 +130,8 @@ order of the signature, also when you name them.
 
 The extension loads on a database that is opened read-only. All search, coverage and evaluation
 functions work there. Only the embedding tables, which the extension creates on a writable
-database, are missing.
+database, are missing, so `compute_fused_embeddings` and `compute_transactional_embeddings` fail
+there until the file has been opened writable once.
 
 ```bash
 duckdb -readonly -unsigned plant.db

@@ -30,6 +30,12 @@ only the data in `test/data` or small inline tables.
 | "This has to run every night" | 09 |
 | "Requests and offers arrive as Asset Administration Shells" | [AAS API](../api/17-aas.md) → 10 |
 
+## Using an AI Assistant
+
+The same material, condensed for Claude Code, ships as a plugin with six skills that load when your
+request matches. See [Claude Code skills](../../README.md#-claude-code-skills-ai-pair-programming)
+for the install line.
+
 ## Tutorials
 
 End-to-end walkthroughs on real ERP data (AdventureWorks and SAP) are in [tutorials/](tutorials/).

@@ -10,7 +10,7 @@ optional accelerators.
 | Function | Purpose |
 |---|---|
 | `weighted_minhash(weights MAP, num_hashes [, seed])` | ICWS signature (UBIGINT[]); equal positions estimate weighted Jaccard. Hashing is stable across versions |
-| `minhash_similarity(a, b)` | share of equal positions |
+| `minhash_similarity(a, b)` | share of equal positions; takes `UBIGINT[]` signatures or `FLOAT[n]` arrays (the `FLOAT[128]` Jaccard embeddings) |
 | `lsh_bands(signature, bands)` | one hash per band |
 | `minhash_index(feature_table [, num_hashes := 128, seed := 7, partitions := 4, entity_col, feature_col, weight_col])` | `entity_id, total_weight, partition, signature, band_hashes, num_hashes, seed` |
 | `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5, bands_table])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
@@ -27,6 +27,11 @@ exact join was faster ([guide 08](../guides/08-scale-and-dedup.md)). A
 stored `minhash_bands` table turns the band lookup into a hash join, while without it the
 index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
 `(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
+
+`threshold` is a containment threshold in mode `'containment'` and a Jaccard threshold in mode
+`'jaccard'`. It only sets recall (it chooses the banding), it does not filter the output: only
+candidates that share a band are scored, so a query can get fewer than `k` rows. The result
+joins like any table (`LEFT JOIN find_covering_entities_lsh(...) l ON ...`), on DuckDB 2.0 too.
 
 ```sql
 CREATE TABLE programme_minhash AS SELECT * FROM minhash_index(feature_table := 'programme_class_multiset');
@@ -92,15 +97,17 @@ SELECT weighted_minhash(MAP {'a': 1.0, 'b': 2.0}, 128, 7);
 
 *Scalar function*
 
-Share of equal positions of two MinHash signatures of the same length: the estimate of their (weighted) Jaccard similarity.
+Share of equal positions of two MinHash signatures of the same length: the estimate of their (weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or the FLOAT[n] MinHash jaccard_embedding of compute_jaccard_embeddings (on other embeddings, such as textual or fused ones, the result is meaningless). In a FLOAT[n] array a NULL element counts as unequal; in a UBIGINT[] signature a NULL element is an error (a corrupt signature).
 
 ```sql
+minhash_similarity(signature_a FLOAT[ANY], signature_b FLOAT[ANY]) → DOUBLE
 minhash_similarity(signature_a UBIGINT[], signature_b UBIGINT[]) → DOUBLE
 ```
 
 **Examples**
 
 ```sql
+SELECT minhash_similarity([0.1, 0.2, 0.3]::FLOAT[3], [0.1, 0.5, 0.3]::FLOAT[3]); -- 0.667
 SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 64), weighted_minhash(MAP {'a': 1.0, 'b': 1.0}, 64)); -- about 0.5
 ```
 
@@ -156,7 +163,7 @@ CREATE TABLE programme_bands AS SELECT * FROM minhash_bands('programme_index');
 
 *Table function*
 
-Sub-linear candidate search over a minhash_index (LSH-Ensemble style). queries_table holds (query_id, feature_id[, weight]) multisets. Per query and size partition, the containment threshold (default 0.5) is turned into the Jaccard threshold for the partition's largest set, and the rows per band are chosen so that the LSH S-curve passes below it; candidates share a band. Ranked by the estimate: containment = J (|q| + |c|) / ((1 + J) |q|) (capped at 1) or J (mode 'jaccard'). Returns query_id, entity_id, estimate, jaccard_estimate, rank (top k, default 20) and n_candidates (scored per query). An approximate accelerator: exact find_covering_entities stays the reference. Without bands_table the index's band hashes are unnested on every call (linear in the index size); store minhash_bands(index) once and pass it as bands_table for a hash-join (sub-linear) search.
+Sub-linear candidate search over a minhash_index (LSH-Ensemble style). queries_table holds (query_id, feature_id[, weight]) multisets. threshold (default 0.5) is a containment threshold in mode 'containment' (default): per query and size partition it is turned into the Jaccard threshold for the partition's largest set; in mode 'jaccard' it is the Jaccard threshold itself. The rows per band are chosen so that the LSH S-curve passes below it; candidates share a band, so fewer than k rows can come back. threshold sets recall, it does not filter the results. Ranked by the estimate: containment = J (|q| + |c|) / ((1 + J) |q|) (capped at 1) or J (mode 'jaccard'). Returns query_id, entity_id, estimate, jaccard_estimate, rank (top k, default 20) and n_candidates (scored per query). An approximate accelerator: exact find_covering_entities stays the reference. Without bands_table the index's band hashes are unnested on every call (linear in the index size); store minhash_bands(index) once and pass it as bands_table for a hash-join (sub-linear) search.
 
 ```sql
 find_covering_entities_lsh(queries_table, index_table, k, mode, threshold, bands_table)

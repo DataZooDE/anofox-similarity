@@ -185,11 +185,13 @@ statement ok
 SELECT embedding_backend('test', 'openai', '');
 
 # ============================================================================
-# Test 14: Verify invalid provider raises error or returns null
+# Test 14: An unknown provider is an error (it used to return the placeholder silently)
 # ============================================================================
 
-statement ok
+statement error
 SELECT embedding_backend('test', 'invalid-provider-xyz', '');
+----
+unknown provider 'invalid-provider-xyz'
 
 # ============================================================================
 # Test 15: Batch embedding generation for practical use cases

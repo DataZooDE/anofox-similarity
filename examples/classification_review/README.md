@@ -11,7 +11,7 @@ of the archive and an external review of single items.
 | Function | Description |
 |----------|-------------|
 | `classify_to_catalogue(...)` | Distribution over catalogue classes per item: `class_id, p, rank, margin, overridden` |
-| `cosine_floor(table, column [, sample, seed])` | Median cosine of unrelated vectors, to calibrate name similarity |
+| `cosine_floor(table_name, column_name [, sample := ..., seed := ...])` (table and column positional) | Median cosine of unrelated vectors, to calibrate name similarity |
 | `vocabulary_review_queue(trees_table, decisions [, overrides_table])` | Wordings ranked by impact = trees affected × (1 − margin) |
 | `apply_vocabulary_review(review_table [, overrides_table])` | Merged vocabulary overrides; the review wins per wording and source |
 | `uncertain_decisions(decisions, share \| threshold, ...)` | Lowest-margin items as JSON requests for a reviewer |
