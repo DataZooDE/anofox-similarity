@@ -4,9 +4,9 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
-## Embeddings as FLOAT arrays, typed universal-schema converters
+## v2026.11.13: embeddings as FLOAT arrays, typed universal-schema converters
 
-Released with the Claude Code plugin (the first release after v2026.10.23).
+The first release after v2026.10.23, with the Claude Code plugin.
 
 ### Recompute stored Jaccard embeddings
 
@@ -45,11 +45,26 @@ take; `list_cosine_similarity` and other list functions still accept them. Two b
 |---|---|
 | `items_to_bom(items, source)` with a `table_type` column | `items_to_materials(items, source)`, `items_to_bom_header(items, source)`, `items_to_bom_component(items)`, each in the universal table's columns and types |
 | `items_to_bom` header `valid_from` 2024-01-01, materials `description` '' | NULL |
-| `embedding_backend(..., '<any name>', ...)` returned the placeholder | only `gemma-local`, `openai`, `anthropic`, `cohere`; any other name is an error |
+| `embedding_backend(..., '<any name>', ...)` returned the placeholder | only `gemma-local`, `openai`, `anthropic`, `cohere` (case-insensitive); any other name is an error |
+| `embedding_backend` `provider_config` parsed an `api_key` | not read; remove keys from your SQL |
+| `items_to_bom` quantity below 0.0000005 stored as 0 | `items_to_bom_component` raises an error; scale to a larger unit |
 | `tree_class_multiset(..., attrs_table := ...)` (ignored) | the parameter is gone: drop it |
-| `cosine_floor` parameters named `table`, `column` | `table_name`, `column_name` (still positional) |
+| `aas_issues`: a text value without semanticId was dropped silently | reported as `unmapped_text` (info); filter it out if you count issues yourself (`aas_quality.n_issues` already leaves it out) |
+| `find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`, `cold_start_analogs` filled `k` rows with materials scoring 0 | those are left out unless you pass `min_similarity := 0`; fewer than `k` rows means nothing else shares a component |
 | `check_statistics_freshness` on empty statistics: `last_updated` = now − 8 days | NULL |
 | `dynamics365_to_bom_header`: one row per BOMVersion | one row per BOM (approved version, then the newest) |
+| `sap_to_bom_items` joined MAST, STKO and STPO by `stlnr` only | uses `stlty` (material BOMs only), MAST `stlal`, header and item versions (`datuv`, `stkoz`, `stlkn`, `stpoz`) and `lkenz`/`loekz` when the columns exist, so document BOM items, other alternatives' headers, deleted headers and items, and future item versions are gone; `bom_usage` now filters `MAST.stlan`; new `stas_table := 'STAS'` applies the item selection. Re-run it and rebuild the tables made from it |
+
+Fixed without action on your side:
+
+- `sap_to_materials` fills `created_date` when `ersda` is a DATE (it was NULL).
+- `sap_to_bom_items` no longer reads STPO `stlkn`, so an STPO extract with only `stlnr, idnrk,
+  menge, meins` works.
+- `cosine_floor` names its parameters `table_name`, `column_name`; they are positional, and the
+  old names could not be used as named arguments.
+- On a read-only database `check_statistics_freshness` returns `stat_count = 0` instead of a
+  Catalog Error, and `compute_transactional_embeddings` says that the table is missing.
+- `find_covering_entities_lsh` in a join works on DuckDB 2.0 (it raised an INTERNAL error).
 
 Migrating from `items_to_bom`:
 

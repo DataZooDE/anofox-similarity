@@ -16,9 +16,9 @@ CREATE TABLE bom_items AS
 SELECT 'M' || i::VARCHAR AS parent_id, 'C' || (i % 40)::VARCHAR AS child_id
 FROM range(1, 201) t(i);
 
-# Runs without crashing on 200 parents and returns exactly k rows.
+# Runs without crashing on 200 parents and returns exactly k rows (zeros kept).
 query I
-SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 10);
+SELECT COUNT(*) FROM find_similar_materials_wl_kernel('M1', 10, min_similarity := 0);
 ----
 10
 

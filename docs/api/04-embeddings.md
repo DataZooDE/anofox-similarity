@@ -46,7 +46,10 @@ compute_textual_embeddings(
 
 **Providers** (the only names accepted; none is wired to a real model in the released build):
 - `gemma-local` - intended for a local OpenVINO model (384-D)
-- `openai`, `anthropic`, `cohere` - intended for the vendors' APIs (config: `{"api_key": "..."}`)
+- `openai`, `anthropic`, `cohere` - intended for the vendors' APIs
+
+Names are matched case-insensitively. `provider_config` is accepted but not read yet; do not put
+API keys in SQL text (a real backend will read them from a DuckDB secret).
 
 Any other provider name is an error (`Invalid Input Error: embedding_backend: unknown provider ...`).
 
@@ -401,7 +404,7 @@ CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH 
 
 *Table macro*
 
-Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.
+Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).
 
 ```sql
 compute_textual_embeddings(makt_table, language, provider, provider_config)
@@ -433,7 +436,7 @@ SELECT embed_text('centrifugal pump seal kit');
 
 *Scalar function*
 
-Generates a 384-dimensional text embedding (FLOAT[384] array) for the given text. provider (gemma-local, openai, anthropic or cohere; anything else is an error) selects the backend and provider_config is a JSON string of provider-specific options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO model or a real API backend is configured, all providers return a deterministic, hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).
+Generates a 384-dimensional text embedding (FLOAT[384] array) for the given text. provider (gemma-local, openai, anthropic or cohere, case-insensitive; anything else is an error) selects the backend. provider_config is accepted but not read yet; do not put API keys in it. NOTE: unless the extension is built with a local OpenVINO model or a real API backend is configured, all providers return a deterministic, hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).
 
 ```sql
 embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → FLOAT[384]
@@ -443,7 +446,7 @@ embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → F
 
 ```sql
 SELECT embedding_backend('diesel pump', 'gemma-local', '{}');
-SELECT embedding_backend('valve seat', 'openai', '{"api_key": "..."}');
+SELECT embedding_backend('valve seat', 'openai', '');
 ```
 
 ### `compute_transactional_embeddings`

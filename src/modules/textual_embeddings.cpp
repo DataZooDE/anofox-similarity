@@ -21,10 +21,8 @@ namespace ddoc = datazoo::doc;
 
 #include <memory>
 #include <map>
-#include <nlohmann/json.hpp>
 #include "anofox_similarity_banner.hpp"
 
-using json = nlohmann::json;
 
 namespace duckdb {
 namespace anofox {
@@ -143,63 +141,31 @@ public:
 // Provider Factory
 //------------------------------------------------------------------------------
 
+// Every provider is a stateless placeholder, so there is nothing to cache and provider_config is
+// not read (no secrets are parsed or kept). A real backend should take its key from a DuckDB secret.
 class EmbeddingProviderFactory {
-private:
-	static std::map<string, std::shared_ptr<EmbeddingProvider>> provider_cache;
-
 public:
-	static bool IsKnown(const string &provider_name) {
-		return provider_name == "gemma-local" || provider_name == "openai" || provider_name == "anthropic" ||
-		       provider_name == "cohere";
+	// Provider names are matched case-insensitively, ignoring surrounding blanks.
+	static string Normalize(const string &provider_name) {
+		auto name = StringUtil::Lower(provider_name);
+		StringUtil::Trim(name);
+		return name;
 	}
 
-	static std::shared_ptr<EmbeddingProvider> GetProvider(const string &provider_name, const string &config) {
-		string cache_key = provider_name + ":" + config;
+	static bool IsKnown(const string &name) {
+		return name == "gemma-local" || name == "openai" || name == "anthropic" || name == "cohere";
+	}
 
-		// Check cache
-		if (provider_cache.find(cache_key) != provider_cache.end()) {
-			return provider_cache[cache_key];
-		}
-
-		std::shared_ptr<EmbeddingProvider> provider;
-
-		try {
-			if (provider_name == "gemma-local") {
+	static std::unique_ptr<EmbeddingProvider> GetProvider(const string &name) {
 #ifdef DUCKDB_OPENVINO_AVAILABLE
-				provider = std::make_shared<GemmaLocalProvider>();
-#else
-				// Fallback to HTTP if OpenVINO not available
-				throw std::runtime_error("OpenVINO not available, falling back to HTTP provider");
-#endif
-			} else if (provider_name == "openai" || provider_name == "anthropic" || provider_name == "cohere") {
-				// Parse config for API key if provided
-				string api_key;
-				if (!config.empty()) {
-					try {
-						auto config_json = json::parse(config);
-						if (config_json.contains("api_key")) {
-							api_key = config_json["api_key"].get<string>();
-						}
-					} catch (...) {
-						// Ignore JSON parse errors
-					}
-				}
-				provider = std::make_shared<HTTPEmbeddingProvider>(provider_name, api_key);
-			} else {
-				throw std::runtime_error("Unknown embedding provider: " + provider_name);
-			}
-		} catch (const std::exception &e) {
-			// Default fallback: use dummy provider
-			provider = std::make_shared<HTTPEmbeddingProvider>("openai", "");
+		if (name == "gemma-local") {
+			return std::unique_ptr<EmbeddingProvider>(new GemmaLocalProvider());
 		}
-
-		// Cache the provider
-		provider_cache[cache_key] = provider;
-		return provider;
+#endif
+		// gemma-local without OpenVINO uses the placeholder of the HTTP providers
+		return std::unique_ptr<EmbeddingProvider>(new HTTPEmbeddingProvider(name == "gemma-local" ? "openai" : name, ""));
 	}
 };
-
-std::map<string, std::shared_ptr<EmbeddingProvider>> EmbeddingProviderFactory::provider_cache;
 
 //------------------------------------------------------------------------------
 // Embedding Backend Scalar Function
@@ -208,20 +174,16 @@ std::map<string, std::shared_ptr<EmbeddingProvider>> EmbeddingProviderFactory::p
 static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &text_vector = args.data[0];
 	auto &provider_vector = args.data[1];
-	auto &config_vector = args.data[2];
 	auto count = args.size();
 
 	text_vector.Flatten(count);
 	provider_vector.Flatten(count);
-	config_vector.Flatten(count);
 
 	auto text_data = FlatVector::GetData<string_t>(text_vector);
 	auto provider_data = FlatVector::GetData<string_t>(provider_vector);
-	auto config_data = FlatVector::GetData<string_t>(config_vector);
 
 	auto &text_validity = FlatVector::Validity(text_vector);
 	auto &provider_validity = FlatVector::Validity(provider_vector);
-	auto &config_validity = FlatVector::Validity(config_vector);
 
 	// FLOAT[384] (ARRAY): the child vector of an ARRAY result already holds count * 384 floats,
 	// row i at [i * 384, (i + 1) * 384).
@@ -236,7 +198,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 			result_validity.SetInvalid(i);
 			continue;
 		}
-		string provider_name = provider_data[i].GetString();
+		string provider_name = EmbeddingProviderFactory::Normalize(provider_data[i].GetString());
 		if (!EmbeddingProviderFactory::IsKnown(provider_name)) {
 			throw InvalidInputException("embedding_backend: unknown provider '%s' (expected gemma-local, openai, "
 			                            "anthropic or cohere)",
@@ -248,9 +210,7 @@ static void EmbeddingBackendFunction(DataChunk &args, ExpressionState &state, Ve
 
 		try {
 			string text = text_data[i].GetString();
-			string config = config_validity.RowIsValid(i) ? config_data[i].GetString() : "";
-
-			auto provider = EmbeddingProviderFactory::GetProvider(provider_name, config);
+			auto provider = EmbeddingProviderFactory::GetProvider(provider_name);
 			auto embedding = provider->Embed(text);
 
 			// Copy embedding to result
@@ -290,12 +250,12 @@ void RegisterTextualEmbeddingFunctions(ExtensionLoader &loader) {
 	CreateScalarFunctionInfo info(embedding_backend_function);
 	FunctionDescription desc;
 	desc.description = "Generates a 384-dimensional text embedding (FLOAT[384] array) for the given text. "
-	                   "provider (gemma-local, openai, anthropic or cohere; anything else is an error) selects the backend and provider_config is a JSON string of provider-specific "
-	                   "options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO "
+	                   "provider (gemma-local, openai, anthropic or cohere, case-insensitive; anything else is an error) "
+	                   "selects the backend. provider_config is accepted but not read yet; do not put API keys in it. NOTE: unless the extension is built with a local OpenVINO "
 	                   "model or a real API backend is configured, all providers return a deterministic, "
 	                   "hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).";
 	desc.examples    = {"SELECT embedding_backend('diesel pump', 'gemma-local', '{}');",
-	                    "SELECT embedding_backend('valve seat', 'openai', '{\"api_key\": \"...\"}');"};
+	                    "SELECT embedding_backend('valve seat', 'openai', '');"};
 	desc.categories  = {"embeddings", "textual"};
 	desc.parameter_names = {"text", "provider", "provider_config"};
 	desc.parameter_types = {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR};
@@ -340,7 +300,7 @@ void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
 	reg.RegisterTableMacro(COMPUTE_TEXTUAL_EMBEDDINGS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' passes provider-specific settings through to the backend.")
+	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).")
 	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN')")});
 }
 

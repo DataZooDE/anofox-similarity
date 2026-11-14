@@ -9,6 +9,8 @@
 #include "duckdb/parser/tableref/subqueryref.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "telemetry.hpp"
+
+#include <limits>
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 
 namespace duckdb {
@@ -40,7 +42,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	// Parameters:
 	// 0: query_material_id (VARCHAR)
 	// 1: k (BIGINT)
-	// Named: min_similarity (DOUBLE, default 0.0)
+	// Named: min_similarity (DOUBLE; default: leave out rows scoring 0)
 	// Named: bom_table (VARCHAR, default 'bom_items')
 
 	if (input.inputs.size() < 2) {
@@ -58,7 +60,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsJaccardBindReplace(ClientContext
 	auto query_material_id_sql = QuoteSQLStringLiteral(query_material_id);
 
 	// Get named parameters with defaults
-	double min_similarity = 0.0;
+	// Without min_similarity, rows scoring 0 (no shared component) are left out: a list of k
+	// zeros reads like a result. min_similarity := 0 keeps them.
+	double min_similarity = std::numeric_limits<double>::min();
 	string bom_table = "bom_items";
 
 	if (auto value = duckdb_compat::FindNamedParameter(input.named_parameters, "min_similarity"); value && !value->IsNull()) {
@@ -162,7 +166,7 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 	// 0: query_material_id (VARCHAR)
 	// 1: k (BIGINT)
 	// Named: iterations (BIGINT, default 3)
-	// Named: min_similarity (DOUBLE, default 0.0)
+	// Named: min_similarity (DOUBLE; default: leave out rows scoring 0)
 	// Named: bom_table (VARCHAR, default 'bom_items')
 
 	if (input.inputs.size() < 2) {
@@ -181,7 +185,9 @@ static unique_ptr<TableRef> FindSimilarMaterialsWLKernelBindReplace(ClientContex
 
 	// Get named parameters with defaults
 	int64_t iterations = 3;
-	double min_similarity = 0.0;
+	// Without min_similarity, rows scoring 0 (no shared component) are left out: a list of k
+	// zeros reads like a result. min_similarity := 0 keeps them.
+	double min_similarity = std::numeric_limits<double>::min();
 	string bom_table = "bom_items";
 
 	// A NULL iterations (like any NULL named tuning param) falls back to the default.
@@ -282,7 +288,7 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	// 0: query_material_id (VARCHAR)
 	// 1: k (BIGINT)
 	// Named: min_history_months (BIGINT, default 0)
-	// Named: min_similarity (DOUBLE, default 0.0)
+	// Named: min_similarity (DOUBLE; default: leave out rows scoring 0)
 	// Named: bom_table (VARCHAR, default 'bom_items')
 	// Named: movements_table (VARCHAR, default 'goods_movements')
 
@@ -302,7 +308,9 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 
 	// Get named parameters with defaults
 	int64_t min_history_months = 0;
-	double min_similarity = 0.0;
+	// Without min_similarity, rows scoring 0 (no shared component) are left out: a list of k
+	// zeros reads like a result. min_similarity := 0 keeps them.
+	double min_similarity = std::numeric_limits<double>::min();
 	string bom_table = "bom_items";
 	string movements_table = "goods_movements";
 
@@ -399,7 +407,8 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description = "Finds the k most structurally similar materials to a query material using exact "
 		                   "Jaccard similarity on BOM component sets. Returns material_id, similarity, "
-		                   "shared_components, and total_components. Filtered by min_similarity threshold. "
+		                   "shared_components, and total_components. Rows below min_similarity are left out; without it, rows "
+		                   "scoring 0 (no shared component) are left out, and min_similarity := 0 keeps them. "
 		                   "mode := 'containment' ranks by the share of the query's components each material "
 		                   "contains instead (default 'jaccard').";
 		desc.examples    = {"SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);",
@@ -428,7 +437,8 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description = "Finds the k most structurally similar materials using the Weisfeiler-Lehman graph "
 		                   "kernel, which captures multi-hop BOM structure beyond direct component overlap. "
-		                   "iterations controls the number of WL refinement rounds (default 3).";
+		                   "iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows "
+		                   "scoring 0 are left out; min_similarity := 0 keeps them.";
 		desc.examples    = {"SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);",
 		                    "SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := 0.2);"};
 		desc.categories  = {"similarity", "search", "graph"};
@@ -453,7 +463,8 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 		FunctionDescription desc;
 		desc.description = "Finds structural analogs for a cold-start material (one with little or no demand "
 		                   "history). Returns established materials that are structurally similar and have at "
-		                   "least min_history_months of goods movement data, enabling surrogate forecasting.";
+		                   "least min_history_months of goods movement data, enabling surrogate forecasting. Without "
+		                   "min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them.";
 		desc.examples    = {"SELECT * FROM cold_start_analogs('NEW-PART', 5);",
 		                    "SELECT * FROM cold_start_analogs('NEW-PART', 10, min_history_months := 12, min_similarity := 0.4);"};
 		desc.categories  = {"similarity", "search", "forecasting"};

@@ -104,7 +104,7 @@ static const DefaultTableMacro BOM_TO_ITEMS_MACRO = {
 		-- Filter on is_approved yourself if you only want approved BOMs.))"};
 
 // The inverse of bom_to_items, as three macros with the universal schema's columns and types
-// (CreateUniversalBOMSchema above), so each result can be inserted into its table directly.
+// items_to_bom_component also needs quantity (NULL counts as 1).
 // items_table needs parent_id, child_id and quantity (NULL quantity counts as 1).
 static const DefaultTableMacro ITEMS_TO_MATERIALS_MACRO = {
     DEFAULT_SCHEMA,
@@ -167,7 +167,10 @@ static const DefaultTableMacro ITEMS_TO_BOM_COMPONENT_MACRO = {
 			('BOM_' || parent_id)::VARCHAR AS bom_id,
 			ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY child_id)::INTEGER AS line_number,
 			child_id::VARCHAR AS child_material_id,
-			COALESCE(quantity, 1)::DECIMAL(18,6) AS quantity_per,
+			CASE WHEN quantity <> 0 AND round(quantity, 6) = 0
+			     THEN error('items_to_bom_component: quantity ' || quantity::VARCHAR || ' of ' || child_id::VARCHAR
+			                || ' under ' || parent_id::VARCHAR || ' rounds to 0 at 6 decimals (quantity_per is DECIMAL(18,6)); scale it to a larger unit')
+			     ELSE COALESCE(quantity, 1)::DECIMAL(18,6) END AS quantity_per,
 			'EA' AS quantity_uom,
 			FALSE AS is_fixed_quantity,
 			0::DECIMAL(8,4) AS scrap_percent,
@@ -188,18 +191,18 @@ void RegisterBOMConversionMacros(ExtensionLoader &loader) {
 	           {ddoc::Doc()
 	                .Describe("Flattens the universal bom_header + bom_component pair into the flat (parent_id, child_id, quantity) bom_items shape that the similarity algorithms expect.")
 	                .Example("SELECT * FROM bom_to_items(header_table := 'bom_header', component_table := 'bom_component')")});
-	const char *items = " items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).";
+	const char *edges = " items_table needs parent_id and child_id.";
 	reg.RegisterTableMacro(ITEMS_TO_MATERIALS_MACRO,
 	           {ddoc::Doc()
-	                .Describe(string("The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system.") + items)
+	                .Describe(string("The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system.") + edges)
 	                .Example("SELECT * FROM items_to_materials(items_table := 'bom_items', source_system := 'MIGRATED')")});
 	reg.RegisterTableMacro(ITEMS_TO_BOM_HEADER_MACRO,
 	           {ddoc::Doc()
-	                .Describe(string("One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items.") + items)
+	                .Describe(string("One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items.") + edges)
 	                .Example("SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := 'MIGRATED')")});
 	reg.RegisterTableMacro(ITEMS_TO_BOM_COMPONENT_MACRO,
 	           {ddoc::Doc()
-	                .Describe(string("One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6) (quantities of 1e12 or more do not fit). Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back.") + items)
+	                .Describe(string("One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6): a NULL quantity counts as 1, a non-zero quantity that rounds to 0 at 6 decimals is an error, and quantities of 1e12 or more do not fit. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (for an edge list without one: SELECT *, NULL::DOUBLE AS quantity FROM ...)."))
 	                .Example("SELECT * FROM items_to_bom_component(items_table := 'bom_items')")});
 }
 

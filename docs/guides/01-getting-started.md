@@ -68,7 +68,9 @@ FROM find_similar_materials_jaccard('PUMP-A', 3);
 | material_id | similarity | shared_components | total_components |
 |-------------|-----------:|------------------:|-----------------:|
 | PUMP-B      | 0.75       | 3                 | 4                |
-| PUMP-C      | 0.0        | 0                 | 5                |
+
+PUMP-C shares no component with PUMP-A, so it is left out. `min_similarity := 0` keeps such
+materials, with similarity 0.0.
 
 The search reads the table `bom_items` by default. Pass `bom_table := 'my_table'` to read another one.
 

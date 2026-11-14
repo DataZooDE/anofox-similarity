@@ -478,7 +478,8 @@ void RegisterRecallAcceleratorFunctions(ExtensionLoader &loader) {
 	                  "Share of equal positions of two MinHash signatures of the same length: the estimate of their "
 	                  "(weighted) Jaccard similarity. Takes UBIGINT[] signatures (weighted_minhash) or the FLOAT[n] "
 	                  "MinHash jaccard_embedding of compute_jaccard_embeddings (on other embeddings, such as textual "
-	                  "or fused ones, the result is meaningless). A NULL element counts as unequal.",
+	                  "or fused ones, the result is meaningless). In a FLOAT[n] array a NULL element counts as unequal; in a "
+	                  "UBIGINT[] signature a NULL element is an error (a corrupt signature).",
 	                  {{{sig, sig},
 	                    {"signature_a", "signature_b"},
 	                    {"SELECT minhash_similarity(weighted_minhash(MAP {'a': 1.0}, 64), weighted_minhash(MAP {'a': 1.0, "

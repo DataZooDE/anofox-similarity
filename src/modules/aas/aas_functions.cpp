@@ -468,7 +468,8 @@ void RegisterAasQuality(ExtensionLoader &loader) {
 	    "Data quality of an AAS input per submodel, without the coverage kernel: LIST of STRUCT(tree_id, submodel_id, "
 	    "submodel, kind, n_values (Property, Range, MultiLanguageProperty), n_with_semantic_id, semantic_id_share, "
 	    "n_missing_concept_description, n_unresolved_units (numbers whose unit is unknown), n_unparseable (bad_value), "
-	    "n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues). The "
+	    "n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues (aas_issues "
+	    "findings except unmapped_text, which n_values - n_with_semantic_id already counts)). The "
 	    "counts come from the same reading as aas_to_trees and aas_issues. unit_table as in parse_quantity.",
 	    AAS_CATEGORIES};
 	spec.special_null_handling = true;

@@ -91,7 +91,7 @@ find_similar_materials_jaccard(
     material_id VARCHAR,
     k BIGINT,
     bom_table := 'bom_items',
-    min_similarity := 0.0,
+    min_similarity := NULL,   -- leave out rows scoring 0
     mode := 'jaccard'
 ) → TABLE (
     material_id VARCHAR,
@@ -106,9 +106,9 @@ find_similar_materials_jaccard(
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | Material to find similar to (positional) |
 | `k` | BIGINT | Required | Number of results |
-| `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
+| `min_similarity` | DOUBLE | NULL | Minimum similarity; without it rows scoring 0 are left out, `0.0` keeps them |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
-| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Like the Jaccard mode it returns materials without any shared component (similarity 0); filter with `min_similarity`. Counts components, not quantities; for quantities use [`find_covering_entities`](10-covering-search.md#find_covering_entities) |
+| `mode` | VARCHAR | 'jaccard' | `'jaccard'` (symmetric) or `'containment'`: the share of the query's components a material contains. Ties are ordered by Jaccard (not returned), so `similarity` stays in [0, 1]. Materials without any shared component are left out unless `min_similarity := 0.0`. Counts components, not quantities; for quantities use [`find_covering_entities`](10-covering-search.md#find_covering_entities) |
 
 **Returns:**
 - `material_id` - ID of similar material
@@ -137,7 +137,7 @@ find_similar_materials_wl_kernel(
     material_id VARCHAR,
     k INTEGER,
     iterations := 3,
-    min_similarity := 0.0,
+    min_similarity := NULL,   -- leave out rows scoring 0
     bom_table := 'bom_items'
 ) → TABLE (
     material_id VARCHAR,
@@ -151,7 +151,7 @@ find_similar_materials_wl_kernel(
 | `material_id` | VARCHAR | Required | Material to find similar to (positional) |
 | `k` | BIGINT | Required | Number of results |
 | `iterations` | INTEGER | 3 | Number of WL refinement iterations |
-| `min_similarity` | DOUBLE | 0.0 | Minimum similarity threshold |
+| `min_similarity` | DOUBLE | NULL | Minimum similarity; without it rows scoring 0 are left out, `0.0` keeps them |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 
 **Returns:**
@@ -178,7 +178,7 @@ cold_start_analogs(
     material_id VARCHAR,
     k INTEGER,
     min_history_months := 0,
-    min_similarity := 0.0,
+    min_similarity := NULL,   -- leave out rows scoring 0
     bom_table := 'bom_items',
     movements_table := 'goods_movements'
 ) → TABLE (
@@ -198,7 +198,7 @@ cold_start_analogs(
 | `material_id` | VARCHAR | Required | New product needing analogs (positional) |
 | `k` | BIGINT | Required | Number of analog materials to return |
 | `min_history_months` | INTEGER | 0 | Minimum months between the first and the last movement |
-| `min_similarity` | DOUBLE | 0.0 | Minimum Jaccard similarity threshold |
+| `min_similarity` | DOUBLE | NULL | Minimum Jaccard similarity; without it materials scoring 0 are left out, `0.0` keeps them |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 | `movements_table` | VARCHAR | 'goods_movements' | Movements history table |
 
@@ -238,7 +238,7 @@ ORDER BY similarity DESC;
 
 *Table function*
 
-Finds the k most structurally similar materials to a query material using exact Jaccard similarity on BOM component sets. Returns material_id, similarity, shared_components, and total_components. Filtered by min_similarity threshold. mode := 'containment' ranks by the share of the query's components each material contains instead (default 'jaccard').
+Finds the k most structurally similar materials to a query material using exact Jaccard similarity on BOM component sets. Returns material_id, similarity, shared_components, and total_components. Rows below min_similarity are left out; without it, rows scoring 0 (no shared component) are left out, and min_similarity := 0 keeps them. mode := 'containment' ranks by the share of the query's components each material contains instead (default 'jaccard').
 
 ```sql
 find_similar_materials_jaccard(material_id, k, bom_table, min_similarity, mode)
@@ -256,7 +256,7 @@ SELECT * FROM find_similar_materials_jaccard('MAT-001', 10, mode := 'containment
 
 *Table function*
 
-Finds the k most structurally similar materials using the Weisfeiler-Lehman graph kernel, which captures multi-hop BOM structure beyond direct component overlap. iterations controls the number of WL refinement rounds (default 3).
+Finds the k most structurally similar materials using the Weisfeiler-Lehman graph kernel, which captures multi-hop BOM structure beyond direct component overlap. iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows scoring 0 are left out; min_similarity := 0 keeps them.
 
 ```sql
 find_similar_materials_wl_kernel(material_id, k, bom_table, min_similarity, iterations)
@@ -290,7 +290,7 @@ SELECT * FROM infer_predecessors('NEW-PART', lookback_months := 24, min_similari
 
 *Table function*
 
-Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting.
+Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting. Without min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them.
 
 ```sql
 cold_start_analogs(material_id, k, movements_table, bom_table, min_similarity, min_history_months)

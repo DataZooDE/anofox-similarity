@@ -112,12 +112,13 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 		}
 
 		try {
-			auto w_structural = structural_weight_data[ws_idx];
-			auto w_textual = textual_weight_data[wt_idx];
-			auto w_transactional = transactional_weight_data[wx_idx];
+			// in double, so that the sum of three large FLOAT weights cannot overflow to inf
+			double w_structural = structural_weight_data[ws_idx];
+			double w_textual = textual_weight_data[wt_idx];
+			double w_transactional = transactional_weight_data[wx_idx];
 
 			if (!std::isfinite(w_structural) || !std::isfinite(w_textual) || !std::isfinite(w_transactional) ||
-			    w_structural < 0.0f || w_textual < 0.0f || w_transactional < 0.0f) {
+			    w_structural < 0.0 || w_textual < 0.0 || w_transactional < 0.0) {
 				result_validity.SetInvalid(i);
 				continue;
 			}
@@ -126,9 +127,9 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 			// contribute, its embedding vector must be present; a NULL vector at a positive
 			// weight makes the fused result NULL. At weight 0 the vector is ignored, so a
 			// missing (NULL) transactional vector no longer nulls out the whole fusion.
-			const bool use_structural = w_structural > 0.0f;
-			const bool use_textual = w_textual > 0.0f;
-			const bool use_transactional = w_transactional > 0.0f;
+			const bool use_structural = w_structural > 0.0;
+			const bool use_textual = w_textual > 0.0;
+			const bool use_transactional = w_transactional > 0.0;
 
 			if ((use_structural && !structural_vdata.validity.RowIsValid(struct_idx)) ||
 			    (use_textual && !textual_vdata.validity.RowIsValid(text_idx)) ||
@@ -151,9 +152,9 @@ static void FuseEmbeddingsFunction(DataChunk &args, ExpressionState &state, Vect
 
 			// The array types fix the lengths (256 / 384 / 128): a list of another length fails to cast
 			// to the parameter type, so there is nothing to validate here.
-			const auto scale_structural = std::sqrt(w_structural);
-			const auto scale_textual = std::sqrt(w_textual);
-			const auto scale_transactional = std::sqrt(w_transactional);
+			const auto scale_structural = static_cast<float>(std::sqrt(w_structural));
+			const auto scale_textual = static_cast<float>(std::sqrt(w_textual));
+			const auto scale_transactional = static_cast<float>(std::sqrt(w_transactional));
 
 			idx_t result_idx = i * COMBINED_DIM;
 

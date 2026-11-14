@@ -91,7 +91,9 @@ NETWORK_RE = re.compile(
 BACKTICK_IDENT_RE = re.compile(r"`([a-z_][a-z0-9_]*)(?:\(\))?`")
 CALL_IDENT_RE = re.compile(r"(?<![\w.])([a-z_][a-z0-9_]*)\(")
 # lower-case words that read like calls in prose but are SQL syntax, not functions
-NOT_FUNCTIONS = {"in", "values", "exists", "over", "filter", "using", "as", "and", "or", "not", "struct", "map", "list"}
+NOT_FUNCTIONS = {"in", "values", "exists", "over", "filter", "using", "as", "and", "or", "not", "struct", "map", "list",
+                 # placeholders in formulas and signatures inside text fences
+                 "attr", "a", "p", "score", "req", "column"}
 
 
 def read_text(abs_path):
@@ -298,12 +300,28 @@ def expected_rows(block_text):
     return [" | ".join(c.strip() for c in row.split("|")) for row in EXPECT_RE.findall(block_text)]
 
 
+LAST_MARKER = "__anofox_last_statement__"
+WRITES_REPO_RE = re.compile(r"\bTO\s+'(?:\./)?(?:test|examples)/", re.IGNORECASE)
+
+
+def with_last_marker(block_text):
+    """The block with `SELECT '<marker>';` before its last statement, so the rows after the
+    marker are exactly what the last statement printed. A statement ends at a line whose code
+    (comment stripped) ends in `;`."""
+    lines = block_text.splitlines()
+    ends = [i for i, l in enumerate(lines) if l.split("--", 1)[0].rstrip().endswith(";")]
+    cut = ends[-2] + 1 if len(ends) >= 2 else 0
+    return "\n".join(lines[:cut] + [f"SELECT '{LAST_MARKER}';"] + lines[cut:])
+
+
 def output_mismatch(block_text, stdout):
     want = expected_rows(block_text)
     if not want:
         return ""
     lines = [" | ".join(c.strip() for c in l.split("|")) for l in stdout.splitlines() if l.strip()]
-    got = lines[-len(want):]
+    if LAST_MARKER not in lines:
+        return f"expected {want} but the last statement did not run"
+    got = lines[len(lines) - 1 - lines[::-1].index(LAST_MARKER) + 1:]
     if got == want:
         return ""
     return f"expected {want} got {got}"
@@ -326,13 +344,13 @@ def collect_name_mentions(rel_path, text):
         for i in range(1, frontmatter_end):
             for m in BACKTICK_IDENT_RE.finditer(lines[i]):
                 mentions.append((m.group(1), i + 1))
-    in_fence = False
+    fence = None  # None outside a fence, else the fence's language
     for i in range(frontmatter_end + 1 if frontmatter_end else 0, len(lines)):
         line = lines[i]
         if line.strip().startswith("```"):
-            in_fence = not in_fence
+            fence = None if fence is not None else line.strip()[3:].strip().lower()
             continue
-        if in_fence:
+        if fence == "sql":
             continue
         for m in CALL_IDENT_RE.finditer(line):
             if m.group(1) not in NOT_FUNCTIONS:
@@ -480,7 +498,10 @@ def main():
             is_setup_only = bool(SETUP_RE.search(block_text)) and not is_placeholder
             first_line_trunc = first_non_comment_line(block_text)[:100]
 
-            if NETWORK_RE.search(strip_sql_comments(block_text)):
+            if WRITES_REPO_RE.search(strip_sql_comments(block_text)):
+                status = "FAIL"
+                detail = "writes into test/ or examples/ (shared with the repository); write to the cwd"
+            elif NETWORK_RE.search(strip_sql_comments(block_text)):
                 status = "SKIP-NETWORK"
                 detail = "network-looking block (INSTALL/URL), not executed"
             elif V2_ONLY_RE.search(block_text) and duckdb_major < 2:
@@ -494,7 +515,7 @@ def main():
                 full_sql = fixtures
                 for setup_sql in required_setup:
                     full_sql += "\n" + setup_sql
-                full_sql += "\n" + block_text
+                full_sql += "\n" + (with_last_marker(block_text) if expected_rows(block_text) else block_text)
 
                 rc, stdout, stderr = run_block_safe(full_sql)
                 raw_pass = rc == 0

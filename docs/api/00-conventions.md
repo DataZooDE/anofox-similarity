@@ -41,6 +41,12 @@ SELECT * FROM macro_name(
 )
 ```
 
+`duckdb_functions()` lists the named parameters of a table function with their types in DuckDB's
+own order, which does not line up with `parameters`; take the types from these pages.
+
+Table parameters take a table or view name, qualified names included (`'db.schema.table'`), so a
+database attached `READ_ONLY` can be read directly.
+
 Arguments of table functions must be constants: DuckDB rejects a subquery there ("Table
 function cannot contain subqueries"), and table parameters take a table name, not a query.
 Compute a value first and pass it with a variable, or materialise the rows as a table:
@@ -72,11 +78,22 @@ EXECUTE search(MAP {'y': 1});
   cast error.
 - **MinHash signatures for LSH are `UBIGINT[]`** (`weighted_minhash`, `minhash_index`,
   `lsh_bands`): hashes compared for equality, not by distance. `minhash_similarity` takes either
-  (the share of equal positions), so it also compares the `FLOAT[128]` Jaccard embeddings.
+  (the share of equal positions), so it also compares the `FLOAT[128]` Jaccard embeddings; a
+  `FLOAT[]` list must be cast to `FLOAT[n]` first.
 - **DuckDB 1.5.6 cannot `CASE` over an array**: `CASE WHEN c THEN embed_text(t) END` fails with
   "Unimplemented type for case expression: FLOAT[384]" (2.0 is fine). Cast inside and back:
   `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
 - Upgrading from a release with list-typed embeddings: see [upgrading](../UPGRADING.md).
+
+### What LOAD creates
+
+On a writable database (including `:memory:`) LOAD creates, if missing, `material_embeddings`,
+`material_embeddings_dirty`, `transactional_embedding_statistics` and
+`transactional_feature_mapping`, and, when `vss` is available and `material_embeddings` is new, the
+HNSW indexes `hnsw_structural_idx` (`l2sq`), `hnsw_textual_idx` and `hnsw_combined_idx` (`cosine`).
+Nothing fills these tables. To keep them out of a file, open the shell without it and `ATTACH` the
+file; dropped indexes stay dropped. Change a metric with `DROP INDEX` and `CREATE INDEX ... USING
+HNSW (...) WITH (metric = 'cosine')`.
 
 ### Read-only databases
 

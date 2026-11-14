@@ -104,7 +104,7 @@ true
 query I
 SELECT count(*) FROM ours WHERE function_type = 'table_macro';
 ----
-25
+24
 
 query I
 SELECT count(DISTINCT function_name) FROM ours WHERE function_type = 'macro';
@@ -124,10 +124,11 @@ SELECT parameters FROM ours WHERE function_name = 'bom_explosion_1level';
 ----
 [query_material_id, header_table, component_table]
 
+# Two overloads (positional tables, or the tables named); both list the same names
 query I
-SELECT parameters FROM ours WHERE function_name = 'sap_to_bom_items';
+SELECT DISTINCT parameters FROM ours WHERE function_name = 'sap_to_bom_items';
 ----
-[mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage]
+[mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage, stas_table]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';

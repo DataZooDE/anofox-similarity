@@ -309,7 +309,7 @@ SELECT * FROM bom_to_items(header_table := 'bom_header', component_table := 'bom
 
 *Table macro*
 
-The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system. items_table needs parent_id and child_id.
 
 ```sql
 items_to_materials(items_table, source_system)
@@ -325,7 +325,7 @@ SELECT * FROM items_to_materials(items_table := 'bom_items', source_system := 'M
 
 *Table macro*
 
-One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items. items_table needs parent_id and child_id.
 
 ```sql
 items_to_bom_header(items_table, source_system)
@@ -341,7 +341,7 @@ SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := '
 
 *Table macro*
 
-One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6) (quantities of 1e12 or more do not fit). Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity as DECIMAL(18,6): a NULL quantity counts as 1, a non-zero quantity that rounds to 0 at 6 decimals is an error, and quantities of 1e12 or more do not fit. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (for an edge list without one: SELECT *, NULL::DOUBLE AS quantity FROM ...).
 
 ```sql
 items_to_bom_component(items_table)

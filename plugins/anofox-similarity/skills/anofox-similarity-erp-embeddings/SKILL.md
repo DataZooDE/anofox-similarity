@@ -7,6 +7,8 @@ description: >
   `bom_to_items` / `items_to_materials` / `items_to_bom_header` / `items_to_bom_component`, helpers, MinHash/textual/transactional embeddings,
   `fuse_embeddings` / `compute_fused_embeddings`, statistics and the material_embeddings table.
   Use when loading MARA/MAKT/MAST/STKO/STPO or D365 BOM tables, mapping your own ERP columns,
+  converting a flat parent/child/quantity export into the universal schema (materials, bom_header,
+  bom_component),
   building or fusing material embeddings, or checking the anofox-forecast dependency.
 version: 2026.11.13
 user-invocable: false
@@ -28,6 +30,13 @@ every similarity search reads, and builds per-material vectors in `material_embe
   are now scaled to [0, 1); old ones (~1e18) compare as 0.0 with new ones, silently. Recompute them
   all (`UPDATE material_embeddings SET jaccard_embedding = NULL`, then re-run the upsert below).
   Full list of changes: `docs/UPGRADING.md`.
+- **LOAD writes into a writable database.** It creates `material_embeddings` and three other tables
+  and, with `vss`, three HNSW indexes on them (`hnsw_structural_idx` uses `l2sq`, the other two
+  `cosine`). Nothing fills them. For your own vector search, create your own table and index, or
+  drop and recreate an index with the metric you need; see "Tables the extension creates" below.
+  To keep a file clean, open the shell without it and `ATTACH` it.
+- **`minhash_similarity` takes `FLOAT[n]` arrays, not `FLOAT[]` lists.** A list such as
+  `list(minhash_value ORDER BY seed)` needs `::FLOAT[128]` first ("No function matches" otherwise).
 - **DuckDB 1.5.6 cannot `CASE` over a `FLOAT[n]`** ("Unimplemented type for case expression"). Cast
   inside and back: `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
 - **Textual embeddings are a placeholder.** No language model ships. `compute_textual_embeddings`,
@@ -47,13 +56,17 @@ every similarity search reads, and builds per-material vectors in `material_embe
 - **Required columns.** MARA needs `matnr, mtart, matkl, ersda, lvorm` (`ersda` as `YYYYMMDD` text,
   `DATE` or ISO string); MAKT needs `matnr, spras, maktx` **and `maktg`** for
   `extract_material_descriptions` / `compute_textual_embeddings`; MAST `matnr, stlnr`; STKO
-  `stlnr, stlal, datuv`; STPO `stlnr, idnrk, menge, meins`. A missing column is a Binder Error naming it.
+  `stlnr, stlal`; STPO `stlnr, idnrk, menge, meins`. A missing column is a Binder Error naming it.
 - **Transforms emit the universal schema and write nothing** (wrap in `CREATE TABLE ... AS`).
   `sap_to_bom_items` is already flat but names the quantity `qty`, typed like MENGE (DECIMAL); rename
   and cast to `quantity`. The D365 macros emit `bom_header` + `bom_component`: flatten with `bom_to_items`.
-- **Only the header is versioned.** `reference_date` and `bom_alternative` select the STKO header (and
-  `valid_from`); components are joined by `stlnr` only, so all alternatives' STPO rows under one BOM
-  number come through. `bom_usage` is accepted but **ignored** — filter `MAST.stlan` yourself.
+- **`sap_to_bom_items` uses the SAP columns your extract has; pass STAS.** With `stlty` only material
+  BOMs (`'M'`) are read (a document BOM can share the `stlnr`); MAST `stlal` must be the
+  `bom_alternative`; `datuv` + `stkoz` / `stlkn` + `stpoz` pick the header and item versions valid on
+  `reference_date`; `lkenz` / `loekz` drop deleted headers and items; `bom_usage` filters
+  `MAST.stlan`. Without `stas_table := 'STAS'` every item of the BOM number comes through,
+  whichever alternative selects it, and items STAS removed are kept. A missing optional column just
+  skips its rule, so check that a full extract really has `stlty`, `stlkn` and `lkenz`.
 - **anofox-forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
   `recompute_embedding_statistics` and `compute_domain_specific_statistics` need `anofox_fcst_ts_features`.
   Check with `check_anofox_forecast_available` first (see the dependency section). It is never auto-installed.
@@ -119,8 +132,8 @@ CREATE TABLE sap_stpo AS SELECT * FROM (VALUES
 ## SAP transforms
 
 ```text
-sap_to_bom_items(mast_table, stko_table, stpo_table,
-                 bom_alternative := '01', reference_date := '9999-12-31', bom_usage := NULL)
+sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative := '01',
+                 reference_date := '9999-12-31', bom_usage := NULL, stas_table := NULL)
   → (bom_id, parent_id, child_id, qty, unit, valid_from DATE, valid_to DATE, bom_version)
 sap_to_materials(mara_table)                          -- makt_table/language accepted, ignored
   → (material_id, material_type, material_group, description = '', created_date DATE)
@@ -133,8 +146,9 @@ extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')
 | Input column | Output | Notes |
 |---|---|---|
 | `MAST.matnr` (trimmed) | `parent_id` | leading zeros kept |
-| `STKO.stlnr` / `stlal` / `datuv` | `bom_id` / `bom_version` / `valid_from` | newest `datuv <= reference_date` per `(matnr, stlnr, stlal)` |
-| `STPO.idnrk` (trimmed), `menge`, `meins` | `child_id`, `qty`, `unit` | `valid_to` is always 9999-12-31 |
+| `STKO.stlnr` / `stlal` / `datuv` | `bom_id` / `bom_version` / `valid_from` | newest header version with `datuv <= reference_date`; dropped if it has `lkenz`/`loekz` |
+| `STPO.idnrk` (trimmed), `menge`, `meins` | `child_id`, `qty`, `unit` | per `stlkn` the version valid on `reference_date`, without `lkenz`; `valid_to` is always 9999-12-31 |
+| `STAS` (with `stas_table`) | which items stay | the alternative's newest selection row on `reference_date`, without `lkenz` |
 | `MARA.matnr/mtart/matkl/ersda` | `material_id/material_type/material_group/created_date` | rows with `lvorm` not NULL/''/' ' excluded; `ersda` YYYYMMDD, DATE or ISO |
 
 ```sql
@@ -143,7 +157,7 @@ FROM sap_to_bom_items('sap_mast', 'sap_stko', 'sap_stpo')
 ORDER BY parent_id, child_id;
 -- 100001 rows have valid_from 2024-01-01 (newest slice); 100002 has 3 components
 
--- Point in time: the 2023 view picks the 2020 header slice (same components, see gotchas).
+-- Point in time: the 2023 view picks the 2020 header slice (no item versions in this STPO).
 SELECT DISTINCT parent_id, valid_from
 FROM sap_to_bom_items('sap_mast', 'sap_stko', 'sap_stpo', reference_date := '20230101')
 ORDER BY parent_id;
@@ -161,6 +175,37 @@ ORDER BY material_id;
 ```
 
 `sap_to_materials('sap_mara')` gives the same rows with an empty `description`.
+
+A full extract: categories, item versions, deletion flags and STAS item selection.
+
+```sql
+CREATE TABLE f_mast AS SELECT * FROM (VALUES ('PUMP', '1000', '1', '0001', '01')) t(matnr, werks, stlan, stlnr, stlal);
+CREATE TABLE f_stko AS SELECT * FROM (VALUES
+  ('M', '0001', '01', '1', '20200101', NULL, NULL),
+  ('D', '0001', '01', '1', '20200101', NULL, NULL)      -- a document BOM with the same number
+) t(stlty, stlnr, stlal, stkoz, datuv, lkenz, loekz);
+CREATE TABLE f_stpo AS SELECT * FROM (VALUES
+  ('M', '0001', '1', '1', '20200101', NULL, 'MOTOR',  1.0, 'ST'),
+  ('M', '0001', '2', '1', '20200101', NULL, 'SEAL',   2.0, 'ST'),
+  ('M', '0001', '2', '2', '20240101', NULL, 'SEAL',   4.0, 'ST'),  -- newer version of item 2
+  ('M', '0001', '3', '1', '20200101', 'X',  'OLD',    1.0, 'ST'),  -- deleted item
+  ('M', '0001', '4', '1', '20200101', NULL, 'SENSOR', 1.0, 'ST'),  -- STAS removed it in 2022
+  ('D', '0001', '1', '1', '20200101', NULL, 'DRAWING', 1.0, 'ST')
+) t(stlty, stlnr, stlkn, stpoz, datuv, lkenz, idnrk, menge, meins);
+CREATE TABLE f_stas AS SELECT * FROM (VALUES
+  ('M', '0001', '01', '1', '1', '20200101', NULL),
+  ('M', '0001', '01', '2', '1', '20200101', NULL),
+  ('M', '0001', '01', '4', '1', '20200101', NULL),
+  ('M', '0001', '01', '4', '2', '20220101', 'X')
+) t(stlty, stlnr, stlal, stlkn, stasz, datuv, lkenz);
+SELECT child_id, qty
+FROM sap_to_bom_items('f_mast', 'f_stko', 'f_stpo', stas_table := 'f_stas')
+ORDER BY child_id;
+-- no DRAWING (document BOM), no OLD (deleted), no SENSOR (removed by STAS); SEAL at its newest version
+-- => MOTOR | 1.0
+-- => SEAL | 4.0
+```
+
 
 ## Dynamics 365 transforms
 
@@ -247,8 +292,11 @@ ORDER BY parent_id, child_id;
 -- => PUMP-B | SENSOR | 1.0
 ```
 
-The `items_to_*` converters go the other way. `items_table` needs `parent_id`, `child_id` and
-`quantity` (a NULL quantity counts as 1). Each returns the universal table's own columns and types;
+The `items_to_*` converters go the other way. `items_table` needs `parent_id` and `child_id`;
+`items_to_bom_component` also needs `quantity` (a NULL quantity counts as 1; for an edge list
+without one pass `(SELECT *, NULL::DOUBLE AS quantity FROM ...)` as a view). `quantity_per` is
+DECIMAL(18,6): a non-zero quantity that rounds to 0 at 6 decimals is an error, so scale tiny
+per-piece amounts (adhesive in kg) to a smaller unit first. Each returns the universal table's own columns and types;
 store the header and component output as tables and `bom_to_items` over them gives the edges back
 (and the `bom_explosion_*` / `bom_where_used` traversals can read them).
 
@@ -383,7 +431,7 @@ embed_text(description) → embedding_backend(description, 'gemma-local', '')
 ```
 
 `provider` must be `gemma-local`, `openai`, `anthropic` or `cohere` (anything else is an
-`Invalid Input Error`). `provider_config` (JSON, e.g. `{"api_key": "..."}`) is unused.
+`Invalid Input Error`). `provider_config` is not read yet; never put API keys in it. Provider names are case-insensitive.
 
 ```sql
 SELECT material_id, array_length(textual_embedding) AS dims
@@ -450,7 +498,8 @@ compute_fused_embeddings(weights_structural := 0.5, weights_textual := 0.5, weig
 | Weights | need not sum to 1; normalised (w / sum). `fusion_weights` reports the normalised values |
 | Scaling | each modality is multiplied by `sqrt(w)` then concatenated (256 + 384 + 128 = 768); two unit vectors at 0.5/0.5 give a unit vector. Use for cosine / NN only |
 | Weight 0 | modality ignored, may be NULL (zero-filled block) |
-| Weight > 0 on NULL, or all weights 0 | `compute_fused_embeddings` drops the material; `fuse_embeddings` returns NULL |
+| Weight > 0 on a NULL modality | `compute_fused_embeddings` drops the material; `fuse_embeddings` returns NULL |
+| All weights 0 | `compute_fused_embeddings` keeps the material with a NULL `combined_embedding`; `fuse_embeddings` returns NULL |
 | Wrong length | a list of the right length casts in; another length is `Conversion Error: Cannot cast list with length 2 to array with length 256` |
 | Source | `compute_fused_embeddings` reads the fixed `material_embeddings` table and returns rows; it does not write `combined_embedding` |
 

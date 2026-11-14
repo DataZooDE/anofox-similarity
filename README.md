@@ -152,8 +152,7 @@ INSERT INTO bom_items VALUES
 -- The products most similar to PUMP-A by shared components
 SELECT material_id, similarity, shared_components, total_components
 FROM find_similar_materials_jaccard('PUMP-A', 3);
--- PUMP-B | 0.75 | 3 | 4
--- PUMP-C | 0.0  | 0 | 5
+-- PUMP-B | 0.75 | 3 | 4      (PUMP-C shares nothing and is left out; min_similarity := 0 keeps it)
 ```
 
 A new product has no sales history. Find its predecessor from consumption that declines while
@@ -278,7 +277,9 @@ this whole area.
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position: give them in the
 documented order. Table functions bind by name. All functions work on a read-only database except
 `compute_fused_embeddings` and `compute_transactional_embeddings`, which read the embedding tables
-LOAD creates only on a writable database (open it writable once). Run the SQL in the guides and examples from the
+LOAD creates only on a writable database (open it writable once). On a writable database LOAD
+creates four tables (`material_embeddings`, ...) and, with `vss`, three HNSW indexes in your catalog;
+see [conventions](docs/api/00-conventions.md#read-only-databases) for the list and how to keep a file clean. Run the SQL in the guides and examples from the
 repository root: their data paths (`test/data/...`) are relative to it.
 
 ## 🌍 Multi-Language Support

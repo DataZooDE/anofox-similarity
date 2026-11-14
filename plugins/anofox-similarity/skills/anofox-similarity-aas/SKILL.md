@@ -109,7 +109,7 @@ work unchanged. NULL input → NULL. Inputs: Part 1 JSON (Environment, a single 
 | `xs:boolean` | `category` = `'true'` / `'false'` |
 | `xs:string` code (`IP65`, `EtherCAT`) | `category` = text; `"24 V DC"` parsed as a quantity |
 | SubmodelElementList of values | one attribute per value (`Protocol[0]`, `Protocol[1]`) |
-| MultiLanguageProperty, File, Blob, references, Operation, events | not mapped |
+| MultiLanguageProperty, File, Blob, references, Operation, events | not mapped (a text or MultiLanguageProperty without any semanticId → `aas_issues` `unmapped_text`) |
 
 - `node_id` = idShort path (`CapabilityDescription.CapabilitySet.XContainer`, `[i]` for lists);
   `context` = parent path. `attr_id` = idShort (PropertyContainer's for IDTA-02020).
@@ -160,6 +160,7 @@ Same arguments and reading as `aas_to_trees`; `path` is the idShort path, submod
 | `bad_value` | warning | value does not parse as its valueType (`"n/a"` in `xs:double`, `"1,500"`) — kept as a gap |
 | `empty_value` | warning | numeric Property / Range without value — a gap |
 | `decimal_comma` | info | `"6,0"` read as 6.0 |
+| `unmapped_text` | info | text Property (no code, no quantity) or MultiLanguageProperty without any semanticId: left out of the tree. The candidates for `suggest_semantic_id`; not counted in `aas_quality.n_issues` |
 | `missing_concept_description` | warning | no dictionary entry: unit unknown (`validate_trees` → `unknown_unit`) |
 | `ambiguous_concept_description` | warning | no CD for this release, others disagree on unit |
 | `unknown_unit_id` | warning | unitId not in `unit_table`; unit text used |
@@ -187,6 +188,15 @@ FROM (SELECT unnest(aas_issues(content, NULL,
           (SELECT list(u) FROM read_csv('test/data/aas/scenario/eclass_units.csv') u)), recursive := true)
       FROM read_blob('test/data/aas/scenario/offers/*')) i
 ORDER BY ALL;
+```
+
+```sql
+-- uncoded text values: what a mapping review or suggest_semantic_id should look at
+SELECT i.path, i.detail
+FROM (SELECT unnest(aas_issues(content)) AS i
+      FROM read_text('test/data/aas/scenario/enrichment/nordwerk_nd5.aas.json'))
+WHERE i.issue = 'unmapped_text' AND i.path LIKE '%Feldbus%';
+-- => TechnicalData.TechnicalProperties.Feldbusschnittstelle | Feldbusschnittstelle = 'EtherCAT' has no semanticId: kept out of the tree (descriptive text); give it a dictionary id (suggest_semantic_id) if it should be compared
 ```
 
 ## `aas_quality` — per-submodel data quality report

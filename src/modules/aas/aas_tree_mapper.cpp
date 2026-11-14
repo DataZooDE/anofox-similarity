@@ -756,8 +756,42 @@ private:
 				MapCollection(c, parent, child_path, role);
 			} else if (c.model_type == "Capability") {
 				MapCapability(c, parent, child_path);
+			} else {
+				ReportUnmappedText(c, child_path);
 			}
 		}
+	}
+
+	//! A stated text without any dictionary id (a Property that is no code or quantity, or a
+	//! MultiLanguageProperty) is descriptive and not compared. Report it, so a quality check sees it
+	//! and suggest_semantic_id can propose an id. Template submodels state no values.
+	void ReportUnmappedText(const AasElement &e, const std::string &path) {
+		if (in_template || !DictionaryId(e).empty()) {
+			return;
+		}
+		std::string text;
+		if (e.model_type == "Property") {
+			auto type = Lower(e.value_type);
+			if (IsCountProperty(e) || !e.value_id.empty() || type == "xs:boolean" || IsNumericXsdType(type)) {
+				return;
+			}
+			text = Trim(e.value);
+		} else if (e.model_type == "MultiLanguageProperty") {
+			for (auto &lv : e.lang_values) {
+				if (!Trim(lv.second).empty()) {
+					text = Trim(lv.second);
+					break;
+				}
+			}
+		} else {
+			return; // File, Blob, references, relations: not values
+		}
+		if (text.empty()) {
+			return;
+		}
+		Issue(tree_id, path, "unmapped_text", "info",
+		      Label(e) + " = '" + text + "' has no semanticId: kept out of the tree (descriptive text); give it a "
+		      "dictionary id (suggest_semantic_id) if it should be compared");
 	}
 
 	void MapCollection(const AasElement &e, idx_t parent, const std::string &path, const std::string &role) {

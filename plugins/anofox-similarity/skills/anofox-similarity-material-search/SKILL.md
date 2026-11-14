@@ -53,9 +53,14 @@ and `examples/predecessors_cold_start/`.
 - **Caps:** WL `iterations` is exact for 1–5 and capped at 5 (`iterations := 50` = 5).
   `max_depth` of `bom_explosion_multilevel` (default 10) and `bom_dfs_neighborhood` (default 3) is
   clamped to 64 — deeper BOMs are silently truncated, no error.
-- **Searches fill `k` rows with zero-similarity materials** (the query itself is excluded). Filter
-  with `min_similarity`. Unknown material id → empty result, no error. Candidates are every
-  `parent_id` in the BOM table, subassemblies included.
+- **Fewer than `k` rows, or none, means nothing else shares a component.** Without
+  `min_similarity` the searches leave out materials scoring 0; `min_similarity := 0.0` brings them
+  back (ties by material id). The query itself is excluded. Unknown material id → empty result, no
+  error. Candidates are every `parent_id` in the BOM table, subassemblies included, so a parent
+  that *contains* the query's subassembly can rank high in the WL kernel; filter top-level
+  materials yourself when you want peers only.
+- **The WL kernel is much slower than Jaccard on large BOM tables** (about 85 s against 1 s on a
+  4.7 M-edge SAP extract). Start with Jaccard; use WL for the shortlist.
 - **Read-only databases work.** All functions in this skill, macros included, are available on a
   read-only database; table functions just cannot write — `CREATE TABLE ... AS SELECT` elsewhere.
 
@@ -177,7 +182,7 @@ SELECT * FROM wl_fingerprint('PUMP-C', 3, 'bom_items') ORDER BY component;
 
 ```text
 find_similar_materials_jaccard(material_id VARCHAR, k BIGINT,
-    bom_table := 'bom_items', min_similarity := 0.0, mode := 'jaccard')
+    bom_table := 'bom_items', min_similarity := NULL, mode := 'jaccard')
   → TABLE(material_id VARCHAR, similarity DOUBLE, shared_components BIGINT, total_components BIGINT)
 ```
 
@@ -185,7 +190,7 @@ find_similar_materials_jaccard(material_id VARCHAR, k BIGINT,
 |---|---|---|
 | `material_id`, `k` | required, positional | query excluded from output; ties ordered by material id |
 | `bom_table` | `'bom_items'` | needs `parent_id`, `child_id` (else a Binder Error naming the missing column) |
-| `min_similarity` | 0.0 | drop weak matches (the search otherwise fills `k` rows with 0.0) |
+| `min_similarity` | NULL | drop weak matches; without it rows scoring 0 are left out, `0.0` keeps them |
 | `mode` | `'jaccard'` | `'containment'` = share of the query's components the candidate has; ties by Jaccard. Anything else → Binder Error |
 
 `total_components` = size of the union. Exact brute force over all BOMs; counts components, not
@@ -203,7 +208,7 @@ FROM find_similar_materials_jaccard('PUMP-A', 5, mode := 'containment', min_simi
 
 ```text
 find_similar_materials_wl_kernel(material_id VARCHAR, k BIGINT,
-    bom_table := 'bom_items', min_similarity := 0.0, iterations := 3)
+    bom_table := 'bom_items', min_similarity := NULL, iterations := 3)
   → TABLE(material_id VARCHAR, similarity DOUBLE)
 ```
 
@@ -293,7 +298,7 @@ ORDER BY s.similarity DESC;
 
 ```text
 cold_start_analogs(material_id VARCHAR, k BIGINT,  -- both positional
-    min_history_months := 0, min_similarity := 0.0,
+    min_history_months := 0, min_similarity := NULL,
     bom_table := 'bom_items', movements_table := 'goods_movements')
   → TABLE(material_id VARCHAR, similarity DOUBLE, shared_components BIGINT, total_components BIGINT,
           history_months BIGINT, first_usage DATE, last_usage DATE)

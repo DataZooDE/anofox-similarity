@@ -122,6 +122,9 @@ std::vector<SubmodelQuality> AssessAasQuality(const AasEnvironment &env, const A
 			if (issue.submodel_id != q.submodel_id) {
 				continue;
 			}
+			if (issue.issue == "unmapped_text") {
+				continue; // values without an id, counted by n_values - n_with_semantic_id already
+			}
 			q.n_issues++;
 			if (issue.issue == "bad_value") {
 				q.n_unparseable++;

@@ -26,7 +26,6 @@ SELECT material_id, similarity, shared_components, total_components
 FROM find_similar_materials_jaccard('PUMP-A', 3);
 ----
 PUMP-B	0.75	3	4
-PUMP-C	0.0	0	5
 
 statement ok
 CREATE OR REPLACE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);

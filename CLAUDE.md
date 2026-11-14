@@ -48,7 +48,7 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 4. `make check-docs` and `make test` must pass.
 
 Bump the plugin `version` in `plugin.json`, each SKILL.md `version` and the `**Extension:**` header
-lines to the CalVer of each release (`vYYYY.MM.DD`). `check-docs` checks that plugin.json and the
+lines to the CalVer of each release (`vYYYY.MM.DD`), and the newest heading of `docs/UPGRADING.md`. `check-docs` checks that plugin.json and the
 SKILL.md versions are equal, not that they match the tag.
 
 Result comments in skill SQL can be asserted with `-- => a | b | c` lines (the last statement's

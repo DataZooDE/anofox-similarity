@@ -61,7 +61,12 @@ static const DefaultTableMacro DYNAMICS365_TO_BOM_HEADER_MACRO = {
 		LEFT JOIN (
 			SELECT * FROM query_table(bom_version)
 			QUALIFY row_number() OVER (PARTITION BY BOMId
-			        ORDER BY ApprovedStatus = 1 DESC NULLS LAST, ActivationDate DESC NULLS LAST, VersionId DESC) = 1
+			        -- dates and version numbers compared as values, not text ('2024-1-5' < '2024-01-10',
+			        -- 'V9' < 'V10'); valid_from casts the same column
+			        ORDER BY ApprovedStatus = 1 DESC NULLS LAST,
+			                 TRY_CAST(ActivationDate AS DATE) DESC NULLS LAST,
+			                 TRY_CAST(regexp_extract(VersionId::VARCHAR, '(\d+)\D*$', 1) AS BIGINT) DESC NULLS LAST,
+			                 VersionId DESC) = 1
 		) bv ON bt.BOMId = bv.BOMId
 		WHERE bt.Status = 0)"};
 
@@ -98,7 +103,7 @@ void RegisterDynamics365TransformationMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM dynamics365_to_materials(invent_table := 'InventTable')")});
 	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_HEADER_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate.")
+	                .Describe("Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate (as a date), then the highest trailing number in VersionId.")
 	                .Example("SELECT * FROM dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')")});
 	reg.RegisterTableMacro(DYNAMICS365_TO_BOM_COMPONENT_MACRO,
 	           {ddoc::Doc()

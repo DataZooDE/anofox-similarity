@@ -80,7 +80,7 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
 | SubmodelElementList children without valueType / semanticId | take `valueTypeListElement` / `semanticIdListElement` |
 | `Property` `xs:string` with a quantity and unit ("24 V DC") | parsed like `parse_quantity` |
 | SubmodelElementList of values | one attribute per value, named and keyed by the list |
-| descriptive text, MultiLanguageProperty, File, Blob, references | not mapped |
+| descriptive text, MultiLanguageProperty, File, Blob, references | not mapped; a text or MultiLanguageProperty without any semanticId is reported (`unmapped_text`, info) |
 
 - `node_id` is the idShort path (`TechnicalData.TechnicalProperties`, `[i]` for list entries).
   `context` is the parent's path.
@@ -121,6 +121,7 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `bad_value` | warning | a value that does not parse as its `valueType` (`"n/a"` in an `xs:double`, `"yes"` in an `xs:boolean`, `"1.5"` in an `xs:int`, the ambiguous `"1,500"`). The attribute keeps its text and shows up as a gap |
 | `empty_value` | warning | a numeric Property or Range without a value: kept as a gap |
 | `decimal_comma` | info | `"6,0"` in an `xs:double`, read as `6.0` |
+| `unmapped_text` | info | a text Property (no code, no quantity) or MultiLanguageProperty without any semanticId: descriptive text, left out of the tree. These are the names to give a dictionary id (`suggest_semantic_id`); `aas_quality.n_issues` does not count them |
 | `ambiguous_concept_description` | warning | no ConceptDescription for this release, and the other releases disagree on the unit |
 | `assumed_dimensionless` | info | the dictionary entry states no unit: the value is a count |
 | `duplicate_id_short` | warning | two siblings share an idShort; the second is kept as `X~2` |
@@ -566,7 +567,7 @@ SELECT * FROM aas_coverage_result('trace', id_prefix := 'urn:acme:results:');
 
 *Scalar function*
 
-Data quality of an AAS input per submodel, without the coverage kernel: LIST of STRUCT(tree_id, submodel_id, submodel, kind, n_values (Property, Range, MultiLanguageProperty), n_with_semantic_id, semantic_id_share, n_missing_concept_description, n_unresolved_units (numbers whose unit is unknown), n_unparseable (bad_value), n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues). The counts come from the same reading as aas_to_trees and aas_issues. unit_table as in parse_quantity.
+Data quality of an AAS input per submodel, without the coverage kernel: LIST of STRUCT(tree_id, submodel_id, submodel, kind, n_values (Property, Range, MultiLanguageProperty), n_with_semantic_id, semantic_id_share, n_missing_concept_description, n_unresolved_units (numbers whose unit is unknown), n_unparseable (bad_value), n_mixed_releases (concepts referenced in more than one dictionary release in the input), n_issues (aas_issues findings except unmapped_text, which n_values - n_with_semantic_id already counts)). The counts come from the same reading as aas_to_trees and aas_issues. unit_table as in parse_quantity.
 
 ```sql
 aas_quality(content BLOB) → STRUCT(tree_id VARCHAR, submodel_id VARCHAR, submodel VARCHAR, kind VARCHAR, n_values BIGINT, n_with_semantic_id BIGINT, semantic_id_share DOUBLE, n_missing_concept_description BIGINT, n_unresolved_units BIGINT, n_unparseable BIGINT, n_mixed_releases BIGINT, n_issues BIGINT)[]

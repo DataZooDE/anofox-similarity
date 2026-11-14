@@ -1,0 +1,148 @@
+# name: test/sql/hardening/crew_full_review.test
+# description: Regression guards for the crew review and the exploratory user tests of the plugin release
+# group: [hardening]
+
+require anofox_similarity
+
+statement ok
+PRAGMA enable_verification
+
+# ------------------------------------------------------------------------------
+# Material searches leave out rows scoring 0 unless min_similarity is given: k rows of 0.0
+# read like a result. min_similarity := 0 keeps them.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE z_bom AS SELECT * FROM (VALUES
+  ('A', 'x'), ('A', 'y'), ('B', 'x'), ('C', 'z')) t(parent_id, child_id);
+
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('A', 5, bom_table := 'z_bom');
+----
+B	0.5
+
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('A', 5, bom_table := 'z_bom', min_similarity := 0);
+----
+B	0.5
+C	0.0
+
+query TR
+SELECT material_id, similarity FROM find_similar_materials_jaccard('A', 5, bom_table := 'z_bom', mode := 'containment');
+----
+B	0.5
+
+# an explicit NULL is the default
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('A', 5, bom_table := 'z_bom', min_similarity := NULL);
+----
+1
+
+query T
+SELECT material_id FROM find_similar_materials_wl_kernel('A', 5, bom_table := 'z_bom');
+----
+B
+
+query I
+SELECT count(*) FROM find_similar_materials_wl_kernel('A', 5, bom_table := 'z_bom', min_similarity := 0);
+----
+2
+
+# a query whose components nobody shares gives no rows
+query I
+SELECT count(*) FROM find_similar_materials_jaccard('C', 5, bom_table := 'z_bom');
+----
+0
+
+# ------------------------------------------------------------------------------
+# items_to_bom_component: a non-zero quantity that rounds to 0 in DECIMAL(18,6) is an error,
+# not a silent 0. 0.0000005 rounds up and is kept; 0 stays 0.
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE tiny AS SELECT * FROM (VALUES ('P', 'GLUE', 0.0000004)) t(parent_id, child_id, quantity);
+
+statement error
+SELECT * FROM items_to_bom_component('tiny');
+----
+rounds to 0 at 6 decimals
+
+statement ok
+CREATE TABLE small AS SELECT * FROM (VALUES ('P', 'GLUE', 0.0000005), ('P', 'NONE', 0.0)) t(parent_id, child_id, quantity);
+
+query TT
+SELECT child_material_id, quantity_per FROM items_to_bom_component('small') ORDER BY 1;
+----
+GLUE	0.000001
+NONE	0.000000
+
+# ------------------------------------------------------------------------------
+# dynamics365_to_bom_header: text ActivationDate values compare as dates, not as text
+# ('2024-1-5' < '2024-01-10'), and VersionId numbers as numbers ('V9' < 'V10').
+# ------------------------------------------------------------------------------
+statement ok
+CREATE TABLE dv_bomtable AS SELECT * FROM (VALUES ('B1', 'PUMP', 0), ('B2', 'FAN', 0)) t(BOMId, ItemId, Status);
+
+statement ok
+CREATE TABLE dv_bomversion AS SELECT * FROM (VALUES
+  ('B1', 'V1', '2024-1-5', 1),
+  ('B1', 'V2', '2024-01-10', 1),
+  ('B2', 'V9', '2024-03-01', 1),
+  ('B2', 'V10', '2024-03-01', 1)) t(BOMId, VersionId, ActivationDate, ApprovedStatus);
+
+query TTT
+SELECT bom_id, revision, valid_from FROM dynamics365_to_bom_header(bom_table := 'dv_bomtable', bom_version := 'dv_bomversion')
+ORDER BY 1;
+----
+B1	V2	2024-01-10
+B2	V10	2024-03-01
+
+# ------------------------------------------------------------------------------
+# fuse_embeddings normalises the weights in double: two huge FLOAT weights no longer sum to inf
+# and zero the vector; they give the same result as two equal unit weights.
+# ------------------------------------------------------------------------------
+query I
+SELECT fuse_embeddings(s, t, NULL, {'structural': 3e38, 'textual': 3e38, 'transactional': 0.0}::STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT))
+     = fuse_embeddings(s, t, NULL, {'structural': 1.0, 'textual': 1.0, 'transactional': 0.0}::STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT))
+FROM (SELECT (SELECT list(1.0::FLOAT) FROM range(256))::FLOAT[256] AS s, embed_text('pump') AS t);
+----
+true
+
+# ------------------------------------------------------------------------------
+# embedding_backend: provider names are case-insensitive and blanks around them are ignored.
+# provider_config is not read, so an api_key in it changes nothing.
+# ------------------------------------------------------------------------------
+query I
+SELECT embedding_backend('pump', ' OpenAI ', '') = embedding_backend('pump', 'openai', '{"api_key": "x"}');
+----
+true
+
+statement error
+SELECT embedding_backend('pump', 'open ai', '');
+----
+unknown provider 'open ai'
+
+# ------------------------------------------------------------------------------
+# check_statistics_freshness: is_fresh needs 30 rows and the newest one updated within 7 days
+# (the documented rule; 29 old rows plus one new row count as fresh).
+# ------------------------------------------------------------------------------
+statement ok
+INSERT INTO transactional_embedding_statistics
+  (feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples, updated_at, version)
+SELECT 'f' || i, i, 'basic', 0, 1, 0, 1, 10,
+       CASE WHEN i = 0 THEN now()::TIMESTAMP ELSE now()::TIMESTAMP - INTERVAL 400 DAY END, 1
+FROM range(30) t(i);
+
+query IT
+SELECT stat_count, is_fresh FROM check_statistics_freshness();
+----
+30	true
+
+statement ok
+DELETE FROM transactional_embedding_statistics WHERE feature_name = 'f0';
+
+query IT
+SELECT stat_count, is_fresh FROM check_statistics_freshness();
+----
+29	false
+
+statement ok
+DELETE FROM transactional_embedding_statistics;

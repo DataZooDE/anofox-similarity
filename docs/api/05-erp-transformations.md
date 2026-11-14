@@ -10,7 +10,7 @@
 
 Convert SAP-format BOM to universal schema.
 
-**sap_to_bom_items** - Convert MAST/STKO/STPO to universal BOM schema:
+**sap_to_bom_items** - Convert MAST/STKO/STPO (and optionally STAS) to flat BOM edges:
 ```sql
 sap_to_bom_items(
     mast_table VARCHAR,
@@ -18,7 +18,8 @@ sap_to_bom_items(
     stpo_table VARCHAR,
     bom_alternative := '01',
     reference_date := '9999-12-31',
-    bom_usage := NULL
+    bom_usage := NULL,
+    stas_table := NULL
 ) → TABLE (
     bom_id VARCHAR,
     parent_id VARCHAR,
@@ -36,30 +37,42 @@ sap_to_bom_items(
 |-----------|------|---------|-------------|
 | `mast_table` | VARCHAR | Required | MAST table (material-BOM link) |
 | `stko_table` | VARCHAR | Required | STKO table (BOM header) |
-| `stpo_table` | VARCHAR | Required | STPO table (BOM components) |
-| `bom_alternative` | VARCHAR | '01' | BOM alternative to extract |
-| `reference_date` | VARCHAR | '9999-12-31' | Validity reference date |
-| `bom_usage` | VARCHAR | NULL | Reserved — accepted but **not currently applied** as a filter |
+| `stpo_table` | VARCHAR | Required | STPO table (BOM items) |
+| `bom_alternative` | VARCHAR | '01' | BOM alternative (`stlal`) to extract |
+| `reference_date` | VARCHAR or DATE | '9999-12-31' | Header, item and selection versions valid on this date (`YYYYMMDD` or `YYYY-MM-DD`; anything else is an error) |
+| `bom_usage` | VARCHAR | NULL | Keep only MAST rows with this `stlan` (NULL: every usage) |
+| `stas_table` | VARCHAR | NULL | STAS table: apply the item selection of the alternative |
 
-**Input columns** (other columns are ignored; a missing one is a Binder Error naming it):
+**Input columns.** The required columns must exist (a missing one is a Binder Error naming it).
+Every optional column is used when the table has it, so a minimal extract works and a full SAP
+extract gets the SAP rules:
 
-| Table | Columns read | Used for |
-|-------|--------------|----------|
-| MAST | `matnr`, `stlnr` | `parent_id` (trimmed), link to the BOM number (filter `stlan` yourself) |
-| STKO | `stlnr`, `stlal`, `datuv` | `bom_id`, `bom_version`, `valid_from`; the newest `datuv <= reference_date` per `(matnr, stlnr, stlal)` |
-| STPO | `stlnr`, `idnrk`, `menge`, `meins` | `child_id` (trimmed), `qty`, `unit` (no `stlkn` needed) |
+| Table | Required | Optional, used when present |
+|-------|----------|-----------------------------|
+| MAST | `matnr`, `stlnr` | `stlal` (must equal `bom_alternative`), `stlan` (required with `bom_usage`) |
+| STKO | `stlnr`, `stlal` | `stlty` (only `'M'`, material BOMs), `datuv` + `stkoz` (header version), `lkenz`, `loekz` (deleted header) |
+| STPO | `stlnr`, `idnrk`, `menge`, `meins` | `stlty` (only `'M'`), `stlkn` + `datuv` + `stpoz` (item version), `lkenz` (deleted item) |
+| STAS | `stlnr`, `stlal`, `stlkn` (with `stas_table`) | `stlty`, `datuv` + `stasz` (selection version), `lkenz` (item removed from the alternative) |
+
+**Rules:**
+
+- **Category.** SAP numbers BOMs per category, so a document BOM (`stlty = 'D'`) can share
+  `stlnr` with a material BOM. With `stlty`, only material BOMs are read.
+- **Alternative.** The material's MAST row and the STKO header must both be of `bom_alternative`.
+- **Versions.** Of the header versions with `datuv <= reference_date`, the newest (then the highest
+  `stkoz`) is used; it gives `valid_from`, and the BOM is dropped when that version has `lkenz` or
+  `loekz` set. Items are versioned the same way per item node `stlkn` (`stpoz` breaks ties): an
+  item whose valid version is deleted (`lkenz`) or that starts after `reference_date` is left out.
+- **Item selection (STAS).** With `stas_table`, an item is kept only when the alternative selects it:
+  its newest STAS row for the alternative on `reference_date` exists and has no `lkenz`. Without
+  STAS, every item of the BOM number is returned, whichever alternative it belongs to.
+- **Plants** collapse: a material with the same BOM in several plants gives one set of rows.
+- `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
 
 > [!NOTE]
-> SAP dates (`STKO.datuv`, `reference_date`) may be passed as `YYYYMMDD` strings or ISO `YYYY-MM-DD`;
-> both are parsed. `valid_from` is derived from the selected header's `datuv`. `bom_usage` is a
-> placeholder and does not yet filter results.
->
-> **Limitations:** `reference_date` selects the applicable STKO **header** slice (and thus
-> `valid_from`), but the component set is joined by BOM number only, so it does not change the
-> component composition. Likewise, `bom_alternative` filters the header; if one BOM number (`stlnr`)
-> carries several alternatives, all of their STPO components are returned. These require SAP STAS
-> resolution, which this macro does not model — provide STPO already scoped to one alternative.
-> `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
+> On a real SAP extract the rules matter: on the test extract in `test/data/sap`, joining by BOM
+> number alone returned document and class BOM items and items that STAS had removed. Pass
+> `stas_table` whenever you have STAS.
 
 **sap_to_materials** - Extract materials from MARA. Requires MARA columns `matnr`, `mtart`, `matkl`,
 `ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). `ersda` may be SAP
@@ -92,7 +105,7 @@ extract_material_descriptions(
 **Example:**
 ```sql
 -- Convert SAP BOM to universal format
-SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', bom_alternative := '01');
 
 -- Extract materials with descriptions
 SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
@@ -147,18 +160,19 @@ CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_comp
 
 ### `sap_to_bom_items`
 
-*Table macro*
+*Table function*
 
-Converts the SAP MAST/STKO/STPO trio into the universal BOM shape. 'bom_alternative' picks the alternative BOM, 'reference_date' selects the version valid on that date, and 'bom_usage' is accepted but not applied yet (every usage is returned; filter on MAST.STLAN yourself). Quantity passes through the source MENGE column's type, which is DECIMAL in SAP -- cast if you need DOUBLE.
+Converts SAP MAST/STKO/STPO (and optionally STAS) into flat BOM edges (bom_id, parent_id, child_id, qty, unit, valid_from, valid_to, bom_version). Needs MAST matnr, stlnr; STKO stlnr, stlal; STPO stlnr, idnrk, menge, meins. Each further SAP column is used when the table has it: stlty keeps material BOMs (M) only; MAST.stlal must equal bom_alternative (default '01', also matched on STKO.stlal); datuv picks the STKO header and, per STPO item node stlkn, the item version valid on reference_date (YYYYMMDD or a date, default 9999-12-31), stkoz / stpoz breaking ties; a header version with lkenz or loekz set and an item version with lkenz set are dropped. bom_usage filters MAST.stlan. stas_table := 'STAS' applies the item selection: an item is kept only when its newest STAS row for the alternative on reference_date exists and is not deleted (lkenz). Plants collapse to one row per material and BOM. qty keeps the MENGE type.
 
 ```sql
-sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage)
+sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative, reference_date, bom_usage, stas_table)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', bom_alternative := '01');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO');
+SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', reference_date := '2024-01-01', bom_usage := '1');
 ```
 
 ### `sap_to_materials`
@@ -213,7 +227,7 @@ SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language :
 
 *Table macro*
 
-Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate.
+Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate (as a date), then the highest trailing number in VersionId.
 
 ```sql
 dynamics365_to_bom_header(bom_table, bom_version)

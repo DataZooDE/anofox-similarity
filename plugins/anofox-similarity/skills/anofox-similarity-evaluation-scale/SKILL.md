@@ -6,7 +6,8 @@ description: >
   `weighted_minhash`, `minhash_similarity`, `lsh_bands`, `minhash_index`, `minhash_bands`,
   `find_covering_entities_lsh`; dedup clustering with `connected_components`, `cluster_matches`.
   Use when asking "how good is my matching", "auto-accept threshold at 95 % precision", "confidence
-  interval per customer", "tune label_weight / mu", "is LSH worth it", or "merge duplicate records".
+  interval per customer", "tune label_weight / mu", "is LSH worth it", "merge duplicate records", or
+  "deduplicate the customer / supplier / plant master" (cluster scored pairs into entities).
 version: 2026.11.13
 user-invocable: false
 ---
@@ -61,6 +62,16 @@ their output.
 - **Clustering is transitive.** One bad pair above the threshold merges two clusters. Block
   strictly; entities that occur only in pairs below the threshold still appear as singletons, but
   records with no pair at all are absent — add a self-pair `(id, id, 1.0)`.
+- **The extension clusters pairs; it does not score records.** For customer / supplier / plant
+  dedup there is no name or address normaliser: block (same country and postal code, same tax
+  id), score the pairs with DuckDB's `jaro_winkler_similarity` / `levenshtein` on normalised
+  names (strip legal forms such as GmbH, AG, & Co. KG) plus exact matches on tax id and street,
+  then `cluster_matches`. Without labelled pairs, check the merges of a sample by hand.
+- **Tables can be read from an attached database**, also a `READ_ONLY` one:
+  `minhash_index(feature_table := 's.programme_class_multiset')`. Results must still be written
+  to a writable (temp) table.
+- **LSH has no self-exclusion.** A query that is also in the index usually returns itself, but with
+  ties at an estimate of 1.0 not always first: ask for `k + 1` and drop `entity_id = query_id`.
 
 ## Input formats
 
