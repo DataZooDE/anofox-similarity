@@ -4,7 +4,7 @@ description: >
   ERP extraction and embedding pipeline for the anofox_similarity DuckDB extension: SAP
   (`sap_to_bom_items`, `sap_to_materials_with_desc`, `extract_material_descriptions`) and
   Dynamics 365 (`dynamics365_to_bom_header`, `dynamics365_to_bom_component`) transforms,
-  `bom_to_items` / `items_to_bom`, helpers, MinHash/textual/transactional embeddings,
+  `bom_to_items` / `items_to_materials` / `items_to_bom_header` / `items_to_bom_component`, helpers, MinHash/textual/transactional embeddings,
   `fuse_embeddings` / `compute_fused_embeddings`, statistics and the material_embeddings table.
   Use when loading MARA/MAKT/MAST/STKO/STPO or D365 BOM tables, mapping your own ERP columns,
   building or fusing material embeddings, or checking the anofox-forecast dependency.
@@ -26,21 +26,22 @@ every similarity search reads, and builds per-material vectors in `material_embe
 
 - **Textual embeddings are a placeholder.** No language model ships. `compute_textual_embeddings`,
   `embed_text` and `embedding_backend` return a deterministic *hash* vector for every provider
-  (`gemma-local`, `openai`, `anthropic`, `cohere`, even an unknown name); similar texts do **not** get
+  (`gemma-local`, `openai`, `anthropic`, `cohere`; any other name is an error); similar texts do **not** get
   similar vectors (`'centrifugal pump'` vs `'centrifugal pumps'`: cosine -0.59). Plumbing only; for
   semantics bring your own model's vectors as a table and fuse (`fuse_embeddings`) or classify with them.
 - **Language keys differ by function.** `sap_to_materials_with_desc` defaults to `'E'` (SAP's one-char
   `SPRAS`); `extract_material_descriptions` and `compute_textual_embeddings` default to `'EN'`. On a
   real MAKT, `'EN'` matches nothing and returns **0 rows, no error**: pass `language := 'E'`.
-- **SAP dates are `YYYYMMDD` strings.** `sap_to_bom_items` parses `STKO.datuv` and `reference_date` as
-  `YYYYMMDD` *or* ISO. `sap_to_materials` parses `MARA.ersda` **only** as `YYYYMMDD` (string or
-  integer): an `ersda` already typed `DATE` gives `created_date = NULL`.
+- **Embeddings are `FLOAT[n]` arrays** (`FLOAT[384]` textual, `FLOAT[128]` transactional/Jaccard,
+  `FLOAT[256]` structural, `FLOAT[768]` fused), the type vss HNSW indexes take: compare with
+  `array_cosine_distance` / `array_distance`, not the `list_*` functions. A list of the right length
+  casts in; a wrong length is a `Conversion Error`, not NULL.
 - **MAKT duplicates are collapsed.** Several MAKT rows per `(matnr, spras)` (one per client/MANDT)
   become one row per material (an arbitrary one, via `ANY_VALUE`). Filter `mandt` first if it matters.
-- **Required columns are stricter than the docs' table sketch.** MARA needs `matnr, mtart, matkl, ersda,
-  lvorm`; MAKT needs `matnr, spras, maktx` **and `maktg`** for `extract_material_descriptions` /
-  `compute_textual_embeddings`; STPO needs `stlnr, stlkn, idnrk, menge, meins` (`stlkn` is read even
-  though it is not output). A missing column is a Binder Error naming it.
+- **Required columns.** MARA needs `matnr, mtart, matkl, ersda, lvorm` (`ersda` as `YYYYMMDD` text,
+  `DATE` or ISO string); MAKT needs `matnr, spras, maktx` **and `maktg`** for
+  `extract_material_descriptions` / `compute_textual_embeddings`; MAST `matnr, stlnr`; STKO
+  `stlnr, stlal, datuv`; STPO `stlnr, idnrk, menge, meins`. A missing column is a Binder Error naming it.
 - **Transforms emit the universal schema and write nothing** (wrap in `CREATE TABLE ... AS`).
   `sap_to_bom_items` is already flat but names the quantity `qty`, typed like MENGE (DECIMAL); rename
   and cast to `quantity`. The D365 macros emit `bom_header` + `bom_component`: flatten with `bom_to_items`.
@@ -54,7 +55,8 @@ every similarity search reads, and builds per-material vectors in `material_embe
   (structural + textual): bring structural vectors or set `weights_structural := 0`. A positive weight
   on a NULL modality silently drops the material from `compute_fused_embeddings`.
 - **Loading the extension writes to a writable database file** (four tables + three HNSW indexes);
-  a read-only database gets none, so functions reading them fail there (see the tables section).
+  a read-only database gets none, so `compute_fused_embeddings` (Catalog Error) and
+  `compute_transactional_embeddings` (clear error) fail there; open the file writable once.
 
 ## SAP sample tables (used by the examples below)
 
@@ -100,12 +102,12 @@ CREATE TABLE sap_stko AS SELECT * FROM (VALUES
 
 ```sql
 CREATE TABLE sap_stpo AS SELECT * FROM (VALUES
-  ('00000001', '00000001', '000000000000200001', 2.000::DECIMAL(13,3), 'ST'),
-  ('00000001', '00000002', '000000000000200002', 1.000::DECIMAL(13,3), 'ST'),
-  ('00000002', '00000001', '000000000000200001', 2.000::DECIMAL(13,3), 'ST'),
-  ('00000002', '00000002', '000000000000200002', 1.000::DECIMAL(13,3), 'ST'),
-  ('00000002', '00000003', '000000000000200003', 1.000::DECIMAL(13,3), 'ST')
-) t(stlnr, stlkn, idnrk, menge, meins);
+  ('00000001', '000000000000200001', 2.000::DECIMAL(13,3), 'ST'),
+  ('00000001', '000000000000200002', 1.000::DECIMAL(13,3), 'ST'),
+  ('00000002', '000000000000200001', 2.000::DECIMAL(13,3), 'ST'),
+  ('00000002', '000000000000200002', 1.000::DECIMAL(13,3), 'ST'),
+  ('00000002', '000000000000200003', 1.000::DECIMAL(13,3), 'ST')
+) t(stlnr, idnrk, menge, meins);
 ```
 
 ## SAP transforms
@@ -127,7 +129,7 @@ extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')
 | `MAST.matnr` (trimmed) | `parent_id` | leading zeros kept |
 | `STKO.stlnr` / `stlal` / `datuv` | `bom_id` / `bom_version` / `valid_from` | newest `datuv <= reference_date` per `(matnr, stlnr, stlal)` |
 | `STPO.idnrk` (trimmed), `menge`, `meins` | `child_id`, `qty`, `unit` | `valid_to` is always 9999-12-31 |
-| `MARA.matnr/mtart/matkl/ersda` | `material_id/material_type/material_group/created_date` | rows with `lvorm` not NULL/''/' ' excluded |
+| `MARA.matnr/mtart/matkl/ersda` | `material_id/material_type/material_group/created_date` | rows with `lvorm` not NULL/''/' ' excluded; `ersda` YYYYMMDD, DATE or ISO |
 
 ```sql
 SELECT bom_id, parent_id, child_id, qty, valid_from
@@ -165,7 +167,8 @@ dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
      reads BOMTable(BOMId, ItemId, Status), BOMVersion(BOMId, VersionId, ActivationDate, ApprovedStatus)
   → (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
      revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
-     keeps Status = 0; LEFT JOINs every BOMVersion row; is_approved = (ApprovedStatus = 1)
+     keeps Status = 0; one header per BOM: ApprovedStatus = 1 first, then latest ActivationDate;
+     is_approved = (ApprovedStatus = 1)
 dynamics365_to_bom_component(bom_lines := 'BOM')     -- reads BOMId, LineNum, ItemId, Quantity, ScrapPercent
   → (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
      is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
@@ -173,9 +176,7 @@ dynamics365_to_bom_component(bom_lines := 'BOM')     -- reads BOMId, LineNum, It
 ```
 
 `dynamics365_to_materials` maps the sample below to PUMP-A/PUMP-B
-`FINISHED` and SEAL/MOTOR/SENSOR `COMPONENT`. Several
-`BOMVersion` rows per `BOMId` duplicate the header (and so the flattened edges): pre-filter
-`BOMVersion` to the active version.
+`FINISHED` and SEAL/MOTOR/SENSOR `COMPONENT`.
 
 ```sql
 CREATE TABLE InventTable AS SELECT * FROM (VALUES
@@ -214,15 +215,19 @@ CREATE TABLE d365_bom_component AS
 SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM');
 ```
 
-## `bom_to_items` / `items_to_bom`
+## `bom_to_items` and the `items_to_*` converters
 
 ```text
 bom_to_items(header_table := 'bom_header', component_table := 'bom_component')
   → (parent_id = parent_material_id, child_id = child_material_id, quantity = quantity_per)
     joined on bom_id; ALL headers (no is_approved filter — add one yourself)
-items_to_bom(items_table := 'bom_items', source_system := 'MIGRATED')
-  → one UNION ALL of three shapes, discriminated by table_type
-    ('materials' | 'bom_header' | 'bom_component'); every other column is VARCHAR and positional
+items_to_materials(items_table, source_system)       -- one row per distinct parent or child id
+  → universal materials columns (material_id, material_number, ..., source_system, is_active, created_at)
+items_to_bom_header(items_table, source_system)      -- one row per parent, bom_id 'BOM_' || parent_id
+  → universal bom_header columns (bom_id, source_system, ..., parent_material_id, ..., is_approved, created_at)
+items_to_bom_component(items_table)                  -- one row per edge, component_id 'COMP_' || parent_id || '_' || n
+  → universal bom_component columns (component_id, bom_id, line_number, child_material_id,
+     quantity_per DECIMAL(18,6), quantity_uom 'EA', ...)
 ```
 
 ```sql
@@ -236,15 +241,21 @@ ORDER BY parent_id, child_id;
 -- => PUMP-B | SENSOR | 1.0
 ```
 
-`items_to_bom` needs a `quantity` column in `items_table` (NULL → 1). Its output columns are named
-after the `materials` branch (`material_id`, `material_number`, ..., `col13`–`col16`), so select by
-`table_type` and position, not by name. Header ids are `'BOM_' || parent_id`, component ids
-`'COMP_' || parent_id || '_' || n`; units are `'EA'`, `valid_from` is 2024-01-01.
+The `items_to_*` converters go the other way. `items_table` needs `parent_id`, `child_id` and
+`quantity` (a NULL quantity counts as 1). Each returns the universal table's own columns and types;
+store the header and component output as tables and `bom_to_items` over them gives the edges back
+(and the `bom_explosion_*` / `bom_where_used` traversals can read them).
 
 ```sql
 CREATE TABLE flat_bom AS SELECT * FROM (VALUES ('P-1', 'C-1', 2.0), ('P-1', 'C-2', NULL)) t(parent_id, child_id, quantity);
-SELECT table_type, count(*) AS n FROM items_to_bom(items_table := 'flat_bom') GROUP BY table_type ORDER BY table_type;
--- bom_component 2 | bom_header 1 | materials 3
+CREATE TABLE mig_materials     AS SELECT * FROM items_to_materials('flat_bom', 'MIGRATED');
+CREATE TABLE mig_bom_header    AS SELECT * FROM items_to_bom_header('flat_bom', 'MIGRATED');
+CREATE TABLE mig_bom_component AS SELECT * FROM items_to_bom_component('flat_bom');
+SELECT * FROM bom_to_items(header_table := 'mig_bom_header', component_table := 'mig_bom_component')
+ORDER BY child_id;
+-- 3 materials, 1 header (BOM_P-1), 2 components; the NULL quantity came back as 1
+-- => P-1 | C-1 | 2.000000
+-- => P-1 | C-2 | 1.000000
 ```
 
 ## Use your own ERP columns
@@ -329,15 +340,15 @@ In a script, gate on the check (e.g. `SELECT error('load anofox_forecast first')
 
 ```text
 compute_jaccard_embeddings(bom_table := 'bom_items')     -- needs parent_id, child_id
-  → (material_id, seed INTEGER 0..127, minhash_value FLOAT, num_components INTEGER)  one row per seed
+  → (material_id, seed BIGINT 0..127, minhash_value FLOAT in [0, 1), num_components INTEGER)  one row per seed
+minhash_similarity(a FLOAT[n], b FLOAT[n]) → DOUBLE   share of equal positions (also UBIGINT[] signatures)
 ```
 
-`compute_jaccard_embeddings` returns rows and does not write. Aggregate to `FLOAT[128]` and upsert. The share of equal positions
-(join two materials on `seed`, average `minhash_value` equality) estimates the Jaccard of the direct
-component sets (≈0.65, 83 of 128 positions, for the two sample pumps; true value 2/3). There is **no HNSW index on `jaccard_embedding`** (L2/cosine over
-raw MinHash values does not approximate Jaccard); for exact search use `find_similar_materials_jaccard`,
-for scale `minhash_index` (see **anofox-similarity-evaluation-scale**). The FLOAT values do not fit
-`minhash_similarity`, which takes `UBIGINT[]` signatures.
+`compute_jaccard_embeddings` returns rows and does not write. Aggregate in seed order to `FLOAT[128]`
+and upsert. `minhash_similarity` over two such vectors (the share of equal positions) estimates the
+Jaccard of the direct component sets. There is **no HNSW index on `jaccard_embedding`** (L2/cosine over
+MinHash values does not approximate Jaccard); for exact search use `find_similar_materials_jaccard`,
+for scale `minhash_index` (see **anofox-similarity-evaluation-scale**).
 
 ```sql
 INSERT INTO material_embeddings (material_id, jaccard_embedding, num_components)
@@ -346,6 +357,12 @@ FROM compute_jaccard_embeddings(bom_table := 'sap_bom_items')
 GROUP BY material_id
 ON CONFLICT (material_id) DO UPDATE SET
   jaccard_embedding = EXCLUDED.jaccard_embedding, num_components = EXCLUDED.num_components;
+
+-- The two sample pumps share 2 of 3 direct components (true Jaccard 0.667).
+SELECT round(minhash_similarity(a.jaccard_embedding, b.jaccard_embedding), 2) AS est_jaccard
+FROM material_embeddings a, material_embeddings b
+WHERE a.material_id = '000000000000100001' AND b.material_id = '000000000000100002';
+-- => 0.65
 ```
 
 ## Textual embeddings (placeholder)
@@ -353,28 +370,28 @@ ON CONFLICT (material_id) DO UPDATE SET
 ```text
 compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN',
                            provider := 'gemma-local', provider_config := '')
-  → (material_id, textual_embedding FLOAT[] of length 384)
+  → (material_id, textual_embedding FLOAT[384])
     text = MAKTX || ' ' || MAKTG, one row per material; MAKT needs maktg
-embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → FLOAT[] (384)
+embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → FLOAT[384]
 embed_text(description) → embedding_backend(description, 'gemma-local', '')
 ```
 
-All return a `FLOAT[]` list (cast to `FLOAT[384]` for the array type; inserting into
-`material_embeddings` casts implicitly). `provider_config` (JSON, e.g. `{"api_key": "..."}`) is unused.
+`provider` must be `gemma-local`, `openai`, `anthropic` or `cohere` (anything else is an
+`Invalid Input Error`). `provider_config` (JSON, e.g. `{"api_key": "..."}`) is unused.
 
 ```sql
-SELECT material_id, len(textual_embedding) AS dims
+SELECT material_id, array_length(textual_embedding) AS dims
 FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'E')
 ORDER BY material_id;
 
 -- Proof it is not semantic: near-identical texts are not close.
-SELECT round(list_cosine_similarity(embed_text('centrifugal pump'), embed_text('centrifugal pumps')), 2) AS near_dupe,
+SELECT round(1 - array_cosine_distance(embed_text('centrifugal pump'), embed_text('centrifugal pumps')), 2) AS near_dupe,
        embed_text('x') = embedding_backend('x', 'gemma-local', '') AS same_backend;
 ```
 
 Bring your own vectors instead: a table `(material_id, vec FLOAT[384])` from your model goes straight
-into `material_embeddings.textual_embedding` (any dimension works for `fuse_embeddings`; the column and
-the `hnsw_textual_idx` index want 384).
+into `material_embeddings.textual_embedding` (`fuse_embeddings`, the column and the
+`hnsw_textual_idx` index all want 384; another dimension is a cast error).
 
 ## Transactional embeddings and statistics (need anofox-forecast)
 
@@ -401,24 +418,25 @@ check_statistics_freshness()
 - `recompute_embedding_statistics` **returns** the z-score statistics; persist them yourself into
   `transactional_embedding_statistics` (it also has `updated_at`, `version`).
 - `check_statistics_freshness` reads that table (no anofox-forecast needed): `is_fresh` needs at least
-  30 rows, the newest updated within the last 7 days.
+  30 rows, the newest updated within the last 7 days. `last_updated` is NULL with no statistics; on a
+  read-only database (no table) it returns `0` / NULL / `false` instead of an error.
 - No automatic refresh exists (no triggers in DuckDB; `material_embeddings_dirty` is never filled):
   recompute for the changed materials (`WHERE material_id IN (...)`) and
   `INSERT OR REPLACE INTO material_embeddings (material_id, transactional_embedding, updated_at)`.
 
 ```sql
-SELECT stat_count, is_fresh FROM check_statistics_freshness();
--- 0 | false
+SELECT stat_count, last_updated, is_fresh FROM check_statistics_freshness();
+-- 0 | NULL | false
 ```
 
 
 ## Fusion
 
 ```text
-fuse_embeddings(structural_embedding FLOAT[], textual_embedding FLOAT[], transactional_embedding FLOAT[],
-                weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)) → FLOAT[]
+fuse_embeddings(structural_embedding FLOAT[256], textual_embedding FLOAT[384], transactional_embedding FLOAT[128],
+                weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)) → FLOAT[768]
 compute_fused_embeddings(weights_structural := 0.5, weights_textual := 0.5, weights_transactional := 0.0)
-  → (material_id, combined_embedding FLOAT[] (768), fusion_weights STRUCT(structural, textual, transactional) FLOAT)
+  → (material_id, combined_embedding FLOAT[768], fusion_weights STRUCT(structural, textual, transactional) FLOAT)
 ```
 
 | Rule | Behaviour |
@@ -427,6 +445,7 @@ compute_fused_embeddings(weights_structural := 0.5, weights_textual := 0.5, weig
 | Scaling | each modality is multiplied by `sqrt(w)` then concatenated (256 + 384 + 128 = 768); two unit vectors at 0.5/0.5 give a unit vector. Use for cosine / NN only |
 | Weight 0 | modality ignored, may be NULL (zero-filled block) |
 | Weight > 0 on NULL, or all weights 0 | `compute_fused_embeddings` drops the material; `fuse_embeddings` returns NULL |
+| Wrong length | a list of the right length casts in; another length is `Conversion Error: Cannot cast list with length 2 to array with length 256` |
 | Source | `compute_fused_embeddings` reads the fixed `material_embeddings` table and returns rows; it does not write `combined_embedding` |
 
 ```sql
@@ -438,7 +457,7 @@ SELECT material_id,
 FROM (VALUES ('M1', 1), ('M2', 2), ('M3', 3)) v(material_id, i);
 
 SELECT material_id,
-       len(fuse_embeddings(struct_vec, text_vec, NULL,
+       array_length(fuse_embeddings(struct_vec, text_vec, NULL,
                            {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0})) AS dims
 FROM my_vectors ORDER BY material_id;
 -- 768 each
@@ -456,8 +475,10 @@ On LOAD into a **writable** database (including in-memory) the extension creates
 | `transactional_feature_mapping`: `feature_index` PK, `feature_name, category, description, is_advanced, created_at` | feature metadata (empty) |
 | HNSW `hnsw_structural_idx` (l2sq), `hnsw_textual_idx` (cosine), `hnsw_combined_idx` (cosine) | only with a newly created `material_embeddings` |
 
-- **Read-only database:** all functions work, but these tables are absent, so `compute_fused_embeddings`
-  and `check_statistics_freshness` fail (`Catalog Error: Table with name ... does not exist!`).
+- **Read-only database:** these tables are absent. Every function works except those reading them:
+  `compute_fused_embeddings` (`Catalog Error: Table with name material_embeddings does not exist!`) and
+  `compute_transactional_embeddings` (an error saying so). `check_statistics_freshness` returns
+  `0` / NULL / `false`. Open the database writable once to create them.
 - A file holding the HNSW indexes needs the `vss` extension to insert into `material_embeddings`
   later. On DuckDB 2.0 without an installable `vss` the tables are created without indexes.
 - To keep them out of your file, start the shell with no file and `ATTACH` it, or drop the three
@@ -498,7 +519,7 @@ ON CONFLICT (material_id) DO UPDATE SET structural_embedding = EXCLUDED.structur
 
 -- 5. Fuse and store the combined vector.
 UPDATE material_embeddings e
-SET combined_embedding = f.combined_embedding::FLOAT[768], updated_at = now()
+SET combined_embedding = f.combined_embedding, updated_at = now()
 FROM compute_fused_embeddings(weights_structural := 0.6, weights_textual := 0.4) f
 WHERE e.material_id = f.material_id;
 

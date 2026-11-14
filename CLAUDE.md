@@ -33,7 +33,7 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 | Skill | Owns `docs/api` pages |
 |---|---|
 | `anofox-similarity-material-search` | 01, 02, 03 |
-| `anofox-similarity-erp-embeddings` | 04, 05, 06 (+ `bom_to_items`, `items_to_bom`) |
+| `anofox-similarity-erp-embeddings` | 04, 05, 06 (+ `bom_to_items`, `items_to_materials`, `items_to_bom_header`, `items_to_bom_component`) |
 | `anofox-similarity-coverage` | 10, 11, 12, 13 |
 | `anofox-similarity-classification-review` | 14 |
 | `anofox-similarity-evaluation-scale` | 15, 16 |

@@ -34,7 +34,7 @@ and `examples/predecessors_cold_start/`.
   `bom_explosion_multilevel`, `bom_where_used`, `bom_common_components` and `create_bom_property_graph`
   read the universal pair `bom_header` (columns `bom_id`, `parent_material_id`, optional `source_system`) +
   `bom_component` (`bom_id`, `child_material_id`, `quantity_per`). Convert with `bom_to_items` /
-  `items_to_bom` (see the **anofox-similarity-erp-embeddings** skill).
+  `items_to_bom_header` + `items_to_bom_component` (see the **anofox-similarity-erp-embeddings** skill).
 - **`material_id` and `k` are positional-only** in the table functions. `k := 5` gives
   `Binder Error: No function matches ... cold_start_analogs(VARCHAR)`; `material_id := 'X', 5` gives
   `Unnamed parameters cannot come after named parameters`.
@@ -333,7 +333,7 @@ create_bom_property_graph(source_system := 'TEST')
 ```
 
 - All are table macros: pass optional args by name. `quantity_per` keeps the column type of your
-  `bom_component` (the docs say FLOAT).
+  `bom_component` (DECIMAL(18,6) from `items_to_bom_component` or the D365 macros).
 - `bom_explosion_multilevel` returns the DISTINCT edges `(parent, child, quantity_per)` within
   `max_depth` levels (≤ 64) — no depth column, **no quantity roll-up**; a subassembly used by
   several parents appears once. Cycles and diamonds are safe (set-based recursion).
@@ -395,4 +395,5 @@ ORDER BY a.similarity DESC;
 
 Measuring search quality against known pairs (`eval_*`, thresholds, bootstrap CIs) is in
 **anofox-similarity-evaluation-scale**; SAP / Dynamics 365 extraction into `bom_items` and the
-`bom_to_items` / `items_to_bom` converters are in **anofox-similarity-erp-embeddings**.
+`bom_to_items` / `items_to_materials` / `items_to_bom_header` / `items_to_bom_component` converters
+are in **anofox-similarity-erp-embeddings**.

@@ -128,7 +128,8 @@ order of the signature, also when you name them.
 
 The extension loads on a database that is opened read-only. All search, coverage and evaluation
 functions work there. Only the embedding tables, which the extension creates on a writable
-database, are missing.
+database, are missing, so `compute_fused_embeddings` and `compute_transactional_embeddings` fail
+there until the file has been opened writable once.
 
 ```bash
 duckdb -readonly -unsigned plant.db

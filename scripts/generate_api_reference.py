@@ -47,7 +47,8 @@ PAGES = {
     ],
     "03-bom-traversal.md": [
         "bom_explosion_1level", "bom_explosion_multilevel", "bom_where_used", "bom_common_components",
-        "create_bom_property_graph", "bom_dfs_neighborhood", "bom_to_items", "items_to_bom",
+        "create_bom_property_graph", "bom_dfs_neighborhood", "bom_to_items", "items_to_materials",
+        "items_to_bom_header", "items_to_bom_component",
     ],
     "04-embeddings.md": [
         "compute_textual_embeddings", "embed_text", "embedding_backend", "compute_transactional_embeddings",

@@ -275,8 +275,9 @@ this whole area.
 | **[Claude Code skills](plugins/anofox-similarity/skills/)** | Condensed, tested cheat sheets for AI assistants ([install](#-claude-code-skills-ai-pair-programming)) |
 
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position: give them in the
-documented order. Table functions bind by name. All functions work on a read-only database; only
-the embedding tables are not created there. Run the SQL in the guides and examples from the
+documented order. Table functions bind by name. All functions work on a read-only database except
+`compute_fused_embeddings` and `compute_transactional_embeddings`, which read the embedding tables
+LOAD creates only on a writable database (open it writable once). Run the SQL in the guides and examples from the
 repository root: their data paths (`test/data/...`) are relative to it.
 
 ## 🌍 Multi-Language Support

@@ -24,18 +24,19 @@ class. Specifications and archives rarely carry classes, so this toolkit gives t
 pivot classifier turns item vectors into a distribution over catalogue classes, the margin
 (p1 − p2) says how sure it is, and the review functions turn that uncertainty into a short work
 list for a human or an LLM. The extension ships **no language model** — embed texts with any
-model you like and pass `FLOAT[]` vectors.
+model you like and pass `FLOAT[n]` vectors (the type DuckDB `vss` indexes).
 
 ## Critical gotchas
 
 - **Bring your own vectors.** Items and catalogue must come from the same model and have the
-  same dimension (checked: error mentions `dimension`). Any numeric list works (`FLOAT[]`,
-  `DOUBLE[]`, `FLOAT[n]`); the docs and examples use `FLOAT[]`. Items with a NULL `vec` are skipped.
+  same dimension (checked: error mentions `dimension`). `FLOAT[n]` arrays are canonical (what a vss
+  HNSW index holds; token sets `FLOAT[n][]`); lists (`FLOAT[]`, `DOUBLE[]`) work too.
+  Items with a NULL `vec` are skipped.
 - **`classify_to_catalogue`, `vocabulary_review_queue` and `uncertain_decisions` take named
   arguments only.** `classify_to_catalogue('items', 'catalogue')` fails with "No function matches";
   write `items_table := 'items', catalogue_table := 'catalogue'`. `cosine_floor('tbl', 'col')` and
-  `apply_vocabulary_review('review')` take their table positionally (`table`/`column` are
-  keywords, so `cosine_floor(table := ...)` is a parser error).
+  `apply_vocabulary_review('review')` take their table positionally (only `sample`, `seed` and
+  `overrides_table` are named).
 - **Arguments are table names (strings), not queries.** Materialise inputs as tables first.
   Table function arguments must be constants: compute a floor into a variable
   (`SET VARIABLE f = (SELECT floor FROM cosine_floor(...))`, then `getvariable('f')`).
@@ -78,15 +79,15 @@ Setup used by the examples below (three-dimensional toy vectors):
 
 ```sql
 CREATE TABLE catalogue AS SELECT * FROM (VALUES
-  ('pump',  [1.0, 0.0, 0.0]::FLOAT[], [[1.0, 0.0, 0.0]]::FLOAT[][]),
-  ('motor', [0.0, 1.0, 0.0]::FLOAT[], [[0.0, 1.0, 0.0]]::FLOAT[][]),
-  ('valve', [0.0, 0.0, 1.0]::FLOAT[], [[0.0, 0.0, 1.0], [0.3, 0.0, 0.95]]::FLOAT[][]))
+  ('pump',  [1.0, 0.0, 0.0]::FLOAT[3], [[1.0, 0.0, 0.0]]::FLOAT[3][]),
+  ('motor', [0.0, 1.0, 0.0]::FLOAT[3], [[0.0, 1.0, 0.0]]::FLOAT[3][]),
+  ('valve', [0.0, 0.0, 1.0]::FLOAT[3], [[0.0, 0.0, 1.0], [0.3, 0.0, 0.95]]::FLOAT[3][]))
   t(class_id, vec, exemplar_tokens);
 
 CREATE TABLE items AS SELECT * FROM (VALUES
-  ('I1', 'Kreiselpumpe 3 kW', [0.9, 0.3, 0.1]::FLOAT[]),
-  ('I2', 'Drehstrommotor',    [0.2, 0.9, 0.1]::FLOAT[]),
-  ('I3', 'Pumpe mit Motor',   [0.6, 0.6, 0.0]::FLOAT[])) t(node_id, label, vec);
+  ('I1', 'Kreiselpumpe 3 kW', [0.9, 0.3, 0.1]::FLOAT[3]),
+  ('I2', 'Drehstrommotor',    [0.2, 0.9, 0.1]::FLOAT[3]),
+  ('I3', 'Pumpe mit Motor',   [0.6, 0.6, 0.0]::FLOAT[3])) t(node_id, label, vec);
 ```
 
 ## `classify_to_catalogue` — the pivot classifier
@@ -130,8 +131,8 @@ Late interaction scores token vectors (here one item whose tokens are close to t
 
 ```sql
 CREATE TABLE token_items AS SELECT * FROM (VALUES
-  ('U1', [0.2, 0.2, 0.9]::FLOAT[], [[0.3, 0.0, 0.95], [0.0, 0.2, 0.9]]::FLOAT[][]),
-  ('U2', [1.0, 0.0, 0.0]::FLOAT[], [[1.0, 0.0, 0.0]]::FLOAT[][])) t(node_id, vec, tokens);
+  ('U1', [0.2, 0.2, 0.9]::FLOAT[3], [[0.3, 0.0, 0.95], [0.0, 0.2, 0.9]]::FLOAT[3][]),
+  ('U2', [1.0, 0.0, 0.0]::FLOAT[3], [[1.0, 0.0, 0.0]]::FLOAT[3][])) t(node_id, vec, tokens);
 
 SELECT node_id, class_id, round(p, 3) AS p
 FROM classify_to_catalogue(items_table := 'token_items', catalogue_table := 'catalogue',
@@ -192,6 +193,8 @@ bhattacharyya(p MAP(VARCHAR, DOUBLE), q MAP(VARCHAR, DOUBLE)) → DOUBLE
 calibrated_cosine(a DOUBLE[], b DOUBLE[], floor DOUBLE) → DOUBLE
 ```
 
+`FLOAT[n]` arrays (and `FLOAT[n][]` token sets) cast in implicitly, so vss-style columns work as they are.
+
 | Function | Meaning | Edge cases |
 |---|---|---|
 | `maxsim` | ColBERT-style late interaction: mean over query tokens of the best cosine over document tokens. Asymmetric | tokens must share one dimension; zero token → cosine 0; NULL/empty list → NULL; NaN → error |
@@ -209,7 +212,8 @@ SELECT maxsim([[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.6, 0.8]])               
 ## `cosine_floor` — calibrate a sentence encoder
 
 ```text
-cosine_floor(table VARCHAR, column VARCHAR, sample := 10000, seed := 7) → TABLE(floor DOUBLE, n_pairs BIGINT)
+cosine_floor(table_name VARCHAR, column_name VARCHAR, sample := 10000, seed := 7)   -- table/column positional
+  → TABLE(floor DOUBLE, n_pairs BIGINT)
 ```
 
 Median cosine of distinct vector pairs. Exact when all pairs fit into `sample`, otherwise a
@@ -219,10 +223,10 @@ and `tree_coverage` (`name_floor := ...`).
 
 ```sql
 CREATE TABLE name_vecs AS SELECT * FROM (VALUES
-  ('current draw',        [0.90, 0.40, 0.10]::FLOAT[]),
-  ('max current',         [0.88, 0.45, 0.12]::FLOAT[]),
-  ('travel',              [0.50, 0.80, 0.30]::FLOAT[]),
-  ('surface temperature', [0.60, 0.30, 0.70]::FLOAT[])) t(name, vec);
+  ('current draw',        [0.90, 0.40, 0.10]::FLOAT[3]),
+  ('max current',         [0.88, 0.45, 0.12]::FLOAT[3]),
+  ('travel',              [0.50, 0.80, 0.30]::FLOAT[3]),
+  ('surface temperature', [0.60, 0.30, 0.70]::FLOAT[3])) t(name, vec);
 
 SET VARIABLE name_floor = (SELECT COALESCE(GREATEST(0.0, LEAST(floor, 0.999)), 0.0) FROM cosine_floor('name_vecs', 'vec'));
 SELECT round(getvariable('name_floor'), 3) AS floor,                                  -- 0.799 (6 pairs)
@@ -308,9 +312,9 @@ CREATE TABLE archive_nodes AS SELECT * FROM (VALUES
 
 -- one vector per distinct wording; node_id and label are the wording itself
 CREATE TABLE wordings AS SELECT * FROM (VALUES
-  ('KP-Aggregat',     'KP-Aggregat',     'internal', [0.55, 0.50, 0.10]::FLOAT[]),
-  ('Antriebseinheit', 'Antriebseinheit', 'internal', [0.10, 0.95, 0.10]::FLOAT[]),
-  ('Absperrorgan',    'Absperrorgan',    'internal', [0.10, 0.10, 0.95]::FLOAT[]))
+  ('KP-Aggregat',     'KP-Aggregat',     'internal', [0.55, 0.50, 0.10]::FLOAT[3]),
+  ('Antriebseinheit', 'Antriebseinheit', 'internal', [0.10, 0.95, 0.10]::FLOAT[3]),
+  ('Absperrorgan',    'Absperrorgan',    'internal', [0.10, 0.10, 0.95]::FLOAT[3]))
   t(node_id, label, source, vec);
 
 CREATE TABLE wording_decisions AS
@@ -384,8 +388,8 @@ Uses the setup blocks above (`catalogue`, `archive_nodes`, `wording_decisions`,
 ```sql
 -- 1. Classify the request items (unique sentences: review per item, not per wording)
 CREATE TABLE request_items AS SELECT * FROM (VALUES
-  ('R1', 'R1.1', 'req', 'Kreiselpumpe',    [0.9, 0.3, 0.1]::FLOAT[]),
-  ('R1', 'R1.2', 'req', 'Pumpe mit Motor', [0.6, 0.6, 0.0]::FLOAT[])) t(tree_id, node_id, source, label, vec);
+  ('R1', 'R1.1', 'req', 'Kreiselpumpe',    [0.9, 0.3, 0.1]::FLOAT[3]),
+  ('R1', 'R1.2', 'req', 'Pumpe mit Motor', [0.6, 0.6, 0.0]::FLOAT[3])) t(tree_id, node_id, source, label, vec);
 CREATE TABLE request_decisions AS
 SELECT * FROM classify_to_catalogue(items_table := 'request_items', catalogue_table := 'catalogue');
 
@@ -416,7 +420,7 @@ FROM tree_coverage('R1', k := 5, nodes_table := 'archive_nodes', attrs_table := 
 ```
 
 Production shape (benchmark files in `test/data/coverage/`): `catalogue_vectors.csv.gz`
-(`vec::FLOAT[]`, `exemplar_tokens::FLOAT[][]`), `vocabulary_vectors.csv.gz`,
+(64-dimensional: `vec::FLOAT[64]`, `exemplar_tokens::FLOAT[64][]`), `vocabulary_vectors.csv.gz`,
 `request_item_vectors.csv.gz`, `programme_nodes.csv.gz`, `request_nodes.csv.gz`,
 `catalogue_classes.csv.gz`, `attribute_name_vectors.csv.gz`. Benchmark figures (asserted in
 `test/sql/coverage/r4/uc_01`…`uc_07`): top-1 0.593 raw → 0.853 centred → 0.953 with the attribute

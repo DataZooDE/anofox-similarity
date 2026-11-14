@@ -23,7 +23,7 @@ sap_to_bom_items(
     bom_id VARCHAR,
     parent_id VARCHAR,
     child_id VARCHAR,
-    qty DOUBLE,
+    qty,              -- type of STPO.menge (DECIMAL in SAP)
     unit VARCHAR,
     valid_from DATE,
     valid_to DATE,
@@ -41,6 +41,14 @@ sap_to_bom_items(
 | `reference_date` | VARCHAR | '9999-12-31' | Validity reference date |
 | `bom_usage` | VARCHAR | NULL | Reserved — accepted but **not currently applied** as a filter |
 
+**Input columns** (other columns are ignored; a missing one is a Binder Error naming it):
+
+| Table | Columns read | Used for |
+|-------|--------------|----------|
+| MAST | `matnr`, `stlnr` | `parent_id` (trimmed), link to the BOM number (filter `stlan` yourself) |
+| STKO | `stlnr`, `stlal`, `datuv` | `bom_id`, `bom_version`, `valid_from`; the newest `datuv <= reference_date` per `(matnr, stlnr, stlal)` |
+| STPO | `stlnr`, `idnrk`, `menge`, `meins` | `child_id` (trimmed), `qty`, `unit` (no `stlkn` needed) |
+
 > [!NOTE]
 > SAP dates (`STKO.datuv`, `reference_date`) may be passed as `YYYYMMDD` strings or ISO `YYYY-MM-DD`;
 > both are parsed. `valid_from` is derived from the selected header's `datuv`. `bom_usage` is a
@@ -54,7 +62,8 @@ sap_to_bom_items(
 > `qty` passes through the source `MENGE` column's type (SAP `MENGE` is DECIMAL); cast if you need DOUBLE.
 
 **sap_to_materials** - Extract materials from MARA. Requires MARA columns `matnr`, `mtart`, `matkl`,
-`ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). Its `description`
+`ersda`, **and `lvorm`** (deletion flag — rows flagged deleted are excluded). `ersda` may be SAP
+`YYYYMMDD` text (or integer), a `DATE`, or an ISO `YYYY-MM-DD` string. Its `description`
 column is always empty; use **`sap_to_materials_with_desc`** (below) to populate descriptions from MAKT:
 ```sql
 sap_to_materials(
@@ -105,6 +114,8 @@ dynamics365_to_materials(invent_table := 'InventTable')
 
 -- BOMTable + BOMVersion → universal bom_header. Reads BOMTable.(BOMId, ItemId, Status) and
 -- BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); keeps rows with Status = 0.
+-- One header per BOM: with several BOMVersion rows it picks ApprovedStatus = 1 first, then the
+-- latest ActivationDate.
 dynamics365_to_bom_header(bom_table := 'BOMTable', bom_version := 'BOMVersion')
     → TABLE (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
              revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
@@ -202,7 +213,7 @@ SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language :
 
 *Table macro*
 
-Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus).
+Maps Dynamics 365 BOMTable joined to BOMVersion into the universal bom_header shape, keeping rows with Status = 0. Reads BOMTable.(BOMId, ItemId, Status) and BOMVersion.(BOMId, VersionId, ActivationDate, ApprovedStatus); with several versions per BOM it takes one: approved first, then the latest ActivationDate.
 
 ```sql
 dynamics365_to_bom_header(bom_table, bom_version)

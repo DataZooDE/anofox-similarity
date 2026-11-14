@@ -6,6 +6,19 @@
 
 ## BOM Traversal & Navigation
 
+The traversal functions read the universal `bom_header` / `bom_component` tables (join on `bom_id`,
+`parent_material_id` → `child_material_id`). `quantity_per` passes through from `component_table`
+with its own type (DECIMAL(18,6) for tables made by `items_to_bom_component` or the D365 macros).
+To get these tables from a flat `bom_items` edge list (`parent_id`, `child_id`, `quantity`; a NULL
+quantity counts as 1), store the converters' output:
+
+```sql
+CREATE TABLE bom_header    AS SELECT * FROM items_to_bom_header('bom_items', 'MIGRATED');
+CREATE TABLE bom_component AS SELECT * FROM items_to_bom_component('bom_items');
+CREATE TABLE materials     AS SELECT * FROM items_to_materials('bom_items', 'MIGRATED');
+-- Round trip: bom_to_items('bom_header', 'bom_component') gives the edges back.
+```
+
 ### BOM Explosion - 1 Level
 Returns direct children of a parent material (single-level explosion).
 
@@ -18,7 +31,7 @@ bom_explosion_1level(
 ) → TABLE (
     parent_material_id VARCHAR,
     child_material_id VARCHAR,
-    quantity_per FLOAT
+    quantity_per -- type of component_table.quantity_per
 )
 ```
 
@@ -42,9 +55,13 @@ bom_explosion_multilevel(
 ) → TABLE (
     parent_material_id VARCHAR,
     child_material_id VARCHAR,
-    quantity_per FLOAT
+    quantity_per -- type of component_table.quantity_per
 )
 ```
+
+Returns the **distinct edges** reachable from `query_material_id` within `max_depth` levels, each
+with its own `quantity_per`. There is no depth column and no rolled-up (multiplied) quantity; compute
+those yourself with a recursive CTE if you need them.
 > [!IMPORTANT]
 > `max_depth` is clamped to a **hard ceiling of 64** regardless of the value passed in (this bounds
 > traversal cost on cyclic BOMs). A BOM genuinely deeper than 64 levels is silently truncated at 64
@@ -79,7 +96,7 @@ bom_where_used(
 ) → TABLE (
     parent_material_id VARCHAR,
     child_material_id VARCHAR,
-    quantity_per FLOAT
+    quantity_per -- type of component_table.quantity_per
 )
 ```
 
@@ -126,10 +143,14 @@ create_bom_property_graph(
 ) → TABLE (
     graph_name VARCHAR,
     source VARCHAR,
-    num_nodes INTEGER,
-    num_edges INTEGER
+    num_nodes BIGINT,
+    num_edges BIGINT
 )
 ```
+
+Reads the fixed tables `bom_header` (which needs a `source_system` column; only headers with that
+`source_system` are counted) and `bom_component`. The default `source_system` is `'TEST'`, so pass
+your own (e.g. `'SAP'`, or the value given to `items_to_bom_header`).
 
 **Note:** This macro is pure SQL over `bom_header` / `bom_component` and does **not** require the
 DuckPGQ extension. (Actual property-graph traversal with DuckPGQ syntax would require it, but this
@@ -192,7 +213,7 @@ SELECT * FROM bom_explosion_1level(query_material_id := 'PUMP-A');
 
 *Table macro*
 
-Full multi-level BOM explosion under one parent, to 'max_depth' levels. Uses UNION rather than UNION ALL so a shared subassembly reached by many paths is expanded once -- no exponential blow-up on diamond BOMs -- and the depth gate is clamped to a hard ceiling of 64 so a cyclic BOM cannot iterate unbounded.
+Full multi-level BOM explosion under one parent, to 'max_depth' levels: every reachable edge (parent_material_id, child_material_id, quantity_per) once, with no depth column and no rolled-up quantity (multiply quantity_per along the path yourself). Uses UNION rather than UNION ALL so a shared subassembly reached by many paths is expanded once -- no exponential blow-up on diamond BOMs -- and the depth gate is clamped to a hard ceiling of 64 so a cyclic BOM cannot iterate unbounded.
 
 ```sql
 bom_explosion_multilevel(query_material_id, max_depth, header_table, component_table)
@@ -240,7 +261,7 @@ SELECT * FROM bom_common_components(material_1 := 'PUMP-A', material_2 := 'PUMP-
 
 *Table macro*
 
-Summarises the BOM graph for one source system as (graph_name, source, num_nodes, num_edges), counting distinct parent materials in bom_header and the components beneath them.
+Summarises the BOM graph for one source system as (graph_name, source, num_nodes, num_edges BIGINT): num_nodes counts distinct parent materials, num_edges their components. Reads the tables named bom_header (with source_system) and bom_component; the default source_system is 'TEST', so pass yours.
 
 ```sql
 create_bom_property_graph(source_system)
@@ -284,20 +305,52 @@ bom_to_items(header_table, component_table)
 SELECT * FROM bom_to_items(header_table := 'bom_header', component_table := 'bom_component');
 ```
 
-### `items_to_bom`
+### `items_to_materials`
 
 *Table macro*
 
-The inverse of bom_to_items: expands a flat bom_items edge list back into the universal bom_header and bom_component shapes, tagging rows with 'source_system'.
+The materials of a flat bom_items edge list (every parent and child, once), in the columns and types of the universal materials table, tagged with source_system. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
 
 ```sql
-items_to_bom(items_table, source_system)
+items_to_materials(items_table, source_system)
 ```
 
 **Examples**
 
 ```sql
-SELECT * FROM items_to_bom(items_table := 'bom_items', source_system := 'MIGRATED');
+SELECT * FROM items_to_materials(items_table := 'bom_items', source_system := 'MIGRATED');
+```
+
+### `items_to_bom_header`
+
+*Table macro*
+
+One universal bom_header row per parent of a flat bom_items edge list (bom_id 'BOM_' || parent_id), tagged with source_system. With items_to_bom_component it is the inverse of bom_to_items. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+
+```sql
+items_to_bom_header(items_table, source_system)
+```
+
+**Examples**
+
+```sql
+SELECT * FROM items_to_bom_header(items_table := 'bom_items', source_system := 'MIGRATED');
+```
+
+### `items_to_bom_component`
+
+*Table macro*
+
+One universal bom_component row per edge of a flat bom_items edge list, numbered per parent, quantity_per from quantity. Store it and items_to_bom_header as tables; bom_to_items over them gives the edges back. items_table needs parent_id, child_id and quantity (a NULL quantity counts as 1).
+
+```sql
+items_to_bom_component(items_table)
+```
+
+**Examples**
+
+```sql
+SELECT * FROM items_to_bom_component(items_table := 'bom_items');
 ```
 
 <!-- generated:functions:end -->

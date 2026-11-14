@@ -6,7 +6,7 @@
 
 ## Overview
 
-The extension registers 79 functions: scalar functions, table functions and SQL macros. The
+The extension registers 93 functions: scalar functions, table functions and SQL macros. The
 [API index](../API_REFERENCE.md) lists them by topic; each topic page ends with a generated
 reference (kind, signature, description, examples).
 
@@ -60,6 +60,28 @@ PREPARE search AS SELECT entity_id FROM find_covering_entities_for($1, 1);
 EXECUTE search(MAP {'x': 1});
 EXECUTE search(MAP {'y': 1});
 ```
+
+### Embedding vs signature
+
+- **Embeddings are `FLOAT[n]` arrays**: `FLOAT[384]` textual, `FLOAT[128]` transactional and
+  Jaccard, `FLOAT[256]` structural, `FLOAT[768]` fused. That is the type DuckDB `vss` indexes (HNSW
+  indexes only `FLOAT[n]` ARRAY columns) and the type `array_distance`, `array_cosine_distance` and
+  `array_negative_inner_product` take. Functions that take your own vectors (`calibrated_cosine`,
+  `maxsim`, `cosine_floor`, `classify_to_catalogue`, tree name vectors) accept `FLOAT[n]` arrays as
+  well as lists; a list of the right length casts into a `FLOAT[n]` parameter, another length is a
+  cast error.
+- **MinHash signatures for LSH are `UBIGINT[]`** (`weighted_minhash`, `minhash_index`,
+  `lsh_bands`): hashes compared for equality, not by distance. `minhash_similarity` takes either
+  (the share of equal positions), so it also compares the `FLOAT[128]` Jaccard embeddings.
+
+### Read-only databases
+
+Every function works on a database opened read-only (the SQL macros are registered inside the
+extension, not in your catalog), except those that read the embedding tables, which LOAD creates
+only on a writable database: `compute_fused_embeddings` (Catalog Error: `material_embeddings`
+does not exist) and `compute_transactional_embeddings` (an error saying so). Open the database
+writable once to create them. `check_statistics_freshness` returns `stat_count = 0`,
+`last_updated = NULL`, `is_fresh = false` there.
 
 ---
 

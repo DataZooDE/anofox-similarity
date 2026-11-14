@@ -12,6 +12,12 @@
 > pivot classifier, [`classify_to_catalogue`](14-classification-and-review.md), works that way), or
 > combine your vectors with `fuse_embeddings`. Transactional and Jaccard embeddings are real.
 
+Every embedding here is a fixed-size `FLOAT[n]` array (`FLOAT[384]` textual, `FLOAT[128]`
+transactional and Jaccard, `FLOAT[256]` structural, `FLOAT[768]` fused): the type DuckDB `vss` HNSW
+indexes and the `array_distance` / `array_cosine_distance` / `array_negative_inner_product`
+functions take. A list of the right length casts in implicitly. See
+[Embedding vs signature](00-conventions.md#embedding-vs-signature).
+
 ## Textual Embeddings
 
 ### Compute Textual Embeddings
@@ -38,9 +44,11 @@ compute_textual_embeddings(
 | `provider` | VARCHAR | 'gemma-local' | Embedding provider |
 | `provider_config` | VARCHAR | '' | Provider-specific config JSON |
 
-**Providers** (names the function accepts; none is wired to a real model in the released build):
+**Providers** (the only names accepted; none is wired to a real model in the released build):
 - `gemma-local` - intended for a local OpenVINO model (384-D)
 - `openai`, `anthropic`, `cohere` - intended for the vendors' APIs (config: `{"api_key": "..."}`)
+
+Any other provider name is an error (`Invalid Input Error: embedding_backend: unknown provider ...`).
 
 > [!IMPORTANT]
 > Unless the extension is built with a local OpenVINO model or a real API backend is wired in,
@@ -53,7 +61,7 @@ compute_textual_embeddings(
 
 **Returns:**
 - `material_id` - Material identifier
-- `textual_embedding` - 384-D FLOAT array
+- `textual_embedding` - `FLOAT[384]`
 
 **Example:**
 ```sql
@@ -110,6 +118,8 @@ compute_transactional_embeddings(
 > [!IMPORTANT]
 > **Requires the `anofox-forecast` extension** (`anofox_fcst_ts_features`). If it is not loaded,
 > this function raises a clear error telling you to install it — it does not silently return NULL.
+> It also reads `transactional_embedding_statistics`, which is not created on a read-only database;
+> there it raises an error saying so (open the database writable once).
 > The `movements_table` must have `material_id`, `movement_date`, `quantity`; a `movement_type`
 > column is used for the ERP movement-type features when present and treated as NULL when absent.
 
@@ -122,7 +132,7 @@ compute_transactional_embeddings(
 
 **Returns:**
 - `material_id` - Material identifier
-- `transactional_embedding` - 128-D normalized FLOAT array
+- `transactional_embedding` - normalized `FLOAT[128]`
 
 **Example:**
 ```sql
@@ -200,14 +210,23 @@ compute_fused_embeddings(
 | `weights_transactional` | DOUBLE | 0.0 | Transactional embedding weight |
 
 > [!NOTE]
-> Reads from the fixed `material_embeddings` table (there is no `embedding_table` parameter).
+> Reads from the fixed `material_embeddings` table (there is no `embedding_table` parameter), which
+> is not created on a read-only database (`Catalog Error`); open the database writable once.
 > Weights need not sum to 1 — they are normalized. A modality with weight `0` is ignored even if
 > its vector is NULL, so the default (structural + textual) works without transactional embeddings.
 
 **Returns:**
 - `material_id` - Material identifier
-- `combined_embedding` - Combined 768-D FLOAT array (column name is `combined_embedding`)
+- `combined_embedding` - Combined `FLOAT[768]` (column name is `combined_embedding`)
 - `fusion_weights` - STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT) of the normalized weights applied
+
+### Fuse Embeddings (scalar)
+
+`fuse_embeddings(structural FLOAT[256], textual FLOAT[384], transactional FLOAT[128], weights)`
+returns `FLOAT[768]` with the same weighting and `sqrt(weight)` scaling. A list of the right length
+casts in; a list or array of another length is a cast error (`Conversion Error: Cannot cast list
+with length 2 to array with length 256`), not NULL. A positive weight on a NULL modality, or all
+weights 0, gives NULL.
 
 **Example:**
 ```sql
@@ -243,13 +262,16 @@ check_statistics_freshness() → TABLE (
 - `stat_count` - Number of statistics records
 - `max_samples` - Maximum samples used in computation
 - `current_version` - Statistics version number
-- `last_updated` - Last update timestamp
-- `is_fresh` - TRUE if ≥30 stats and updated within 7 days
+- `last_updated` - Newest `updated_at`; NULL when there are no statistics
+- `is_fresh` - TRUE if ≥30 rows and the newest was updated within the last 7 days
+
+On a read-only database (where `transactional_embedding_statistics` does not exist) it returns
+`stat_count = 0`, `last_updated = NULL`, `is_fresh = false` instead of an error.
 
 **Example:**
 ```sql
 SELECT * FROM check_statistics_freshness();
--- Result: stat_count=98, is_fresh=true
+-- Fresh database: stat_count=0, last_updated=NULL, is_fresh=false
 ```
 
 ### Compute Domain-Specific Statistics
@@ -289,7 +311,7 @@ compute_jaccard_embeddings(
     bom_table := 'bom_items'
 ) → TABLE (
     material_id VARCHAR,
-    seed INTEGER,
+    seed BIGINT,
     minhash_value FLOAT,
     num_components INTEGER
 )
@@ -298,8 +320,13 @@ compute_jaccard_embeddings(
 **Returns:**
 - `material_id` - Material identifier
 - `seed` - Seed index [0-127] for 128-D embedding
-- `minhash_value` - Min-hash value for this seed
+- `minhash_value` - Min-hash value for this seed, scaled to `[0, 1)`
 - `num_components` - Component count for this material
+
+Aggregate in seed order to a `FLOAT[128]`. Two such vectors are compared with
+`minhash_similarity(a, b)`, the share of equal positions, which estimates the Jaccard of the direct
+component sets. L2 / cosine distance over MinHash values does not approximate Jaccard, so there is
+no HNSW index on `jaccard_embedding`.
 
 **Usage Pattern:**
 ```sql
@@ -353,7 +380,8 @@ extract_ts_features(
 HNSW indexes over the `material_embeddings` vector columns are **created automatically when the
 extension loads** (see [HNSW Indexes](06-infrastructure.md#hnsw-indexes) for the index list). There is no
 SQL-callable `CreateHNSWIndexes(...)` function — that entry point does not exist. Build vector
-indexes directly with the `vss` extension's DDL if you need custom parameters, e.g.:
+indexes directly with the `vss` extension's DDL if you need custom parameters. HNSW indexes only
+`FLOAT[n]` ARRAY columns, which is why every embedding here is a `FLOAT[n]` array, e.g.:
 
 ```sql
 INSTALL vss; LOAD vss;
@@ -405,10 +433,10 @@ SELECT embed_text('centrifugal pump seal kit');
 
 *Scalar function*
 
-Generates a 384-dimensional text embedding (FLOAT[384]) for the given text. provider selects the backend and provider_config is a JSON string of provider-specific options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO model or a real API backend is configured, all providers return a deterministic, hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).
+Generates a 384-dimensional text embedding (FLOAT[384] array) for the given text. provider (gemma-local, openai, anthropic or cohere; anything else is an error) selects the backend and provider_config is a JSON string of provider-specific options (api_key, endpoint). NOTE: unless the extension is built with a local OpenVINO model or a real API backend is configured, all providers return a deterministic, hash-based PLACEHOLDER embedding (useful for wiring and tests, not semantic search).
 
 ```sql
-embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → FLOAT[]
+embedding_backend(text VARCHAR, provider VARCHAR, provider_config VARCHAR) → FLOAT[384]
 ```
 
 **Examples**
@@ -456,23 +484,23 @@ SELECT * FROM compute_fused_embeddings(weights_structural := 0.6, weights_textua
 
 *Scalar function*
 
-Fuses structural (FLOAT[256]), textual (FLOAT[384]), and transactional (FLOAT[128]) embeddings into a single 768-dimensional combined embedding using weighted concatenation. Each component is scaled by sqrt(weight). Weights do not need to sum to 1.0.
+Fuses structural (FLOAT[256]), textual (FLOAT[384]) and transactional (FLOAT[128]) embeddings into one FLOAT[768] array by weighted concatenation, each part scaled by sqrt(weight). Weights are normalised to sum to 1; a modality with weight 0 may be NULL. Lists cast to the array types (a list of another length is an error).
 
 ```sql
-fuse_embeddings(structural_embedding FLOAT[], textual_embedding FLOAT[], transactional_embedding FLOAT[], weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)) → FLOAT[]
+fuse_embeddings(structural_embedding FLOAT[256], textual_embedding FLOAT[384], transactional_embedding FLOAT[128], weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)) → FLOAT[768]
 ```
 
 **Examples**
 
 ```sql
-SELECT fuse_embeddings(se, te, xe, {'structural':0.5,'textual':0.5,'transactional':0.0}) FROM material_embeddings;
+SELECT fuse_embeddings(structural_embedding, textual_embedding, transactional_embedding, {'structural':0.5,'textual':0.5,'transactional':0.0}) FROM material_embeddings;
 ```
 
 ### `compute_jaccard_embeddings`
 
 *Table function*
 
-Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed) from BOM component sets; it does not write to material_embeddings — aggregate and upsert the result yourself. Each material's embedding is derived from its set of direct child components. Requires bom_table with columns parent_id and child_id.
+Computes and RETURNS 128-dimensional MinHash embeddings (one row per material/seed, minhash_value FLOAT in [0, 1)) from BOM component sets; it does not write to material_embeddings: aggregate them in seed order into the FLOAT[128] jaccard_embedding yourself. minhash_similarity of two such arrays estimates the Jaccard index. Each material's embedding is derived from its set of direct child components. Requires bom_table with columns parent_id and child_id.
 
 ```sql
 compute_jaccard_embeddings(bom_table)
@@ -521,7 +549,7 @@ SELECT * FROM recompute_embedding_statistics(time_window_days := 365, min_observ
 
 *Table function*
 
-Returns a single-row summary of the transactional_embedding_statistics table including stat_count, max_samples, current_version, last_updated, and is_fresh. is_fresh is TRUE when >= 30 statistics rows exist and last_updated is within 7 days.
+Returns a single-row summary of the transactional_embedding_statistics table including stat_count, max_samples, current_version, last_updated, and is_fresh. is_fresh is TRUE when >= 30 statistics rows exist and the newest was updated within 7 days. last_updated is NULL when there are no statistics (also on a read-only database, where the table is not created).
 
 ```sql
 check_statistics_freshness()

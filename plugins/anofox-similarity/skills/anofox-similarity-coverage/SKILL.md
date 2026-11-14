@@ -358,9 +358,9 @@ FROM tree_anchors('tree_nodes', 'tree_attributes', tree_ids := ['M1']);
 ### `tree_class_multiset` / `tree_multiset` — stage-1 index
 
 ```text
-tree_class_multiset(nodes_table, <named: attrs_table, overrides_table, label_table, tree_ids>)
+tree_class_multiset(nodes_table, <named: overrides_table, label_table, tree_ids>)
   → TABLE(entity_id, feature_id, weight, reviewed)   -- max across OR alternatives (optimistic)
--- only nodes_table is positional: tree_class_multiset('t', 'attrs') is a binder error
+-- only nodes_table is positional; there is no attrs_table (classes only, no attributes)
 tree_multiset(nodes LIST(STRUCT(node_id, parent_id, node_kind, edge_type, class_id, count)))
   → MAP(VARCHAR, DOUBLE)                             -- the scalar behind it
 ```
@@ -419,7 +419,7 @@ coverage    = mean req(q);   rank_score = coverage + stage1_weight · stage1_sco
 | `tol`, `soft_band` | 0.02, 0.05 | passed to `value_satisfies`; 0, 0 for hard limits |
 | `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: unqualified values take their template's bound |
 | `rules_table` | NULL | categorical rules |
-| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)` table; floor = median cosine of unrelated names |
+| `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)` table, `vec` a `FLOAT[n]` array or a list; floor = median cosine of unrelated names |
 | `class_hierarchy`, `generalization_credit` | NULL, 0.0 | `(class_id, parent_class_id)`: subclass offer meets superclass requirement; superclass offer gets credit^distance |
 
 **What `tree_coverage` errors on** (binder / invalid input):
@@ -522,7 +522,7 @@ SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv') WHERE
 
 -- 2. Validate (expect no rows), then 3. index the archive once (rebuild on archive/vocabulary change)
 SELECT * FROM validate_trees('prog_nodes', 'prog_attrs') WHERE severity = 'error';
-CREATE OR REPLACE TABLE prog_index AS SELECT * FROM tree_class_multiset('prog_nodes', attrs_table := 'prog_attrs');
+CREATE OR REPLACE TABLE prog_index AS SELECT * FROM tree_class_multiset('prog_nodes');
 
 -- 4. Rank: stage 1 on the index, stage 2 on the top k
 SELECT candidate_id, round(coverage, 3) AS coverage, rank, n_gaps

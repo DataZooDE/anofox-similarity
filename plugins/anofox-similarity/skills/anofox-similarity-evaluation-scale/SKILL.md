@@ -27,9 +27,9 @@ their output.
 
 ## Critical gotchas
 
-- **DuckDB 2.0: don't join `find_covering_entities_lsh(...)` directly.** A join on it raises
-  `INTERNAL Error: Conflicting or cyclic column binding replacement`; store the result in a table
-  first, then join (1.5.6 is not affected).
+- **LSH `threshold` only sets recall.** It is a containment threshold in mode `'containment'` and a
+  Jaccard threshold in mode `'jaccard'`; it tunes the banding, not a filter on the output, and
+  fewer than `k` rows per query is normal (only candidates sharing a band are scored).
 - **Every eval function takes table *names* (strings), not queries.** A subquery as a table
   function argument is rejected ("Table function cannot contain subqueries"). Materialise with
   `CREATE TABLE`, pass scalars with `SET VARIABLE x = (...)` and `getvariable('x')`.
@@ -301,7 +301,8 @@ find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'conta
 ```
 
 How it works (LSH-Ensemble style): entities are split into `partitions` size quantiles. Per query
-and partition, the containment `threshold` is turned into a Jaccard threshold for the
+and partition, the `threshold` (containment in mode `'containment'`, Jaccard in mode
+`'jaccard'`) is turned into a Jaccard threshold for the
 partition's largest set, and the rows per band (1, 2, 4 or 8) are chosen so the S-curve passes
 below it. Candidates sharing a band are scored: containment estimate
 `J (|q| + |c|) / ((1 + J) |q|)` capped at 1 (`mode := 'jaccard'` ranks by J). `n_candidates` is
@@ -347,13 +348,11 @@ SELECT * FROM ranked WHERE rank <= 3;
 
 -- recall of the exact best (containment 1.0 here) in the LSH top 3; ~1.0 expected.
 -- Do not compare against the exact top 3: its tail (low containment) is below the threshold.
--- Materialise the LSH result before joining it: on DuckDB 2.0 a join directly on
--- find_covering_entities_lsh(...) currently raises an INTERNAL "cyclic column binding" error.
-CREATE TABLE lsh_hits AS
-SELECT * FROM find_covering_entities_lsh('raw_q', 'raw_idx', k := 3, threshold := 0.8, bands_table := 'raw_bands');
 SELECT avg((l.entity_id IS NOT NULL)::INT) AS best_found_by_lsh
 FROM exact_hits e
-LEFT JOIN lsh_hits l ON l.query_id = e.query_id AND l.entity_id = e.entity_id
+LEFT JOIN find_covering_entities_lsh('raw_q', 'raw_idx', k := 3, threshold := 0.8,
+                                     bands_table := 'raw_bands') l
+       ON l.query_id = e.query_id AND l.entity_id = e.entity_id
 WHERE e.rank = 1;
 ```
 
