@@ -226,6 +226,34 @@ FROM cold_start_analogs(
 ORDER BY similarity DESC;
 ```
 
+## Many materials in one query
+
+A table function takes constants, not a column of another table:
+`SELECT * FROM new_products p, find_similar_materials_jaccard(p.material_id, 5)` fails with
+"does not support lateral join column parameters". Every search therefore has a batch form that
+reads its query materials from a table with a `material_id` column:
+
+| Single | Batch |
+|---|---|
+| `find_similar_materials_jaccard(material_id, k, ...)` | `find_similar_materials_jaccard(k, materials_table := 'tbl', ...)` |
+| `find_similar_materials_wl_kernel(material_id, k, ...)` | `find_similar_materials_wl_kernel(k, materials_table := 'tbl', ...)` |
+| `cold_start_analogs(material_id, k, ...)` | `cold_start_analogs(k, materials_table := 'tbl', ...)` |
+| `infer_predecessors(material_id, ...)` | `infer_predecessors(materials_table := 'tbl', ...)` |
+
+The batch form returns `query_id` (the material searched for) in front of the single form's
+columns, applies `k` per query, and orders by `query_id`, then by rank. Each distinct non-NULL
+`material_id` is searched once; an unknown one gives no rows. The ids are matched as text, so an
+INTEGER id list finds VARCHAR BOM ids. All other parameters work as in the single form.
+
+```sql
+CREATE TABLE new_products AS SELECT * FROM (VALUES ('X-750-NEW'), ('X-760-NEW')) t(material_id);
+SELECT query_id, material_id, similarity
+FROM find_similar_materials_jaccard(3, materials_table := 'new_products');
+```
+
+It is one set-based query, not a loop: 1 000 queries over a 100 000-edge BOM take about 3 s for
+Jaccard and 0.2 s for the WL kernel.
+
 ---
 
 <!-- generated:functions:start -->
@@ -238,15 +266,17 @@ ORDER BY similarity DESC;
 
 *Table function*
 
-Finds the k most structurally similar materials to a query material using exact Jaccard similarity on BOM component sets. Returns material_id, similarity, shared_components, and total_components. Rows below min_similarity are left out; without it, rows scoring 0 (no shared component) are left out, and min_similarity := 0 keeps them. mode := 'containment' ranks by the share of the query's components each material contains instead (default 'jaccard').
+Finds the k most structurally similar materials to a query material using exact Jaccard similarity on BOM component sets. Returns material_id, similarity, shared_components, and total_components. Rows below min_similarity are left out; without it, rows scoring 0 (no shared component) are left out, and min_similarity := 0 keeps them. mode := 'containment' ranks by the share of the query's components each material contains instead (default 'jaccard'). Batch form: find_similar_materials_jaccard(k, materials_table := 'tbl') runs the search for every material_id of the table in one query, k per material, and returns query_id (the material searched for) in front of the same columns.
 
 ```sql
+find_similar_materials_jaccard(k, bom_table, min_similarity, mode, materials_table)
 find_similar_materials_jaccard(material_id, k, bom_table, min_similarity, mode)
 ```
 
 **Examples**
 
 ```sql
+SELECT * FROM find_similar_materials_jaccard(5, materials_table := 'new_products');
 SELECT * FROM find_similar_materials_jaccard('MAT-001', 10);
 SELECT * FROM find_similar_materials_jaccard('MAT-001', 20, min_similarity := 0.3);
 SELECT * FROM find_similar_materials_jaccard('MAT-001', 10, mode := 'containment');
@@ -256,15 +286,17 @@ SELECT * FROM find_similar_materials_jaccard('MAT-001', 10, mode := 'containment
 
 *Table function*
 
-Finds the k most structurally similar materials using the Weisfeiler-Lehman graph kernel, which captures multi-hop BOM structure beyond direct component overlap. iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows scoring 0 are left out; min_similarity := 0 keeps them.
+Finds the k most structurally similar materials using the Weisfeiler-Lehman graph kernel, which captures multi-hop BOM structure beyond direct component overlap. iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows scoring 0 are left out; min_similarity := 0 keeps them. Batch form: find_similar_materials_wl_kernel(k, materials_table := 'tbl') runs the search for every material_id of the table in one query, k per material, and returns query_id (the material searched for) in front of the same columns.
 
 ```sql
+find_similar_materials_wl_kernel(k, bom_table, min_similarity, iterations, materials_table)
 find_similar_materials_wl_kernel(material_id, k, bom_table, min_similarity, iterations)
 ```
 
 **Examples**
 
 ```sql
+SELECT * FROM find_similar_materials_wl_kernel(5, materials_table := 'new_products');
 SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);
 SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := 0.2);
 ```
@@ -273,10 +305,11 @@ SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, m
 
 *Table function*
 
-Identifies predecessor (superseded) materials for a given successor by combining BOM structural similarity with anti-correlated consumption patterns. Returns predecessor candidates ranked by confidence score along with correlation, similarity, and temporal overlap data. Useful for lifecycle transition planning and inventory run-down.
+Identifies predecessor (superseded) materials for a given successor by combining BOM structural similarity with anti-correlated consumption patterns. Returns predecessor candidates ranked by confidence score along with correlation, similarity, and temporal overlap data. Useful for lifecycle transition planning and inventory run-down. Batch form: infer_predecessors(materials_table := 'tbl') infers them for every material_id of the table in one query and returns query_id (the successor) in front of the same columns.
 
 ```sql
 infer_predecessors(material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months)
+infer_predecessors(movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months, materials_table)
 ```
 
 **Examples**
@@ -284,21 +317,24 @@ infer_predecessors(material_id, movements_table, bom_table, min_overlapping_week
 ```sql
 SELECT * FROM infer_predecessors('NEW-PART');
 SELECT * FROM infer_predecessors('NEW-PART', lookback_months := 24, min_similarity := 0.5, min_confidence := 0.6, lag_weeks := 4);
+SELECT * FROM infer_predecessors(materials_table := 'new_products');
 ```
 
 ### `cold_start_analogs`
 
 *Table function*
 
-Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting. Without min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them.
+Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting. Without min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them. Batch form: cold_start_analogs(k, materials_table := 'tbl') runs the search for every material_id of the table in one query, k per material, and returns query_id (the material searched for) in front of the same columns.
 
 ```sql
+cold_start_analogs(k, movements_table, bom_table, min_similarity, min_history_months, materials_table)
 cold_start_analogs(material_id, k, movements_table, bom_table, min_similarity, min_history_months)
 ```
 
 **Examples**
 
 ```sql
+SELECT * FROM cold_start_analogs(5, materials_table := 'new_products', min_history_months := 12);
 SELECT * FROM cold_start_analogs('NEW-PART', 5);
 SELECT * FROM cold_start_analogs('NEW-PART', 10, min_history_months := 12, min_similarity := 0.4);
 ```

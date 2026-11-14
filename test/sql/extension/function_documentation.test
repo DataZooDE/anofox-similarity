@@ -149,10 +149,12 @@ SELECT parameters FROM ours WHERE function_name = 'wl_kernel_similarity';
 # the order in the source trustworthy rather than a guess that happened to work.
 # ============================================================================
 
+# The four material searches have a batch overload without material_id (materials_table :=
+# ...): a table function takes constants, not a column of another table.
 query I
-SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_jaccard';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'find_similar_materials_jaccard';
 ----
-[material_id, k, bom_table, min_similarity, mode]
+[[k, bom_table, min_similarity, mode, materials_table], [material_id, k, bom_table, min_similarity, mode]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'find_covering_entities';
@@ -170,19 +172,19 @@ SELECT list(parameters ORDER BY len(parameters)) FROM ours WHERE function_name =
 [[query, candidate], [query, candidate, alpha, beta]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'find_similar_materials_wl_kernel';
 ----
-[material_id, k, bom_table, min_similarity, iterations]
+[[k, bom_table, min_similarity, iterations, materials_table], [material_id, k, bom_table, min_similarity, iterations]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'cold_start_analogs';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'cold_start_analogs';
 ----
-[material_id, k, movements_table, bom_table, min_similarity, min_history_months]
+[[k, movements_table, bom_table, min_similarity, min_history_months, materials_table], [material_id, k, movements_table, bom_table, min_similarity, min_history_months]]
 
 query I
-SELECT parameters FROM ours WHERE function_name = 'infer_predecessors';
+SELECT list(parameters ORDER BY parameters[1]) FROM ours WHERE function_name = 'infer_predecessors';
 ----
-[material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months]
+[[material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months], [movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months, materials_table]]
 
 query I
 SELECT parameters FROM ours WHERE function_name = 'compute_transactional_embeddings';

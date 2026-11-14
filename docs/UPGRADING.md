@@ -68,6 +68,12 @@ Fixed without action on your side:
   Catalog Error, and `compute_transactional_embeddings` says that the table is missing.
 - `find_covering_entities_lsh` in a join works on DuckDB 2.0 (it raised an INTERNAL error).
 
+New, nothing to change: the material searches take many materials in one query.
+`find_similar_materials_jaccard(k, materials_table := 'tbl')` (and the WL kernel,
+`cold_start_analogs(k, materials_table := ...)`, `infer_predecessors(materials_table := ...)`)
+search every `material_id` of the table and return `query_id` in front of the usual columns.
+Single-id calls keep their columns and results.
+
 Migrating from `items_to_bom`:
 
 ```sql

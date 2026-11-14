@@ -39,6 +39,10 @@ and `examples/predecessors_cold_start/`.
   `Binder Error: No function matches ... cold_start_analogs(VARCHAR)`; `material_id := 'X', 5` gives
   `Unnamed parameters cannot come after named parameters`.
   Only the trailing tuning arguments (`min_similarity`, `bom_table`, ...) take `name := value`.
+- **A table function cannot take a column of another table.** `FROM new_products p,
+  find_similar_materials_jaccard(p.material_id, 5)` fails with "does not support lateral join
+  column parameters". For many materials use the batch form (`materials_table := 'tbl'`, below),
+  never one statement per material.
 - **Scalar functions/macros bind named args by position on DuckDB 1.5.6** (by name on 2.0). Always
   write them in signature order: `tversky_similarity(q, c, beta := 0.0, alpha := 1.0)` silently
   swaps alpha and beta on 1.5.6. Table functions and table macros bind by name on both.
@@ -374,6 +378,39 @@ Distinct components reachable from the root in 1 … `max_depth` hops (clamped t
 SELECT component FROM bom_dfs_neighborhood('PUMP-C', max_depth := 1, bom_table := 'bom_items') ORDER BY 1;
 -- GEARBOX-G, SEAL-001
 SELECT count(*) AS n FROM bom_dfs_neighborhood('PUMP-C', max_depth := 5, bom_table := 'bom_items');  -- 6
+```
+
+## Batch: many materials in one query (`materials_table`)
+
+```text
+find_similar_materials_jaccard(k, materials_table := 'tbl', ...)      -- same named args as the single form
+find_similar_materials_wl_kernel(k, materials_table := 'tbl', ...)
+cold_start_analogs(k, materials_table := 'tbl', ...)
+infer_predecessors(materials_table := 'tbl', ...)
+  → query_id, then the single form's columns; k per query; ordered by query_id, then rank
+```
+
+`tbl` needs a `material_id` column; each distinct non-NULL id is searched once, an unknown id
+gives no rows, ids are matched as text. One set-based query: 1 000 queries over a 100 000-edge BOM
+take about 3 s (Jaccard) and 0.2 s (WL).
+
+```sql
+CREATE TABLE new_products AS SELECT * FROM (VALUES ('PUMP-A'), ('NEW-PUMP'), ('UNKNOWN')) t(material_id);
+SELECT query_id, material_id, round(similarity, 4) AS similarity
+FROM find_similar_materials_jaccard(2, materials_table := 'new_products', bom_table := 'bom_items');
+-- the two best per product; UNKNOWN has no row
+-- => NEW-PUMP | NEXT-PUMP | 0.75
+-- => NEW-PUMP | OLD-PUMP | 0.5
+-- => PUMP-A | PUMP-B | 0.6
+-- => PUMP-A | GEARBOX-G | 0.5
+```
+
+```sql
+CREATE TABLE successors AS SELECT * FROM (VALUES ('PUMP-A'), ('NEW-PUMP')) t(material_id);
+SELECT query_id, predecessor_id, confidence
+FROM infer_predecessors(materials_table := 'successors', min_similarity := 0.3,
+                        bom_table := 'bom_items', movements_table := 'goods_movements');
+-- => NEW-PUMP | OLD-PUMP | 0.64
 ```
 
 ## Canonical material-search pipeline
