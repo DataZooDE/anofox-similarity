@@ -55,7 +55,7 @@ struct Dictionary {
 void Collect(const std::vector<AasElement> &elements, const Dictionary &dictionary, SubmodelQuality &q,
              std::vector<std::string> &ids, const AasElement *list = nullptr) {
 	for (auto &e : elements) {
-		if (IsValue(e) && e.semantic_id.find(ANOFOX_AAS_COUNT_ID) == std::string::npos) {
+		if (IsValue(e) && !IsAnofoxCountId(e.semantic_id)) {
 			q.n_values++;
 			auto id = DictionaryId(e);
 			if (id.empty() && list) {

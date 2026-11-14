@@ -59,6 +59,28 @@ WHERE n.node_kind = 'item' ORDER BY 1;
 Inputs	0173-1#01-AAZ100	8.0
 Outputs	0173-1#01-AAZ110	4.0
 
+# Only the profile's Count id is a count: http, www. and other versions are; a longer term
+# (CountryCode), another host or the id inside a query string is an ordinary value
+query TR
+SELECT t.id, n.count FROM (VALUES
+    ('https://anofox.com/aas/Count/1/0'), ('http://anofox.com/aas/Count/2/0'), ('https://www.anofox.com/aas/Count'),
+    ('https://anofox.com/aas/CountryCode/1/0'), ('https://other-anofox.com/aas/Count/1/0'),
+    ('https://evil.example/x?anofox.com/aas/Count')) t(id),
+  LATERAL (SELECT unnest(aas_to_trees(
+    '{"submodels": [{"modelType": "Submodel", "id": "urn:c", "idShort": "IO", "submodelElements": [
+       {"modelType": "SubmodelElementCollection", "idShort": "Inputs",
+        "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AAZ100#001"}]},
+        "value": [{"modelType": "Property", "idShort": "Channels", "valueType": "xs:int", "value": "8",
+                   "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "' || t.id || '"}]}}]}]}]}')) AS n) x
+WHERE split_part(n.node_id, '.', -1) = 'Inputs' ORDER BY t.id;
+----
+http://anofox.com/aas/Count/2/0	8.0
+https://anofox.com/aas/Count/1/0	8.0
+https://anofox.com/aas/CountryCode/1/0	1.0
+https://evil.example/x?anofox.com/aas/Count	1.0
+https://other-anofox.com/aas/Count/1/0	1.0
+https://www.anofox.com/aas/Count	8.0
+
 #------------------------------------------------------------------------------
 # F4, F5: a constraint uses its value; it reaches a property held in a list; a conflict with the
 # stated value or a two-sided Range is reported, not silently overwritten

@@ -25,6 +25,12 @@ ordinary AAS (qualifiers and a semanticId), so every AAS tool keeps reading the 
 | qualifier `type = "anofox:Count"`, `value = "2"` | a collection | the collection occurs that many times | node `count` |
 | Property with semanticId `https://anofox.com/aas/Count/1/0` | inside a collection | the same, as a property (e.g. channels per card) | node `count`; not an attribute |
 
+The VariantGroup qualifier counts by its presence; its value is not read. A Count is any positive
+number, whatever its valueType; `trees_to_aas` writes `xs:boolean` `true` and `xs:double`. The
+Count semanticId is read with `http://`, `www.` or another version (`/2/0`), but a longer term such
+as `https://anofox.com/aas/CountryCode/1/0` is an ordinary value. All terms:
+[term reference](../aas/index.md).
+
 When a collection carries both, the qualifier wins. A collection with a dictionary semanticId and
 only a count (no other values) is an item: "8 digital inputs" is a requirement or an offer even
 without further properties.

@@ -3,8 +3,11 @@
 > The identifiers under `https://anofox.com/aas/` that the anofox_similarity DuckDB extension
 > reads and writes in Asset Administration Shells (AAS v3).
 
-*This page is meant to be published at <https://anofox.com/aas/>, so that every id below resolves.
-Its source is `docs/aas/index.md` in the anofox-similarity repository.*
+*This page is meant to be published at <https://anofox.com/aas/>. For the ids to resolve, the site
+has to send every path under `/aas/` to this page, at the term's anchor (`/aas/Count/1/0` →
+`/aas/#count`, `/aas/CoverageResult/LabelRule/1/0` → `/aas/#labelrule`). Ids under
+`/aas/results/` name single results and are not meant to resolve. The source of this page is
+`docs/aas/index.md` in the anofox-similarity repository.*
 
 There are two groups of terms. The **profile** is the few markers a supplier or buyer puts in an
 AAS to say what AAS itself cannot express: alternative configurations, and counts that add up.
@@ -19,9 +22,9 @@ A file without them is still valid and still loads.
 
 | Term | Kind | Put it on | Meaning |
 |---|---|---|---|
-| `anofox:VariantGroup` | qualifier `type`, value `true` (`xs:string`) | a SubmodelElementCollection | Its child collections are **alternatives**: one of them is chosen, not all. A request is met by one alternative as a whole. |
-| `anofox:Count` | qualifier `type`, value a positive integer (`xs:int`) | a SubmodelElementCollection | The collection is there that many times (e.g. 2 cards). |
-| `https://anofox.com/aas/Count/1/0` | semanticId of a Property, value a positive integer | a Property inside a collection | The same as `anofox:Count`, written as a property (e.g. 8 channels per card). It is a count, not a technical value. |
+| <a id="variantgroup"></a>`anofox:VariantGroup` | qualifier `type`; the value is not read (the extension writes `xs:boolean` `true`) | a SubmodelElementCollection | Its child collections are **alternatives**: one of them is chosen, not all. A request is met by one alternative as a whole. |
+| <a id="count"></a>`anofox:Count` | qualifier `type`, value a positive number of any valueType (the extension writes `xs:double`) | a SubmodelElementCollection | The collection is there that many times (e.g. 2 cards). |
+| `https://anofox.com/aas/Count/1/0` | semanticId of a Property, value a positive number | a Property inside a collection | The same as `anofox:Count`, written as a property (e.g. 8 channels per card). It is a count, not a technical value. `http://`, `www.` and any version (`/2/0`) are read the same; a longer term such as `CountryCode` is not a count. |
 
 Counts multiply along the path: 2 cards × 8 channels = 16 channels. They are added up only inside
 one alternative of a variant group, never across alternatives.
@@ -51,28 +54,28 @@ computed is written without a value, which is not the same as 0.
 
 | Term | Type | Meaning |
 |---|---|---|
-| `Query` | string | id of the request tree |
-| `Candidate` | string | id of the offer tree |
-| `Coverage` | double, 0–1 | how much of the request the offer covers |
-| `GapCount` | int | requirements the offer does not meet |
-| `Requirements` | SubmodelElementList of `Requirement` | one entry per requirement of the request |
-| `Requirement` | collection | one requirement and what met it |
-| `RequirementNode` | string | the requirement's node in the request tree |
-| `MatchedNode` | string | the offer node that meets it best (empty: nothing does) |
-| `MatchedPath` | string | the path to that node in the offer |
-| `LabelSimilarity` | double, 0–1 | how well the capability classes agree |
-| `LabelRule` | string | how classes were compared: `exact`, `soft`, `generalized` (via a class hierarchy) |
-| `CountNeeded`, `CountAvailable` | double | required and offered count, when counts matter |
-| `RequirementScore` | double, 0–1 | the requirement's score |
-| `IsGap` | boolean | the requirement is not met |
-| `Attributes` | SubmodelElementList of `Attribute` | the property comparisons of the requirement |
-| `Attribute` | collection | one required property against the offered one |
-| `AttributeId`, `AttributeName` | string | the required property |
-| `Required`, `Offered` | string | required bound and offered value, as text with units (`at_least 7.6 A`, `12 A`) |
-| `Rule` | string | how the value was judged: the bound it was checked against (`at_least`, `at_most`, `within`), `compat` (categories), `missing` (no offered property), `key_mismatch` (only properties with another dictionary id), `gate` (other dimension) |
-| `NameRule` | string | how the properties were paired: `key` (same dictionary id), `vector`, `exact`, `tokens` |
-| `BoundSource` | string | where the bound came from: `range`, `level_type`, `constraint`, `text`, `explicit` |
-| `Score` | double, 0–1 | the score of this property |
+| <a id="query"></a>`Query` | string | id of the request tree |
+| <a id="candidate"></a>`Candidate` | string | id of the offer tree |
+| <a id="coverage"></a>`Coverage` | double, 0–1 | how much of the request the offer covers |
+| <a id="gapcount"></a>`GapCount` | int | requirements the offer does not meet |
+| <a id="requirements"></a>`Requirements` | SubmodelElementList of `Requirement` | one entry per requirement of the request |
+| <a id="requirement"></a>`Requirement` | collection | one requirement and what met it |
+| <a id="requirementnode"></a>`RequirementNode` | string | the requirement's node in the request tree |
+| <a id="matchednode"></a>`MatchedNode` | string | the offer node that meets it best (empty: nothing does) |
+| <a id="matchedpath"></a>`MatchedPath` | string | the path to that node in the offer |
+| <a id="labelsimilarity"></a>`LabelSimilarity` | double, 0–1 | how well the capability classes agree |
+| <a id="labelrule"></a>`LabelRule` | string | how classes were compared: `exact`, `soft`, `generalized` (a more general class was offered, via a class hierarchy), `specialized` (a subclass of the requested class was offered) |
+| <a id="countneeded"></a><a id="countavailable"></a>`CountNeeded`, `CountAvailable` | double | required and offered count, when counts matter |
+| <a id="requirementscore"></a>`RequirementScore` | double, 0–1 | the requirement's score |
+| <a id="isgap"></a>`IsGap` | boolean | the requirement is not met |
+| <a id="attributes"></a>`Attributes` | SubmodelElementList of `Attribute` | the property comparisons of the requirement |
+| <a id="attribute"></a>`Attribute` | collection | one required property against the offered one |
+| <a id="attributeid"></a><a id="attributename"></a>`AttributeId`, `AttributeName` | string | the required property |
+| <a id="required"></a><a id="offered"></a>`Required`, `Offered` | string | required bound and offered value, as text with units (`at_least 7.6 A`, `12 A`) |
+| <a id="rule"></a>`Rule` | string | how the value was judged: the bound it was checked against (`at_least`, `at_most`, `within`), `compat` (categories), `missing` (no offered property), `key_mismatch` (only properties with another dictionary id), `gate` (other dimension), `point` (a value without a bound, compared as a point) |
+| <a id="namerule"></a>`NameRule` | string | how the properties were paired: `key` (same dictionary id), `vector`, `exact`, `tokens` |
+| <a id="boundsource"></a>`BoundSource` | string | where the bound came from: `range`, `level_type`, `constraint`, `text`, `explicit`, `template` (the catalogue's default bound, `default_bounds := 'catalogue'`) |
+| <a id="score"></a>`Score` | double, 0–1 | the score of this property |
 
 The meaning of every rule value is in the
 [coverage kernel reference](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md).
