@@ -230,40 +230,48 @@ ORDER BY child_id;
 
 ## Dynamics 365 transforms
 
-Native D365 columns, as table fields (`BOMVersion.ItemId`, `FromDate`, ...) or OData entity fields
-(`BillOfMaterialsVersionsV2.ItemNumber`, `ValidFromDate`, ...), detected per table. Full column
-table: `docs/api/05-erp-transformations.md`.
+D365 table field names (`BOMVersion.ItemId`, `FromDate`, `BOM.BOMQty`, ...). A data-entity
+(OData) export names them differently: map it with a view (`SELECT ItemNumber AS ItemId, ...`)
+first. Full column table and the entity view: `docs/api/05-erp-transformations.md`.
 
 ```text
 dynamics365_to_materials(invent_table := 'InventTable')       -- also positional
-     needs ItemId (or ItemNumber); uses ItemName, ItemGroupId, ItemType (0 Item, 1 BOM, 2 Service)
+     needs ItemId; uses ItemName, ItemGroupId, ItemType (0 Item, 1 BOM, 2 Service), DataAreaId
   → (material_id, material_number, description, material_type 'ITEM'/'BOM'/'SERVICE', material_group,
-     procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
+     procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at, company)
 dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '9999-12-31')
      needs BOMVersion ItemId, BOMId; uses FromDate, ToDate, Active, Approved, DataAreaId;
      bom_table (BOMTable) only adds plant_id from SiteId
   → (bom_id '<item>/<BOMId>', source_system, source_bom_id, parent_material_id, bom_type,
      alternative_number, revision, base_quantity, base_uom, valid_from, valid_to, plant_id,
-     is_approved, created_at)
+     is_approved, created_at, company)
 dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '9999-12-31')
      needs BOM BOMId, ItemId, BOMQty; uses BOMQtySerie, UnitId, LineNum, FromDate, ToDate,
      BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId
   → (component_id, bom_id, line_number, child_material_id, quantity_per DECIMAL(18,6), quantity_uom,
      is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
-     supply_type, operation_sequence, is_alternative, alternative_group, created_at)
+     supply_type, operation_sequence, is_alternative, alternative_group, created_at, company)
 ```
 
-- **One BOM per item on `reference_date`**: versions with `FromDate <= date` and `ToDate` empty,
+- **One BOM per company and item on `reference_date`**: versions with `FromDate <= date` and `ToDate` empty,
   `1900-01-01` (D365's "none") or `>= date`; active first, approved first, newest `FromDate`,
   lowest `BOMId`. The default date `9999-12-31` takes the newest version, so pass today's date
   (or the planning date) for "what is built now".
 - **Pass both functions the same `bom_version` and `reference_date`**: the component function
   picks the lines of the BOMs the header function chooses, and `bom_id` is built the same way.
-  `bom_id` is `<item>/<BOMId>` (a BOM can serve several items); `source_bom_id` is the BOMId.
-- `quantity_per` = `BOMQty / BOMQtySerie` (per one parent); one row per BOM, child and unit, the
-  quantities of a child's lines added. Lines outside their `FromDate`/`ToDate` are dropped.
+  `bom_id` is `<item>/<BOMId>` (a BOM can serve several items; `/` and `\` inside an id are
+  escaped with `\`, so ids never collide); `source_bom_id` is the BOMId.
+- `quantity_per` = `BOMQty / BOMQtySerie` (per one parent); one row per BOM, child, unit and
+  consumption type (constant `BOMConsump` lines are not added to variable ones), the quantities of
+  a child's lines added. Lines outside their `FromDate`/`ToDate` are dropped.
+- **Several companies (`DataAreaId`) stay apart**: a `company` column (lower case) on every output
+  and in `bom_id`. `bom_to_items` has no company column and `materials.material_id` is a key, so
+  filter one company first: `CREATE VIEW h AS SELECT * FROM d365_bom_header WHERE company =
+  'usmf'`. Versions per site, from-quantity or configuration are not distinguished (one version
+  per company and item).
 - The column contract of earlier releases (`Status`, `VersionId`, `ActivationDate`,
-  `ApprovedStatus`, `ScrapPercent`) is gone; the error names it, `docs/UPGRADING.md` maps it.
+  `ApprovedStatus`, `Quantity`, `ScrapPercent`) is gone; the error names it, `docs/UPGRADING.md`
+  maps it. `reference_date` is `YYYY-MM-DD` (a time may follow) or `YYYYMMDD`.
 
 ```sql
 CREATE TABLE InventTable AS SELECT * FROM (VALUES
@@ -310,12 +318,14 @@ bom_to_items(header_table := 'bom_header', component_table := 'bom_component')
   → (parent_id = parent_material_id, child_id = child_material_id, quantity = quantity_per)
     joined on bom_id; ALL headers (no is_approved filter — add one yourself)
 items_to_materials(items_table, source_system)       -- one row per distinct parent or child id
-  → universal materials columns (material_id, material_number, ..., source_system, is_active, created_at)
+  → universal materials columns (material_id, material_number, ..., source_system, is_active, created_at,
+     company NULL)
 items_to_bom_header(items_table, source_system)      -- one row per parent, bom_id 'BOM_' || parent_id
-  → universal bom_header columns (bom_id, source_system, ..., parent_material_id, ..., is_approved, created_at)
+  → universal bom_header columns (bom_id, source_system, ..., parent_material_id, ..., is_approved, created_at,
+     company NULL)
 items_to_bom_component(items_table)                  -- one row per edge, component_id 'COMP_' || parent_id || '_' || n
   → universal bom_component columns (component_id, bom_id, line_number, child_material_id,
-     quantity_per DECIMAL(18,6), quantity_uom 'EA', ...)
+     quantity_per DECIMAL(18,6), quantity_uom 'EA', ..., created_at, company NULL)
 ```
 
 ```sql

@@ -33,7 +33,8 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing) {
 			cost_per_unit DECIMAL(12,4),
 			source_system VARCHAR(20),
 			is_active BOOLEAN DEFAULT TRUE,
-			created_at TIMESTAMP DEFAULT current_timestamp
+			created_at TIMESTAMP DEFAULT current_timestamp,
+			company VARCHAR -- ERP company / client (D365 DataAreaId); NULL for single-company data
 		)
 	)");
 	CheckQueryResult(materials_result, "create materials table");
@@ -55,6 +56,7 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing) {
 			plant_id VARCHAR(20),
 			is_approved BOOLEAN DEFAULT FALSE,
 			created_at TIMESTAMP DEFAULT current_timestamp,
+			company VARCHAR,
 			CONSTRAINT fk_parent FOREIGN KEY (parent_material_id)
 				REFERENCES materials(material_id)
 		)
@@ -80,6 +82,7 @@ void CreateUniversalBOMSchema(Connection &conn, bool drop_existing) {
 			is_alternative BOOLEAN DEFAULT FALSE,
 			alternative_group VARCHAR(20),
 			created_at TIMESTAMP DEFAULT current_timestamp,
+			company VARCHAR,
 			CONSTRAINT fk_child FOREIGN KEY (child_material_id)
 				REFERENCES materials(material_id)
 		)
@@ -124,7 +127,8 @@ static const DefaultTableMacro ITEMS_TO_MATERIALS_MACRO = {
 			NULL::DECIMAL(12,4) AS cost_per_unit,
 			source_system::VARCHAR AS source_system,
 			TRUE AS is_active,
-			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at,
+			NULL::VARCHAR AS company
 		FROM (
 			SELECT parent_id AS material_id FROM query_table(items_table)
 			UNION
@@ -152,7 +156,8 @@ static const DefaultTableMacro ITEMS_TO_BOM_HEADER_MACRO = {
 			NULL::DATE AS valid_to,
 			NULL::VARCHAR AS plant_id,
 			TRUE AS is_approved,
-			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at,
+			NULL::VARCHAR AS company
 		FROM query_table(items_table)
 		WHERE parent_id IS NOT NULL)"};
 
@@ -181,7 +186,8 @@ static const DefaultTableMacro ITEMS_TO_BOM_COMPONENT_MACRO = {
 			NULL::INTEGER AS operation_sequence,
 			FALSE AS is_alternative,
 			NULL::VARCHAR AS alternative_group,
-			CURRENT_TIMESTAMP::TIMESTAMP AS created_at
+			CURRENT_TIMESTAMP::TIMESTAMP AS created_at,
+			NULL::VARCHAR AS company
 		FROM query_table(items_table)
 		WHERE parent_id IS NOT NULL AND child_id IS NOT NULL)"};
 

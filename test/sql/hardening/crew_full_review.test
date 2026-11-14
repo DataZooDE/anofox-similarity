@@ -75,13 +75,13 @@ GLUE	0.000001
 NONE	0.000000
 
 # ------------------------------------------------------------------------------
-# dynamics365_to_bom_header: text dates (an OData export) compare as dates, not as text
+# dynamics365_to_bom_header: text dates compare as dates, not as text
 # ('2024-1-5' < '2024-01-10').
 # ------------------------------------------------------------------------------
 statement ok
 CREATE TABLE dv_bomversion AS SELECT * FROM (VALUES
   ('PUMP', 'B1', '2024-1-5', 'Yes', 'Yes'),
-  ('PUMP', 'B2', '2024-01-10T00:00:00Z', 'Yes', 'Yes')) t(ItemNumber, BOMId, ValidFromDate, IsActive, IsApproved);
+  ('PUMP', 'B2', '2024-01-10T00:00:00Z', 'Yes', 'Yes')) t(ItemId, BOMId, FromDate, Active, Approved);
 
 query TT
 SELECT bom_id, valid_from FROM dynamics365_to_bom_header(bom_version := 'dv_bomversion');

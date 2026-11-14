@@ -129,53 +129,80 @@ Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) 
 
 These table functions RETURN **universal-schema** rows (materials / bom_header / bom_component
 shapes). They do not write an output table, and the component function does **not** return flat
-`bom_items`: flatten with `bom_to_items`. They read the native D365 columns, in either spelling,
-detected per table: the table field names (`BOMVersion.ItemId`, `FromDate`, ...) or the OData
-data-entity names (`BillOfMaterialsVersionsV2.ItemNumber`, `ValidFromDate`, ...).
+`bom_items`: flatten with `bom_to_items`. They read the D365 **table field names**
+(`BOMVersion.ItemId`, `FromDate`, ...). A data-entity (OData) export names the fields differently;
+map it with a view first (example below).
 
 ```sql
 dynamics365_to_materials(invent_table := 'InventTable')     -- also positional
     → TABLE (material_id, material_number, description, material_type, material_group,
-             procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at)
+             procurement_type, base_uom, weight, cost_per_unit, source_system, is_active, created_at, company)
 
 dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := NULL, reference_date := '9999-12-31')
     → TABLE (bom_id, source_system, source_bom_id, parent_material_id, bom_type, alternative_number,
-             revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at)
+             revision, base_quantity, base_uom, valid_from, valid_to, plant_id, is_approved, created_at, company)
 
 dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion', reference_date := '9999-12-31')
     → TABLE (component_id, bom_id, line_number, child_material_id, quantity_per, quantity_uom,
              is_fixed_quantity, scrap_percent, effective_from, effective_to, component_type,
-             supply_type, operation_sequence, is_alternative, alternative_group, created_at)
+             supply_type, operation_sequence, is_alternative, alternative_group, created_at, company)
 ```
 
-**Input columns** (table field / entity field):
+**Input columns** (D365 table field names):
 
 | Table | Required | Optional, used when present |
 |-------|----------|-----------------------------|
-| InventTable / ReleasedProductsV2 | `ItemId` / `ItemNumber` | `ItemName` (or `ProductName`, `SearchName`, `NameAlias`), `ItemGroupId`, `ItemType` (0 Item, 1 BOM, 2 Service, or the names) |
-| BOMVersion / BillOfMaterialsVersionsV2 | `ItemId` / `ItemNumber`, `BOMId` | `FromDate` / `ValidFromDate`, `ToDate` / `ValidToDate`, `Active` / `IsActive`, `Approved` / `IsApproved`, `DataAreaId` |
-| BOM / BillOfMaterialsLinesV2 | `BOMId`, `ItemId` / `ItemNumber`, `BOMQty` / `Quantity` | `BOMQtySerie` / `QuantityDenominator`, `UnitId` / `UnitSymbol`, `LineNum` / `LineNumber`, `FromDate` / `ValidFromDate`, `ToDate` / `ValidToDate`, `BOMType` / `BOMLineType`, `BOMConsump`, `ScrapVar`, `OprNum`, `DataAreaId` |
-| BOMTable / BillOfMaterialsHeadersV2 (`bom_table`, optional) | `BOMId` | `SiteId` (→ `plant_id`), `DataAreaId` |
+| InventTable | `ItemId` | `ItemName` (or `NameAlias`), `ItemGroupId`, `ItemType` (0 Item, 1 BOM, 2 Service, or the names), `DataAreaId` |
+| BOMVersion | `ItemId`, `BOMId` | `FromDate`, `ToDate`, `Active`, `Approved`, `DataAreaId` |
+| BOM (lines) | `BOMId`, `ItemId`, `BOMQty` | `BOMQtySerie`, `UnitId`, `LineNum`, `FromDate`, `ToDate`, `BOMType`, `BOMConsump`, `ScrapVar`, `OprNum`, `DataAreaId` |
+| BOMTable (`bom_table`, optional) | `BOMId` | `SiteId` (→ `plant_id`), `DataAreaId` |
 
 Dates may be DATE, TIMESTAMP or ISO text (`2024-01-01T00:00:00Z`); `1900-01-01` means "no date".
-Flags may be BOOLEAN, 0/1 or `Yes`/`No`.
+Flags may be BOOLEAN, 0/1 or `Yes`/`No`. `reference_date` is `YYYY-MM-DD` (optionally followed by
+a time) or `YYYYMMDD`; anything else is an error.
+
+A data-entity export (OData, e.g. a BOM versions or BOM lines entity) has other names, such as an
+item number instead of `ItemId`. They are not read directly; map them to the table names with a
+view and pass the view:
+
+```sql
+CREATE VIEW BOMVersion_v AS
+SELECT ItemNumber AS ItemId, BOMId, ValidFromDate AS FromDate, ValidToDate AS ToDate,
+       IsActive AS Active, IsApproved AS Approved, dataAreaId AS DataAreaId
+FROM bom_versions_entity;   -- check the names against your own export
+```
 
 **Rules:**
 
-- **One BOM per item.** BOMVersion links items to BOMs. On `reference_date` (default
+- **One BOM per company and item.** BOMVersion links items to BOMs. On `reference_date` (default
   `9999-12-31`, the newest) a version counts when `FromDate <= date` and `ToDate` is empty or
   `>= date`; of those, active first, approved first, then the newest `FromDate`, then the lowest
   `BOMId`. An item with only an unapproved version still gets it, with `is_approved = false`.
 - **`bom_id` is `<item>/<BOMId>`** (with `DataAreaId`: `<company>/<item>/<BOMId>`) because a BOM can
-  serve several items; `source_bom_id` is the BOMId. Both functions build the same ids, so pass them
-  the same `bom_version` and `reference_date`.
+  serve several items; `source_bom_id` is the BOMId. A backslash or `/` inside a segment gets a
+  backslash in front (`P/A` + `B` is `P\/A/B`, `P` + `A/B` is `P/A\/B`), so ids never collide.
+  `component_id` is `COMP/<bom_id>/<child>/<unit>/constant|variable` with the same escaping. Both
+  functions build the same ids, so pass them the same `bom_version` and `reference_date`.
 - **Lines** of the chosen BOMs count when valid on `reference_date`. `quantity_per` = `BOMQty /
   BOMQtySerie` (per one parent; a series of 0 or none counts as 1), `quantity_uom` = `UnitId`
-  (`EA` without a unit column). A child on several lines of a BOM gives one row per unit with the
-  quantities added; `component_type` is `ITEM`, `PHANTOM`, `PEGGED` or `VENDOR` from `BOMType`,
-  `is_fixed_quantity` is `BOMConsump` = Constant, `scrap_percent` is `ScrapVar`.
-- **Companies.** With `DataAreaId` in BOMVersion, the company is part of `bom_id`; lines and
-  BOMTable rows are matched on it when they have it too.
+  (`EA` without a unit column). A child on several lines of a BOM gives one row per unit and
+  consumption type with the quantities added (constant lines, `BOMConsump` = 1, do not scale with
+  the production quantity, so they are not added to variable ones); `component_type` is `ITEM`,
+  `PHANTOM`, `PEGGED` or `VENDOR` from `BOMType`, `is_fixed_quantity` is `BOMConsump` = Constant,
+  `scrap_percent` is `ScrapVar`.
+- **Companies.** `company` is `DataAreaId`, lower-cased and trimmed (NULL without the column), on
+  all three outputs; rows of different companies are never merged. With `DataAreaId` in
+  BOMVersion the company is also part of `bom_id`; lines and BOMTable rows are matched on it when
+  they have it too (without it, a BOMId's lines match in every company). `bom_to_items` has no
+  company column, and the universal `materials.material_id` is a primary key, so **filter one
+  company before flattening or inserting**: `CREATE VIEW h AS SELECT * FROM bom_header WHERE
+  company = 'usmf'`, then `bom_to_items('h', 'bom_component')`.
+- **A simplification.** One version per company and item: several versions active at the same time
+  for different sites (`InventDimId`), from-quantities (`FromQty`) or configurations (`ConfigId`)
+  are not distinguished; the ranking above picks one. Filter BOMVersion to one site first if your
+  BOMs differ per site.
+- **The column contract of earlier releases** (`Status`, `VersionId`, `ActivationDate`,
+  `ApprovedStatus`, `Quantity`, `ScrapPercent`) is an error that points to `docs/UPGRADING.md`.
 - Columns D365 does not have are typed NULLs (`revision`, `alternative_number`, `base_uom`,
   `supply_type`, ...).
 
@@ -184,8 +211,9 @@ Flags may be BOOLEAN, 0/1 or `Yes`/`No`.
 CREATE TABLE materials     AS SELECT * FROM dynamics365_to_materials('InventTable');
 CREATE TABLE bom_header    AS SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', bom_table := 'BOMTable');
 CREATE TABLE bom_component AS SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'BOMVersion');
--- Flatten header + component into the parent_id/child_id/quantity shape the algorithms expect:
-CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header', 'bom_component');
+-- One company (skip with a single-company export), then flatten into parent_id/child_id/quantity:
+CREATE VIEW bom_header_usmf AS SELECT * FROM bom_header WHERE company = 'usmf';
+CREATE TABLE bom_items     AS SELECT * FROM bom_to_items('bom_header_usmf', 'bom_component');
 ```
 
 ---
@@ -265,7 +293,7 @@ SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language :
 
 *Table function*
 
-Maps Dynamics 365 BOMVersion (table fields ItemId, BOMId, FromDate, ToDate, Active, Approved, or the BillOfMaterialsVersionsV2 entity fields ItemNumber, ValidFromDate, ValidToDate, IsActive, IsApproved) to the universal bom_header shape: one header per manufactured item, the version valid on reference_date (default 9999-12-31; ToDate empty or 1900-01-01 = open), active first, approved first, newest FromDate, lowest BOMId. bom_id is '<item>/<BOMId>' (with DataAreaId '<company>/<item>/<BOMId>'), source_bom_id the BOMId. bom_table (BOMTable, optional) gives plant_id from SiteId.
+Maps Dynamics 365 BOMVersion (ItemId, BOMId; optional FromDate, ToDate, Active, Approved, DataAreaId) to the universal bom_header shape: one header per company and manufactured item, the version valid on reference_date (YYYY-MM-DD or YYYYMMDD, default 9999-12-31; ToDate empty or 1900-01-01 = open), active first, approved first, newest FromDate, lowest BOMId. bom_id is '<item>/<BOMId>' ('<company>/<item>/<BOMId>' with DataAreaId; a backslash or '/' inside a segment gets a backslash in front), source_bom_id the BOMId, company the lower-cased DataAreaId. bom_table (BOMTable, optional) gives plant_id from SiteId.
 
 ```sql
 dynamics365_to_bom_header(bom_version, bom_table, reference_date)
@@ -282,7 +310,7 @@ SELECT * FROM dynamics365_to_bom_header(bom_version := 'BOMVersion', reference_d
 
 *Table function*
 
-Maps Dynamics 365 BOM lines (table fields BOMId, ItemId, BOMQty, BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, or the BillOfMaterialsLinesV2 entity fields ItemNumber, Quantity, QuantityDenominator, UnitSymbol, LineNumber, ValidFromDate, ValidToDate, BOMLineType) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child and unit (the quantities of a child's lines are added). bom_to_items over the two gives one edge per parent and child and unit.
+Maps Dynamics 365 BOM lines (BOMId, ItemId, BOMQty; optional BOMQtySerie, UnitId, LineNum, FromDate, ToDate, BOMType, BOMConsump, ScrapVar, OprNum, DataAreaId) of the BOMs that dynamics365_to_bom_header chooses (same bom_version and reference_date) to the universal bom_component shape. quantity_per = BOMQty / BOMQtySerie (per one parent), lines valid on reference_date only, one row per BOM, child, unit and consumption type (the quantities of a child's lines are added; constant and variable lines stay apart), company the lower-cased DataAreaId. bom_to_items over the two gives one edge per parent, child and unit and has no company column: filter one company first.
 
 ```sql
 dynamics365_to_bom_component(bom_lines, bom_version, reference_date)
@@ -298,7 +326,7 @@ SELECT * FROM dynamics365_to_bom_component(bom_lines := 'BOM', bom_version := 'B
 
 *Table function*
 
-Maps a Dynamics 365 InventTable (or the ReleasedProductsV2 entity) to the universal materials shape. Needs ItemId (or ItemNumber); uses ItemName (or ProductName, SearchName, NameAlias), ItemGroupId and ItemType (0 Item, 1 BOM, 2 Service, or the enum names) when present. Columns not in D365 are typed NULLs.
+Maps a Dynamics 365 InventTable to the universal materials shape, one row per company and item. Needs ItemId; uses ItemName (or NameAlias), ItemGroupId, ItemType (0 Item, 1 BOM, 2 Service, or the enum names) and DataAreaId (the company column, lower case) when present. Columns not in D365 are typed NULLs.
 
 ```sql
 dynamics365_to_materials(invent_table)
