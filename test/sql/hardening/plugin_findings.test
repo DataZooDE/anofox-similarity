@@ -178,13 +178,13 @@ FLOAT[384]	FLOAT[384]
 
 query TI
 SELECT typeof(f), len(f) FROM (SELECT fuse_embeddings(
-    list_transform(range(256), i -> 1.0)::FLOAT[256], embed_text('pump'), NULL,
+    list_resize([1.0]::FLOAT[], 256, 1.0)::FLOAT[256], embed_text('pump'), NULL,
     {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f);
 ----
 FLOAT[768]	768
 
 query I
-SELECT fuse_embeddings(list_transform(range(256), i -> 1.0), embed_text('pump'), NULL,
+SELECT fuse_embeddings(list_resize([1.0]::FLOAT[], 256, 1.0), embed_text('pump'), NULL,
     {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) IS NOT NULL;
 ----
 true
@@ -229,20 +229,14 @@ WHERE function_name = 'cosine_floor' AND parameters[1:2] = ['table_name', 'colum
 1
 
 # ------------------------------------------------------------------------------
-# A fused embedding is a FLOAT[768] array, so vss can index it directly (no cast).
+# A fused embedding is a FLOAT[768] array, which the core array distances take directly
+# (the HNSW index over it is tested in test/sql/fusion/fused_embedding_hnsw.test, require vss).
 # ------------------------------------------------------------------------------
 statement ok
 CREATE TABLE fused AS SELECT i AS material_id,
-  fuse_embeddings(list_transform(range(256), j -> ((i * 7 + j) % 11)::FLOAT)::FLOAT[256], embed_text('m' || i), NULL,
+  fuse_embeddings((SELECT list(((i * 7 + j) % 11)::FLOAT ORDER BY j) FROM range(256) r(j))::FLOAT[256], embed_text('m' || i), NULL,
                   {'structural': 0.5, 'textual': 0.5, 'transactional': 0.0}) AS f
 FROM range(20) t(i);
-
-# (verification re-plans the statement and rejects the WITH option; vss itself is fine)
-statement ok
-PRAGMA disable_verification
-
-statement ok
-CREATE INDEX fused_idx ON fused USING HNSW (f) WITH (metric = 'cosine');
 
 query I
 SELECT material_id FROM fused ORDER BY array_cosine_distance(f, (SELECT f FROM fused WHERE material_id = 3)) LIMIT 1;
