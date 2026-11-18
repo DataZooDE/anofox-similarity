@@ -1,0 +1,232 @@
+# name: test/sql/hardening/round4_sourcing.test
+# description: Round-4 (second source) findings: bound_policy 'override' on templates (F2), the
+#              closest provided value on a trace tie (F5), unknown words before another number
+#              (F3, F7), the trace in the unit a value was written in (F7)
+# group: [hardening]
+
+require anofox_similarity
+
+# --- parse_quantity: an unknown word followed by another number is unknown --------------
+
+query TTT
+SELECT t, parse_quantity(t).lo, parse_quantity(t).unit
+FROM (VALUES (1, '3.1 acc. to EN 10204'), (2, 'max. 420 x 310 x 180 mm'), (3, '12 widgets'), (4, '6 - 18 V'),
+             (5, '220 ± 5 N'), (6, '24 1000 N')) v(i, t)
+ORDER BY i;
+----
+3.1 acc. to EN 10204	NULL	NULL
+max. 420 x 310 x 180 mm	NULL	NULL
+12 widgets	12.0	widgets
+6 - 18 V	6.0	V
+220 ± 5 N	220.0	N
+24 1000 N	24.0	1000 N
+
+# raw is kept on the unknown form
+query T
+SELECT parse_quantity('3.1 acc. to EN 10204').raw;
+----
+3.1 acc. to EN 10204
+
+# --- F2: bound_policy ----------------------------------------------------------------------
+
+statement ok
+CREATE TABLE n AS SELECT * FROM (VALUES
+  ('Q','Q',NULL,'container','AND','part',NULL,1.0), ('Q','Q.w','Q','item','AND','w','piece_weight',1.0),
+  ('S','S',NULL,'container','AND','foundry',NULL,1.0), ('S','S.w','S','item','AND','w','piece_weight',1.0))
+  t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE a AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'w' AS attr_id, 'weight' AS "name", q.dimension, q.unit, q.lo, q.hi,
+       q.bound, NULL::VARCHAR AS category, q.source_unit
+FROM (SELECT parse_quantity('max. Stückgewicht 38 kg', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'w', 'weight', q.dimension, q.unit, q.lo, q.hi, q.bound, NULL, q.source_unit
+FROM (SELECT parse_quantity('bis 37000 g', 'de') AS q);
+
+statement ok
+CREATE TABLE tpl_override AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                                    'Override' AS bound_policy;
+
+statement ok
+CREATE TABLE tpl_fill AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                                'fill' AS bound_policy;
+
+statement ok
+CREATE TABLE tpl_plain AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound;
+
+# the stated bound wins without the policy and under 'fill': a 37 kg foundry meets "max. 38 kg"
+query TRT
+SELECT req_value, value_score, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_plain', tol := 0, soft_band := 0);
+----
+at_most 38 kg	1.0	explicit
+
+query TRT
+SELECT req_value, value_score, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_fill', tol := 0, soft_band := 0);
+----
+at_most 38 kg	1.0	explicit
+
+# 'override' (any case): the class's bound replaces the stated one; the source shows 37000 g as written
+query TTRTT
+SELECT req_value, prov_value, value_score, is_gap, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override', tol := 0, soft_band := 0);
+----
+at_least 38 kg	37000 g	0.0	true	template_override
+
+query R
+SELECT coverage
+FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                   default_bounds := 'catalogue', templates_table := 'tpl_override', tol := 0, soft_band := 0);
+----
+0.0
+
+# the template is read only with default_bounds := 'catalogue'
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         templates_table := 'tpl_override');
+----
+explicit
+
+# an empty stated bound under 'override' is still 'template'
+statement ok
+CREATE TABLE a_unbound AS SELECT * REPLACE (NULL::VARCHAR AS bound) FROM a;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a_unbound',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override');
+----
+template
+
+statement ok
+CREATE TABLE tpl_bad AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                               'replace' AS bound_policy;
+
+statement error
+SELECT * FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                            default_bounds := 'catalogue', templates_table := 'tpl_bad');
+----
+bound_policy must be NULL, 'fill' or 'override'
+
+# rows of one class and dimension that disagree on the policy: NULL, i.e. fill
+statement ok
+CREATE TABLE tpl_mixed AS SELECT * FROM tpl_override UNION ALL SELECT * FROM tpl_fill;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_mixed');
+----
+explicit
+
+# --- F5: on a tie the trace shows the closest provided value ---------------------------------
+
+statement ok
+CREATE TABLE cn AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','part',NULL,1.0),
+  ('Q','Q.c','Q','item','AND','c','cert',1.0), ('S','S',NULL,'container','AND','foundry',NULL,1.0),
+  ('S','S.c','S','item','AND','c','cert',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE ca AS SELECT * FROM (VALUES
+  ('Q','Q.c','c','cert','cert_level',NULL,NULL::DOUBLE,NULL::DOUBLE,NULL,'EN10204-3.2'),
+  ('S','S.c','c1','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-2.2'),
+  ('S','S.c','c2','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-3.1'))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE ladder AS SELECT * FROM (VALUES
+  ('cert_level','EN10204-2.2','EN10204-2.2',1.0), ('cert_level','EN10204-2.2','EN10204-3.1',1.0),
+  ('cert_level','EN10204-3.1','EN10204-3.1',1.0), ('cert_level','EN10204-3.2','EN10204-3.2',1.0))
+  t(dimension,required,provided,score);
+
+# with a ladder: the higher rung (3.1 meets two levels, 2.2 one)
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca', rules_table := 'ladder');
+----
+point EN10204-3.2	EN10204-3.1
+
+# without rules: no order is known, the first in attr_id order stays
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca');
+----
+point EN10204-3.2	EN10204-2.2
+
+# numbers: two failing offers, the nearer one is shown
+statement ok
+CREATE TABLE wn AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','part',NULL,1.0),
+  ('Q','Q.w','Q','item','AND','w','piece_weight',1.0), ('S','S',NULL,'container','AND','foundry',NULL,1.0),
+  ('S','S.w','S','item','AND','w','piece_weight',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wa AS SELECT * FROM (VALUES
+  ('Q','Q.w','w','weight','mass','kg',400.0,400.0,'at_least'),
+  ('S','S.w','w1','weight','mass','kg',100.0,100.0,NULL),
+  ('S','S.w','w2','weight','mass','kg',300.0,300.0,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound);
+
+query TTR
+SELECT req_value, prov_value, round(distance, 3)
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'wa', soft_band := 0, tol := 0);
+----
+at_least 400 kg	300 kg	0.25
+
+# --- source_unit: the trace in the unit a value was written in --------------------------------
+
+statement ok
+CREATE TABLE ra AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'r' AS attr_id, 'Ra' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound,
+       q.source_unit
+FROM (SELECT parse_quantity('Ra max. 3,2 µm', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'r', 'Ra', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('Ra 6.3 µm') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra');
+----
+at_most 3.2 µm	6.3 µm
+
+# without the column: base units, as before
+statement ok
+CREATE TABLE ra_base AS SELECT * EXCLUDE (source_unit) FROM ra;
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra_base');
+----
+at_most 3.2e-06 m	6.3e-06 m
+
+# a source unit of another dimension or an unknown one: base units
+statement ok
+CREATE TABLE ra_odd AS SELECT * REPLACE (CASE WHEN tree_id = 'Q' THEN 'kg' ELSE 'furlongs?' END AS source_unit) FROM ra;
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra_odd');
+----
+at_most 3.2e-06 m	6.3e-06 m
+
+# temperatures convert with their offset
+statement ok
+CREATE TABLE temp AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 't' AS attr_id, 'max temp' AS "name", q.dimension, q.unit, q.lo, q.hi,
+       q.bound, q.source_unit
+FROM (SELECT parse_quantity('max. 80 °C') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 't', 'max temp', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('75 °C') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'temp');
+----
+at_most 80 °C	75 °C

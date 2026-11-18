@@ -989,6 +989,12 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	    Trim(s.substr(first.end, numbers[1].begin - first.end)).empty()) {
 		token = Trim(s.substr(first.end));
 	}
+	// an unknown word after the number and another number later ('3.1 acc. to EN 10204',
+	// '420 x 310 x 180 mm'): the value belongs to a designation or a box, so it is unknown
+	if (!lo_unit && !hi_unit && !range && !tolerance && !token1.empty() && token == token1 &&
+	    numbers.size() >= 2 && numbers[1].begin >= end1) {
+		return Quantity();
+	}
 	q.source_unit = token;
 
 	if (lo_unit || hi_unit) {
@@ -1519,7 +1525,8 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, "
 	    "offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator "
 	    "('1 000 N'). A bare number is a count; an unknown unit "
-	    "keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).",
+	    "keeps the number and has dimension NULL; with another number after it ('3.1 acc. to EN 10204', "
+	    "'420 x 310 x 180 mm') the result is empty. Pass lang before unit_table (DuckDB 1.5.6 binds by position).",
 	    {{{vc}, {"text"}, {"SELECT parse_quantity('max. 38 dB(A)');"}},
 	     {{vc, vc}, {"text", "lang"}, {"SELECT parse_quantity('65.000 Zyklen', 'de');"}},
 	     {{vc, vcl}, {"text", "lang"}, {"SELECT parse_quantity('2.500 mA', ['de', 'en']);"}},

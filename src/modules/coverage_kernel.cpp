@@ -44,11 +44,13 @@ struct KAttr {
 	double hi = 0;
 	string bound;
 	string default_bound;
+	bool override_bound = false; // the template's bound_policy 'override': default_bound replaces bound
 	string scale; // the template's 'log' or 'linear'; empty: per dimension
 	string category; // canonical (semantic_key): an IRDI and the IRI of one enumeration value agree
 	string text;     // value_text as written, for the trace
 	string key; // canonical attr_key (semantic_key without version); empty: not keyed
 	string bound_source; // explicit | text | range | level_type | constraint (where bound came from)
+	string source_unit;  // the unit the value was written in (parse_quantity's source_unit), for the trace
 	vector<double> name_vec;
 };
 
@@ -259,11 +261,18 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.has_hi = FieldNumber(a, "hi", k.hi);
 		k.bound = FieldText(a, "bound");
 		k.default_bound = FieldText(a, "default_bound");
+		auto policy = StringUtil::Lower(FieldText(a, "bound_policy"));
+		if (!policy.empty() && policy != "fill" && policy != "override") {
+			throw InvalidInputException("templates_table: bound_policy must be NULL, 'fill' or 'override', not '%s'",
+			                            FieldText(a, "bound_policy"));
+		}
+		k.override_bound = policy == "override" && !k.default_bound.empty();
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
 		k.category = SemanticKey(FieldText(a, "category")).key;
 		k.text = FieldText(a, "value_text");
 		k.key = SemanticKey(FieldText(a, "attr_key")).key;
 		k.bound_source = FieldText(a, "bound_source");
+		k.source_unit = FieldText(a, "source_unit");
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -394,6 +403,10 @@ struct Options {
 	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
 	//! NaN when two dimensions disagree on the pair, so no rule is guessed
 	std::map<std::pair<string, string>, double> rules_any_dimension;
+	//! How much a provided category meets in the rules (sum of its scores over required values), per
+	//! (dimension, provided) and over all dimensions: the higher rung of a ladder meets more.
+	std::map<std::pair<string, string>, double> rung;
+	std::map<string, double> rung_any_dimension;
 	//! Class hierarchy (GitHub #32): related classes get generalization_credit^distance.
 	double generalization_credit = 0.0;
 	std::unordered_map<string, std::unordered_map<string, idx_t>> ancestors; // class -> ancestor -> distance
@@ -537,6 +550,10 @@ Options LoadOptions(const Value &v) {
 				auto required = SemanticKey(FieldText(r, "required")).key;
 				auto provided = SemanticKey(FieldText(r, "provided")).key;
 				o.rules[std::make_tuple(FieldText(r, "dimension"), required, provided)] = score;
+				if (score > 0) {
+					o.rung[std::make_pair(FieldText(r, "dimension"), provided)] += score;
+					o.rung_any_dimension[provided] += score;
+				}
 				auto key = std::make_pair(required, provided);
 				auto any = o.rules_any_dimension.find(key);
 				if (any == o.rules_any_dimension.end()) {
@@ -664,6 +681,34 @@ string FormatNumber(double v) {
 	return StringUtil::Format("%g", v);
 }
 
+//! The bound a requirement is checked with: the template's under bound_policy 'override', else the
+//! stated one, else the template's (default_bounds := 'catalogue').
+const string &EffectiveBound(const KAttr &x) {
+	if (x.override_bound || x.bound.empty()) {
+		return x.default_bound;
+	}
+	return x.bound;
+}
+
+//! A value in base units shown in the unit it was written in, when the seed knows that unit for
+//! the same dimension with a factor (3.2e-06 m written as µm: 3.2 µm); else in the base unit.
+string QuantityText(const KAttr &a, double lo, double hi) {
+	auto unit = a.unit;
+	if (!a.source_unit.empty() && !a.dimension.empty() && a.dimension != "currency") {
+		auto def = UnitTable::Seed().FindSymbolOrId(a.source_unit);
+		if (def && def->dimension == a.dimension && !std::isnan(def->factor) && def->factor != 0) {
+			lo = (lo - def->offset) / def->factor;
+			hi = (hi - def->offset) / def->factor;
+			unit = a.source_unit;
+		}
+	}
+	string s = lo == hi ? FormatNumber(lo) : FormatNumber(lo) + ".." + FormatNumber(hi);
+	if (!unit.empty() && unit != "1") {
+		s += " " + unit;
+	}
+	return s;
+}
+
 string ValueText(const KAttr &a, bool requirement, const string &bound) {
 	string s;
 	if (requirement) {
@@ -679,11 +724,7 @@ string ValueText(const KAttr &a, bool requirement, const string &bound) {
 		return s + "?";
 	}
 	double lo = a.has_lo ? a.lo : a.hi, hi = a.has_hi ? a.hi : a.lo;
-	s += lo == hi ? FormatNumber(lo) : FormatNumber(lo) + ".." + FormatNumber(hi);
-	if (!a.unit.empty() && a.unit != "1") {
-		s += " " + a.unit;
-	}
-	return s;
+	return s + QuantityText(a, lo, hi);
 }
 
 struct AttrMatch {
@@ -724,11 +765,32 @@ bool HasKeyedCounterpart(const KAttr &x, const KItem &c) {
 	return false;
 }
 
+//! On equal scores, the provided value the trace should show: the nearer one (smaller distance),
+//! for a category the higher rung of the rules' ladder. Otherwise the first in attr_id order.
+bool Closer(const AttrMatch &m, const AttrMatch &best, const Options &o) {
+	if (m.has_distance && best.has_distance) {
+		return m.distance < best.distance;
+	}
+	if (m.req->category.empty() || !m.prov || !best.prov) {
+		return false;
+	}
+	auto rung = [&](const KAttr &y) {
+		auto dim = !y.dimension.empty() ? y.dimension : m.req->dimension;
+		auto it = dim.empty() ? o.rung.end() : o.rung.find(std::make_pair(dim, y.category));
+		if (it != o.rung.end()) {
+			return it->second;
+		}
+		auto any = o.rung_any_dimension.find(y.category);
+		return any == o.rung_any_dimension.end() ? 0.0 : any->second;
+	};
+	return rung(*m.prov) > rung(*best.prov);
+}
+
 //! The best provided attribute for one required attribute.
 AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 	AttrMatch best;
 	best.req = &x;
-	best.bound = !x.bound.empty() ? x.bound : x.default_bound;
+	best.bound = EffectiveBound(x);
 	best.rule = "gate";
 	bool exact_key = HasKeyedCounterpart(x, c);
 	const KAttr *key_conflict = nullptr; // a different dictionary property of the same kind
@@ -811,7 +873,7 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.name_rule = name.rule;
 		}
 		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
-		if (best.gate || m.score > best.score) {
+		if (best.gate || m.score > best.score || (m.score == best.score && Closer(m, best, o))) {
 			best = m;
 		}
 	}
@@ -1137,6 +1199,9 @@ void ImprovePartition(vector<ReqResult> &results, vector<vector<const KItem *>> 
 //! Where the bound of a requirement came from: its own bound_source, 'template' for a catalogue
 //! default bound (default_bounds := 'catalogue'), empty for an unqualified value.
 string BoundSource(const KAttr &x) {
+	if (x.override_bound) {
+		return x.bound.empty() ? "template" : "template_override";
+	}
 	if (!x.bound.empty()) {
 		return x.bound_source.empty() ? "explicit" : x.bound_source;
 	}
@@ -1181,7 +1246,7 @@ void AppendTrace(const ReqResult &r, vector<Value> &trace) {
 		for (auto &x : r.q->attrs) {
 			AttrMatch m;
 			m.req = &x;
-			m.bound = !x.bound.empty() ? x.bound : x.default_bound;
+			m.bound = EffectiveBound(x);
 			m.rule = "gate";
 			trace.push_back(TraceRow(r, &m));
 		}
@@ -1666,7 +1731,7 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	string base = StringUtil::Format(
 	    "SELECT CAST(a.tree_id AS VARCHAR) AS tree_id, CAST(a.node_id AS VARCHAR) AS node_id, "
 	    "CAST(a.attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS unit, %s AS lo, %s AS hi, "
-	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source, %s AS value_text FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
+	    "%s AS bound, %s AS category, %s AS attr_key, %s AS bound_source, %s AS value_text, %s AS source_unit FROM %s a WHERE CAST(a.tree_id AS VARCHAR) IN (SELECT tree_id FROM %s)",
 	    CastOrNullSQL(has("name"), "name", "VARCHAR", "a"),
 	    CastOrNullSQL(has("dimension"), "dimension", "VARCHAR", "a"),
 	    CastOrNullSQL(has("unit"), "unit", "VARCHAR", "a"), CastOrNullSQL(has("lo"), "lo", "DOUBLE", "a"),
@@ -1674,22 +1739,32 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	    CastOrNullSQL(has("category"), "category", "VARCHAR", "a"),
 	    CastOrNullSQL(has("attr_key"), "attr_key", "VARCHAR", "a"),
 	    CastOrNullSQL(has("bound_source"), "bound_source", "VARCHAR", "a"),
-	    CastOrNullSQL(has("value_text"), "value_text", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
+	    CastOrNullSQL(has("value_text"), "value_text", "VARCHAR", "a"),
+	    CastOrNullSQL(has("source_unit"), "source_unit", "VARCHAR", "a"), QuotedIdentifier(src.attrs_table),
 	    query_side ? "q_ids" : "c_ids");
 	string default_bound = "NULL::VARCHAR";
+	string bound_policy = "NULL::VARCHAR";
 	string scale = "NULL::VARCHAR";
 	string templates_join;
 	if (query_side && !p.default_bounds.empty()) {
 		// the template's scale column (log / linear), when it has one, decides how values compare
-		bool has_scale = TableHasColumn(context, p.templates_table, "scale");
+		// optional columns: scale (log / linear) decides how values compare, bound_policy whether
+		// the template's bound only fills an empty bound ('fill', NULL) or replaces it ('override');
+		// rows of one class and dimension that disagree give NULL
+		auto single = [&](const char *col) {
+			return TableHasColumn(context, p.templates_table, col)
+			           ? StringUtil::Format("CASE WHEN count(DISTINCT CAST(%s AS VARCHAR)) = 1 THEN "
+			                                "any_value(CAST(%s AS VARCHAR)) END",
+			                                col, col)
+			           : string("NULL::VARCHAR");
+		};
 		templates_join = StringUtil::Format(
 		    " LEFT JOIN (SELECT CAST(class_id AS VARCHAR) AS class_id, CAST(dimension AS VARCHAR) AS dimension, "
-		    "CASE WHEN count(DISTINCT CAST(bound AS VARCHAR)) = 1 THEN any_value(CAST(bound AS VARCHAR)) END AS bound, "
-		    "%s AS scale FROM %s GROUP BY ALL) t ON t.class_id = n.class_id AND t.dimension = x.dimension",
-		    has_scale ? "CASE WHEN count(DISTINCT CAST(scale AS VARCHAR)) = 1 THEN any_value(CAST(scale AS VARCHAR)) END"
-		              : "NULL::VARCHAR",
-		    QuotedIdentifier(p.templates_table));
+		    "%s AS bound, %s AS scale, %s AS bound_policy FROM %s GROUP BY ALL) t "
+		    "ON t.class_id = n.class_id AND t.dimension = x.dimension",
+		    single("bound"), single("scale"), single("bound_policy"), QuotedIdentifier(p.templates_table));
 		default_bound = "t.bound";
+		bound_policy = "t.bound_policy";
 		scale = "t.scale";
 	}
 	string vec = "NULL::DOUBLE[]";
@@ -1701,11 +1776,11 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 	return StringUtil::Format(
 	    "SELECT x.tree_id, x.node_id, list(struct_pack(attr_id := x.attr_id, name := x.name, dimension := x.dimension, "
 	    "unit := x.unit, lo := x.lo, hi := x.hi, bound := x.bound, category := x.category, attr_key := x.attr_key, "
-	    "bound_source := x.bound_source, value_text := x.value_text, "
-	    "default_bound := %s, "
+	    "bound_source := x.bound_source, value_text := x.value_text, source_unit := x.source_unit, "
+	    "default_bound := %s, bound_policy := %s, "
 	    "scale := %s, name_vec := %s) ORDER BY x.attr_id) AS attrs "
 	    "FROM (%s) x JOIN %s n ON n.tree_id = x.tree_id AND n.node_id = x.node_id%s%s GROUP BY x.tree_id, x.node_id",
-	    default_bound, scale, vec, base, nodes_cte, templates_join, vec_join);
+	    default_bound, bound_policy, scale, vec, base, nodes_cte, templates_join, vec_join);
 }
 
 string LabelsSQL(const TreeSource &src, const string &ids_cte) {
@@ -1952,7 +2027,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 		d.description =
 		    "The stage-2 coverage kernel over two packed trees (LIST of STRUCT(node_id, parent_id, node_kind, edge_type, "
 		    "class_id, reviewed, count, probs MAP, attrs LIST(STRUCT(attr_id, name, dimension, unit, lo, hi, bound, "
-		    "category, default_bound, scale, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, "
+		    "category, default_bound, bound_policy, scale, source_unit, name_vec)))) with an options STRUCT (labels, assignment, label_weight, mu, "
 		    "partition_gate, count_gate, name_floor, tol, soft_band, trace, rules). Returns STRUCT(coverage, n_requirements, n_gaps, "
 		    "reviewed, assignment_used, trace). tree_coverage and tree_coverage_trace build its inputs; use it "
 		    "directly for custom pipelines.";
@@ -1991,7 +2066,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "candidate item one requirement block (no substitution), 'best_match' lets requirements share, 'auto' uses "
 	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
-	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table). "
+	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table); a "
+	    "template row with bound_policy 'override' replaces a stated bound too (a drawing's 'max. 38 kg' describes the "
+	    "part, the class says what the supplier must meet), 'fill' or NULL only fills. "
 	    "tol and soft_band (default 0.02, 0.05) are passed to value_satisfies; use 0 and 0 for hard limits." +
 	        common,
 	    {"SELECT * FROM tree_coverage('R01', k := 20, candidate_nodes_table := 'programme_nodes', "
@@ -2005,7 +2082,8 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "attr_score, count_needed, count_available, req_score, is_gap (no counterpart, a count shortfall or a "
 	    "value below 1), name_rule (how the names were compared: key when both attributes carry the same attr_key, "
 	    "vector, exact or tokens), bound_source (where the requirement's bound came from: explicit, text, range, "
-	    "level_type, constraint or template) and label_rule (exact, soft, specialized: a subclass was offered, "
+	    "level_type, constraint, template, or template_override when bound_policy 'override' replaced a stated "
+	    "bound) and label_rule (exact, soft, specialized: a subclass was offered, "
 	    "generalized: a superclass was offered, see class_hierarchy). rule is the value rule; gate for a dimension or unit mismatch; "
 	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
 	    "different attr_keys. Same parameters as tree_coverage." +

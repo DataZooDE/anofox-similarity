@@ -4,6 +4,17 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
+## Unreleased: sourcing bounds, closest value in the trace, unknown designations
+
+No scores change for existing tables. Check these if you store parser output or trace text:
+
+| Before | Now |
+|---|---|
+| `parse_quantity('3.1 acc. to EN 10204')` = 3.1 with unit `acc`, `'420 x 310 x 180 mm'` = 420 with unit `x` (dimension NULL in both) | empty (`lo`, `unit` NULL): an unknown word followed by another number is part of a designation. `'12 furlongs'` is unchanged. Re-parse stored values if you count unparsed rows by `lo IS NULL` |
+| `tree_coverage_trace` showed the first failing offered value (`EN10204-2.2` against a required 3.2, also offered 3.1) | the nearest one (smallest `distance`; for categories, the one that meets most levels in `rules_table`). Scores are the same; `prov_value` and `distance` of such rows, and `aas_coverage_result` built from them, can change |
+| a template's bound only filled an empty bound | unchanged by default. New: a `bound_policy` column on the templates table, `'override'` replaces a stated bound (`bound_source` `template_override`) |
+| trace values in base units only (`3.2e-06 m`) | unchanged by default. New: an attributes-table column `source_unit` (from `parse_quantity`) shows the written unit (`3.2 µm`) |
+
 ## v2026.11.14: embeddings as FLOAT arrays, native SAP and Dynamics 365 readers, typed universal-schema converters
 
 The first release after v2026.10.23, with the Claude Code plugin.

@@ -58,7 +58,8 @@ FROM (VALUES ('nicht über 38 dB(A)'), ('no more than 38 dB(A)'), ('greater than
 
 - A value without a bound word has `bound` NULL (unqualified).
 - An unknown unit is never guessed. The number stays, `dimension` is NULL, and every comparison with
-  it is a gate.
+  it is a gate. With another number after the unknown word (`3.1 acc. to EN 10204`,
+  `420 x 310 x 180 mm`) the result is empty.
 - A class code such as `IP54` goes to `category`.
 - `lang` only decides ambiguous separators. A comma or dot with one or two digits after it is
   always a decimal separator. With three digits it depends on the language:
@@ -263,6 +264,42 @@ Without `default_bounds`, both values are points and S1 scores 0.307. The catalo
 is `at_least` and noise is `at_most`, so S1 (0.25 m, 36 dB(A)) meets both. On the benchmark this
 option lowers the mean regret from 0.024 to 0.009.
 
+### When the Wording Describes Something Else
+
+The bound word describes the subject of the document. A drawing's `max. Stückgewicht 38 kg` says the
+part weighs at most 38 kg. For sourcing, the requirement on a foundry is the opposite: it must pour
+**at least** 38 kg. A stated bound wins over the template, so here every weight check would be
+backwards. Add a `bound_policy` column to the templates table. With `'override'`, the class's
+bound replaces the stated one:
+
+```sql
+CREATE TABLE src_nodes AS SELECT * FROM (VALUES
+  ('P', 'P',   NULL, 'container', 'AND', 'part',    NULL,           1.0),
+  ('P', 'P.w', 'P',  'item',      'AND', 'weight',  'piece_weight', 1.0),
+  ('F', 'F',   NULL, 'container', 'AND', 'foundry', NULL,           1.0),
+  ('F', 'F.w', 'F',  'item',      'AND', 'weight',  'piece_weight', 1.0))
+  t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+CREATE TABLE src_attrs AS
+SELECT tree_id, node_id, 'w' AS attr_id, 'Gewicht' AS name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (VALUES ('P', 'P.w', 'max. Stückgewicht 38 kg'), ('F', 'F.w', 'bis 37 kg')) v(tree_id, node_id, txt),
+     LATERAL (SELECT parse_quantity(txt, 'de') AS q);
+CREATE TABLE capability_templates AS
+SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound, 'override' AS bound_policy;
+
+SELECT req_value, prov_value, value_score, bound_source
+FROM tree_coverage_trace('P', candidates := ['F'], nodes_table := 'src_nodes', attrs_table := 'src_attrs',
+                         default_bounds := 'catalogue', templates_table := 'capability_templates',
+                         tol := 0, soft_band := 0);
+```
+
+| req_value      | prov_value | value_score | bound_source      |
+|----------------|------------|------------:|-------------------|
+| at_least 38 kg | 37 kg      | 0.0         | template_override |
+
+Without `bound_policy` (or with `'fill'`) the requirement stays `at_most 38 kg`, and the foundry
+meets it with a score of 1.0. Set the policy per class: a weight or an envelope describes the part,
+while a tolerance (`± 0.05 mm`) means the same for the part and the supplier.
+
 ## Common Patterns
 
 **Parse a whole archive.** Join the language per document:
@@ -289,6 +326,7 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | A value inside a `von ... bis` range scores below 1 | `within` asks for the whole range. Store an acceptable band as two limits. |
 | Named arguments in the wrong order | On DuckDB 1.5.6 scalars bind by position: `(requirement, provided, scale, tol, soft_band, default_bound)`. |
 | A bare value never matches | Use `default_bound` or `default_bounds := 'catalogue'`. |
+| `max.` on a drawing checks the supplier the wrong way | The word describes the part. Set `bound_policy := 'override'` on the class's template row. |
 | `IP65` does not satisfy `at_least IP54` | Add a row to `compatibility_rules`. |
 | Unknown unit gives score 0 | Add the unit through `unit_table`. |
 | `M8x1,25`, `A4-70`, `EN 10204` or `DIN 933` come back empty | Designations are not values: `parse_quantity` refuses to guess a number from them. Map them to categories in SQL (e.g. `regexp_extract`) and compare them with `compatibility_rules`. `PN 16`, `DN 50` and `IP 65` are categories. |

@@ -29,13 +29,16 @@ source_unit, category)`
 | `65.000 Zyklen` with lang `'de'` | 65000 (count) | NULL |
 | `IP54 or better` | NULL; `category` = IP54 | at_least |
 | `12 furlongs` | 12; `dimension` NULL, `unit` = furlongs | NULL |
+| `3.1 acc. to EN 10204`, `420 x 310 x 180 mm` | empty (unknown word, then another number) | NULL |
 
 - `lang` is `'en'`, `'de'` or a list; default `['en', 'de']`. It only decides ambiguous
   separators (`2.500` is 2500 in German and 2.5 in English); bound words of both languages are
   always recognised. A comma or dot with one or two digits after it is always a decimal
   separator.
 - A bare number is a count (`unit` '1'). An unknown unit is never guessed: the number stays as
-  written and `dimension` is NULL, so every comparison with it is a gate.
+  written and `dimension` is NULL, so every comparison with it is a gate. When another number
+  follows the unknown word (a certificate `3.1 acc. to EN 10204`, a box `420 x 310 x 180 mm`), the
+  value is part of a designation and the result is empty.
 - A category is a single upper-case code with digits and no number in front (`IP54`, `F1`,
   `M8`); `1 F` is one farad.
 - `unit_table` is a LIST of `STRUCT(symbol, alias, unit_id, dimension, factor, offset)` (`unit_id` optional), e.g.
@@ -162,7 +165,7 @@ CREATE TABLE my_units AS SELECT symbol, alias, unit_id, dimension, factor, "offs
 
 *Scalar function*
 
-Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
+Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL; with another number after it ('3.1 acc. to EN 10204', '420 x 310 x 180 mm') the result is empty. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
 
 ```sql
 parse_quantity(text VARCHAR) → STRUCT(lo DOUBLE, hi DOUBLE, unit VARCHAR, dimension VARCHAR, bound VARCHAR, raw VARCHAR, source_unit VARCHAR, category VARCHAR)

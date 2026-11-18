@@ -51,12 +51,12 @@ ORDER BY supplier, class;
 -- Expected:
 --   SUP-ALPEN  | envelope_1   | raw part envelope | at_least 0.7 m  | 0.6 m       | 0.143
 --   SUP-ALPEN  | piece_weight | Rohgewicht      | at_least 400 kg   | 300 kg      | 0.25
---   SUP-BRANDT | cert_level   | Zeugnis         | point EN10204-3.2 | EN10204-2.2 | NULL
+--   SUP-BRANDT | cert_level   | Zeugnis         | point EN10204-3.2 | EN10204-3.1 | NULL
 -- Brandt cannot issue a 3.2 certificate (third-party inspection); Alpenguss can,
 -- but its flask is 600 mm and it pours 300 kg at most. The drawing's weight was
 -- "ca. 400 kg": read as at_least 400 kg because the class says so.
--- Brandt issues 2.2 and 3.1; the trace shows 2.2 because both score 0 against 3.2
--- and the first one is kept.
+-- Brandt issues 2.2 and 3.1; both score 0 against 3.2 and the trace shows 3.1, the
+-- higher rung in compatibility_rules (it meets more required levels).
 
 .print ''
 .print '>>> 3. Hard limits: the default tolerance scores up to 2 % outside a limit as met'

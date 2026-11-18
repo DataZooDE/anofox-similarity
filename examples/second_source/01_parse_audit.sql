@@ -42,8 +42,9 @@ GROUP BY ALL ORDER BY name;
 .print ''
 .print '>>> 3. Why codes do not go through parse_quantity'
 -- What the parser makes of the code texts on the drawings. It refuses designations
--- and certificate numbers (empty result) and reads PN as a category; only
--- "3.1 acc. to EN 10204" still comes back as a number, with the next word as unit.
+-- and certificate numbers (empty result) and reads PN as a category. A number with
+-- an unknown word after it and another number later ("3.1 acc. to EN 10204") is
+-- refused too.
 SELECT t.class_id,
        CASE WHEN p.category IS NOT NULL THEN 'category ' || p.category
             WHEN p.dimension IS NOT NULL THEN 'number ' || p.lo || ', dimension ' || p.dimension
@@ -54,16 +55,12 @@ FROM spec_texts t, LATERAL (SELECT parse_quantity(t.value_text, t.lang) AS p)
 WHERE t.side = 'part' AND t.class_id IN ('material_grade', 'cert_level', 'pressure_class')
 GROUP BY ALL ORDER BY t.class_id, parse_quantity_says;
 -- Expected:
---   cert_level     | empty (refused)              | 25 | Abnahmeprüfzeugnis 3.1 nach EN 10204
---   cert_level     | number 3.1, unknown unit acc |  5 | 3.1 acc. to EN 10204
---   cert_level     | number 3.2, unknown unit acc |  3 | 3.2 acc. to EN 10204
+--   cert_level     | empty (refused)              | 33 | 3.1 acc. to EN 10204
 --   material_grade | empty (refused)              | 40 | EN-GJL-250
 --   pressure_class | category PN10                |  2 | PN 10
 --   pressure_class | category PN16                |  2 | PN 16
 --   pressure_class | category PN25                |  1 | PN 25
 --   pressure_class | category PN40                |  1 | PN 40
--- The remaining numbers get the next word as unit ("acc"), so they can only ever
--- be gates, never a passed check.
 -- A certificate level is an ordinal code, not a count: the loader reads it with a
 -- regex and writes category EN10204-3.1 with dimension cert_level.
 
@@ -119,6 +116,10 @@ GROUP BY ALL ORDER BY ALL;
 --   tolerance    | at_most | at_most  | 13
 -- 33 weight lines say "max." and mean the opposite of what sourcing needs. Taking
 -- the parsed bound would have turned every heavier-is-better check upside down.
+-- Without such a loader, a templates table with bound_policy 'override' does the
+-- same in the kernel: tree_coverage(..., default_bounds := 'catalogue',
+-- templates_table := ...) checks with the class's bound, and the trace says
+-- bound_source 'template_override'.
 
 .print ''
 .print '>>> 7. Gates before ranking'
