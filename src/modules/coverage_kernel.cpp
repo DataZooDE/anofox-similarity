@@ -263,16 +263,20 @@ vector<KAttr> ReadAttributes(const Value *attrs) {
 		k.default_bound = FieldText(a, "default_bound");
 		auto policy = StringUtil::Lower(FieldText(a, "bound_policy"));
 		if (!policy.empty() && policy != "fill" && policy != "override") {
-			throw InvalidInputException("templates_table: bound_policy must be NULL, 'fill' or 'override', not '%s'",
+			throw InvalidInputException("bound_policy must be NULL, 'fill' or 'override', not '%s'",
 			                            FieldText(a, "bound_policy"));
 		}
-		k.override_bound = policy == "override" && !k.default_bound.empty();
 		k.scale = StringUtil::Lower(FieldText(a, "scale"));
 		k.category = SemanticKey(FieldText(a, "category")).key;
 		k.text = FieldText(a, "value_text");
 		k.key = SemanticKey(FieldText(a, "attr_key")).key;
 		k.bound_source = FieldText(a, "bound_source");
 		k.source_unit = FieldText(a, "source_unit");
+		// bound_policy 'override' replaces a stated max./min. on one value (the wording of the
+		// document's subject); a range (within), a tolerance (equals) and a category keep theirs
+		bool one_value = k.has_lo && k.has_hi ? k.lo == k.hi : k.has_lo || k.has_hi;
+		k.override_bound = policy == "override" && !k.default_bound.empty() && k.category.empty() && one_value &&
+		                   (k.bound == "at_least" || k.bound == "at_most") && k.bound != k.default_bound;
 		auto vec = Field(a, "name_vec");
 		if (vec && !vec->IsNull()) {
 			for (auto &x : ListValue::GetChildren(*vec)) {
@@ -403,10 +407,9 @@ struct Options {
 	//! (required, provided) -> score for categories without a dimension (PN16 parsed from text);
 	//! NaN when two dimensions disagree on the pair, so no rule is guessed
 	std::map<std::pair<string, string>, double> rules_any_dimension;
-	//! How much a provided category meets in the rules (sum of its scores over required values), per
-	//! (dimension, provided) and over all dimensions: the higher rung of a ladder meets more.
-	std::map<std::pair<string, string>, double> rung;
-	std::map<string, double> rung_any_dimension;
+	//! How many required levels a provided category meets (rules with score > 0), per (dimension,
+	//! provided); rules without a dimension count under "". The higher rung of a ladder meets more.
+	std::map<std::pair<string, string>, idx_t> rung;
 	//! Class hierarchy (GitHub #32): related classes get generalization_credit^distance.
 	double generalization_credit = 0.0;
 	std::unordered_map<string, std::unordered_map<string, idx_t>> ancestors; // class -> ancestor -> distance
@@ -550,10 +553,6 @@ Options LoadOptions(const Value &v) {
 				auto required = SemanticKey(FieldText(r, "required")).key;
 				auto provided = SemanticKey(FieldText(r, "provided")).key;
 				o.rules[std::make_tuple(FieldText(r, "dimension"), required, provided)] = score;
-				if (score > 0) {
-					o.rung[std::make_pair(FieldText(r, "dimension"), provided)] += score;
-					o.rung_any_dimension[provided] += score;
-				}
 				auto key = std::make_pair(required, provided);
 				auto any = o.rules_any_dimension.find(key);
 				if (any == o.rules_any_dimension.end()) {
@@ -562,6 +561,11 @@ Options LoadOptions(const Value &v) {
 					any->second = std::nan("");
 				}
 			}
+		}
+	}
+	for (auto &rule : o.rules) {
+		if (rule.second > 0) {
+			o.rung[std::make_pair(std::get<0>(rule.first), std::get<2>(rule.first))]++;
 		}
 	}
 	return o;
@@ -776,14 +780,17 @@ bool Closer(const AttrMatch &m, const AttrMatch &best, const Options &o) {
 	}
 	auto rung = [&](const KAttr &y) {
 		auto dim = !y.dimension.empty() ? y.dimension : m.req->dimension;
-		auto it = dim.empty() ? o.rung.end() : o.rung.find(std::make_pair(dim, y.category));
-		if (it != o.rung.end()) {
-			return it->second;
-		}
-		auto any = o.rung_any_dimension.find(y.category);
-		return any == o.rung_any_dimension.end() ? 0.0 : any->second;
+		auto it = o.rung.find(std::make_pair(dim, y.category));
+		return it == o.rung.end() ? idx_t(0) : it->second;
 	};
-	return rung(*m.prov) > rung(*best.prov);
+	if (m.value_score >= 1) {
+		// a passing tie: the exact match, else the lowest level that is enough
+		if (best.prov->category == m.req->category) {
+			return false;
+		}
+		return m.prov->category == m.req->category || rung(*m.prov) < rung(*best.prov);
+	}
+	return rung(*m.prov) > rung(*best.prov); // a failing tie: the highest level offered
 }
 
 //! The best provided attribute for one required attribute.
@@ -873,7 +880,8 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.name_rule = name.rule;
 		}
 		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
-		if (best.gate || m.score > best.score || (m.score == best.score && Closer(m, best, o))) {
+		if (best.gate || m.score > best.score ||
+		    (m.score == best.score && m.value_score == best.value_score && Closer(m, best, o))) {
 			best = m;
 		}
 	}
@@ -1200,7 +1208,7 @@ void ImprovePartition(vector<ReqResult> &results, vector<vector<const KItem *>> 
 //! default bound (default_bounds := 'catalogue'), empty for an unqualified value.
 string BoundSource(const KAttr &x) {
 	if (x.override_bound) {
-		return x.bound.empty() ? "template" : "template_override";
+		return "template_override";
 	}
 	if (!x.bound.empty()) {
 		return x.bound_source.empty() ? "explicit" : x.bound_source;
@@ -1464,6 +1472,7 @@ struct TreeCoverageParams {
 	string recall_mode = "auto";
 	string default_bounds;
 	string templates_table = "catalogue_attributes";
+	bool templates_have_policy = false; // the templates table has a bound_policy column
 	string rules_table;
 	string class_hierarchy; // (class_id, parent_class_id); empty: none
 	double generalization_credit = 0.0;
@@ -1599,6 +1608,7 @@ void ReadSideTables(const CoverageParamReader &r, TreeCoverageParams &p) {
 			                      r.fn, p.templates_table);
 		}
 		ValidateTableColumns(r.context, p.templates_table, {"class_id", "dimension", "bound"}, "templates_table");
+		p.templates_have_policy = TableHasColumn(r.context, p.templates_table, "bound_policy");
 	}
 	p.rules_table = r.Table("rules_table", "", {"dimension", "required", "provided", "score"});
 	p.class_hierarchy = r.Table("class_hierarchy", "", {"class_id", "parent_class_id"});
@@ -1628,14 +1638,24 @@ string QueryGuardSQL(const TreeCoverageParams &p) {
 		unknown = "EXISTS (SELECT 1 FROM " + ids + " WHERE id NOT IN (SELECT tree_id FROM qn))";
 		first_unknown = "(SELECT min(id) FROM " + ids + " WHERE id NOT IN (SELECT tree_id FROM qn))";
 	}
+	// every bound_policy value of the templates table, used or not, is 'fill', 'override' or NULL
+	string bad_policy = "SELECT NULL::VARCHAR AS v WHERE false";
+	if (!p.default_bounds.empty() && p.templates_have_policy) {
+		bad_policy = StringUtil::Format("SELECT CAST(bound_policy AS VARCHAR) AS v FROM %s WHERE bound_policy IS NOT "
+		                                "NULL AND lower(CAST(bound_policy AS VARCHAR)) NOT IN ('fill', 'override')",
+		                                QuotedIdentifier(p.templates_table));
+	}
 	string unclassified = "SELECT tree_id FROM qn GROUP BY tree_id HAVING count(*) FILTER (WHERE node_kind = 'item') > 0 "
 	                      "AND count(class_id) FILTER (WHERE node_kind = 'item') = 0";
 	return StringUtil::Format(
 	    "SELECT CASE WHEN %s THEN error(%s || ': query tree ''' || %s || ''' is not in nodes_table ' || %s) "
 	    "WHEN EXISTS (%s) THEN error(%s || ': query tree ''' || (SELECT min(tree_id) FROM (%s)) || ''' has no "
-	    "classified items (give class_id, overrides_table or label_table)') END AS g",
+	    "classified items (give class_id, overrides_table or label_table)') "
+	    "WHEN EXISTS (%s) THEN error(%s || ': templates_table bound_policy must be NULL, ''fill'' or ''override'', "
+	    "not ''' || (SELECT min(v) FROM (%s)) || '''') END AS g",
 	    unknown, QuoteSQLStringLiteral(p.fn), first_unknown, QuoteSQLStringLiteral("'" + p.q.nodes_table + "'"),
-	    unclassified, QuoteSQLStringLiteral(p.fn), unclassified);
+	    unclassified, QuoteSQLStringLiteral(p.fn), unclassified, bad_policy, QuoteSQLStringLiteral(p.fn),
+	    bad_policy);
 }
 
 //! Stage 1: query and candidate class multisets, the recall mode and the top candidates.
@@ -1758,11 +1778,17 @@ string AttrsSQL(ClientContext &context, const TreeCoverageParams &p, const TreeS
 			                                col, col)
 			           : string("NULL::VARCHAR");
 		};
+		// a NULL policy is 'fill', so 'override' next to NULL (or 'fill') disagrees and fills
+		string policy = "NULL::VARCHAR";
+		if (TableHasColumn(context, p.templates_table, "bound_policy")) {
+			string pol = "lower(COALESCE(CAST(bound_policy AS VARCHAR), 'fill'))";
+			policy = StringUtil::Format("CASE WHEN count(DISTINCT %s) = 1 THEN any_value(%s) END", pol, pol);
+		}
 		templates_join = StringUtil::Format(
 		    " LEFT JOIN (SELECT CAST(class_id AS VARCHAR) AS class_id, CAST(dimension AS VARCHAR) AS dimension, "
 		    "%s AS bound, %s AS scale, %s AS bound_policy FROM %s GROUP BY ALL) t "
 		    "ON t.class_id = n.class_id AND t.dimension = x.dimension",
-		    single("bound"), single("scale"), single("bound_policy"), QuotedIdentifier(p.templates_table));
+		    single("bound"), single("scale"), policy, QuotedIdentifier(p.templates_table));
 		default_bound = "t.bound";
 		bound_policy = "t.bound_policy";
 		scale = "t.scale";
@@ -2067,8 +2093,9 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "partition when both the query and the candidate trees are reviewed. Returns query_id, candidate_id, coverage, stage1_score, rank_score "
 	    "(coverage + stage1_weight x stage1_score), rank, n_requirements, n_gaps, reviewed, assignment_used. "
 	    "default_bounds := 'catalogue' gives unqualified values the bound of their template (templates_table); a "
-	    "template row with bound_policy 'override' replaces a stated bound too (a drawing's 'max. 38 kg' describes the "
-	    "part, the class says what the supplier must meet), 'fill' or NULL only fills. "
+	    "template row with bound_policy 'override' also replaces a stated at_least/at_most on one value (a drawing's "
+	    "'max. 38 kg' describes the part, the class says what the supplier must meet); ranges, ± values and "
+	    "categories keep theirs, 'fill' or NULL only fills. "
 	    "tol and soft_band (default 0.02, 0.05) are passed to value_satisfies; use 0 and 0 for hard limits." +
 	        common,
 	    {"SELECT * FROM tree_coverage('R01', k := 20, candidate_nodes_table := 'programme_nodes', "

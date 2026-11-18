@@ -298,7 +298,10 @@ FROM tree_coverage_trace('P', candidates := ['F'], nodes_table := 'src_nodes', a
 
 Without `bound_policy` (or with `'fill'`) the requirement stays `at_most 38 kg`, and the foundry
 meets it with a score of 1.0. Set the policy per class: a weight or an envelope describes the part,
-while a tolerance (`± 0.05 mm`) means the same for the part and the supplier.
+while a tolerance means the same for the part and the supplier. Override only replaces a stated
+`max.`/`min.` on one value. A range (`zwischen 15 und 25 kg`), a `±` value and a category keep their
+bound. Rows of one class and dimension that disagree (a NULL policy counts as `'fill'`) only fill,
+and a value other than `'fill'`, `'override'` or NULL is an error.
 
 ## Common Patterns
 

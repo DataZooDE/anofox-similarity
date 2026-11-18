@@ -10,10 +10,11 @@ No scores change for existing tables. Check these if you store parser output or 
 
 | Before | Now |
 |---|---|
-| `parse_quantity('3.1 acc. to EN 10204')` = 3.1 with unit `acc`, `'420 x 310 x 180 mm'` = 420 with unit `x` (dimension NULL in both) | empty (`lo`, `unit` NULL): an unknown word followed by another number is part of a designation. `'12 furlongs'` is unchanged. Re-parse stored values if you count unparsed rows by `lo IS NULL` |
-| `tree_coverage_trace` showed the first failing offered value (`EN10204-2.2` against a required 3.2, also offered 3.1) | the nearest one (smallest `distance`; for categories, the one that meets most levels in `rules_table`). Scores are the same; `prov_value` and `distance` of such rows, and `aas_coverage_result` built from them, can change |
-| a template's bound only filled an empty bound | unchanged by default. New: a `bound_policy` column on the templates table, `'override'` replaces a stated bound (`bound_source` `template_override`) |
-| trace values in base units only (`3.2e-06 m`) | unchanged by default. New: an attributes-table column `source_unit` (from `parse_quantity`) shows the written unit (`3.2 µm`) |
+| `parse_quantity('3.1 acc. to EN 10204')` = 3.1 with unit `acc`, `'420 x 310 x 180 mm'` / `'120x80 mm'` = 420 / 120 with unit `x` / `x80` (dimension NULL in all) | empty (`lo`, `unit` NULL): an unknown word followed by another number is part of a designation or a box (also `'Klasse 1 nach DIN 4102'`, `'12 furlongs per 2 weeks'`). `'12 furlongs'` alone is unchanged. Re-parse stored values if you count unparsed rows by `lo IS NULL` |
+| `parse_quantity('€ 40 pro 2 Stück')` = 40 with unit `pro` (no dimension) | 40 EUR (a currency before the number now wins over an unknown word after it) |
+| on equal scores `tree_coverage_trace` showed the first offered value (`EN10204-2.2` against a required 3.2, also offered 3.1) | the nearest one (smallest `distance`). Categories that fail: the one meeting most levels in `rules_table`; that pass: the exact match, else the lowest level that is enough. Scores and gaps are the same; `prov_value` and `distance` of such rows, and `aas_coverage_result` built from them, can change |
+| a template's bound only filled an empty bound | unchanged by default. New: a `bound_policy` column on the templates table, `'override'` replaces a stated `at_least`/`at_most` on one value (`bound_source` `template_override`) |
+| trace values in base units only (`3.2e-06 m`) | unchanged by default. New: an attributes-table column `source_unit` (from `parse_quantity`) shows the written unit (`3.2 µm`) for built-in units; leave it NULL for units your `unit_table` redefines |
 
 ## v2026.11.14: embeddings as FLOAT arrays, native SAP and Dynamics 365 readers, typed universal-schema converters
 

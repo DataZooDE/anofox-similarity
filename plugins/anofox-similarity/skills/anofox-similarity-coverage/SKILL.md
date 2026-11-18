@@ -61,11 +61,13 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
 - **A stated bound describes the document's subject.** A drawing's `max. Stückgewicht 38 kg` is
   `at_most` (the part), but a foundry must pour *at least* 38 kg. Templates only fill an empty
   bound unless their row has `bound_policy = 'override'` (with `default_bounds := 'catalogue'`);
-  the trace then says `bound_source` `template_override`. Set it per class (weights, envelopes),
-  not for tolerances.
-- **Values compete per dimension on one item**, names only discount: a roughness `Ra 6.3 µm` can
-  answer a `± 0.05 mm` tolerance (both lengths). Put attributes that share a dimension on items of
-  their own class.
+  the trace then says `bound_source` `template_override`. Override replaces only a stated
+  `at_least`/`at_most` on one value: ranges (`within`), `±` values (`equals`) and categories keep
+  theirs. Rows of one class and dimension that disagree (NULL counts as `'fill'`) only fill; any
+  other value is an error.
+- **Unkeyed values compete per dimension on one item**, names only discount: a roughness
+  `Ra 6.3 µm` can answer a `± 0.05 mm` tolerance (both lengths). Give them different `attr_key`s
+  (then a mismatch is a gate), or put them on items of their own class.
 - **`compat_score` needs its rules table to exist** (may be empty). No rule: equal → 1, else 0.
 - **Covering `score` can exceed 1** (containment + 0.01 × jaccard); a near-full lean cover can
   outrank a full bloated one. `min_score := 1.0` keeps full covers (it tests the raw measure).
@@ -84,7 +86,8 @@ negative/non-finite weight anywhere → error naming the row.
 | Table | Required columns | Optional |
 |---|---|---|
 | nodes (`tree_nodes`) | `tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count` | `source`, `context` |
-| attributes (`tree_attributes`) | `tree_id, node_id, attr_id` | `name, dimension, unit, lo, hi, bound, category, attr_key, role, qualifier` |
+| attributes (`tree_attributes`) | `tree_id, node_id, attr_id` | `name, dimension, unit, lo, hi, bound, category, attr_key, role, qualifier, source_unit` (trace display only) |
+| `templates_table` (`catalogue_attributes`, with `default_bounds := 'catalogue'`) | `class_id, dimension, bound` | `scale`, `bound_policy` (`'fill'`/NULL or `'override'`) |
 | `overrides_table` (reviewed vocabulary) | `wording, class_id` | `source` (NULL matches any source) |
 | `label_table` (classifier output) | `tree_id, node_id, class_id, p` | |
 | `rules_table` / `compatibility_rules` | `dimension, required, provided, score` | |
@@ -401,13 +404,16 @@ tree_coverage_trace(query_tree_id, <same named>)
           attr_name, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score,
           count_needed, count_available, req_score, is_gap, name_rule, bound_source, label_rule)
 -- req_value / prov_value: base units ('3.2e-06 m'); an attrs column source_unit (parse_quantity's)
--- shows the written unit ('3.2 µm'). Several failing offers: the nearest one (categories: the one
--- meeting most levels in rules_table)
+-- shows the written unit ('3.2 µm'), for built-in units only (pass NULL when your unit_table
+-- redefines one). Equal scores: the nearest offer; categories that fail: the one meeting most
+-- levels in rules_table; that pass: the exact match, else the lowest level that is enough
 coverage_recall(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table,
                 label_table, mode, tie_break, candidate_multiset_table)   -- no attrs_table parameters
   → TABLE(query_id, candidate_id, score, containment, jaccard, reviewed, mode_used, rank)
 coverage_kernel(query LIST(STRUCT), candidate LIST(STRUCT), options STRUCT)
   → STRUCT(coverage, n_requirements, n_gaps, reviewed, assignment_used, trace LIST(STRUCT))
+-- attrs STRUCT fields: attr_id, name, dimension, unit, lo, hi, bound, category, attr_key,
+-- bound_source, value_text, default_bound, bound_policy, scale, source_unit, name_vec (all optional)
 ```
 
 ```text
@@ -520,6 +526,24 @@ FROM (SELECT coverage_kernel(
 **Dictionary keys:** an optional `attr_key` column (AAS semanticId / ECLASS IRDI, compared with
 `semantic_key`) makes equal keys `name_sim = 1` (`name_rule = 'key'`) and different keys a hard
 gate (`rule = 'key_mismatch'`). See `anofox-similarity-aas`.
+
+**Sourcing: the class decides the direction** (`bound_policy`):
+
+```sql
+CREATE TABLE sn AS SELECT * FROM (VALUES
+  ('P', 'P', NULL, 'container', 'AND', 'part', NULL, 1.0), ('P', 'P.w', 'P', 'item', 'AND', 'w', 'piece_weight', 1.0),
+  ('F', 'F', NULL, 'container', 'AND', 'foundry', NULL, 1.0), ('F', 'F.w', 'F', 'item', 'AND', 'w', 'piece_weight', 1.0))
+  t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+CREATE TABLE sa AS
+SELECT tree_id, node_id, 'w' AS attr_id, 'Gewicht' AS name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (VALUES ('P', 'P.w', 'max. Stückgewicht 38 kg'), ('F', 'F.w', 'bis 37 kg')) v(tree_id, node_id, txt),
+     LATERAL (SELECT parse_quantity(txt, 'de') AS q);
+CREATE TABLE st AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound, 'override' AS bound_policy;
+SELECT req_value, prov_value, value_score, bound_source
+FROM tree_coverage_trace('P', candidates := ['F'], nodes_table := 'sn', attrs_table := 'sa',
+                         default_bounds := 'catalogue', templates_table := 'st', tol := 0, soft_band := 0);
+-- => at_least 38 kg | 37 kg | 0.0 | template_override
+```
 
 ## Canonical coverage pipeline
 

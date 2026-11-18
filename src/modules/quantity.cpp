@@ -959,8 +959,8 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	} else if (tolerance) {
 		token = token1;
 	}
-	// a currency written before the number (€ 40, EUR 180)
-	if (!lo_unit && token.empty()) {
+	// a currency written before the number (€ 40, EUR 180, also before an unknown word: € 40 pro 2 Stück)
+	if (!lo_unit && (token.empty() || (token == token1 && !range && !tolerance))) {
 		auto trimmed = Trim(prefix);
 		auto space = trimmed.rfind(' ');
 		auto last_word = space == string::npos ? trimmed : trimmed.substr(space + 1);
@@ -991,8 +991,9 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	}
 	// an unknown word after the number and another number later ('3.1 acc. to EN 10204',
 	// '420 x 310 x 180 mm'): the value belongs to a designation or a box, so it is unknown
+	bool box = token1.size() > 1 && (token1[0] == 'x' || token1[0] == 'X') && IsDigit(token1[1]); // 120x80 mm
 	if (!lo_unit && !hi_unit && !range && !tolerance && !token1.empty() && token == token1 &&
-	    numbers.size() >= 2 && numbers[1].begin >= end1) {
+	    (box || (numbers.size() >= 2 && numbers[1].begin >= end1))) {
 		return Quantity();
 	}
 	q.source_unit = token;
