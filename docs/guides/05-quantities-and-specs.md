@@ -137,6 +137,7 @@ ORDER BY module;
 | `at_most v` | the provided low end ≤ v |
 | `within [lo, hi]` | the provided range covers the required range |
 | `equals v` | within 2 % of v |
+| `equals [lo, hi]` (`20 kg ± 1 kg`) | the provided value lies inside 19–21 kg, plus `tol` |
 | none (point) | the provided value is about the same (±1 % linear) |
 | `gate` | different or unknown dimensions, or different currencies: score 0 |
 

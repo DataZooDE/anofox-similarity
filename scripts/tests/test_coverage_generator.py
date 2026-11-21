@@ -593,6 +593,11 @@ def test_oracle_direction_aware_rules():
     # equals: relative tolerance 2 %
     assert ref.oracle_satisfies("equals", 200, 200, 203.8, 203.8)
     assert not ref.oracle_satisfies("equals", 200, 200, 204.2, 204.2)
+    # equals over a span (a nominal with a tolerance): the provided interval lies inside it
+    assert ref.oracle_satisfies("equals", 196, 204, 203.8, 203.8)
+    assert ref.oracle_satisfies("equals", 196, 204, 196, 204)
+    assert not ref.oracle_satisfies("equals", 196, 204, 204.2, 204.2)
+    assert not ref.oracle_satisfies("equals", 196, 204, 195, 200)  # straddles the low end
     # ordinal: provided class at least as good as required
     assert ref.ordinal_satisfies("protection_class", "IP54", "IP65")
     assert not ref.ordinal_satisfies("protection_class", "IP65", "IP54")
@@ -796,3 +801,20 @@ def test_review_queue_ranks_misleading_wordings_first(data_dir):
                              [len(trees.get((r["wording"], r["source"]), ())) for r in voc])
     misleading = sum(gold.values())
     assert all(gold[(voc[i]["wording"], voc[i]["source"])] for i in order[:misleading])
+
+
+def test_tolerance_spans_in_gold(data_dir):
+    """'v ± 2 %' is equals over 0.98 v to 1.02 v in gold (as parse_quantity reads it); other equals are points."""
+    text = {(a["tree_id"], a["node_id"], a["attr_id"]): a["value_text"] for a in read(data_dir, "request_attributes")}
+    spans = points = 0
+    for g in read(data_dir, "gold_request_attributes"):
+        if g["bound"] != "equals":
+            continue
+        lo, hi = float(g["lo"]), float(g["hi"])
+        if "±" in text[(g["tree_id"], g["node_id"], g["attr_id"])]:
+            spans += 1
+            assert hi / lo == pytest.approx(1.02 / 0.98, rel=1e-9)
+        else:
+            points += 1
+            assert lo == hi
+    assert spans > 0 and points > 0

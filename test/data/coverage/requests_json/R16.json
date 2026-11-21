@@ -71,8 +71,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 590.0,
-          "lo": 590.0,
+          "hi": 601.8,
+          "lo": 578.2,
           "name": "indentation hardness",
           "text": "590 N ± 2 %",
           "unit": "N"

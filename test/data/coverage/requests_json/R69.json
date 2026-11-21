@@ -136,8 +136,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 310.0,
-          "lo": 310.0,
+          "hi": 316.2,
+          "lo": 303.8,
           "name": "Stauchhärte",
           "text": "310 N ± 2 %",
           "unit": "N"

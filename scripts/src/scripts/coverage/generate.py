@@ -25,7 +25,7 @@ from . import customers as customers_mod
 from . import vectors as vectors_mod
 from .domain import (BASE_UNIT, CLASS_BY_ID, CLASSES, COMBOS, FRAMES, GROUP_LABELS, INTERNAL_SOURCE,
                      MAKERS, ORDINALS, PHRASINGS, UNITS, VOCABULARY, AttrTemplate, from_base, to_base)
-from .reference import oracle_assignment_coverage, oracle_satisfies, ordinal_satisfies
+from .reference import EQUALS_TOL, oracle_assignment_coverage, oracle_satisfies, ordinal_satisfies
 
 N_PROGRAMMES = 300
 N_REQUESTS = 80
@@ -414,7 +414,7 @@ AT_MOST = {"en": ["max. {v}", "at most {v}", "≤ {v}", "up to {v}", "not more t
            "de": ["max. {v}", "höchstens {v}", "≤ {v}", "bis zu {v}", "maximal {v}"]}
 WITHIN = {"en": ["{a}–{b} {u}", "{a} to {b} {u}", "between {a} and {b} {u}"],
           "de": ["{a}–{b} {u}", "{a} bis {b} {u}", "zwischen {a} und {b} {u}"]}
-# parse_quantity reads "{v} ± 2 %" as equals with lo 0.98 v, hi 1.02 v; the gold keeps equals v (lo = hi)
+# "{v} ± 2 %" is equals over the span 0.98 v to 1.02 v (as parse_quantity reads it); the other forms are a point
 EQUALS = {"en": ["{v} ± 2 %", "nominal {v}"], "de": ["{v} ± 2 %", "Nennwert {v}"]}
 ORDINAL_TXT = {"en": ["{c} or better", "at least {c}", "min. {c}"],
                "de": ["{c} oder besser", "mindestens {c}", "min. {c}"]}
@@ -490,7 +490,10 @@ def render_value(rng, tmpl: AttrTemplate, lang: str, bound: str, lo: float, hi: 
     elif qualified and bound == "at_most":
         text = pick(rng, AT_MOST[lang]).format(v=text)
     elif qualified and bound == "equals":
-        text = pick(rng, EQUALS[lang]).format(v=text)
+        form = pick(rng, EQUALS[lang])
+        text = form.format(v=text)
+        if "±" in form:
+            return text, v * (1 - EQUALS_TOL), v * (1 + EQUALS_TOL)
     return text, v, v
 
 
@@ -662,6 +665,8 @@ def materialise(rng, req):
             unit = choose_unit(rng, t, lang)
             lo, hi = derive_value(rng, t, src, level, qualified, unit)
             text, vlo, vhi = render_value(rng, t, lang, t.bound, lo, hi, qualified, unit)
+            if t.bound == "equals" and vhi > vlo:  # a tolerance span: the gold is the span
+                lo, hi = to_base(vlo, unit), to_base(vhi, unit)
             out.append(ReqAttr(f"a{len(out) + 1}", t, name, text, t.bound, lo, hi, "", level > 0, src,
                                unit, vlo, vhi, qualified))
         ri.attrs = out

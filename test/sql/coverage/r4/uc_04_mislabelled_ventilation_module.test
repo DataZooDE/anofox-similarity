@@ -107,7 +107,7 @@ FROM query_table(t) r JOIN gold g ON g.query_id = r.query_id AND g.candidate_id 
 JOIN gold_requests q ON q.request_id = r.query_id WHERE r.rank = 1;
 
 # 34 requests need ventilation; a best programme comes first for 13 before and 23 after the review
-# (the gold reads 'v ± 2 %' as within 2 % of v; the matcher adds its tol to the parsed span)
+# (the gold accepts an offer inside the span of 'v ± 2 %'; the matcher adds its tol on top)
 query III
 SELECT (SELECT count(*) FROM top1('before')), (SELECT sum(hit::INT) FROM top1('before')), (SELECT sum(hit::INT) FROM top1('after'));
 ----
