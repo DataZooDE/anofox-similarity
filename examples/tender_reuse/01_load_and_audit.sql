@@ -12,8 +12,6 @@
 --   past_line_nodes / _attributes     12 past lines from the PLM export, values in base units
 --   clauses                           sidecar: clause_id, page, must/should per node and attribute
 --   vocabulary_overrides              house glossary: wording -> class ("Kompaktaggregat Hygiene")
---   mu := 0.0                         compare values only; attribute names are German, English
---                                     or typo'd in the archive and must not lower a score
 --   default_bounds := 'catalogue'     "72 dB(A)" without a bound word takes the direction of
 --                                     its catalogue template (at_most) instead of "exactly 72"
 --   rules_table := 'compatibility_rules'   IP67 meets "IP65 oder besser", PN10 never meets PN16

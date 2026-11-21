@@ -47,10 +47,11 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
   `k := 2` on the mini fixture `S6` (coverage 1.0) is never scored. When you quote more than the
   top candidate, raise `k` (e.g. 300) or pass `candidates`: on the seating benchmark the true #3
   for R02 is outside the default stage-1 top 20.
-- **Coverage < 1 with no gaps** = name discount `mu` (0.2); without `name_vectors` names compare
-  by word overlap (German never matches English). Name vectors only shrink the discount (synonyms
-  at cosine ≈ 0.98 still give about 0.98, not 1.0). Judge "nothing missing" from `n_gaps` and the
-  trace, not from coverage = 1; use `mu := 0.0` when every name pair is a known synonym.
+- **Coverage < 1 with no gaps** = name discount `mu` (0.2), which applies only with `name_vectors`
+  (`name_rule` `vector`). Without vectors names compare by word overlap to pick the value
+  (`name_rule` `tokens`) but do not discount it. With vectors, synonyms at cosine ≈ 0.98 still give
+  about 0.98, not 1.0: judge "nothing missing" from `n_gaps` and the trace, not from coverage = 1;
+  use `mu := 0.0` when every name pair is a known synonym.
 - **Dimension mismatch is not an error**: `value_satisfies` gives score 0, rule `gate` (A vs V,
   unknown unit, EUR vs USD). A categorical value (`IP54`) **is** an error there: use `compat_score`.
 - **`within` = the offer covers the whole required range** (`25 cm` vs `von 22 bis 26 cm` →
@@ -424,7 +425,8 @@ coverage_kernel(query LIST(STRUCT), candidate LIST(STRUCT), options STRUCT)
 ```
 
 ```text
-attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score   (categorical: compat_score)
+attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score   (categorical: compat_score;
+              mu counts only for name_rule 'vector', else 0)
 a(q, c)     = mean over q's attributes of the best attr(x, ·)               (1 without attributes)
 L(q, c)     = Bhattacharyya(p(q), p(c))  or 0/1 with labels := 'hard'
 score(q, c) = label_weight·L + (1 − label_weight)·L·a
@@ -443,7 +445,7 @@ coverage    = mean req(q);   rank_score = coverage + stage1_weight · stage1_sco
 | `recall_mode` | `'auto'` | containment if every candidate is reviewed, else jaccard (`mode` in `coverage_recall`) |
 | `assignment` | `'auto'` | `'partition'` (one item serves one requirement, no substitution), `'best_match'` (sharing); auto = partition when both trees reviewed |
 | `alternatives` | `'joint'` | one alternative per candidate OR group for the whole request; `'per_requirement'` |
-| `mu` | 0.2 | attribute-name weight (names only discount) |
+| `mu` | 0.2 | name-vector weight (names only discount; no effect without `name_vectors`) |
 | `labels`, `label_weight` | `'soft'`, 0.0 | `'hard'` = 0/1 class agreement; λ = label credit independent of values |
 | `partition_gate`, `count_gate` | 0.3, 0.5 | min label agreement for a block / for counting instances |
 | `stage1_weight`, `tie_break` | 0.05, 0.01 | |
@@ -473,10 +475,10 @@ a count shortfall, or a value below 1. Unchosen request OR alternatives do not a
 ```sql
 -- Rank, then explain (README quick start)
 SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
-FROM tree_coverage('Q1', k := 3, mu := 0.0, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes');
+FROM tree_coverage('Q1', k := 3, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes');
 -- S1 1.0 4 0 | S6 1.0 4 0 | S2 0.5 4 2
 SELECT req_node_id, attr_name, req_value, prov_value, value_score, round(distance, 3) AS distance
-FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0,
+FROM tree_coverage_trace('Q1', candidates := ['S2'],
                          nodes_table := 'tree_nodes', attrs_table := 'tree_attributes')
 WHERE is_gap
 ORDER BY req_node_id, attr_name;
@@ -507,7 +509,7 @@ SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM tree_nodes WHERE tree_id LIKE 
 SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps, reviewed, assignment_used
 FROM tree_coverage('Q1', k := 3, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes',
                    candidate_nodes_table := 'archive_nodes', candidate_attrs_table := 'tree_attributes',
-                   overrides_table := 'vocabulary_overrides', mu := 0.0);
+                   overrides_table := 'vocabulary_overrides');
 -- S1 1.0 0 true partition | S6 1.0 0 true partition | S2 0.5 2 true partition
 ```
 
@@ -577,19 +579,18 @@ CREATE OR REPLACE TABLE prog_index AS SELECT * FROM tree_class_multiset('prog_no
 SELECT candidate_id, round(coverage, 3) AS coverage, rank, n_gaps
 FROM tree_coverage('RFQ-1', k := 5, nodes_table := 'req_nodes', attrs_table := 'req_attrs',
                    candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                   candidate_multiset_table := 'prog_index', mu := 0.0);
+                   candidate_multiset_table := 'prog_index');
 -- S3 1.0 | S1 1.0 | S6 1.0 | S2 0.0 | S4 0.0   (S2: 9 A heater fails max. 8 A; 50 mm travel fails at least 60 mm)
 
 -- 5. Explain the best candidate's gaps (same parameters as the ranking)
 SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('RFQ-1', k := 5,
                     nodes_table := 'req_nodes', attrs_table := 'req_attrs',
                     candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                    candidate_multiset_table := 'prog_index', mu := 0.0) WHERE rank = 1);
+                    candidate_multiset_table := 'prog_index') WHERE rank = 1);
 SELECT req_node_id, matched_node_id, attr_name, req_value, prov_value, value_score, is_gap
 FROM tree_coverage_trace('RFQ-1', candidates := [getvariable('top')],
                          nodes_table := 'req_nodes', attrs_table := 'req_attrs',
-                         candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                         mu := 0.0);
+                         candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs');
 -- RFQ-1.1 S3.1 current draw at_most 8 A 7.5 A 1.0 false | RFQ-1.2 S3.3 height travel ... 1.0 false
 ```
 

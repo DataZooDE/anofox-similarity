@@ -58,13 +58,21 @@ S5	0.6167
 
 # ---------------------------------------------------------------- the attribute-name discount
 
-# with the default mu = 0.2 and no name vectors, names compare by token overlap:
-#   'Verstellweg' = 'Verstellweg' -> 1; 'Geräusch' vs 'Betriebsgeräusch' -> no shared token -> 0
-#   attr = (0.2 * s + 0.8) * value: travel 1.0, noise 0.8 -> a = 0.9
-query R
-SELECT coverage FROM tree_coverage('Q2', candidates := ['S1']);
+# mu discounts by name-vector agreement only: without name vectors, names compare by token
+# overlap ('Geräusch' vs 'Betriebsgeräusch' -> 0, name_rule tokens) to pick the value, but do not
+# discount it, so the default gives the same coverage as mu := 0
+query RR
+SELECT (SELECT coverage FROM tree_coverage('Q2', candidates := ['S1'])),
+       (SELECT coverage FROM tree_coverage('Q2', candidates := ['S1'], mu := 0.0));
 ----
-0.9
+1.0	1.0
+
+# the token similarity is still in the trace
+query TR
+SELECT name_rule, name_sim FROM tree_coverage_trace('Q2', candidates := ['S1'])
+WHERE name_rule = 'tokens' ORDER BY name_sim LIMIT 1;
+----
+tokens	0.0
 
 # ---------------------------------------------------------------- trace and gaps
 

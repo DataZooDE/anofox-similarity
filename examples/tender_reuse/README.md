@@ -50,7 +50,7 @@ scripts/run_examples.sh tender_reuse
 ```
 
 Every script loads its own data with the same block, so each one runs alone. The block names
-four inputs and every coverage call uses three settings:
+four inputs and every coverage call uses two settings:
 
 | Input | Table | Why |
 |-------|-------|-----|
@@ -61,7 +61,6 @@ four inputs and every coverage call uses three settings:
 
 | Setting | Why |
 |---------|-----|
-| `mu := 0.0` | Compare values only. Attribute names in the archive are German, English or typo'd; with the default, English names alone cost 0.17 of coverage |
 | `default_bounds := 'catalogue'` | "72 dB(A)" has no bound word. The catalogue template says `at_most`, otherwise it would mean "exactly 72" |
 | `rules_table := 'compatibility_rules'` | IP67 meets "IP65 oder besser", PN25 meets "PN 16"; a lower class never does |
 
@@ -101,7 +100,7 @@ cd scripts && uv run python -m scripts.examples.tender_reuse
 | i | PAST-LEAN-2019 vs PAST-RICH-2022 | Both cover everything; RICH has 16 surplus items and higher IP/PN classes |
 | j | C-21 `nicht über 75 dB(A)` | Negated limit; PAST-NOISY-2020 offers 82 dB(A) |
 | k | PAST-SWAP-2018 | Its export lists the 20 W fruit drive before the 95 W main drive |
-| l | `MOD-FEED` | V1 is too loud, V2 stacks too low; the OR tree mixes them into a "full cover" |
+| l | `MOD-FEED` | V1 is too loud, V2 stacks too low; only `alternatives := 'per_requirement'` mixes them into a "full cover" |
 | F5 | PAST-TOL-2023 | 87 W against "mind. 90 W" (a gap, power compares linearly per the template), 7.6 A against "höchstens 7,5 A" (inside the default tolerance) |
 | dirty export | PAST-UNIT-2021 | One length in mm, one duplicated attribute row |
 | designations | C-05, C-17, C-22, C-30 | EN 10204 3.1, 1.4404, M8x1,25 / A4-70, EN 1672-2: checked by hand |
@@ -123,7 +122,7 @@ which step 6 finds against `quantity_units()`.
 | PAST-LEAN-2019 | 0.9697 | 1 | 0 | 1 | 1.0 |
 | PAST-SWAP-2018 | 0.9697 | 2 | 0 | 1 | 1.0 |
 | PAST-UNIT-2021 | 0.9697 | 3 | 0 | 1 | 1.0 |
-| PAST-RICH-2022 | 0.9697 | 5 | 0 | 1 | 1.0 |
+| PAST-RICH-2022 | 0.9697 | 4 | 0 | 1 | 1.0 |
 | PAST-FAST-2024 | 0.8788 | 11 | 0 | 4 | 1.0 |
 | PAST-TOL-2023 | 0.9576 | 5 | 2 | 1 | 0.9394 |
 
@@ -150,7 +149,7 @@ variant covers the cup feed, so that station needs engineering.
 | Trace values are in base units | 353.15 K, 20 Hz, 9000000 s in `req_value` / `prov_value` | Re-parse the clause for `source_unit` and convert with `quantity_units()` |
 | The kernel reads candidate values as base units | 10500 mm is read as 10500 m and fails "max. 12 m" | `normalize_quantity` at load |
 | A category from text has no dimension | `validate_trees` warns `category_without_dimension` | Regex normaliser at load: `IP…` → protection_class, `PN…` → pressure_class |
-| OR alternatives are chosen per requirement item | A module tree "covers" a station with parts of two variants | Score each variant as its own tree (03, step 3) |
+| `alternatives := 'per_requirement'` picks an OR alternative per requirement item | A module tree "covers" a station with parts of two variants | Keep the default `'joint'` (one variant for the whole station: MOD-FEED 0.9333); score each variant as its own tree only to compare configurations (03, step 3) |
 | No must/should weighting in the kernel | Coverage mixes must and should | The clause sidecar and `must_missed` / `must_coverage` in SQL |
 | Material numbers such as `1.4404` parse as counts | A designation would be compared as the number 1.4404 | `kind = 'manual'` in the sidecar keeps them out of the tree |
 | Table functions take literal parameters only | `candidates := (SELECT list(...))` is an error | `k := 10` over a candidate table holding only the variants |

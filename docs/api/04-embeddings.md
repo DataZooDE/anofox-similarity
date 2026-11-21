@@ -27,7 +27,7 @@ Generates one placeholder embedding per material description (see the warning ab
 ```sql
 compute_textual_embeddings(
     makt_table := 'sap_makt',
-    language := 'EN',
+    language := 'E',
     provider := 'gemma-local',
     provider_config := ''
 ) → TABLE (
@@ -40,7 +40,7 @@ compute_textual_embeddings(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `makt_table` | VARCHAR | 'sap_makt' | Material text master table |
-| `language` | VARCHAR | 'EN' | Language code |
+| `language` | VARCHAR | 'E' | SAP language key ('E') or ISO code ('EN'); MAKT rows in either form match |
 | `provider` | VARCHAR | 'gemma-local' | Embedding provider |
 | `provider_config` | VARCHAR | '' | Provider-specific config JSON |
 
@@ -58,9 +58,9 @@ Any other provider name is an error (`Invalid Input Error: embedding_backend: un
 > **all providers currently return a deterministic hash-based PLACEHOLDER embedding** — useful for
 > plumbing and tests, but not for semantic search. The `makt_table` must have `matnr`, `spras`,
 > `maktx`, **and `maktg`** (both description columns are referenced; a MAKT lacking `maktg` errors).
-> Multiple MAKT rows per `(matnr, spras)` are collapsed to one description. The default
-> `language` is `'EN'`; SAP `MAKT.SPRAS` typically uses the single character `'E'`, so pass
-> `language := 'E'` when working directly from SAP MAKT.
+> Multiple MAKT rows per `(matnr, spras)` are collapsed to one description. `language` takes
+> SAP's one-character key (`'E'`, the default) or the ISO code (`'EN'`); a MAKT whose `spras`
+> holds either form matches.
 
 **Returns:**
 - `material_id` - Material identifier
@@ -404,7 +404,7 @@ CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH 
 
 *Table macro*
 
-Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).
+Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E') and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).
 
 ```sql
 compute_textual_embeddings(makt_table, language, provider, provider_config)
@@ -413,7 +413,7 @@ compute_textual_embeddings(makt_table, language, provider, provider_config)
 **Examples**
 
 ```sql
-SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN');
+SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'E');
 ```
 
 ### `embed_text`

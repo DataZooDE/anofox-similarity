@@ -110,7 +110,7 @@ sap_to_materials_with_desc(
 ```sql
 extract_material_descriptions(
     makt_table := 'sap_makt',
-    language := 'EN'
+    language := 'E'      -- SAP key 'E' or ISO 'EN', either matches MAKT.spras in either form
 ) → TABLE (material_id VARCHAR, full_text VARCHAR)
 ```
 
@@ -263,7 +263,7 @@ SELECT * FROM sap_to_materials('MARA');
 
 *Table macro*
 
-Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language' (SAP single-character language key, e.g. 'E').
+Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match.
 
 ```sql
 sap_to_materials_with_desc(mara_table, makt_table, language)
@@ -279,7 +279,7 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 *Table macro*
 
-Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
+Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'), returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
 
 ```sql
 extract_material_descriptions(makt_table, language)
@@ -288,7 +288,7 @@ extract_material_descriptions(makt_table, language)
 **Examples**
 
 ```sql
-SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'EN');
+SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E');
 ```
 
 ### `dynamics365_to_bom_header`

@@ -1,4 +1,5 @@
 #include "modules/textual_embeddings.hpp"
+#include "core/sap_language.hpp"
 #include "duckdb_compat.hpp"
 #include "duckdb_compat/list_vector.hpp"
 #include "compat_anofox/scalar_bind.hpp"
@@ -281,7 +282,7 @@ static const DefaultTableMacro COMPUTE_TEXTUAL_EMBEDDINGS_MACRO = {
     DEFAULT_SCHEMA,
     "compute_textual_embeddings",
     {nullptr},
-    {{"makt_table", "'sap_makt'"}, {"language", "'EN'"}, {"provider", "'gemma-local'"}, {"provider_config", "''"}, {nullptr, nullptr}},
+    {{"makt_table", "'sap_makt'"}, {"language", "'E'"}, {"provider", "'gemma-local'"}, {"provider_config", "''"}, {nullptr, nullptr}},
     R"(
 		WITH descriptions AS (
 			-- One row per material: collapse multiple MAKT rows per (matnr, spras) (real MAKT
@@ -294,7 +295,7 @@ static const DefaultTableMacro COMPUTE_TEXTUAL_EMBEDDINGS_MACRO = {
 					TRIM(matnr) AS material_id,
 					CONCAT_WS(' ', TRIM(maktx), TRIM(maktg)) AS full_text
 				FROM query_table(makt_table)
-				WHERE spras = COALESCE(language, 'EN')
+				WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"(
 					AND (TRIM(maktx) IS NOT NULL OR TRIM(maktg) IS NOT NULL)
 			)
 			GROUP BY material_id
@@ -313,8 +314,8 @@ void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
 	reg.RegisterTableMacro(COMPUTE_TEXTUAL_EMBEDDINGS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).")
-	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN')")});
+	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E') and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).")
+	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'E')")});
 }
 
 static const char *EMBED_TEXT_MACRO = R"((description := '') AS embedding_backend(description, 'gemma-local', ''))";

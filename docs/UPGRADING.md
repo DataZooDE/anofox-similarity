@@ -4,6 +4,15 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
+## Unreleased: no name discount without name vectors, SAP language keys in either form
+
+Coverage scores rise where attribute names were compared without `name_vectors`; nothing else changes. Check these:
+
+| Before | Now |
+|---|---|
+| `mu` (default 0.2) discounted every value match by the name similarity; without `name_vectors` that was token overlap, so a German offer name against an English request name cost 20 % of the attribute (`tree_coverage('Q1', k := 3)` on the mini fixture: S1 0.858 with 0 gaps) | `mu` discounts only name-vector agreement (`name_rule` `vector`). Without vectors the names still choose which offered value answers a requirement, but do not lower its score (S1 1.0). Same as passing `mu := 0.0` before; drop that argument if you only used it for this. With `name_vectors` nothing changes. `fit_coverage_weights` over `mu` without vectors now finds every `mu` equal |
+| `extract_material_descriptions` and `compute_textual_embeddings` defaulted to `language := 'EN'`, which matched no SAP `MAKT.spras` (`'E'`): 0 rows, no error. `language := 'E'` did not match an extract with ISO codes (`spras = 'EN'`) | all three MAKT readers (also `sap_to_materials_with_desc`) default to `'E'` and match the SAP key and the ISO code in either direction (`'E'`/`'EN'`, `'D'`/`'DE'`, ... for 23 common languages, case-insensitive). Other codes match only literally |
+
 ## v2026.11.21: sourcing bounds, tolerances as spans, closest value in the trace, unknown designations
 
 Scores change for requirements written with a tolerance (`20 kg ± 1 kg`); otherwise only parser output and trace text. Check these:

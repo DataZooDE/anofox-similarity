@@ -51,7 +51,7 @@ FROM validate_trees('tree_nodes', 'tree_attributes') WHERE severity = 'error' HA
 CREATE OR REPLACE TABLE class_multiset AS SELECT * FROM tree_class_multiset('tree_nodes');
 CREATE OR REPLACE TABLE class_minhash AS SELECT * FROM minhash_index(feature_table := 'class_multiset');
 CREATE OR REPLACE TABLE class_bands AS SELECT * FROM minhash_bands('class_minhash');
-CREATE OR REPLACE TABLE coverage_q1 AS SELECT * FROM tree_coverage('Q1', k := 3, mu := 0.0);
+CREATE OR REPLACE TABLE coverage_q1 AS SELECT * FROM tree_coverage('Q1', k := 3);
 
 COMMIT;
 

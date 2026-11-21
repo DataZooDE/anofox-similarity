@@ -199,3 +199,47 @@ DROP TABLE test_mara;
 
 statement ok
 DROP TABLE test_makt;
+
+# ============================================================================
+# language: SAP key ('E') and ISO code ('EN') match MAKT.spras in either form
+# ============================================================================
+
+statement ok
+CREATE TABLE makt_iso AS SELECT * FROM (VALUES
+    ('0000001', 'EN', 'Product A', 'PRODUCT A'),
+    ('0000001', 'DE', 'Produkt A', 'PRODUKT A'),
+    ('0000002', 'en', 'Assembly', 'ASSEMBLY')
+) AS t(matnr, spras, maktx, maktg);
+
+statement ok
+CREATE TABLE makt_sap AS SELECT * FROM (VALUES
+    ('0000001', 'E', 'Product A', 'PRODUCT A'),
+    ('0000001', 'D', 'Produkt A', 'PRODUKT A')
+) AS t(matnr, spras, maktx, maktg);
+
+query IIIIII
+SELECT (SELECT count(*) FROM extract_material_descriptions(makt_table := 'makt_iso', language := 'E')),
+       (SELECT count(*) FROM extract_material_descriptions(makt_table := 'makt_iso', language := 'EN')),
+       (SELECT count(*) FROM extract_material_descriptions(makt_table := 'makt_sap', language := 'EN')),
+       (SELECT count(*) FROM extract_material_descriptions(makt_table := 'makt_sap')),
+       (SELECT full_text FROM extract_material_descriptions(makt_table := 'makt_sap', language := 'de')),
+       (SELECT count(*) FROM extract_material_descriptions(makt_table := 'makt_sap', language := 'X'));
+----
+2	2	1	1	Produkt A PRODUKT A	0
+
+statement ok
+CREATE TABLE mara_iso AS SELECT * FROM (VALUES
+    ('0000001', 'FERT', 'GRP01', '20200115', NULL),
+    ('0000002', 'HALB', 'GRP02', '20210301', NULL)
+) AS t(matnr, mtart, matkl, ersda, lvorm);
+
+query IT
+SELECT count(*), max(description) FROM sap_to_materials_with_desc(mara_table := 'mara_iso', makt_table := 'makt_iso', language := 'D')
+WHERE description <> '';
+----
+1	Produkt A
+
+query I
+SELECT count(*) FROM compute_textual_embeddings(makt_table := 'makt_iso', language := 'EN');
+----
+2

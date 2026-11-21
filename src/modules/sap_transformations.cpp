@@ -1,4 +1,5 @@
 #include "modules/sap_transformations.hpp"
+#include "core/sap_language.hpp"
 #include "duckdb/common/types/date.hpp"
 
 #include <algorithm>
@@ -54,7 +55,7 @@ static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
 			-- One description per material: real MAKT can have several rows per (matnr, spras)
 			-- (e.g. across MANDT/client), which would otherwise fan the material out into duplicates.
 			SELECT material_id, ANY_VALUE(maktx) AS maktx
-			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE spras = COALESCE(language, 'E'))
+			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"()
 			GROUP BY material_id
 		) k ON m.material_id = k.material_id)"};
 
@@ -62,7 +63,7 @@ static const DefaultTableMacro EXTRACT_MATERIAL_DESCRIPTIONS_MACRO = {
     DEFAULT_SCHEMA,
     "extract_material_descriptions",
     {nullptr},
-    {{"makt_table", "'sap_makt'"}, {"language", "'EN'"}, {nullptr, nullptr}},
+    {{"makt_table", "'sap_makt'"}, {"language", "'E'"}, {nullptr, nullptr}},
     R"(
 		WITH descriptions AS (
 			-- Collapse multiple MAKT rows per (matnr, spras) to a single description so a material
@@ -72,7 +73,7 @@ static const DefaultTableMacro EXTRACT_MATERIAL_DESCRIPTIONS_MACRO = {
 				ANY_VALUE(TRIM(maktx)) AS description,
 				ANY_VALUE(TRIM(maktg)) AS short_text
 			FROM query_table(makt_table)
-			WHERE spras = COALESCE(language, 'EN')
+			WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"(
 			GROUP BY TRIM(matnr)
 		),
 		combined_text AS (
@@ -294,12 +295,12 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM sap_to_materials('MARA')")});
 	reg.RegisterTableMacro(SAP_TO_MATERIALS_WITH_DESC_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language' (SAP single-character language key, e.g. 'E').")
+	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match.")
 	                .Example("SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E')")});
 	reg.RegisterTableMacro(EXTRACT_MATERIAL_DESCRIPTIONS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.")
-	                .Example("SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')")});
+	                .Describe("Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'), returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.")
+	                .Example("SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E')")});
 	// Two overloads, as the macro allowed: positional tables, and (2.0 has no varargs and 1.5.6
 	// cannot pass a positional argument by name) the three tables as named parameters.
 	TableFunctionSet bom_items_set("sap_to_bom_items");

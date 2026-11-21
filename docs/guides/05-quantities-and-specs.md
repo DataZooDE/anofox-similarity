@@ -15,7 +15,7 @@ and the result says how far a value misses.
 ## Parse a Quantity
 
 `parse_quantity(text [, lang [, unit_table]])` returns a struct with `lo`, `hi` (in the base unit),
-`unit`, `dimension`, `bound`, `category` and `source_unit`.
+`unit`, `dimension`, `bound`, `raw` (the input text), `source_unit` and `category`.
 
 ```sql
 SELECT t AS text, q.lo, q.hi, q.unit, q.dimension, q.bound, q.category
@@ -254,7 +254,7 @@ FROM (VALUES ('a1', 'Verstellweg', '24 cm'), ('a2', 'Betriebsgeräusch', '38 dB(
 SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps
 FROM tree_coverage('T1', candidates := ['S1'], nodes_table := 'spec_nodes', attrs_table := 'spec_attrs',
                    candidate_nodes_table := 'tree_nodes', candidate_attrs_table := 'tree_attributes',
-                   mu := 0.0, default_bounds := 'catalogue');
+                   default_bounds := 'catalogue');
 ```
 
 | candidate_id | coverage | n_gaps |

@@ -879,7 +879,10 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.name_sim = name.sim;
 			m.name_rule = name.rule;
 		}
-		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
+		// without name vectors on both sides the names are not evidence enough to discount a value
+		// (cross-language token overlap is often 0): mu applies to vector agreement only
+		double mu = m.name_rule == string("vector") ? o.mu : 0.0;
+		m.score = (mu * m.name_sim + (1 - mu)) * m.value_score;
 		if (best.gate || m.score > best.score ||
 		    (m.score == best.score && m.value_score == best.value_score && Closer(m, best, o))) {
 			best = m;
@@ -2084,7 +2087,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    loader, "tree_coverage", TreeCoverageBindReplace,
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
 	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
-	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
+	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies (mu counts only for name-vector agreement; without name_vectors names pick the value but do not discount it); "
 	    "counts are summed over compatible items (never across OR alternatives). alternatives 'joint' (default) holds "
 	    "the request to one alternative per candidate OR group (one configuration), 'per_requirement' lets each "
 	    "requirement pick its own. class_hierarchy (class_id, parent_class_id) makes a subclass offer meet a "

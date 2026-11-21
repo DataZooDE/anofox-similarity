@@ -45,9 +45,10 @@ every similarity search reads, and builds per-material vectors in `material_embe
   similar vectors (`'centrifugal pump'` vs `'centrifugal pumps'`: cosine 0.03). The vectors are the
   same on every platform, and distinct texts get distinct vectors. Plumbing only; for
   semantics bring your own model's vectors as a table and fuse (`fuse_embeddings`) or classify with them.
-- **Language keys differ by function.** `sap_to_materials_with_desc` defaults to `'E'` (SAP's one-char
-  `SPRAS`); `extract_material_descriptions` and `compute_textual_embeddings` default to `'EN'`. On a
-  real MAKT, `'EN'` matches nothing and returns **0 rows, no error**: pass `language := 'E'`.
+- **Language: SAP key or ISO code.** `language` (default `'E'` everywhere) takes SAP's one-char
+  `SPRAS` (`'E'`, `'D'`) or the ISO code (`'EN'`, `'DE'`); MAKT rows match in either form, so an
+  extract that went through the conversion exit (`spras = 'EN'`) works too. A code outside the
+  common languages matches only literally: 0 rows, no error.
 - **Embeddings are `FLOAT[n]` arrays** (`FLOAT[384]` textual, `FLOAT[128]` transactional/Jaccard,
   `FLOAT[256]` structural, `FLOAT[768]` fused), the type vss HNSW indexes take: compare with
   `array_cosine_distance` / `array_distance`, not the `list_*` functions. A list of the right length
@@ -160,7 +161,7 @@ sap_to_materials(mara_table)                          -- makt_table/language acc
   → (material_id, material_type, material_group, description = '', created_date DATE)
 sap_to_materials_with_desc(mara_table, makt_table, language := 'E')
   → same columns, description = MAKTX in that language ('' if none)
-extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')
+extract_material_descriptions(makt_table := 'sap_makt', language := 'E')
   → (material_id, full_text = MAKTX || ' ' || MAKTG)
 ```
 
@@ -192,7 +193,7 @@ ORDER BY material_id;
 
 SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E')
 ORDER BY material_id;
--- 000000000000200001 | Mechanical seal MECHANICAL SEAL  (4 rows; language := 'EN' would give 0)
+-- 000000000000200001 | Mechanical seal MECHANICAL SEAL  (4 rows; language := 'EN' gives the same)
 ```
 
 `sap_to_materials('sap_mara')` gives the same rows with an empty `description`.
@@ -469,7 +470,7 @@ WHERE a.material_id = '000000000000100001' AND b.material_id = '0000000000001000
 ## Textual embeddings (placeholder)
 
 ```text
-compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN',
+compute_textual_embeddings(makt_table := 'sap_makt', language := 'E',
                            provider := 'gemma-local', provider_config := '')
   → (material_id, textual_embedding FLOAT[384])
     text = MAKTX || ' ' || MAKTG, one row per material; MAKT needs maktg

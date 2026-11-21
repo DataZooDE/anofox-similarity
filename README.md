@@ -211,14 +211,14 @@ CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/dat
 
 -- Rank the candidates for request Q1 by the share of it they cover
 SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
-FROM tree_coverage('Q1', k := 3, mu := 0.0);
+FROM tree_coverage('Q1', k := 3);
 -- S1 | 1.0 | 4 | 0
 -- S6 | 1.0 | 4 | 0
 -- S2 | 0.5 | 4 | 2
 
 -- Why S2 falls short: the gap list, value by value
 SELECT req_node_id, attr_name, req_value, prov_value, value_score
-FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
+FROM tree_coverage_trace('Q1', candidates := ['S2'])
 WHERE is_gap
 ORDER BY req_node_id, attr_name;
 -- Q1.1 | current draw  | at_most 8 A     | 9 A    | 0.0
@@ -227,7 +227,7 @@ ORDER BY req_node_id, attr_name;
 ```
 
 `n_gaps` counts the requirements that fall short (S2: heating and headrest); the trace lists each
-failing attribute. `mu := 0.0` switches off the attribute-name discount, which needs name vectors to be meaningful.
+failing attribute.
 The [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,
 alternatives and large archives; the [examples](examples/coverage_matching/) run the full
 seating benchmark.
