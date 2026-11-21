@@ -306,6 +306,7 @@ this whole area.
 | | |
 |---|---|
 | **[Guides](docs/guides/README.md)** | Task-based guides: getting started, from an ERP extract, material similarity, predecessors and cold start, coverage matching, from a tender to trees, quantities, classification and review, evaluation, scale and dedup, nightly pipelines, AAS first match and profile |
+| **[Concepts](docs/concepts/README.md)** | How it works and why: coverage semantics, and the models behind the other areas |
 | **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
 | **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
 | **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |

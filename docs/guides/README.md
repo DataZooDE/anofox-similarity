@@ -46,5 +46,7 @@ End-to-end walkthroughs on real ERP data (AdventureWorks and SAP) are in [tutori
 
 ## See Also
 
+- How it works and why: [concepts](../concepts/README.md)
+
 - API reference: [conventions](../api/00-conventions.md) and one page per function group in [../api/](../api/)
 - Runnable scripts: [../../examples/](../../examples/)

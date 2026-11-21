@@ -8,7 +8,8 @@ Usage (from the repository root, after `make release`):
     python3 scripts/check_doc_snippets.py --out PATH [FILE ...]
     make check-docs
 
-Default scan: README.md, the task guides docs/guides/*.md and plugins/anofox-similarity/skills/**/*.md,
+Default scan: README.md, the task guides docs/guides/*.md, the concepts pages docs/concepts/*.md and
+plugins/anofox-similarity/skills/**/*.md,
 whose blocks are written to run as they stand. Other docs/ pages (API reference, tutorials) mostly
 run against the reader's own tables, so they are checked only when passed as FILE args.
 --changed-since REF scans the default set's files changed since REF.
@@ -17,7 +18,7 @@ Each ```sql block runs in a fresh in-memory database of ./build/release/duckdb (
 linked in), with a temporary directory as cwd and HOME (test/ and examples/ linked in, so relative data paths
 resolve), autoinstall off and telemetry off. The
 block gets scripts/doc_snippets/fixtures.sql plus the earlier setup blocks of the same file that
-create a table it names; in a task guide (docs/guides/*.md, read top down) it gets every earlier
+create a table it names; in a task guide or concepts page (docs/guides/*.md, docs/concepts/*.md, read top down) it gets every earlier
 block of the file that passed. A block with INSTALL or a remote read (read_*/ATTACH/FROM '<url>') is not run; a URL used as a
 value (an AAS semantic id) is fine.
 
@@ -73,10 +74,12 @@ DEFAULT_SCAN_DIRS = [SKILLS_DIR]
 # The task guides are read top down: each block runs after every earlier block of the same file
 # that passed (one session per reader), not only after the setup blocks it names.
 GUIDES_DIR = os.path.join("docs", "guides")
+# The concepts pages (docs/concepts/*.md): their examples run like the guides', top down.
+CONCEPTS_DIR = os.path.join("docs", "concepts")
 
 
 def is_sequential(rel_path):
-    return os.path.dirname(rel_path) == GUIDES_DIR
+    return os.path.dirname(rel_path) in (GUIDES_DIR, CONCEPTS_DIR)
 
 FENCE_RE = re.compile(r"^```[ \t]*([A-Za-z0-9_+-]*)[ \t]*$")
 SETUP_RE = re.compile(
@@ -135,9 +138,10 @@ def default_scan_files():
     files = []
     if os.path.exists(os.path.join(REPO_ROOT, "README.md")):
         files.append("README.md")
-    guides = os.path.join(REPO_ROOT, GUIDES_DIR)
-    if os.path.isdir(guides):
-        files += [os.path.join(GUIDES_DIR, fn) for fn in sorted(os.listdir(guides)) if fn.endswith(".md")]
+    for top in (GUIDES_DIR, CONCEPTS_DIR):
+        d = os.path.join(REPO_ROOT, top)
+        if os.path.isdir(d):
+            files += [os.path.join(top, fn) for fn in sorted(os.listdir(d)) if fn.endswith(".md")]
     for scan_dir in DEFAULT_SCAN_DIRS:
         abs_dir = os.path.join(REPO_ROOT, scan_dir)
         if not os.path.isdir(abs_dir):

@@ -85,8 +85,9 @@ def cds_run(marked):
     return "\n".join(out) + "\n"
 
 
-def test_only_the_task_guides_run_top_down():
+def test_only_the_guides_and_concepts_run_top_down():
     assert cds.is_sequential("docs/guides/04-coverage-matching.md")
+    assert cds.is_sequential("docs/concepts/coverage-semantics.md")
     assert not cds.is_sequential("docs/guides/tutorials/sap/01_data_transformation.md")
     assert not cds.is_sequential("README.md")
     assert not cds.is_sequential("plugins/anofox-similarity/skills/anofox-similarity-aas/SKILL.md")

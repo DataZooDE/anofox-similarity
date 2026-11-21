@@ -20,34 +20,14 @@ coverage_recall(query_tree_id, <named>)
 
 `n_gaps` counts requirements (items), not attributes; the trace lists the failing attributes.
 
-**Pipeline.** Stage 1 ranks the candidate trees by their class multisets, using containment
-(+ `tie_break` × Jaccard) when every candidate tree is reviewed and weighted Jaccard otherwise
-(on unreviewed labels containment admits wrong matches). It keeps the top `k` per query. Stage 2 runs the kernel over those candidates:
-
-```
-attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score     (categorical: compat_score;
-              mu counts only for name_rule 'vector', else 0)
-a(q, c)     = mean over q's attributes of the best attr(x, ·)                 (1 without attributes)
-L(q, c)     = Bhattacharyya(p(q), p(c))   or 0/1 with labels := 'hard'
-score(q, c) = label_weight·L + (1 − label_weight)·L·a                         (default label_weight 0)
-req(q)      = best score × min(1, Σ counts of compatible items with L ≥ count_gate / count(q))
-coverage    = mean req(q);  rank_score = coverage + stage1_weight · stage1_score
-```
-
-`assignment := 'partition'` gives each candidate item to the requirement it agrees with most
-(ties: the largest remaining count need, then the lowest node id). An item may then not stand
-in for another function, and one item serves one requirement. `'best_match'` lets requirements
-share items. `'auto'` (default) uses partition when both the query tree and the candidate tree
-are reviewed.
-
-**Candidate alternatives (`alternatives`).** A candidate's OR groups (variant groups: module
-variants, product configurations) are alternatives of one product. With `'joint'` (default) the
-whole request is held to **one alternative per group**: groups are decided outer first, each
-taking the alternative with the best coverage given the earlier decisions. A station that needs a
-quiet conveyor and a high stack therefore scores like the best single variant, not like a mix of
-two variants nobody can build. `'per_requirement'` lets each requirement use its best variant
-(the behaviour before AAS-2). The cost is one evaluation per alternative (the sum, not the
-product, over groups).
+**How the score is built.** Stage 1 ranks the candidate trees by their class multisets
+(containment when every tree is reviewed, weighted Jaccard otherwise) and keeps the top `k`.
+Stage 2 scores each with the kernel: per request item, the label agreement times the mean
+attribute score times the count factor, averaged over the request's items. `assignment` decides
+whether one candidate item may serve several requirements (`'partition'`: no; `'best_match'`:
+yes; `'auto'`: partition when both trees are reviewed); `alternatives := 'joint'` holds a
+candidate's OR groups to one configuration. The formula, the rules behind each parameter and a
+worked example: [coverage semantics](../concepts/coverage-semantics.md#the-kernel).
 
 **Named parameters**
 
@@ -100,33 +80,12 @@ SELECT attr_id, rule, name_rule, attr_score
 FROM tree_coverage_trace('RFQ-117', candidates := ['OFF-B']);
 ```
 
-**Class hierarchy (`class_hierarchy`, `generalization_credit`).** By default classes are flat: a
-requirement for hot-plate sealing gets nothing from an offer of heat sealing. With a hierarchy
-table `(class_id, parent_class_id)` (for AAS: [`aas_class_hierarchy`](17-aas.md) of an IDTA-02020
-GeneralizedBy taxonomy) the hierarchy is an **is-a** relation:
-
-```
-rel(required k, provided l) = 1     same class, or l a subclass of k at any distance (specialized)
-                            = c^d   l a superclass of k at distance d, up to 32 levels (generalized)
-                            = 0     otherwise
-L(q, c) = Σ_k,l √(p_k(q) · p_l(c)) · rel(k, l), capped at 1         (hard labels: rel(class, class))
-```
-
-A hot-plate sealer is a heat sealer, so it fully meets a heat-sealing requirement. A general
-heat sealer for a hot-plate requirement gets `generalization_credit` c (default 0: nothing).
-Without a table this is the Bhattacharyya coefficient, so results are unchanged. The trace column
-`label_rule` says `exact`, `soft`, `specialized` or `generalized`. A generalized item counts
-towards a required count relative to the match: fully when the best match is itself generalized
-(its score carries the discount), by L / L(best) next to a closer match, so superclass items cannot
-hide a count shortfall. A generalized item must still pass `partition_gate` (0.3, reviewed trees)
-and `count_gate` (0.5): with c = 0.5 a parent (0.5) passes, a grandparent (0.25) does not.
-Stage-1 recall does not use the hierarchy: pass `candidates :=`, or raise `k`, when the related
-offers would not be recalled by class.
-
-**Partition and repeated classes.** The partition first assigns items by class agreement, then
-moves or swaps items between requirements of the same class while that raises the summed score.
-A request for a 10 W and a 90 W motor against an offer of a 95 W and a 20 W motor is therefore
-covered in full, whatever the item ids; one 95 W motor still cannot serve both.
+**Class hierarchy (`class_hierarchy`, `generalization_credit`).** With a table
+`(class_id, parent_class_id)` (for AAS: [`aas_class_hierarchy`](17-aas.md)) a more specific offered
+class meets the requirement fully and a more general one at distance d gets
+`generalization_credit^d` (default 0). The trace column `label_rule` says `exact`, `soft`,
+`specialized` or `generalized`. Stage-1 recall does not use the hierarchy: pass `candidates :=`, or
+raise `k`. The rule and how generalized items count: [coverage semantics](../concepts/coverage-semantics.md#class-hierarchy).
 
 **Recommended setup.** Calibrate the attribute-name floor once per corpus. It is the median
 cosine between unrelated names:

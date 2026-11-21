@@ -56,6 +56,8 @@ SELECT weighted_containment(MAP {'massage': 4}, MAP {'massage': 2}) AS counts_ma
 | 0.5           |
 
 The first argument is always the query (the request), the second the candidate (the offer).
+How the coverage number is built, and why the defaults are what they are:
+[coverage semantics](../concepts/coverage-semantics.md).
 
 ## Stage 1: Rank Feature Multisets
 

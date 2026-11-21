@@ -25,7 +25,7 @@ hurt; missing items and failed limits do. **Stage 1** ranks candidates by class 
 (weighted containment); **stage 2** compares item by item (class, count, each value with unit and
 direction) and returns coverage in [0, 1] plus a gap list. Numbers use rules, not embeddings: the
 dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage-matching.md`,
-`docs/guides/05-quantities-and-specs.md`; concepts: `docs/requirements-matching/HLD.md`.
+`docs/guides/05-quantities-and-specs.md`; concepts: `docs/concepts/coverage-semantics.md`.
 
 ## Critical gotchas
 
