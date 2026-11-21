@@ -8,13 +8,13 @@ description: >
   Use when the user asks "classify these items/requirements onto our catalogue", "which wordings
   should a reviewer look at", "export low-confidence items to an LLM", "where do label_table /
   overrides come from", or "calibrate cosine similarity of a small sentence encoder".
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Classification & Review Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/14-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/14-classification-and-review.md) (guide: [`docs/guides/06-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/06-classification-and-review.md))
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/14-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/14-classification-and-review.md) (guide: [`docs/guides/06-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/06-classification-and-review.md))
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.

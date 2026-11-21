@@ -23,7 +23,9 @@ source_unit, category)`
 | `max. 38 dB(A)` | 38, 38 dB(A) | at_most |
 | `mindestens 24 cm` | 0.24, 0.24 m | at_least |
 | `6–18 V`, `40 bis 60 W`, `zwischen 15 und 25 mm/s` | range | within |
-| `220 N ± 2 %`, `220 ± 5 N`, `20 kg ± 500 g` | 215.6, 224.4 N (the ends the tolerance allows) | equals |
+| `220 N ± 2 %` (also `220N±2%`, `+/-`, `+-`) | 215.6, 224.4 N (the ends the tolerance allows) | equals |
+| `20 kg ± 500 g`, `50 % ± 5 %` | 19.5, 20.5 kg; 45, 55 % (a % on a % nominal is percentage points) | equals |
+| `max. 20 kg ± 1 kg`, `min. 20 kg ± 1 kg` | 21 kg; 19 kg (the end the tolerance allows) | at_most; at_least |
 | `Nennwert 220 N` | 220, 220 N | equals |
 | `38 dB(A)` | 38, 38 | NULL (unqualified) |
 | `37 °C` | 310.15 K | NULL |
@@ -94,7 +96,7 @@ normalised first.
 | `at_most v` | the provided low end `p_lo ≤ v` | `(p_lo − v)/\|v\|` |
 | `within [lo, hi]` | the provided range covers the required range (log: share of the decades) | uncovered share |
 | `equals v` | `\|v − p\| ≤ tol` relative, on every scale; `p` is the farther end of a provided range | `\|v − p\|/\|v\|` |
-| `equals [lo, hi]` (a nominal with a tolerance) | the provided value or range lies inside `[lo, hi]`, within `tol` relative to the nominal | how far the farther end lies outside, `/\|nominal\|` |
+| `equals [lo, hi]` (a nominal with a tolerance) | the provided value or range lies inside `[lo, hi]`, within `tol` relative to the nominal (linear on every scale; temperature: 1 K) | how far the farther end lies outside, `/\|nominal\|` (`/` half-width for a zero nominal) |
 | `point` (no bound) | the provided value lies within `[v·10⁻⁰·⁰¹, v·10⁰·⁰¹]` (log) or ±1 % (linear) | uncovered share |
 | `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
 | `missing` | no provided value; score 0 | NULL |

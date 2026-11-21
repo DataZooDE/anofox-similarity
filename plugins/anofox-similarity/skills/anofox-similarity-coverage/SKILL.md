@@ -9,13 +9,13 @@ description: >
   `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`). Use when asked "which past
   programme/offer covers this request", "what is missing", "does 9 A meet max. 8 A", "parse
   'mindestens 24 cm'", "load spec trees from JSON", or "explain the gaps of this candidate".
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Coverage Matching Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.
@@ -67,9 +67,11 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
   other value is an error.
 - **A nominal with a tolerance is `equals` over a span**: `20 kg ± 1 kg` parses to lo 19, hi 21,
   `equals`; as a requirement the offer must lie inside (plus `tol`, so pass `tol := 0` for the
-  drawing's tolerance only). In an offer it is a range like `19–21 kg`: `at_least` compares its high
-  end. A bare `± 0,05 mm` (no nominal) stays `at_most` 0.05 mm. AAS writes the span as a Range with
-  `levelType` nom and reads it back as `equals`.
+  drawing's tolerance only: `1 kHz ± 5 Hz` accepts 1006 Hz with the default 2 %). In an offer it is a
+  range like `19–21 kg`: `at_least` compares its high end. `50 % ± 5 %` is 45–55 % (points);
+  `max. 20 kg ± 1 kg` is `at_most` 21 kg. A bare `± 0,05 mm` (no nominal) stays `at_most` 0.05 mm. A
+  tolerance in another dimension (`20 kg ± 1 mm`) keeps the nominal. AAS writes the span as a Range
+  with `levelType` nom and reads it back as `equals` (not with an unknown unit: no IEC 61360 data).
 - **Unkeyed values compete per dimension on one item**, names only discount: a roughness
   `Ra 6.3 µm` can answer a `± 0.05 mm` tolerance (both lengths). Give them different `attr_key`s
   (then a mismatch is a gate), or put them on items of their own class.

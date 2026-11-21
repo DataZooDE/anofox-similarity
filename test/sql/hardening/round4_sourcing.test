@@ -89,6 +89,84 @@ ORDER BY a.name;
 len	0.01	0.012	within	range
 weight	19.0	21.0	equals	level_type
 
+# glued and ASCII forms read like the spaced one; % on a % nominal is percentage points;
+# a bound word applies to the end the tolerance allows
+query TRRTT
+SELECT t, round(q.lo, 9), round(q.hi, 9), q.unit, q.bound
+FROM (SELECT i, t, parse_quantity(t, 'de') AS q
+      FROM (VALUES (1, '20kg±1kg'), (2, '20 kg +- 1 kg'), (3, '20kg+/-500g'), (4, '20°C±1K'), (5, '50 % ± 5 %'),
+                   (6, 'max. 20 kg ± 1 kg'), (7, 'min. 20 kg ± 1 kg'), (8, '20 kg ± 1 kg max.'),
+                   (9, '= 20 kg ± 1 kg'), (10, 'Nennwert 220 N ± 2 %'), (11, '-40 V ± 5 %'), (12, '1e-3 A')) v(i, t))
+ORDER BY i;
+----
+20kg±1kg	19.0	21.0	kg	equals
+20 kg +- 1 kg	19.0	21.0	kg	equals
+20kg+/-500g	19.5	20.5	kg	equals
+20°C±1K	292.15	294.15	K	equals
+50 % ± 5 %	45.0	55.0	%	equals
+max. 20 kg ± 1 kg	21.0	21.0	kg	at_most
+min. 20 kg ± 1 kg	19.0	19.0	kg	at_least
+20 kg ± 1 kg max.	21.0	21.0	kg	at_most
+= 20 kg ± 1 kg	19.0	21.0	kg	equals
+Nennwert 220 N ± 2 %	215.6	224.4	N	equals
+-40 V ± 5 %	-42.0	-38.0	V	equals
+1e-3 A	0.001	0.001	A	NULL
+
+# temperature spans check containment (absolute K, 1 K tolerance): inside, 1 K over, covering, disjoint
+query TRR
+SELECT t, value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity(t)).distance,
+       value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity(t)).score
+FROM (VALUES (1, '19.5–20.5 °C'), (2, '20–22 °C'), (3, '15–25 °C'), (4, '30–40 °C')) v(i, t)
+ORDER BY i;
+----
+19.5–20.5 °C	0.0	1.0
+20–22 °C	1.0	1.0
+15–25 °C	4.0	0.0
+30–40 °C	19.0	0.0
+
+# a zero nominal scales by the half-width; a span is linear on every scale; the soft band applies
+query RRRRR
+SELECT round(value_satisfies(parse_quantity('0 V ± 1 V'), parse_quantity('1.02 V')).distance, 9),
+       value_satisfies(parse_quantity('0 V ± 1 V'), parse_quantity('1.02 V')).score,
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21.5 kg'), 'log', 0.0, 0.25).distance, 9),
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21.5 kg'), 'linear', 0.0, 0.1).score, 9),
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('19,5–21,5 kg', 'de'), 'linear', 0.0, 0.0).score;
+----
+0.02	1.0	0.025	0.75	0.0
+
+# the default tol (2 % of the nominal) is wider than a tight tolerance: pass tol := 0 to check only the span
+query RR
+SELECT value_satisfies(parse_quantity('1 kHz ± 5 Hz'), parse_quantity('1006 Hz')).score,
+       value_satisfies(parse_quantity('1 kHz ± 5 Hz'), parse_quantity('1006 Hz'), 'linear', 0.0, 0.0).score;
+----
+1.0	0.0
+
+# AAS: a BasicConstraint on a nominal span (Range with levelType nom) keeps the span and reports the conflict
+query TRRT
+SELECT a.attr_id, a.lo, a.hi, a.bound
+FROM (SELECT unnest(aas_to_trees(content)) AS n FROM read_text('test/data/aas/fixtures/constraint_on_nominal_span.aas.json')),
+     LATERAL (SELECT unnest(n.attributes) AS a)
+WHERE a.attr_id = 'OilTemperature';
+----
+OilTemperature	312.15	314.15	equals
+
+query T
+SELECT i.issue FROM (SELECT unnest(aas_issues(content)) AS i
+    FROM read_text('test/data/aas/fixtures/constraint_on_nominal_span.aas.json'))
+WHERE i.path LIKE '%OilMax%';
+----
+constraint_conflict
+
+# AAS: an offered span with a role (IDTA-02020 PropertyRange) reads back as equals too. A tree with free
+# node ids ('c' under 's', from tree_from_json) has no detached ComposedOf parts: trees_to_aas raised
+# "cannot create std::vector larger than max_size()" on it
+query TTRRT
+WITH t AS (SELECT tree_from_json('{"role":"provided","root":{"node_id":"O1","label":"offer","children":[{"node_id":"s","label":"capabilities","children":[{"node_id":"c","label":"casting","class_id":"casting","attributes":[{"name":"weight","key":"0173-1#02-AAB713#005","text":"20 kg ± 1 kg"}]}]}]}}', 'O1') AS n)
+SELECT a.name, a.role, a.lo, a.hi, a.bound
+FROM (SELECT unnest(aas_to_trees(trees_to_aas(n))) AS x FROM t), LATERAL (SELECT unnest(x.attributes) AS a);
+----
+weight	provided	19.0	21.0	equals
+
 # --- F2: bound_policy ----------------------------------------------------------------------
 
 statement ok

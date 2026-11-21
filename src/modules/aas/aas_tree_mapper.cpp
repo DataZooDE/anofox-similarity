@@ -663,9 +663,10 @@ private:
 
 	//! A BasicConstraint on one attribute. Its value is the limit when it is in the attribute's
 	//! dimension; a different stated value and a two-sided Range are reported as constraint_conflict
-	//! (the Range keeps 'within', since the constraint cannot say which end it narrows).
+	//! (the Range keeps its bound, since the constraint cannot say which end it narrows).
 	void ApplyConstraint(const PendingConstraint &c, const Quantity &q, TreeAttrRow &a) {
-		bool two_sided = a.has_value && a.bound == "within" && a.lo != a.hi && q.bound != "within";
+		bool two_sided = a.has_value && (a.bound == "within" || a.bound == "equals") && a.lo != a.hi &&
+		                 q.bound != "within"; // a range or a nominal with a tolerance (equals, lo < hi)
 		if (two_sided) {
 			Issue(c.tree_id, c.constraint_path, "constraint_conflict", "warning",
 			      "'" + c.expression + "' on a two-sided range (" + a.value_text + "): the range is kept");

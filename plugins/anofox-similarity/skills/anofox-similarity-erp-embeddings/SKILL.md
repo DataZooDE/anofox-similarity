@@ -10,13 +10,13 @@ description: >
   converting a flat parent/child/quantity export into the universal schema (materials, bom_header,
   bom_component),
   building or fusing material embeddings, or checking the anofox-forecast dependency.
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — ERP Transforms & Embeddings Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/04-embeddings.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/04-embeddings.md), [`docs/api/05-erp-transformations.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/05-erp-transformations.md), [`docs/api/06-infrastructure.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/06-infrastructure.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/04-embeddings.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/04-embeddings.md), [`docs/api/05-erp-transformations.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/05-erp-transformations.md), [`docs/api/06-infrastructure.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/06-infrastructure.md)
 
 Gets ERP data into the flat `bom_items` edge list (`parent_id`, `child_id`, optional `quantity`) that
 every similarity search reads, and builds per-material vectors in `material_embeddings`. The searches (`find_similar_materials_jaccard`, WL kernel, predecessors) are in

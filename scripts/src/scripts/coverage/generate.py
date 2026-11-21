@@ -414,7 +414,7 @@ AT_MOST = {"en": ["max. {v}", "at most {v}", "≤ {v}", "up to {v}", "not more t
            "de": ["max. {v}", "höchstens {v}", "≤ {v}", "bis zu {v}", "maximal {v}"]}
 WITHIN = {"en": ["{a}–{b} {u}", "{a} to {b} {u}", "between {a} and {b} {u}"],
           "de": ["{a}–{b} {u}", "{a} bis {b} {u}", "zwischen {a} und {b} {u}"]}
-# parse_quantity reads "{v} ± 2 %" as the range 0.98 v to 1.02 v (within); the gold keeps equals v
+# parse_quantity reads "{v} ± 2 %" as equals with lo 0.98 v, hi 1.02 v; the gold keeps equals v (lo = hi)
 EQUALS = {"en": ["{v} ± 2 %", "nominal {v}"], "de": ["{v} ± 2 %", "Nennwert {v}"]}
 ORDINAL_TXT = {"en": ["{c} or better", "at least {c}", "min. {c}"],
                "de": ["{c} oder besser", "mindestens {c}", "min. {c}"]}

@@ -858,6 +858,14 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	ReplaceAll(s, "μ", "µ"); // Greek mu -> micro sign
 	ReplaceAll(s, "Ω", "Ω"); // ohm sign -> Greek omega
 	ReplaceAll(s, "+/-", "±");
+	ReplaceAll(s, "+-", "±");
+	// a tolerance sign ends a unit written right before it: "20kg±1kg" is "20kg ±1kg"
+	for (auto pos = s.find("±"); pos != string::npos; pos = s.find("±", pos + 1)) {
+		if (pos > 0 && s[pos - 1] != ' ') {
+			s.insert(pos, " ");
+			pos++;
+		}
+	}
 	// protection classes written with a space are still one code: "IP 54" -> "IP54"
 	for (auto code : {"IP ", "IK ", "PN ", "DN "}) {
 		for (auto pos = s.find(code); pos != string::npos; pos = s.find(code, pos + 2)) {
@@ -1003,10 +1011,11 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 		double t = std::fabs(numbers[1].value);
 		if (!unit2) {
 			spans = token2.empty(); // 20 kg ± 1: the nominal's unit
-		} else if (unit2->dimension == "percent" && !std::isnan(unit2->factor)) {
-			t = std::fabs(first.value) * t * unit2->factor / 100.0;
+		} else if (unit2->dimension == "percent" && !std::isnan(unit2->factor) &&
+		           !(lo_unit && lo_unit->dimension == "percent")) {
+			t = std::fabs(first.value) * t * unit2->factor / 100.0; // 220 N ± 2 %: relative to the nominal
 			spans = true;
-		} else if (unit2 == lo_unit) {
+		} else if (unit2 == lo_unit) { // 50 % ± 5 %: percentage points
 			spans = true;
 		} else if (lo_unit && unit2->dimension == lo_unit->dimension && !std::isnan(unit2->factor) &&
 		           !std::isnan(lo_unit->factor) && lo_unit->factor != 0) {
@@ -1063,10 +1072,19 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 		q.bound = "at_most";
 	} else if (!tolerance && (ends_with(trimmed_prefix, "±") || ends_with(trimmed_prefix, "+/-"))) {
 		q.bound = "at_most"; // a tolerance class without a nominal (± 0,02 mm): the half-width is a limit
-	} else if (tolerance || ends_with(trimmed_prefix, "=") || HasWord(pw, {"nominal", "nennwert"})) {
+	} else if (tolerance) {
+		// a bound word with a tolerance (max. 20 kg ± 1 kg) applies to the end the tolerance allows
+		auto stated = ends_with(trimmed_prefix, "=") ? string() : BoundFromWords(pw, sw);
+		q.bound = stated == "at_least" || stated == "at_most" ? stated : "equals";
+	} else if (ends_with(trimmed_prefix, "=") || HasWord(pw, {"nominal", "nennwert"})) {
 		q.bound = "equals";
 	} else {
 		q.bound = BoundFromWords(pw, sw);
+	}
+	if (spans && q.bound == "at_most") {
+		q.lo = q.hi;
+	} else if (spans && q.bound == "at_least") {
+		q.hi = q.lo;
 	}
 	return q;
 }
@@ -1108,7 +1126,7 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 			r.distance = MaxValue(0.0, p_lo - r_hi);
 			r.score = soft(r.distance);
 		} else if (bound == "equals" && r_hi > r_lo) { // a nominal with a tolerance: the offer lies inside
-			r.distance = MaxValue(0.0, MaxValue(r_lo - p_hi, p_lo - r_hi));
+			r.distance = MaxValue(0.0, MaxValue(r_lo - p_lo, p_hi - r_hi));
 			r.score = soft(r.distance);
 		} else if (bound == "equals") {
 			r.distance = MinValue(std::fabs(r_lo - p_lo), std::fabs(r_lo - p_hi));
@@ -1135,16 +1153,13 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 	};
 	if (bound == "equals" && r_hi > r_lo) {
 		// a nominal with a tolerance (20 kg ± 1 kg): the offer lies inside [lo, hi]; its farther end
-		// outside the span, relative to the nominal, is the distance
-		double nominal = (r_lo + r_hi) / 2;
+		// outside the span, relative to the nominal (to the half-width for a zero nominal: 0 V ± 1 V),
+		// is the distance. Linear on every scale, like equals at a point
+		double nominal = std::fabs(r_lo + r_hi) / 2;
+		double scale = nominal > 0 ? nominal : (r_hi - r_lo) / 2;
 		double miss = MaxValue(0.0, MaxValue(r_lo - p_lo, p_hi - r_hi));
-		if (nominal == 0) {
-			r.distance = miss;
-			r.score = miss == 0 ? 1.0 : 0.0;
-		} else {
-			r.distance = miss / std::fabs(nominal);
-			r.score = soften_with(r.distance, options.tol);
-		}
+		r.distance = miss / scale;
+		r.score = soften_with(r.distance, options.tol);
 	} else if (bound == "at_least" || bound == "at_most" || bound == "equals") {
 		double v = bound == "at_most" ? r_hi : r_lo;
 		double p = bound == "at_least" ? p_hi : p_lo;

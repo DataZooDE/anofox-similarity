@@ -7,13 +7,13 @@ description: >
   (`suggest_semantic_id`) and writing back (`trees_to_aas`, `aas_export`, `aas_coverage_result`,
   `coverage_result_to_aas`). Use when the user asks "load these AAS / AASX files", "match offers
   by ECLASS IRDI", "which assets deliver 7.6 A", "audit the supplier's AAS", "export as AAS".
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Asset Administration Shell (AAS) Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.

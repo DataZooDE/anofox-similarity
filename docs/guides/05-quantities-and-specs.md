@@ -336,7 +336,8 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | A 2 % overshoot of a hard limit scores 1 | The default `tol` is 0.02. For limits without slack pass `tol := 0` and `soft_band := 0` (by position on DuckDB 1.5.6). |
 | `± 0,02 mm` | A tolerance class without a nominal is an `at_most` limit on the half-width: `± 0,02 mm` satisfies `± 0,05 mm`. |
 | `20 kg ± 1 kg` in an offer passes `min. 20,5 kg` | A nominal with a tolerance is `equals` over 19–21 kg. As a requirement the offer must lie inside; as an offer it counts as the range it spans, like `19–21 kg` (`at_least` uses its high end). For a guaranteed value, offer the limit (`min. 19 kg`). |
-| A part 2.5 % off a `± 2 %` drawing still scores 1 | `tol` applies on top of the span. Pass `tol := 0` to check only the drawing's tolerance. |
+| A part 2.5 % off a `± 2 %` drawing still scores 1 | `tol` applies on top of the span (`1 kHz ± 5 Hz` accepts 1006 Hz by default). Pass `tol := 0` and `soft_band := 0` to check only the drawing's tolerance. |
+| A `±` value came back as one point | The tolerance was not usable (another dimension, `20 kg ± 1 mm`, or an unknown unit): the nominal is kept. Find them with `WHERE q.raw LIKE '%±%' AND q.lo = q.hi AND q.bound = 'equals'`. |
 
 ## Next Steps
 
