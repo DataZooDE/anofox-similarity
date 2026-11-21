@@ -69,12 +69,12 @@ edge list.
 ## Key Concepts
 
 - **Positional arguments.** The material id and `k` of the search functions are positional
-  (`find_similar_materials_jaccard('AW-749', 5)`, not `k := 5`). The traversal macros take only
-  named arguments (`query_material_id := 'AW-996'`).
+  (`find_similar_materials_jaccard('AW-749', 5)`, not `k := 5`). The traversal macros take them
+  positionally or by name (`bom_explosion_1level('AW-996')` or `query_material_id := 'AW-996'`).
 - **Jaccard ignores quantities and depth.** Two BOMs with the same direct children score 1.0.
   For quantities, use `find_covering_entities` with `weight_col` (see
   [coverage_matching](../coverage_matching/)).
 - **WL kernel looks deeper.** Two products whose direct children differ but whose
   sub-assemblies contain the same parts score high. `iterations` (1..5) sets the depth.
-- **Zero scores are returned.** The search functions return candidates with similarity 0;
-  filter with `min_similarity`.
+- **Zero scores are left out.** The search functions return only candidates that share a
+  component, so fewer than `k` rows can come back; `min_similarity := 0` includes the rest at 0.

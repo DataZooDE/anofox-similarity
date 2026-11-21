@@ -119,7 +119,7 @@ coverage threshold at which the picks reach the target precision. A pick counts 
 true coverage is at least `good` (default 0.9).
 
 ```sql
-SELECT round(threshold, 4) AS threshold, round(precision, 3) AS precision, round(accepted_share, 3) AS accepted_share
+SELECT round(threshold, 4) AS threshold, round(precision, 3) AS precision, round(accepted_share, 4) AS accepted_share
 FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 ```
 

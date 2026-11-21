@@ -27,14 +27,22 @@ FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
 `quantity`. Other columns are ignored. The data has 3 991 movements of 41 materials, about one per
 week.
 
-Map your own tables with a view. A date stored as text, such as SAP's `BUDAT` (`20230115`), must be
-converted; otherwise the call fails with `column movement_date is VARCHAR, expected DATE or TIMESTAMP`:
+Map your own tables with a view. Keep consumption only: MSEG also holds goods receipts (101),
+transfers and stock corrections, which are not demand. A date stored as text, such as SAP's posting
+date (`20230115`), must be converted; otherwise the call fails with
+`column movement_date is VARCHAR, expected DATE or TIMESTAMP`:
 
 ```sql
 CREATE VIEW my_movements AS
-SELECT matnr AS material_id, strptime(budat, '%Y%m%d')::DATE AS movement_date, menge AS quantity
-FROM mseg;
+SELECT matnr AS material_id,
+       strptime(budat_mkpf, '%Y%m%d')::DATE AS movement_date,   -- posting date (MKPF.BUDAT)
+       CASE shkzg WHEN 'H' THEN menge ELSE -menge END AS quantity -- issue +, reversal -
+FROM mseg
+WHERE bwart IN ('201', '202', '261', '262', '601', '602');      -- cost centre, order, delivery
 ```
+
+The posting date is in MKPF (`BUDAT`); MSEG carries a copy as `BUDAT_MKPF`. On S/4HANA read the
+same columns from `MATDOC`. Add the movement types your plants use for consumption.
 
 Quantities are summed per week. Returns with a negative quantity net against the issues of the
 same week. Weeks without any movement are skipped, not counted as zero.

@@ -128,11 +128,16 @@ similarity is never used.
 
 ```sql
 -- Which seat-track applications meet a German spec in cm and dB(A)?
-SELECT a.node_id
-FROM (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
-JOIN module_attributes a ON a.attr_id = r.attr,
-LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
-GROUP BY a.node_id HAVING min(v.score) = 1;
+-- Every requirement must be met; one the application does not state counts as failed
+-- (an inner join would drop it and let an incomplete offer pass).
+SELECT c.node_id
+FROM (SELECT DISTINCT node_id FROM module_attributes) c
+CROSS JOIN (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
+LEFT JOIN module_attributes a ON a.node_id = c.node_id AND a.attr_id = r.attr
+GROUP BY c.node_id
+HAVING bool_and(COALESCE(value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}).score, 0) = 1);
+-- requirement: travel 'mindestens 24 cm', noise 'max. 38 dB(A)'; A1 offers 0.25 m and 36 dB(A),
+-- A2 only 0.25 m  =>  A1
 
 -- Unqualified values take the direction of their catalogue template
 SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimension': 'sound_level'},

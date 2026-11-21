@@ -2,7 +2,7 @@
 
 ## The Problem
 
-> "I have SAP tables (MARA, MAKT, MAST, STKO, STPO). How do I transform them for similarity analysis?"
+> "I have SAP tables (MARA, MAKT, MAST, STKO, STPO, STAS). How do I transform them for similarity analysis?"
 
 SAP uses a specific table structure that differs from the universal BOM schema expected by anofox-similarity. This guide shows how to transform SAP data into the format needed for similarity analysis.
 
@@ -24,7 +24,12 @@ CREATE TABLE sap_makt AS SELECT * FROM read_parquet('test/data/sap/makt.parquet'
 CREATE TABLE sap_mast AS SELECT * FROM read_parquet('test/data/sap/mast.parquet');
 CREATE TABLE sap_stko AS SELECT * FROM read_parquet('test/data/sap/stko.parquet');
 CREATE TABLE sap_stpo AS SELECT * FROM read_parquet('test/data/sap/stpo.parquet');
+CREATE TABLE sap_stas AS SELECT * FROM read_parquet('test/data/sap/stas.parquet');
 ```
+
+Extract STAS together with STPO. STPO holds the items of every alternative of a BOM; STAS says which
+items an alternative uses. Without STAS, `bom_alternative := '01'` still returns the items of the
+other alternatives.
 
 ## Step-by-Step Walkthrough
 
@@ -60,17 +65,25 @@ LIMIT 5;
 
 ### Step 2: Transform BOM Structure
 
-Convert SAP BOM tables (MAST, STKO, STPO) to the universal bom_items format:
+Convert SAP BOM tables (MAST, STKO, STPO, STAS) to flat BOM edges. Pick one plant, one usage and
+one client first: the searches do not see these columns, so BOMs of two plants or clients would be
+mixed into one material.
 
 ```sql
+-- One plant: MAST assigns a BOM to a material per plant (werks)
+CREATE VIEW sap_mast_1000 AS SELECT * FROM sap_mast WHERE werks = '1000';
+
 CREATE TABLE bom_items AS
 SELECT * FROM sap_to_bom_items(
-    mast_table := 'sap_mast',
+    mast_table := 'sap_mast_1000',
     stko_table := 'sap_stko',
     stpo_table := 'sap_stpo',
-    bom_alternative := '01',        -- Primary BOM alternative
-    reference_date := CURRENT_DATE  -- Latest version
-);
+    stas_table := 'sap_stas',   -- items of the chosen alternative only
+    bom_alternative := '01',    -- primary alternative
+    bom_usage := '1'            -- production BOMs (MAST.stlan)
+    -- reference_date: versions valid on that date (YYYYMMDD or a date); default the latest
+)
+WHERE client = '100';           -- MANDT, when every table has it; else client is NULL
 
 -- Verify transformation
 SELECT COUNT(*) AS total_bom_items FROM bom_items;
@@ -89,6 +102,9 @@ LIMIT 10;
 | `child_id` | STPO.idnrk | Component material |
 | `qty` | STPO.menge | Quantity required |
 | `unit` | STPO.meins | Unit of measure |
+| `client` | MANDT | SAP client, NULL when a table has no `mandt` |
+
+The five-table variant without STAS works, but it is incomplete for BOMs with several alternatives.
 
 ### Step 3: Verify the Transformation
 

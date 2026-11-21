@@ -31,7 +31,7 @@ The build produces two things:
 
 | Artifact | Use |
 |---|---|
-| `build/release/duckdb` | A DuckDB shell with the extension already linked. No `LOAD` needed. |
+| `build/release/duckdb` | A DuckDB shell. On DuckDB 1.5.6 the extension is linked in, no `LOAD` needed. On 2.0 it is not: start it with `-unsigned` and `LOAD` the file below. |
 | `build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension` | The loadable extension for another DuckDB binary of the same version. |
 
 To load the extension into a separate DuckDB binary, allow unsigned extensions:
@@ -45,6 +45,23 @@ LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extensi
 ```
 
 The extension supports DuckDB 1.5.6 and 2.0. The DuckDB binary must have the same version as the build.
+
+On a DuckDB 2.0 source build, the repository scripts run like this:
+
+```bash
+build/release/duckdb -unsigned \
+  -cmd "LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension'" \
+  < examples/material_similarity/jaccard_similarity.sql
+```
+
+Without a source build, run the examples and tutorials with the community extension. Clone the
+repository for the data, start `duckdb` in its root and read a script:
+
+```sql
+INSTALL anofox_similarity FROM community;
+LOAD anofox_similarity;
+.read examples/material_similarity/jaccard_similarity.sql
+```
 
 ## Your First Query
 
@@ -99,8 +116,13 @@ Notes:
   a quantity). Column mapping parameters let you use an existing BOM table as is.
 - A property tree describes a specification or an offer: containers group items, items carry
   attributes with values in base units (m, s, A, K, ...).
-- The SAP and Dynamics 365 transforms write the universal BOM shape. `bom_to_items()` flattens it to
-  `bom_items`.
+- From an ERP extract there are two paths to `bom_items`:
+  - SAP: `sap_to_bom_items` returns flat edges already. Rename the quantity:
+    `SELECT parent_id, child_id, qty AS quantity FROM sap_to_bom_items(...) WHERE client = '100'`.
+  - Dynamics 365: `dynamics365_to_bom_header` and `dynamics365_to_bom_component` return the
+    universal BOM shape. Store both as tables, keep one `company`, then flatten them with
+    `bom_to_items(...)` ([ERP transformations](../api/05-erp-transformations.md)).
+  Pick one SAP client or D365 company first; the searches do not see these columns.
 
 ## Argument Binding
 
@@ -182,7 +204,7 @@ environment variable for a complete opt-out.
 | `INSTALL ... FROM community` fails | Build from source and `LOAD` the file. |
 | Unsigned extension refused | Start DuckDB with `-unsigned`. |
 | Named scalar arguments in the wrong order | On 1.5.6, write them in signature order. |
-| `k := 5` on a search function | `k` is positional: `find_similar_materials_jaccard('PUMP-A', 5)`. |
+| `k := 5` on a material search | There `k` is positional: `find_similar_materials_jaccard('PUMP-A', 5)`. The tree functions take `k := 3` by name; see the [binding table](../api/00-conventions.md#parameterization-pattern). |
 | Function not found with `anofox_similarity.` prefix | Call functions unqualified. |
 
 ## Next Steps

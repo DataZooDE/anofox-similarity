@@ -17,25 +17,37 @@ cover `attr_key` and unit identifiers.
 Audit a folder first. `aas_issues` never raises: a broken file gives one `parse_error` row,
 so the query names the file. `aas_to_trees` is strict and stops on the first broken file.
 
+The blocks run from the repository root on the files of
+[examples/aas_capability_matching](../../examples/aas_capability_matching/README.md). Replace the
+paths with your own folder.
+
 ```sql
 SELECT filename, i.issue, i.severity, i.path, i.detail
-FROM (SELECT filename, unnest(aas_issues(content)) AS i FROM read_blob('offers/*'))
+FROM (SELECT filename, unnest(aas_issues(content)) AS i
+      FROM read_blob('examples/aas_capability_matching/data/offers/*'))
 ORDER BY i.severity, filename;
 ```
 
-Then load:
+Then load. `eclass_units` is the unit list that resolves ECLASS unit IRDIs (columns as in
+`unit_table`, see below); the example ships a stand-in for the licensed list.
 
 ```sql
+CREATE TABLE eclass_units AS
+SELECT * FROM read_csv('examples/aas_capability_matching/data/eclass_units.csv');
+
 CREATE TABLE raw AS
-SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('rfq_2026_117.aas.json')
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n
+FROM read_text('examples/aas_capability_matching/data/rfq_2026_117.aas.json')
 UNION ALL
-SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u))) FROM read_blob('offers/*');
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)))
+FROM read_blob('examples/aas_capability_matching/data/offers/*');
 
 CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
 CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
 
 SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');
-SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*');
+SELECT unnest(aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)), recursive := true)
+FROM read_blob('examples/aas_capability_matching/data/offers/*');
 ```
 
 **`aas_to_trees(content [, tree_id [, unit_table]])`** → `LIST` of the node STRUCTs of

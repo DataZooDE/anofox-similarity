@@ -32,6 +32,18 @@ reference (kind, signature, description, examples).
 
 On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 
+Table functions take their leading arguments by position and the rest by name. Whether `k` is
+one of the leading arguments depends on the family:
+
+| Family | Positional | `k` | Example |
+|---|---|---|---|
+| material search: `find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`, `cold_start_analogs` | material id, `k` | positional | `find_similar_materials_jaccard('PUMP-A', 5)` |
+| covering search: `find_covering_entities`, `find_covering_entities_for` | query, `k` | positional | `find_covering_entities('E1', 10, feature_table := 'fm')` |
+| tree functions: `tree_coverage`, `tree_coverage_trace`, `coverage_recall` | the query tree id | named | `tree_coverage('Q1', k := 3)` |
+| `find_covering_entities_lsh`, `eval_ranking` | the tables | named | `eval_ranking('results', 'gold', k := [1, 5])` |
+
+`k := 5` on a material search fails with "No function matches the given name and argument types".
+
 All macros support default parameters with `:=` syntax:
 
 ```sql

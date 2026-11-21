@@ -133,11 +133,11 @@ FROM (SELECT class_id FROM spec_values v JOIN capability_classes c USING (class_
 GROUP BY ALL;
 -- Expected:
 --   category without dimension | material_grade | 128
--- (b) validate_trees finds no structural problem; note that it does NOT warn about
---     the 128 category values above.
+-- (b) validate_trees finds no structural problem; it warns about the same 128 category
+--     values (category_without_dimension), 40 on the parts and 88 on the suppliers.
 SELECT (SELECT count(*) FROM validate_trees('part_nodes', 'part_attributes')) AS part_tree_issues,
        (SELECT count(*) FROM validate_trees('supplier_nodes', 'supplier_attributes')) AS supplier_tree_issues;
--- Expected: 0 | 0
+-- Expected: 40 | 88
 -- (c) parts with two lines for one class (an English copy of a German line)
 SELECT owner_id AS part_id, class_id, list(value_text ORDER BY row_id) AS lines
 FROM spec_values WHERE side = 'part' AND class_id = 'piece_weight'

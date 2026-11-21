@@ -56,10 +56,10 @@ softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p`
 
 ```sql
 CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[64] AS vec, exemplar_tokens::FLOAT[64][] AS exemplar_tokens
-FROM read_csv_auto('catalogue_vectors.csv.gz');
-CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('programme_nodes.csv.gz');
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
 CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[64] AS vec
-FROM read_csv_auto('vocabulary_vectors.csv.gz');
+FROM read_csv_auto('test/data/coverage/vocabulary_vectors.csv.gz');
 
 -- classify every wording once; the archive's items take the distribution of their wording
 CREATE TABLE wording_decisions AS SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
@@ -81,9 +81,9 @@ CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_r
 
 -- rank with the reviewed wordings; the rest keep the classifier's soft labels. The request
 -- items need classes too: one label_table serves both sides
-CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('request_nodes.csv.gz');
+CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
 CREATE TABLE request_items AS SELECT tree_id, node_id, source, vec::FLOAT[64] AS vec
-FROM read_csv_auto('request_item_vectors.csv.gz');
+FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
 CREATE TABLE labels AS
 SELECT tree_id, node_id, class_id, p FROM programme_labels
 UNION ALL
