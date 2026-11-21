@@ -83,13 +83,13 @@ WHERE client = '100' AND parent_id = '000000000000100200' GROUP BY ALL;
 
 ## SAP: Materials
 
-`sap_to_materials_with_desc` does not read `mandt`. Filter the client first, or a material that
-exists in two clients comes twice:
+`sap_to_materials_with_desc` returns the SAP client in its last column, `client` (MARA's `mandt`;
+NULL without it), and takes each client's text from MAKT. KP-40 exists in clients 100 and 200, so
+keep one client, as for the BOM edges:
 
 ```sql
-CREATE VIEW mara_100 AS SELECT * FROM mara WHERE mandt = '100';
-CREATE VIEW makt_100 AS SELECT * FROM makt WHERE mandt = '100';
-CREATE TABLE materials AS SELECT * FROM sap_to_materials_with_desc('mara_100', 'makt_100', language := 'E');
+CREATE TABLE materials AS
+SELECT * FROM sap_to_materials_with_desc('mara', 'makt', language := 'E') WHERE client = '100';
 SELECT material_id, description FROM materials WHERE material_type = 'FERT' ORDER BY material_id;
 -- => 000000000000100100 | Centrifugal pump KP-40
 -- => 000000000000100200 | Centrifugal pump KP-50
@@ -169,7 +169,7 @@ FROM find_similar_materials_jaccard('PUMP-65', 5);
 | Symptom | Cause and fix |
 |---------|---------------|
 | Similarities too high between variants | No STAS: items of every alternative under one BOM number. Export STAS, pass `stas_table` |
-| A material twice in `materials`, test BOMs in the results | Two clients. Filter `mandt` in a view; keep one `client` of `sap_to_bom_items` |
+| A material twice in `materials`, test BOMs in the results | Two clients. Keep one `client` of `sap_to_materials_with_desc` and of `sap_to_bom_items` |
 | BOMs of all usages mixed | No `bom_usage`: an edge comes from the lowest usage. Pass `bom_usage := '1'` |
 | MAKT, MSEG and STPO do not join | Material numbers in two formats (internal `000000000000100100`, ALPHA-converted `100100`). Read as text, pad numeric ones with `lpad(matnr, 18, '0')` |
 | Empty `description` | No text in that language; `language` takes `'E'` or `'EN'` |

@@ -62,6 +62,7 @@ LIMIT 5;
 | `material_type` | MARA.mtart | Material type (FERT, HALB, ROH, etc.) |
 | `material_group` | MARA.matkl | Material classification group |
 | `created_date` | MARA.ersda | Creation date (converted from YYYYMMDD) |
+| `client` | MARA.mandt | SAP client; NULL when the extract has no `mandt`. Keep one (`WHERE client = '100'`) |
 
 ### Step 2: Transform BOM Structure
 

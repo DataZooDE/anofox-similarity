@@ -53,11 +53,13 @@ SELECT (SELECT count(*) FROM bom_items) AS edges,
 
 .print ''
 .print '>>> 2. Materials with descriptions (client 100; lvorm X is dropped)'
--- sap_to_materials_with_desc does not read mandt: filter the client first, or a
--- material of two clients comes twice.
-CREATE OR REPLACE VIEW mara_100 AS SELECT * FROM mara WHERE mandt = '100';
-CREATE OR REPLACE VIEW makt_100 AS SELECT * FROM makt WHERE mandt = '100';
-CREATE OR REPLACE TABLE materials AS SELECT * FROM sap_to_materials_with_desc('mara_100', 'makt_100', language := 'E');
+-- The client column (mandt) keeps clients apart: KP-40 exists in 100 and 200.
+SELECT client, count(*) AS materials FROM sap_to_materials_with_desc('mara', 'makt') GROUP BY client ORDER BY client;
+-- Expected:
+--   100 | 11
+--   200 | 1
+CREATE OR REPLACE TABLE materials AS
+SELECT * FROM sap_to_materials_with_desc('mara', 'makt', language := 'E') WHERE client = '100';
 SELECT material_id, material_type, description, created_date FROM materials
 WHERE material_type = 'FERT' ORDER BY material_id;
 -- Expected:

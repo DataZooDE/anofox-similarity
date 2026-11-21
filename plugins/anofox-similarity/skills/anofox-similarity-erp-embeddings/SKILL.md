@@ -60,8 +60,10 @@ Runnable end to end on a small SAP and D365 extract (STAS, two clients, two comp
   `... array_cosine_distance(e, getvariable('q')::FLOAT[384]) LIMIT 10` (check with `EXPLAIN`:
   `HNSW_INDEX_SCAN`); a correlated subquery or a join scans everything. An index in a database file
   needs `SET hnsw_enable_experimental_persistence = true` before `CREATE INDEX` (a vss rule).
-- **MAKT duplicates are collapsed.** Several MAKT rows per `(matnr, spras)` (one per client/MANDT)
-  become one row per material (an arbitrary one, via `ANY_VALUE`). Filter `mandt` first if it matters.
+- **SAP clients stay apart.** `sap_to_materials(_with_desc)` end with a `client` column (MARA
+  `mandt`, NULL without it), like `sap_to_bom_items`; with `mandt` in MAKT each client gets its own
+  text. Keep one client (`WHERE client = '100'`). Several MAKT rows per `(matnr, spras)` and client
+  become one description (an arbitrary one, via `ANY_VALUE`).
 - **Required columns.** MARA needs `matnr, mtart, matkl, ersda, lvorm` (`ersda` as `YYYYMMDD` text,
   `DATE` or ISO string); MAKT needs `matnr, spras, maktx` **and `maktg`** for
   `extract_material_descriptions` / `compute_textual_embeddings`; MAST `matnr, stlnr`; STKO
@@ -160,7 +162,7 @@ sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative := '01',
                  reference_date := '9999-12-31', bom_usage := NULL, stas_table := NULL)
   → (bom_id, parent_id, child_id, qty, unit, valid_from DATE, valid_to DATE, bom_version, client)
 sap_to_materials(mara_table)                          -- makt_table/language accepted, ignored
-  → (material_id, material_type, material_group, description = '', created_date DATE)
+  → (material_id, material_type, material_group, description = '', created_date DATE, client = MARA mandt or NULL)
 sap_to_materials_with_desc(mara_table, makt_table, language := 'E')
   → same columns, description = MAKTX in that language ('' if none)
 extract_material_descriptions(makt_table := 'sap_makt', language := 'E')

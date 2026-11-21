@@ -243,3 +243,39 @@ query I
 SELECT count(*) FROM compute_textual_embeddings(makt_table := 'makt_iso', language := 'EN');
 ----
 2
+
+# ============================================================================
+# client: MARA/MAKT mandt keeps SAP clients apart (as in sap_to_bom_items)
+# ============================================================================
+
+statement ok
+CREATE TABLE mara_2c AS SELECT * FROM (VALUES
+    ('100', '0000001', 'FERT', 'GRP01', '20200115', NULL),
+    ('200', '0000001', 'FERT', 'GRP01', '20200115', NULL),
+    ('100', '0000002', 'HALB', 'GRP02', '20210301', 'X')
+) AS t(mandt, matnr, mtart, matkl, ersda, lvorm);
+
+statement ok
+CREATE TABLE makt_2c AS SELECT * FROM (VALUES
+    ('100', '0000001', 'E', 'Pump client 100'),
+    ('200', '0000001', 'E', 'Pump client 200')
+) AS t(mandt, matnr, spras, maktx);
+
+query TT
+SELECT client, description FROM sap_to_materials_with_desc(mara_table := 'mara_2c', makt_table := 'makt_2c')
+ORDER BY client;
+----
+100	Pump client 100
+200	Pump client 200
+
+# a MARA without mandt: client NULL and one row per material, even when MAKT has clients
+query TT
+SELECT client, description FROM sap_to_materials_with_desc(mara_table := 'mara_iso', makt_table := 'makt_2c')
+WHERE material_id = '0000001';
+----
+NULL	Pump client 100
+
+query I
+SELECT count(*) FROM sap_to_materials(mara_table := 'mara_2c');
+----
+2

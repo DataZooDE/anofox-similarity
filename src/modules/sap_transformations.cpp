@@ -34,8 +34,10 @@ static const DefaultTableMacro SAP_TO_MATERIALS_MACRO = {
 			matkl AS material_group,
 			'' AS description,
 			-- SAP YYYYMMDD text, or an ersda that is already a DATE / ISO string
-			COALESCE(TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(ersda AS DATE)) AS created_date
-		FROM query_table(mara_table)
+			COALESCE(TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(ersda AS DATE)) AS created_date,
+			-- the SAP client (MANDT) keeps clients apart, as in sap_to_bom_items; NULL without mandt
+			NULLIF(TRIM(mandt::VARCHAR), '') AS client
+		FROM ((SELECT NULL AS mandt WHERE false) UNION ALL BY NAME (SELECT * FROM query_table(mara_table)))
 		WHERE lvorm IS NULL OR lvorm = '' OR lvorm = ' ')"};
 
 static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
@@ -48,16 +50,25 @@ static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
 			m.material_id,
 			m.material_type,
 			m.material_group,
-			COALESCE(k.maktx, '') AS description,
-			m.created_date
+			COALESCE(k.maktx, a.maktx, '') AS description,
+			m.created_date,
+			m.client
 		FROM sap_to_materials(mara_table := mara_table) m
 		LEFT JOIN (
-			-- One description per material: real MAKT can have several rows per (matnr, spras)
-			-- (e.g. across MANDT/client), which would otherwise fan the material out into duplicates.
-			SELECT material_id, ANY_VALUE(maktx) AS maktx
-			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"()
-			GROUP BY material_id
-		) k ON m.material_id = k.material_id)"};
+			-- One description per material and client (MANDT, when MAKT has it): several rows per
+			-- (matnr, spras) would otherwise fan the material out into duplicates.
+			SELECT material_id, client, ANY_VALUE(maktx) AS maktx
+			FROM (SELECT TRIM(matnr) AS material_id, NULLIF(TRIM(mandt::VARCHAR), '') AS client, maktx
+			      FROM ((SELECT NULL AS mandt WHERE false) UNION ALL BY NAME (SELECT * FROM query_table(makt_table)))
+			      WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"()
+			GROUP BY material_id, client
+		) k ON m.client IS NOT NULL AND m.material_id = k.material_id AND (k.client IS NULL OR k.client = m.client)
+		LEFT JOIN (
+			-- a MARA without mandt: one description per material, whatever MAKT's clients
+			SELECT TRIM(matnr) AS material_id, ANY_VALUE(maktx ORDER BY maktx) AS maktx
+			FROM query_table(makt_table) WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"(
+			GROUP BY TRIM(matnr)
+		) a ON m.client IS NULL AND m.material_id = a.material_id)"};
 
 static const DefaultTableMacro EXTRACT_MATERIAL_DESCRIPTIONS_MACRO = {
     DEFAULT_SCHEMA,
@@ -291,11 +302,11 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "erp"});
 	reg.RegisterTableMacro(SAP_TO_MATERIALS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.")
+	                .Describe("Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The last column, client, is MARA's mandt (NULL without it), so a multi-client extract keeps one row per client and material. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.")
 	                .Example("SELECT * FROM sap_to_materials('MARA')")});
 	reg.RegisterTableMacro(SAP_TO_MATERIALS_WITH_DESC_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match.")
+	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match. With mandt in MAKT, each client gets its own client's text.")
 	                .Example("SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E')")});
 	reg.RegisterTableMacro(EXTRACT_MATERIAL_DESCRIPTIONS_MACRO,
 	           {ddoc::Doc()

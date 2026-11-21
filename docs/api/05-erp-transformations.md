@@ -93,7 +93,7 @@ column is always empty; use **`sap_to_materials_with_desc`** (below) to populate
 ```sql
 sap_to_materials(
     mara_table VARCHAR
-) → TABLE (material_id, material_type, material_group, description, created_date)
+) → TABLE (material_id, material_type, material_group, description, created_date, client)
 ```
 
 **sap_to_materials_with_desc** - Materials with descriptions (MARA + MAKT):
@@ -102,7 +102,7 @@ sap_to_materials_with_desc(
     mara_table VARCHAR,
     makt_table VARCHAR,
     language := 'E'
-) → TABLE (material_id, material_type, material_group, description, created_date)
+) → TABLE (material_id, material_type, material_group, description, created_date, client)
 ```
 
 **extract_material_descriptions** - Extract descriptions from MAKT. Requires MAKT columns `matnr`,
@@ -247,7 +247,7 @@ SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', ref
 
 *Table macro*
 
-Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.
+Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The last column, client, is MARA's mandt (NULL without it), so a multi-client extract keeps one row per client and material. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.
 
 ```sql
 sap_to_materials(mara_table, makt_table, language)
@@ -263,7 +263,7 @@ SELECT * FROM sap_to_materials('MARA');
 
 *Table macro*
 
-Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match.
+Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match. With mandt in MAKT, each client gets its own client's text.
 
 ```sql
 sap_to_materials_with_desc(mara_table, makt_table, language)

@@ -67,7 +67,7 @@ merge the two PUMP-40 into one parent (17 edges).
 | Trap | Symptom | Fix |
 |------|---------|-----|
 | No STAS | Items of every alternative under one BOM number; similarities too high | Export STAS and pass `stas_table` |
-| Two clients | `sap_to_materials*` returns a material twice; the searches mix test and production BOMs | Filter `mandt` in a view; keep `client = '100'` of `sap_to_bom_items` |
+| Two clients | A material of two clients comes once per client; the searches mix test and production BOMs | Keep `client = '100'` of `sap_to_materials_with_desc` and of `sap_to_bom_items` |
 | Material numbers in two formats | One export has the internal `000000000000100100`, another the ALPHA-converted `100100` (or a spreadsheet dropped the zeros): MAKT, MSEG and STPO no longer join | Read as text (`all_varchar = true`) and pad purely numeric numbers: `CASE WHEN regexp_full_match(matnr, '[0-9]+') THEN lpad(matnr, 18, '0') ELSE matnr END` |
 | `language := 'E'` and a text only in German | Empty `description` | Pass the language the texts are in, or join a second language |
 | MSEG read whole | Goods receipts (101) count as demand | Filter `bwart`, sign by `shkzg` |
