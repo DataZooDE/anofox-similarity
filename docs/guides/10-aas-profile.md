@@ -5,6 +5,8 @@
 
 [Guides](README.md) · [AAS API](../api/17-aas.md) · [Term reference](../aas/index.md) · [Examples](../../examples/aas_capability_matching/)
 
+> Advanced. New to AAS matching? Start with [AAS: First Match](11-aas-first-match.md).
+
 ## What AAS cannot say
 
 The coverage kernel needs two things that AAS v3 has no construct for:
@@ -75,7 +77,7 @@ UNION ALL SELECT unnest(aas_to_trees(content, 'IO-S')) FROM read_text('examples/
 CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
 CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
 
-SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard');
+SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S']);
 -- IO-S | 0.9 | 1
 ```
 

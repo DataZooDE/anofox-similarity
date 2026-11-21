@@ -24,6 +24,8 @@ every similarity search reads, and builds per-material vectors in `material_embe
 **anofox-similarity-evaluation-scale**; classifying with your own text vectors is in
 **anofox-similarity-classification-review**.
 
+Runnable end to end on a small SAP and D365 extract (STAS, two clients, two companies, MSEG): [`docs/guides/12-from-erp-extract.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/12-from-erp-extract.md) and [`examples/erp_extract`](https://github.com/DataZooDE/anofox-similarity/tree/main/examples/erp_extract).
+
 ## Critical gotchas
 
 - **Stored `jaccard_embedding`s from before the FLOAT-array release are incompatible.** MinHash values

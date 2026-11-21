@@ -8,6 +8,7 @@ step in comments and states the expected output next to each query.
 
 | Folder | What it shows | Main functions |
 |--------|---------------|----------------|
+| [`erp_extract/`](erp_extract/) | A synthetic SAP and Dynamics 365 extract (MARA, MAKT, MAST, STKO, STPO, STAS, MSEG; BOMVersion, BOM) to BOM edges, texts, consumption and a first search | `sap_to_bom_items`, `sap_to_materials_with_desc`, `dynamics365_to_bom_header`, `dynamics365_to_bom_component`, `bom_to_items`, `find_similar_materials_jaccard`, `cold_start_analogs` |
 | [`material_similarity/`](material_similarity/) | Compare BOMs by shared parts and by structure; explode BOMs | `jaccard_similarity`, `find_similar_materials_jaccard`, `wl_kernel_similarity`, `find_similar_materials_wl_kernel`, `bom_explosion_*`, `bom_where_used`, `bom_common_components` |
 | [`predecessors_cold_start/`](predecessors_cold_start/) | Which material did a new one replace; which materials can lend it a history | `infer_predecessors`, `cold_start_analogs` |
 | [`coverage_matching/`](coverage_matching/) | Does an offer give what a request asks for: ranking and gap lists | `find_covering_entities`, `find_covering_entities_for`, `tree_coverage`, `tree_coverage_trace` |

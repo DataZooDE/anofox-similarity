@@ -9,6 +9,10 @@
 - Rank candidate trees with `tree_coverage` and list the gaps with `tree_coverage_trace`
 - Give every item a class, choose the assignment rule and index a large archive
 
+> [!TIP]
+> Starting from a real tender (extracted JSON without classes, properties that share a dimension,
+> clause numbers)? Read [From a tender to trees](13-tender-to-trees.md) first.
+
 The examples use the hand-made fixture in `test/data/coverage/mini`: requests `Q1`–`Q3`, seat
 programmes `S1`–`S6` and modules `M1`–`M5`. Run them from the repository root.
 
