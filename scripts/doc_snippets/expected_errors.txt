@@ -1,0 +1,2 @@
+# file<TAB>first SQL line of a block that must fail (the docs show the error on purpose)
+docs/guides/04-coverage-matching.md	CREATE TABLE request_nodes AS SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM tree_nodes WHERE tree_id = 'Q1';

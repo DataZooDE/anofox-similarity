@@ -23,7 +23,7 @@ file and `ATTACH` your database. The extension then creates its tables in memory
 ```
 
 ```sql
-ATTACH 'nightly.duckdb' AS nightly;
+ATTACH IF NOT EXISTS 'nightly.duckdb' AS nightly;
 USE nightly;
 ```
 
@@ -34,7 +34,7 @@ unchanged.
 
 ```sql
 -- nightly.sql: run with  ./build/release/duckdb -bail < nightly.sql  (from the repository root)
-ATTACH 'nightly.duckdb' AS nightly;
+ATTACH IF NOT EXISTS 'nightly.duckdb' AS nightly;
 USE nightly;
 BEGIN;
 

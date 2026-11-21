@@ -1,0 +1,2 @@
+# file<TAB>first SQL line of a block that is not run: it reads the reader's own tables
+docs/guides/03-predecessors-and-cold-start.md	CREATE VIEW my_movements AS

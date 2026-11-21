@@ -8,15 +8,17 @@ Usage (from the repository root, after `make release`):
     python3 scripts/check_doc_snippets.py --out PATH [FILE ...]
     make check-docs
 
-Default scan: README.md and plugins/anofox-similarity/skills/**/*.md, whose blocks are written to
-run as they stand. docs/ pages mostly run against the reader's own tables, so they are checked only
-when passed as FILE args. --changed-since REF scans the default set's files changed since REF.
+Default scan: README.md, the task guides docs/guides/*.md and plugins/anofox-similarity/skills/**/*.md,
+whose blocks are written to run as they stand. Other docs/ pages (API reference, tutorials) mostly
+run against the reader's own tables, so they are checked only when passed as FILE args.
+--changed-since REF scans the default set's files changed since REF.
 
 Each ```sql block runs in a fresh in-memory database of ./build/release/duckdb (the extension is
 linked in), with a temporary directory as cwd and HOME (test/ and examples/ linked in, so relative data paths
 resolve), autoinstall off and telemetry off. The
 block gets scripts/doc_snippets/fixtures.sql plus the earlier setup blocks of the same file that
-create a table it names. A block with INSTALL or a remote read (read_*/ATTACH/FROM '<url>') is not run; a URL used as a
+create a table it names; in a task guide (docs/guides/*.md, read top down) it gets every earlier
+block of the file that passed. A block with INSTALL or a remote read (read_*/ATTACH/FROM '<url>') is not run; a URL used as a
 value (an AAS semantic id) is fine.
 
 Setup blocks are matched case-insensitively by every name they CREATE or INSERT INTO.
@@ -65,9 +67,16 @@ SHELL_ARGS = [DUCKDB_BIN, "-unsigned"] + (["-cmd", f"LOAD '{EXTENSION}'"] if EXT
 DEFAULT_OUT = os.path.join(REPO_ROOT, "build", "doc-snippets.tsv")
 
 SKILLS_DIR = os.path.join("plugins", "anofox-similarity", "skills")
-# docs/ is not in the default scan: most of its blocks run against the reader's own tables
-# (bom_items, tree_nodes, ...) or are signatures. Pass docs files explicitly to check them.
+# docs/api and the tutorials are not in the default scan: most of their blocks run against the
+# reader's own tables (bom_items, a SAP extract, ...) or are signatures. Pass them explicitly.
 DEFAULT_SCAN_DIRS = [SKILLS_DIR]
+# The task guides are read top down: each block runs after every earlier block of the same file
+# that passed (one session per reader), not only after the setup blocks it names.
+GUIDES_DIR = os.path.join("docs", "guides")
+
+
+def is_sequential(rel_path):
+    return os.path.dirname(rel_path) == GUIDES_DIR
 
 FENCE_RE = re.compile(r"^```[ \t]*([A-Za-z0-9_+-]*)[ \t]*$")
 SETUP_RE = re.compile(
@@ -126,6 +135,9 @@ def default_scan_files():
     files = []
     if os.path.exists(os.path.join(REPO_ROOT, "README.md")):
         files.append("README.md")
+    guides = os.path.join(REPO_ROOT, GUIDES_DIR)
+    if os.path.isdir(guides):
+        files += [os.path.join(GUIDES_DIR, fn) for fn in sorted(os.listdir(guides)) if fn.endswith(".md")]
     for scan_dir in DEFAULT_SCAN_DIRS:
         abs_dir = os.path.join(REPO_ROOT, scan_dir)
         if not os.path.isdir(abs_dir):
@@ -175,7 +187,7 @@ def load_key_set(path):
     if not os.path.exists(path):
         return set()
     with open(path) as f:
-        return {line.rstrip("\n") for line in f if line.strip()}
+        return {line.rstrip("\n") for line in f if line.strip() and not line.startswith("#")}
 
 
 def load_removed_names(path):
@@ -527,6 +539,8 @@ def main():
         # --- SQL fence execution ---
         blocks = extract_sql_blocks(text)
         setup_accum = []  # list of (created_name, block_text)
+        sequential = is_sequential(rel_path)
+        passed_before = []  # sequential files: earlier blocks that passed, in order
 
         for block_text, start_line in blocks:
             key = f"{rel_path}\t{first_non_comment_line(block_text)}"
@@ -548,7 +562,10 @@ def main():
                 status = "SYNOPSIS"
                 detail = "narrative placeholder, not executed"
             else:
-                required_setup = select_required_setup(block_text, setup_accum, fixture_names)
+                if sequential:
+                    required_setup = list(passed_before)
+                else:
+                    required_setup = select_required_setup(block_text, setup_accum, fixture_names)
                 full_sql = fixtures
                 for setup_sql in required_setup:
                     full_sql += "\n" + setup_sql
@@ -578,6 +595,8 @@ def main():
 
             rows.append((status, rel_path, str(start_line + 1), first_line_trunc, detail))
             status_counts[status] = status_counts.get(status, 0) + 1
+            if sequential and status == "PASS":
+                passed_before.append(block_text)
 
             if is_setup_only:
                 # every table/view/macro the block creates (comments ignored), so a later block

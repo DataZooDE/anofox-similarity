@@ -13,7 +13,7 @@ GEN=ninja make release                          # extension + ./build/release/du
                                                 # LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension')
 DATAZOO_DISABLE_TELEMETRY=1 make test           # whole SQL suite (test/sql/)
 ./build/release/test/unittest "test/sql/coverage/*"
-make check-docs                                 # README + skills SQL runs, API reference current, skills cover every function
+make check-docs                                 # README, guides and skills SQL runs, API reference current, skills cover every function
 python3 scripts/generate_api_reference.py       # regenerate the per-function blocks in docs/api/*.md
 scripts/run_examples.sh                         # examples/*/*.sql with their expected numbers
 ```
