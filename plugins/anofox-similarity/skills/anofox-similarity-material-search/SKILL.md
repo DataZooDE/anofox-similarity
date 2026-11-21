@@ -8,13 +8,13 @@ description: >
   `bom_where_used`, `bom_dfs_neighborhood`) in the anofox_similarity DuckDB extension. Use when asked to
   "find materials with a similar BOM", "which part did this new one replace", "find analogs to forecast a
   new product", "explode a BOM", "where is this component used", or to compare two component lists.
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Material Search, Predecessors & BOM Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/01-similarity-scalars.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/01-similarity-scalars.md), [`docs/api/02-material-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/02-material-search.md), [`docs/api/03-bom-traversal.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/03-bom-traversal.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/01-similarity-scalars.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/01-similarity-scalars.md), [`docs/api/02-material-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/02-material-search.md), [`docs/api/03-bom-traversal.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/03-bom-traversal.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.

@@ -96,13 +96,13 @@ not more than 27 kg	27.0	at_most
 up to 27 kg	27.0	at_most
 ≤ 27 kg	27.0	at_most
 
-# equals: tolerance notation and nominal values
+# a nominal with a tolerance is equals over the range it allows; nominal values are equals at a point
 query TRRT
 SELECT t, p.lo, p.hi, p.bound FROM (
     SELECT t, parse_quantity(t) AS p FROM (VALUES ('220 N ± 2 %'), ('nominal 220 N'), ('Nennwert 220 N')) v(t))
 ORDER BY t;
 ----
-220 N ± 2 %	220.0	220.0	equals
+220 N ± 2 %	215.6	224.4	equals
 Nennwert 220 N	220.0	220.0	equals
 nominal 220 N	220.0	220.0	equals
 

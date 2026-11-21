@@ -74,7 +74,7 @@ computed is written without a value, which is not the same as 0.
 | <a id="required"></a><a id="offered"></a>`Required`, `Offered` | string | required bound and offered value, as text with units (`at_least 7.6 A`, `12 A`) |
 | <a id="rule"></a>`Rule` | string | how the value was judged: the bound it was checked against (`at_least`, `at_most`, `within`), `compat` (categories), `missing` (no offered property), `key_mismatch` (only properties with another dictionary id), `gate` (other dimension), `point` (a value without a bound, compared as a point) |
 | <a id="namerule"></a>`NameRule` | string | how the properties were paired: `key` (same dictionary id), `vector`, `exact`, `tokens` |
-| <a id="boundsource"></a>`BoundSource` | string | where the bound came from: `range`, `level_type`, `constraint`, `text`, `explicit`, `template` (the catalogue's default bound, `default_bounds := 'catalogue'`) |
+| <a id="boundsource"></a>`BoundSource` | string | where the bound came from: `range`, `level_type`, `constraint`, `text`, `explicit`, `template` (the catalogue's default bound, `default_bounds := 'catalogue'`), `template_override` (a template with `bound_policy` `'override'` replaced a stated bound) |
 | <a id="score"></a>`Score` | double, 0–1 | the score of this property |
 
 The meaning of every rule value is in the

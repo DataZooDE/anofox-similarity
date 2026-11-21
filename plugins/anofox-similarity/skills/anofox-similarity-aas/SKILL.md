@@ -7,13 +7,13 @@ description: >
   (`suggest_semantic_id`) and writing back (`trees_to_aas`, `aas_export`, `aas_coverage_result`,
   `coverage_result_to_aas`). Use when the user asks "load these AAS / AASX files", "match offers
   by ECLASS IRDI", "which assets deliver 7.6 A", "audit the supplier's AAS", "export as AAS".
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Asset Administration Shell (AAS) Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.
@@ -103,7 +103,7 @@ work unchanged. NULL input → NULL. Inputs: Part 1 JSON (Environment, a single 
 | `CapabilityGeneralizedBy` | not a node: a row of `aas_class_hierarchy` |
 | `Property` number | point attribute (`lo = hi`) |
 | `Range` | min only → `bound = 'at_least'`, max only → `'at_most'`, both → `'within'` |
-| IEC 61360 `levelType` min / max / nom | `at_least` / `at_most` / `equals` |
+| IEC 61360 `levelType` min / max / nom | `at_least` / `at_most` / `equals` (a Range with nom: `equals` over min..max) |
 | IDTA-02020 `BasicConstraint` (`<= 1 ms`) | bound + limit from the expression |
 | Property with `valueId` | `category` = `semantic_key(valueId)` |
 | `xs:boolean` | `category` = `'true'` / `'false'` |
@@ -365,7 +365,7 @@ without a root is an error.
 | `[i]` children | SubmodelElementList |
 | `variant_group`, `count` ≠ 1 | qualifiers `anofox:VariantGroup`, `anofox:Count` |
 | `at_least` / `at_most` / `within` | Range min / max / both |
-| `equals`, ordinal category with bound | Property with IEC 61360 `levelType` |
+| `equals`, ordinal category with bound | Property with IEC 61360 `levelType` (`equals` with lo < hi: Range + nom) |
 | category | Property; identifier-like → `valueId`; `true`/`false` → `xs:boolean` |
 | `attr_key` | semanticId + ConceptDescription (IEC 61360 name, unit) |
 

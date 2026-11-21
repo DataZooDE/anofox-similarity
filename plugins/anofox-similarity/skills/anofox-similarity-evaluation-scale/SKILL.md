@@ -8,13 +8,13 @@ description: >
   Use when asking "how good is my matching", "auto-accept threshold at 95 % precision", "confidence
   interval per customer", "tune label_weight / mu", "is LSH worth it", "merge duplicate records", or
   "deduplicate the customer / supplier / plant master" (cluster scored pairs into entities).
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Evaluation, Tuning & Scale Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/15-evaluation.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/15-evaluation.md), [`docs/api/16-lsh-and-clustering.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/16-lsh-and-clustering.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/15-evaluation.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/15-evaluation.md), [`docs/api/16-lsh-and-clustering.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/16-lsh-and-clustering.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.

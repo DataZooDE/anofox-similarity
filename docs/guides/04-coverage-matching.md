@@ -197,6 +197,14 @@ WHERE is_gap;
 S2's heating takes 33 % too long and draws 20 % too much current. `is_gap` also marks requirements
 without a counterpart (`matched_node_id` NULL) and count shortfalls (`count_available < count_needed`).
 
+`req_value` and `prov_value` show values in the base unit of the dimension (`3.2e-06 m`). Keep
+`parse_quantity`'s `source_unit` as a column of the attributes table and the trace shows each value
+in the unit it was written in (`3.2 µm`). This works for the built-in units; if your `unit_table`
+redefines one (a US `t`), leave `source_unit` NULL for those rows. `tree_from_json` and
+`aas_to_trees` do not write the column. When several offered values score the same, the trace shows
+the nearest one. For categories that fail, that is the one meeting the most levels in
+`rules_table`; for categories that pass, the exact match, else the lowest level that is enough.
+
 ### Attribute Names
 
 `mu` (default 0.2) discounts a value match by the similarity of the attribute names. Without
@@ -204,6 +212,13 @@ name vectors the similarity is word overlap, so a German offer name never matche
 request name. With the default, `Q1` scores 0.858 against `S1` with no gaps, and 1.0 with
 `mu := 0.0`. Pass `name_vectors` and a calibrated `name_floor` for multilingual data (see
 [Classification and review](06-classification-and-review.md)), or set `mu := 0.0`.
+
+Names only discount: a required value without an `attr_key` is compared with every offered value
+**of the same dimension on the matched item**. If one item carries a surface roughness
+(`Ra 6.3 µm`) and a dimensional tolerance (`± 0.05 mm`), both are lengths, and the roughness can
+answer the tolerance. Give the two attributes different `attr_key`s (ECLASS ids, or your own) on
+both sides: then a different key is a gate. Without keys, give each such attribute its own item and
+class (`surface_roughness`, `tolerance`), as `examples/second_source` does.
 
 ## Where Classes Come From
 
@@ -302,6 +317,7 @@ to 0.1 s. Rebuild the index when the archive or the vocabulary changes. Pass the
 | "nodes_table ... is given but attrs_table is not" | Name the attributes table of each side, or pass `NULL` for none. |
 | "has no classified items" | Give `class_id`, `overrides_table` or `label_table`. |
 | Coverage below 1 without gaps | Attribute-name discount. Use `name_vectors` or `mu := 0.0`. |
+| A roughness answers a tolerance | Unkeyed values compete per dimension on one item. Give them `attr_key`s, or put them on items of their own class. |
 | A nearly full cover outranks a full one | The tie-break is additive. Filter with `min_score := 1.0` in stage 1. |
 | Many requests at once | `tree_coverage` accepts a list of ids: `tree_coverage(['R01', 'R02'], ...)`. |
 | Column parameter in a lateral join | Table functions take constants only. Use a list of ids or `getvariable`. |

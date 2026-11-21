@@ -1,0 +1,601 @@
+# name: test/sql/hardening/round4_sourcing.test
+# description: Round-4 (second source) findings: bound_policy 'override' on templates (F2), the
+#              closest provided value on a trace tie (F5), unknown words before another number
+#              (F3, F7), the trace in the unit a value was written in (F7)
+# group: [hardening]
+
+require anofox_similarity
+
+# --- parse_quantity: an unknown word followed by another number is unknown --------------
+
+query TTT
+SELECT t, parse_quantity(t).lo, parse_quantity(t).unit
+FROM (VALUES (1, '3.1 acc. to EN 10204'), (2, 'max. 420 x 310 x 180 mm'), (3, '12 widgets'), (4, '6 - 18 V'),
+             (5, '220 ± 5 N'), (6, '24 1000 N')) v(i, t)
+ORDER BY i;
+----
+3.1 acc. to EN 10204	NULL	NULL
+max. 420 x 310 x 180 mm	NULL	NULL
+12 widgets	12.0	widgets
+6 - 18 V	6.0	V
+220 ± 5 N	215.0	N
+24 1000 N	24.0	1000 N
+
+# raw is kept on the unknown form
+query T
+SELECT parse_quantity('3.1 acc. to EN 10204').raw;
+----
+3.1 acc. to EN 10204
+
+# --- a nominal with a tolerance is equals over the range it allows ----------------------------
+
+query TRRTT
+SELECT t, round(q.lo, 9), round(q.hi, 9), q.unit, q.bound
+FROM (SELECT i, t, parse_quantity(t, 'de') AS q
+      FROM (VALUES (1, '20 kg ± 1 kg'), (2, '20 kg ± 1'), (3, '20±1 kg'), (4, '20 kg +/- 500 g'),
+                   (5, '220 N ± 2 %'), (6, '20 °C ± 1 K'), (7, '-20 °C ± 2 °C'), (8, '1 V ± 50 ppm'),
+                   (9, '20 kg ± 1 mm'), (10, '20 kg ± 1 foo'), (11, '± 0,05 mm'), (12, '220 ± 2 %')) v(i, t))
+ORDER BY i;
+----
+20 kg ± 1 kg	19.0	21.0	kg	equals
+20 kg ± 1	19.0	21.0	kg	equals
+20±1 kg	19.0	21.0	kg	equals
+20 kg +/- 500 g	19.5	20.5	kg	equals
+220 N ± 2 %	215.6	224.4	N	equals
+20 °C ± 1 K	292.15	294.15	K	equals
+-20 °C ± 2 °C	251.15	255.15	K	equals
+1 V ± 50 ppm	0.99995	1.00005	V	equals
+20 kg ± 1 mm	20.0	20.0	kg	equals
+20 kg ± 1 foo	20.0	20.0	kg	equals
+± 0,05 mm	5e-05	5e-05	m	at_most
+220 ± 2 %	215.6	224.4	1	equals
+
+# as a requirement: inside the tolerance passes, outside fails (strict) or falls across soft_band
+query RRRR
+SELECT value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('20,8 kg', 'de'), 'linear', 0.0, 0.0).score,
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21,5 kg', 'de'), 'linear', 0.0, 0.0).score,
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('19,5–20,5 kg', 'de'), 'linear', 0.0, 0.0).score,
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('18–20 kg', 'de'), 'linear', 0.0, 0.25).distance, 9);
+----
+1.0	0.0	1.0	0.05
+
+# a point equals (nominal, no tolerance) is unchanged: the relative difference
+query RR
+SELECT round(value_satisfies(parse_quantity('nominal 20 kg'), parse_quantity('20,8 kg', 'de')).distance, 9),
+       round(value_satisfies(parse_quantity('nominal 20 kg'), parse_quantity('20,8 kg', 'de')).score, 9);
+----
+0.04	0.6
+
+# temperature (absolute K): 21.5 °C is 0.5 K outside 19–21 °C, within the 1 K tolerance
+query RR
+SELECT value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity('21,5 °C', 'de')).distance,
+       value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity('23,5 °C', 'de')).score;
+----
+0.5	0.4
+
+# as an offer it is a range like any other: at_least compares its high end
+query R
+SELECT value_satisfies(parse_quantity('min. 20,5 kg', 'de'), parse_quantity('20 kg ± 1 kg'), 'linear', 0.0, 0.0).score;
+----
+1.0
+
+# AAS: a span is written as a Range with levelType nom and read back as equals (a plain range stays within)
+query TRRTT
+WITH t AS (SELECT tree_from_json('{"node_id":"P1","label":"part","children":[{"node_id":"c","label":"casting","class_id":"casting","attributes":[{"name":"weight","key":"0173-1#02-AAB713#005","text":"20 kg ± 1 kg"},{"name":"len","key":"0173-1#02-BAA120#008","text":"10–12 mm"}]}]}', 'P1') AS n)
+SELECT a.name, a.lo, a.hi, a.bound, a.bound_source
+FROM (SELECT unnest(aas_to_trees(trees_to_aas(n))) AS x FROM t), LATERAL (SELECT unnest(x.attributes) AS a)
+ORDER BY a.name;
+----
+len	0.01	0.012	within	range
+weight	19.0	21.0	equals	level_type
+
+# glued and ASCII forms read like the spaced one; % on a % nominal is percentage points;
+# a bound word applies to the end the tolerance allows
+query TRRTT
+SELECT t, round(q.lo, 9), round(q.hi, 9), q.unit, q.bound
+FROM (SELECT i, t, parse_quantity(t, 'de') AS q
+      FROM (VALUES (1, '20kg±1kg'), (2, '20 kg +- 1 kg'), (3, '20kg+/-500g'), (4, '20°C±1K'), (5, '50 % ± 5 %'),
+                   (6, 'max. 20 kg ± 1 kg'), (7, 'min. 20 kg ± 1 kg'), (8, '20 kg ± 1 kg max.'),
+                   (9, '= 20 kg ± 1 kg'), (10, 'Nennwert 220 N ± 2 %'), (11, '-40 V ± 5 %'), (12, '1e-3 A')) v(i, t))
+ORDER BY i;
+----
+20kg±1kg	19.0	21.0	kg	equals
+20 kg +- 1 kg	19.0	21.0	kg	equals
+20kg+/-500g	19.5	20.5	kg	equals
+20°C±1K	292.15	294.15	K	equals
+50 % ± 5 %	45.0	55.0	%	equals
+max. 20 kg ± 1 kg	21.0	21.0	kg	at_most
+min. 20 kg ± 1 kg	19.0	19.0	kg	at_least
+20 kg ± 1 kg max.	21.0	21.0	kg	at_most
+= 20 kg ± 1 kg	19.0	21.0	kg	equals
+Nennwert 220 N ± 2 %	215.6	224.4	N	equals
+-40 V ± 5 %	-42.0	-38.0	V	equals
+1e-3 A	0.001	0.001	A	NULL
+
+# temperature spans check containment (absolute K, 1 K tolerance): inside, 1 K over, covering, disjoint
+query TRR
+SELECT t, value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity(t)).distance,
+       value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity(t)).score
+FROM (VALUES (1, '19.5–20.5 °C'), (2, '20–22 °C'), (3, '15–25 °C'), (4, '30–40 °C')) v(i, t)
+ORDER BY i;
+----
+19.5–20.5 °C	0.0	1.0
+20–22 °C	1.0	1.0
+15–25 °C	4.0	0.0
+30–40 °C	19.0	0.0
+
+# a zero nominal scales by the half-width; a span is linear on every scale; the soft band applies
+query RRRRR
+SELECT round(value_satisfies(parse_quantity('0 V ± 1 V'), parse_quantity('1.02 V')).distance, 9),
+       value_satisfies(parse_quantity('0 V ± 1 V'), parse_quantity('1.02 V')).score,
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21.5 kg'), 'log', 0.0, 0.25).distance, 9),
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21.5 kg'), 'linear', 0.0, 0.1).score, 9),
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('19,5–21,5 kg', 'de'), 'linear', 0.0, 0.0).score;
+----
+0.02	1.0	0.025	0.75	0.0
+
+# the default tol (2 % of the nominal) is wider than a tight tolerance: pass tol := 0 to check only the span
+query RR
+SELECT value_satisfies(parse_quantity('1 kHz ± 5 Hz'), parse_quantity('1006 Hz')).score,
+       value_satisfies(parse_quantity('1 kHz ± 5 Hz'), parse_quantity('1006 Hz'), 'linear', 0.0, 0.0).score;
+----
+1.0	0.0
+
+# AAS: a BasicConstraint on a nominal span (Range with levelType nom) keeps the span and reports the conflict
+query TRRT
+SELECT a.attr_id, a.lo, a.hi, a.bound
+FROM (SELECT unnest(aas_to_trees(content)) AS n FROM read_text('test/data/aas/fixtures/constraint_on_nominal_span.aas.json')),
+     LATERAL (SELECT unnest(n.attributes) AS a)
+WHERE a.attr_id = 'OilTemperature';
+----
+OilTemperature	312.15	314.15	equals
+
+query T
+SELECT i.issue FROM (SELECT unnest(aas_issues(content)) AS i
+    FROM read_text('test/data/aas/fixtures/constraint_on_nominal_span.aas.json'))
+WHERE i.path LIKE '%OilMax%';
+----
+constraint_conflict
+
+# AAS: an offered span with a role (IDTA-02020 PropertyRange) reads back as equals too. A tree with free
+# node ids ('c' under 's', from tree_from_json) has no detached ComposedOf parts: trees_to_aas raised
+# "cannot create std::vector larger than max_size()" on it
+query TTRRT
+WITH t AS (SELECT tree_from_json('{"role":"provided","root":{"node_id":"O1","label":"offer","children":[{"node_id":"s","label":"capabilities","children":[{"node_id":"c","label":"casting","class_id":"casting","attributes":[{"name":"weight","key":"0173-1#02-AAB713#005","text":"20 kg ± 1 kg"}]}]}]}}', 'O1') AS n)
+SELECT a.name, a.role, a.lo, a.hi, a.bound
+FROM (SELECT unnest(aas_to_trees(trees_to_aas(n))) AS x FROM t), LATERAL (SELECT unnest(x.attributes) AS a);
+----
+weight	provided	19.0	21.0	equals
+
+# --- F2: bound_policy ----------------------------------------------------------------------
+
+statement ok
+CREATE TABLE n AS SELECT * FROM (VALUES
+  ('Q','Q',NULL,'container','AND','part',NULL,1.0), ('Q','Q.w','Q','item','AND','w','piece_weight',1.0),
+  ('S','S',NULL,'container','AND','foundry',NULL,1.0), ('S','S.w','S','item','AND','w','piece_weight',1.0))
+  t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE a AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'w' AS attr_id, 'weight' AS "name", q.dimension, q.unit, q.lo, q.hi,
+       q.bound, NULL::VARCHAR AS category, q.source_unit
+FROM (SELECT parse_quantity('max. Stückgewicht 38 kg', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'w', 'weight', q.dimension, q.unit, q.lo, q.hi, q.bound, NULL, q.source_unit
+FROM (SELECT parse_quantity('bis 37000 g', 'de') AS q);
+
+statement ok
+CREATE TABLE tpl_override AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                                    'Override' AS bound_policy;
+
+statement ok
+CREATE TABLE tpl_fill AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                                'fill' AS bound_policy;
+
+statement ok
+CREATE TABLE tpl_plain AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound;
+
+# the stated bound wins without the policy and under 'fill': a 37 kg foundry meets "max. 38 kg"
+query TRT
+SELECT req_value, value_score, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_plain', tol := 0, soft_band := 0);
+----
+at_most 38 kg	1.0	explicit
+
+query TRT
+SELECT req_value, value_score, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_fill', tol := 0, soft_band := 0);
+----
+at_most 38 kg	1.0	explicit
+
+# 'override' (any case): the class's bound replaces the stated one; the source shows 37000 g as written
+query TTRTT
+SELECT req_value, prov_value, value_score, is_gap, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override', tol := 0, soft_band := 0);
+----
+at_least 38 kg	37000 g	0.0	true	template_override
+
+query R
+SELECT coverage
+FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                   default_bounds := 'catalogue', templates_table := 'tpl_override', tol := 0, soft_band := 0);
+----
+0.0
+
+# the template is read only with default_bounds := 'catalogue'
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         templates_table := 'tpl_override');
+----
+explicit
+
+# an empty stated bound under 'override' is still 'template'
+statement ok
+CREATE TABLE a_unbound AS SELECT * REPLACE (NULL::VARCHAR AS bound) FROM a;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a_unbound',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override');
+----
+template
+
+statement ok
+CREATE TABLE tpl_bad AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound,
+                               'replace' AS bound_policy;
+
+statement error
+SELECT * FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                            default_bounds := 'catalogue', templates_table := 'tpl_bad');
+----
+bound_policy must be NULL, 'fill' or 'override'
+
+# rows of one class and dimension that disagree on the policy: NULL, i.e. fill
+statement ok
+CREATE TABLE tpl_mixed AS SELECT * FROM tpl_override UNION ALL SELECT * FROM tpl_fill;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_mixed');
+----
+explicit
+
+# --- F5: on a tie the trace shows the closest provided value ---------------------------------
+
+statement ok
+CREATE TABLE cn AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','part',NULL,1.0),
+  ('Q','Q.c','Q','item','AND','c','cert',1.0), ('S','S',NULL,'container','AND','foundry',NULL,1.0),
+  ('S','S.c','S','item','AND','c','cert',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE ca AS SELECT * FROM (VALUES
+  ('Q','Q.c','c','cert','cert_level',NULL,NULL::DOUBLE,NULL::DOUBLE,NULL,'EN10204-3.2'),
+  ('S','S.c','c1','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-2.2'),
+  ('S','S.c','c2','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-3.1'))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE ladder AS SELECT * FROM (VALUES
+  ('cert_level','EN10204-2.2','EN10204-2.2',1.0), ('cert_level','EN10204-2.2','EN10204-3.1',1.0),
+  ('cert_level','EN10204-3.1','EN10204-3.1',1.0), ('cert_level','EN10204-3.2','EN10204-3.2',1.0))
+  t(dimension,required,provided,score);
+
+# with a ladder: the higher rung (3.1 meets two levels, 2.2 one)
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca', rules_table := 'ladder');
+----
+point EN10204-3.2	EN10204-3.1
+
+# without rules: no order is known, the first in attr_id order stays
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca');
+----
+point EN10204-3.2	EN10204-2.2
+
+# numbers: two failing offers, the nearer one is shown
+statement ok
+CREATE TABLE wn AS SELECT * FROM (VALUES ('Q','Q',NULL,'container','AND','part',NULL,1.0),
+  ('Q','Q.w','Q','item','AND','w','piece_weight',1.0), ('S','S',NULL,'container','AND','foundry',NULL,1.0),
+  ('S','S.w','S','item','AND','w','piece_weight',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+statement ok
+CREATE TABLE wa AS SELECT * FROM (VALUES
+  ('Q','Q.w','w','weight','mass','kg',400.0,400.0,'at_least'),
+  ('S','S.w','w1','weight','mass','kg',100.0,100.0,NULL),
+  ('S','S.w','w2','weight','mass','kg',300.0,300.0,NULL))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound);
+
+query TTR
+SELECT req_value, prov_value, round(distance, 3)
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'wa', soft_band := 0, tol := 0);
+----
+at_least 400 kg	300 kg	0.25
+
+# --- source_unit: the trace in the unit a value was written in --------------------------------
+
+statement ok
+CREATE TABLE ra AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'r' AS attr_id, 'Ra' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound,
+       q.source_unit
+FROM (SELECT parse_quantity('Ra max. 3,2 µm', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'r', 'Ra', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('Ra 6.3 µm') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra');
+----
+at_most 3.2 µm	6.3 µm
+
+# without the column: base units, as before
+statement ok
+CREATE TABLE ra_base AS SELECT * EXCLUDE (source_unit) FROM ra;
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra_base');
+----
+at_most 3.2e-06 m	6.3e-06 m
+
+# a source unit of another dimension or an unknown one: base units
+statement ok
+CREATE TABLE ra_odd AS SELECT * REPLACE (CASE WHEN tree_id = 'Q' THEN 'kg' ELSE 'furlongs?' END AS source_unit) FROM ra;
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'ra_odd');
+----
+at_most 3.2e-06 m	6.3e-06 m
+
+# temperatures convert with their offset
+statement ok
+CREATE TABLE temp AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 't' AS attr_id, 'max temp' AS "name", q.dimension, q.unit, q.lo, q.hi,
+       q.bound, q.source_unit
+FROM (SELECT parse_quantity('max. 80 °C') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 't', 'max temp', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('75 °C') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'temp');
+----
+at_most 80 °C	75 °C
+
+# --- crew review of the round-4 fixes ------------------------------------------------------
+
+# parser: unspaced boxes are unknown; a currency before the number still wins over an unknown word
+query TTTT
+SELECT t, q.lo, q.unit, q.dimension
+FROM (VALUES (1, '120x80 mm'), (2, '420x310x180 mm'), (3, '€ 40 pro 2 Stück'), (4, 'EUR 180 ab 100 Stück'),
+             (5, 'Klasse 1 nach DIN 4102'), (6, '2x')) v(i, t),
+     LATERAL (SELECT parse_quantity(t, 'de') AS q)
+ORDER BY i;
+----
+120x80 mm	NULL	NULL	NULL
+420x310x180 mm	NULL	NULL	NULL
+€ 40 pro 2 Stück	40.0	EUR	currency
+EUR 180 ab 100 Stück	180.0	EUR	currency
+Klasse 1 nach DIN 4102	NULL	NULL	NULL
+2x	2.0	x	NULL
+
+# override replaces only max./min. on one value: a range, a ± value and a category keep their bound
+statement ok
+CREATE TABLE a_kinds AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'w' AS attr_id, 'weight' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound
+FROM (SELECT parse_quantity('zwischen 15 und 25 kg', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'w', 'weight', q.dimension, q.unit, q.lo, q.hi, q.bound FROM (SELECT parse_quantity('30 kg') AS q);
+
+query TRT
+SELECT req_value, value_score, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a_kinds',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override', tol := 0, soft_band := 0);
+----
+within 15..25 kg	0.0	explicit
+
+statement ok
+CREATE OR REPLACE TABLE a_kinds AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'w' AS attr_id, 'weight' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound
+FROM (SELECT parse_quantity('20 kg ± 1 kg') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'w', 'weight', q.dimension, q.unit, q.lo, q.hi, q.bound FROM (SELECT parse_quantity('30 kg') AS q);
+
+query TT
+SELECT split_part(req_value, ' ', 1), bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a_kinds',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override');
+----
+equals	explicit
+
+# the stated bound already is the template's: nothing replaced
+statement ok
+CREATE OR REPLACE TABLE a_kinds AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'w' AS attr_id, 'weight' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound
+FROM (SELECT parse_quantity('mindestens 38 kg', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'w', 'weight', q.dimension, q.unit, q.lo, q.hi, q.bound FROM (SELECT parse_quantity('40 kg') AS q);
+
+query TT
+SELECT req_value, bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a_kinds',
+                         default_bounds := 'catalogue', templates_table := 'tpl_override');
+----
+at_least 38 kg	explicit
+
+# rows that disagree: NULL next to 'override' is 'fill'; the case of the value does not matter
+statement ok
+CREATE TABLE tpl_null_override AS SELECT * FROM tpl_override UNION ALL SELECT * REPLACE (NULL AS bound_policy) FROM tpl_override;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_null_override');
+----
+explicit
+
+statement ok
+CREATE TABLE tpl_cases AS SELECT * FROM tpl_override UNION ALL SELECT * REPLACE ('OVERRIDE' AS bound_policy) FROM tpl_override;
+
+query T
+SELECT bound_source
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                         default_bounds := 'catalogue', templates_table := 'tpl_cases');
+----
+template_override
+
+# every value is checked, also on a class no requirement uses
+statement ok
+CREATE TABLE tpl_unused_bad AS SELECT * FROM tpl_override
+UNION ALL SELECT 'other_class', 'mass', 'at_least', 'oops';
+
+statement error
+SELECT * FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'n', attrs_table := 'a',
+                            default_bounds := 'catalogue', templates_table := 'tpl_unused_bad');
+----
+templates_table bound_policy must be NULL, 'fill' or 'override', not 'oops'
+
+# passing ties: the exact match; without one, the lowest level that is enough
+statement ok
+CREATE TABLE ca_pass AS SELECT * FROM (VALUES
+  ('Q','Q.c','c','cert','cert_level',NULL,NULL::DOUBLE,NULL::DOUBLE,NULL,'EN10204-2.2'),
+  ('S','S.c','c1','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-3.1'),
+  ('S','S.c','c2','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-2.2'))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+statement ok
+CREATE TABLE ladder3 AS SELECT * FROM ladder UNION ALL SELECT * FROM (VALUES
+  ('cert_level','EN10204-2.2','EN10204-3.2',1.0), ('cert_level','EN10204-3.1','EN10204-3.2',1.0),
+  ('cert_level','EN10204-2.2','EN10204-3.1',1.0)) t(dimension,required,provided,score);
+
+query TR
+SELECT prov_value, value_score
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca_pass', rules_table := 'ladder3');
+----
+EN10204-2.2	1.0
+
+statement ok
+CREATE OR REPLACE TABLE ca_pass AS SELECT * FROM (VALUES
+  ('Q','Q.c','c','cert','cert_level',NULL,NULL::DOUBLE,NULL::DOUBLE,NULL,'EN10204-2.2'),
+  ('S','S.c','c1','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-3.2'),
+  ('S','S.c','c2','cert','cert_level',NULL,NULL,NULL,NULL,'EN10204-3.1'))
+  t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi,bound,category);
+
+query TR
+SELECT prov_value, value_score
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca_pass', rules_table := 'ladder3');
+----
+EN10204-3.1	1.0
+
+# the tie-break picks what the trace shows, never the score: same coverage with and without rules order
+query RI
+SELECT coverage, n_gaps
+FROM tree_coverage('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca', rules_table := 'ladder');
+----
+0.0	1
+
+# rules without a dimension count for a category without a dimension; a duplicate row counts once
+statement ok
+CREATE TABLE ca_nodim AS SELECT * REPLACE (NULL::VARCHAR AS dimension) FROM ca;
+
+statement ok
+CREATE TABLE ladder_nodim AS SELECT * REPLACE (NULL::VARCHAR AS dimension) FROM ladder
+UNION ALL SELECT NULL, 'EN10204-2.2', 'EN10204-2.2', 1.0
+UNION ALL SELECT NULL, 'EN10204-2.2', 'EN10204-2.2', 1.0;
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'cn', attrs_table := 'ca_nodim', rules_table := 'ladder_nodim');
+----
+point EN10204-3.2	EN10204-3.1
+
+# coverage_kernel called directly: structs without the new fields work as before
+query RI
+SELECT r.coverage, r.n_gaps FROM (SELECT coverage_kernel(
+  [{'node_id': 'q', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': [{'attr_id': 'a', 'name': 'weight', 'dimension': 'mass', 'unit': 'kg', 'lo': 38.0, 'hi': 38.0, 'bound': 'at_most'}]}],
+  [{'node_id': 'c', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': [{'attr_id': 'a', 'name': 'weight', 'dimension': 'mass', 'unit': 'kg', 'lo': 37.0, 'hi': 37.0, 'bound': NULL}]}],
+  struct_pack(labels := 'hard', tol := 0.0, soft_band := 0.0)) AS r);
+----
+1.0	0
+
+# ... and with them: override and a written unit
+query TTT
+SELECT t.req_value, t.prov_value, t.bound_source FROM (SELECT unnest(coverage_kernel(
+  [{'node_id': 'q', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': [{'attr_id': 'a', 'name': 'weight', 'dimension': 'mass', 'unit': 'kg', 'lo': 38.0, 'hi': 38.0, 'bound': 'at_most',
+               'default_bound': 'at_least', 'bound_policy': 'override', 'source_unit': 'g'}]}],
+  [{'node_id': 'c', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': [{'attr_id': 'a', 'name': 'weight', 'dimension': 'mass', 'unit': 'kg', 'lo': 37.0, 'hi': 37.0, 'bound': NULL,
+               'default_bound': NULL, 'bound_policy': NULL, 'source_unit': 't'}]}],
+  struct_pack(labels := 'hard', tol := 0.0, soft_band := 0.0, trace := true)).trace) AS t);
+----
+at_least 38000 g	0.037 t	template_override
+
+statement error
+SELECT coverage_kernel(
+  [{'node_id': 'q', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': [{'attr_id': 'a', 'name': 'weight', 'dimension': 'mass', 'unit': 'kg', 'lo': 38.0, 'hi': 38.0, 'bound': 'at_most',
+               'default_bound': 'at_least', 'bound_policy': 'replace'}]}],
+  [{'node_id': 'c', 'parent_id': NULL, 'node_kind': 'item', 'edge_type': 'AND', 'class_id': 'w', 'reviewed': true, 'count': 1.0,
+    'attrs': []}],
+  struct_pack(labels := 'hard'));
+----
+bound_policy must be NULL, 'fill' or 'override', not 'replace'
+
+# source units: an alias, a range in mixed units (shown in the unit written first), °F
+statement ok
+CREATE TABLE su AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'v' AS attr_id, 'voltage' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound,
+       q.source_unit
+FROM (SELECT parse_quantity('500 mV bis 2 V', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'v', 'voltage', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('1,5 V', 'de') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'su');
+----
+within 500..2000 mV	1.5 V
+
+# an alias as written (Zoll = inch)
+statement ok
+CREATE OR REPLACE TABLE su AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 'l' AS attr_id, 'length' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound,
+       q.source_unit
+FROM (SELECT parse_quantity('mindestens 2 Zoll', 'de') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 'l', 'length', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('60 mm') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'su');
+----
+at_least 2 Zoll	60 mm
+
+statement ok
+CREATE OR REPLACE TABLE su AS
+SELECT 'Q' AS tree_id, 'Q.w' AS node_id, 't' AS attr_id, 'temp' AS "name", q.dimension, q.unit, q.lo, q.hi, q.bound,
+       q.source_unit
+FROM (SELECT parse_quantity('max. 176 °F') AS q)
+UNION ALL
+SELECT 'S', 'S.w', 't', 'temp', q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (SELECT parse_quantity('75 °C') AS q);
+
+query TT
+SELECT req_value, prov_value
+FROM tree_coverage_trace('Q', candidates := ['S'], nodes_table := 'wn', attrs_table := 'su');
+----
+at_most 176 °F	75 °C

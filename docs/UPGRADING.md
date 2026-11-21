@@ -4,6 +4,21 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
+## v2026.11.21: sourcing bounds, tolerances as spans, closest value in the trace, unknown designations
+
+Scores change for requirements written with a tolerance (`20 kg ± 1 kg`); otherwise only parser output and trace text. Check these:
+
+| Before | Now |
+|---|---|
+| `parse_quantity('3.1 acc. to EN 10204')` = 3.1 with unit `acc`, `'420 x 310 x 180 mm'` / `'120x80 mm'` = 420 / 120 with unit `x` / `x80` (dimension NULL in all) | empty (`lo`, `unit` NULL): an unknown word followed by another number is part of a designation or a box (also `'Klasse 1 nach DIN 4102'`, `'12 furlongs per 2 weeks'`). `'12 furlongs'` alone is unchanged. Re-parse stored values if you count unparsed rows by `lo IS NULL` |
+| `parse_quantity('20 kg ± 1 kg')` = 20 kg equals (`'220 N ± 2 %'` = 220 N, the tolerance dropped) | `equals` with lo 19, hi 21 (215.6–224.4 N): a requirement now accepts an offer inside the drawing's tolerance (plus `tol`) and scores the farther end outside it. Scores of `±` requirements change (benchmark MAE 0.0358 → 0.0361); `± 0,05 mm` without a nominal is unchanged (`at_most`). Pass `tol := 0` to check the drawing's tolerance only. In an offer the span counts as a range (`at_least` uses its high end). `50 % ± 5 %` is 45–55 % (percentage points); `max. 20 kg ± 1 kg` is `at_most` 21 kg; glued `20kg±1kg` and `+-` read like `±`. `trees_to_aas` writes the span as a Range with `levelType` nom (not for an unknown unit), and `aas_to_trees` reads that as `equals` |
+| `parse_quantity('€ 40 pro 2 Stück')` = 40 with unit `pro` (no dimension) | 40 EUR (a currency before the number now wins over an unknown word after it) |
+| on equal scores `tree_coverage_trace` showed the first offered value (`EN10204-2.2` against a required 3.2, also offered 3.1) | the nearest one (smallest `distance`). Categories that fail: the one meeting most levels in `rules_table`; that pass: the exact match, else the lowest level that is enough. Scores and gaps are the same; `prov_value` and `distance` of such rows, and `aas_coverage_result` built from them, can change |
+| a template's bound only filled an empty bound | unchanged by default. New: a `bound_policy` column on the templates table, `'override'` replaces a stated `at_least`/`at_most` on one value (`bound_source` `template_override`) |
+| trace values in base units only (`3.2e-06 m`) | unchanged by default. New: an attributes-table column `source_unit` (from `parse_quantity`) shows the written unit (`3.2 µm`) for built-in units; leave it NULL for units your `unit_table` redefines |
+
+Fixed without action on your side: `trees_to_aas` on a tree from `tree_from_json` with a `role` and an item two levels below the root raised "cannot create std::vector larger than max_size()".
+
 ## v2026.11.14: embeddings as FLOAT arrays, native SAP and Dynamics 365 readers, typed universal-schema converters
 
 The first release after v2026.10.23, with the Claude Code plugin.

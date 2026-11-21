@@ -36,7 +36,7 @@ ORDER BY i;
 --   max. 38 dB(A)  | 38     | 38     | dB(A)    | sound_level | at_most
 --   at least 5 A   | 5      | 5      | A        | current     | at_least
 --   6–18 V         | 6      | 18     | V        | voltage     | within
---   220 N ± 2 %    | 220    | 220    | N        | force       | equals
+--   220 N ± 2 %    | 215.6  | 224.4  | N        | force       | equals (a nominal with a tolerance: lo and hi are its ends)
 --   37 °C          | 310.15 | 310.15 | K        | temperature | NULL (unqualified)
 --   IP54 or better | NULL   | NULL   | NULL     | NULL        | at_least | IP54
 --   12 furlongs    | 12     | 12     | furlongs | NULL (unknown unit: never guessed)

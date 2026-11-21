@@ -80,11 +80,12 @@ SELECT parse_quantity('6 -18 V').lo, parse_quantity('6 -18 V').hi, parse_quantit
 ----
 6.0	18.0	within
 
-# a tolerance written before the unit: 220 ± 5 N is 220 N, equals
-query RTT
-SELECT parse_quantity('220 ± 5 N').lo, parse_quantity('220 ± 5 N').unit, parse_quantity('220 ± 5 N').bound;
+# a tolerance written before the unit: 220 ± 5 N is equals over 215 to 225 N
+query RRTT
+SELECT parse_quantity('220 ± 5 N').lo, parse_quantity('220 ± 5 N').hi, parse_quantity('220 ± 5 N').unit,
+       parse_quantity('220 ± 5 N').bound;
 ----
-220.0	N	equals
+215.0	225.0	N	equals
 
 # scientific notation
 query R

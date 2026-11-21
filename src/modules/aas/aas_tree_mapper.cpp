@@ -663,9 +663,10 @@ private:
 
 	//! A BasicConstraint on one attribute. Its value is the limit when it is in the attribute's
 	//! dimension; a different stated value and a two-sided Range are reported as constraint_conflict
-	//! (the Range keeps 'within', since the constraint cannot say which end it narrows).
+	//! (the Range keeps its bound, since the constraint cannot say which end it narrows).
 	void ApplyConstraint(const PendingConstraint &c, const Quantity &q, TreeAttrRow &a) {
-		bool two_sided = a.has_value && a.bound == "within" && a.lo != a.hi && q.bound != "within";
+		bool two_sided = a.has_value && (a.bound == "within" || a.bound == "equals") && a.lo != a.hi &&
+		                 q.bound != "within"; // a range or a nominal with a tolerance (equals, lo < hi)
 		if (two_sided) {
 			Issue(c.tree_id, c.constraint_path, "constraint_conflict", "warning",
 			      "'" + c.expression + "' on a two-sided range (" + a.value_text + "): the range is kept");
@@ -1133,6 +1134,12 @@ private:
 		ApplyUnit(def, known, written, a);
 		a.bound = has_lo && has_hi ? "within" : has_lo ? "at_least" : "at_most";
 		a.bound_source = "range";
+		// levelType nom alone on a two-sided Range: a nominal with a tolerance, the value lies inside
+		if (has_lo && has_hi && spec && spec->has_level_type && spec->level_nom && !spec->level_min &&
+		    !spec->level_max && !spec->level_typ) {
+			a.bound = "equals";
+			a.bound_source = "level_type";
+		}
 	}
 
 	void MapProperty(const AasElement &e, const AasElement *owner, const AasIec61360 *spec, bool ambiguous,

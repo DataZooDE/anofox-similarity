@@ -9,13 +9,13 @@ description: >
   `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`). Use when asked "which past
   programme/offer covers this request", "what is missing", "does 9 A meet max. 8 A", "parse
   'mindestens 24 cm'", "load spec trees from JSON", or "explain the gaps of this candidate".
-version: 2026.11.14
+version: 2026.11.21
 user-invocable: false
 ---
 
 # Anofox Similarity — Coverage Matching Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.14 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
+**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
 
 > Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
 > your own project, substitute your tables. Examples that build inline tables run anywhere.
@@ -58,6 +58,23 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
 - **Unqualified values are points** (`38 dB(A)` vs `35 dB(A)` → 0): use `default_bound` or
   `default_bounds := 'catalogue'`. **Tolerance is soft** (`tol` 0.02, `soft_band` 0.05): 1.7 %
   over `max. 180 s` scores 1; hard limits need 0 and 0.
+- **A stated bound describes the document's subject.** A drawing's `max. Stückgewicht 38 kg` is
+  `at_most` (the part), but a foundry must pour *at least* 38 kg. Templates only fill an empty
+  bound unless their row has `bound_policy = 'override'` (with `default_bounds := 'catalogue'`);
+  the trace then says `bound_source` `template_override`. Override replaces only a stated
+  `at_least`/`at_most` on one value: ranges (`within`), `±` values (`equals`) and categories keep
+  theirs. Rows of one class and dimension that disagree (NULL counts as `'fill'`) only fill; any
+  other value is an error.
+- **A nominal with a tolerance is `equals` over a span**: `20 kg ± 1 kg` parses to lo 19, hi 21,
+  `equals`; as a requirement the offer must lie inside (plus `tol`, so pass `tol := 0` for the
+  drawing's tolerance only: `1 kHz ± 5 Hz` accepts 1006 Hz with the default 2 %). In an offer it is a
+  range like `19–21 kg`: `at_least` compares its high end. `50 % ± 5 %` is 45–55 % (points);
+  `max. 20 kg ± 1 kg` is `at_most` 21 kg. A bare `± 0,05 mm` (no nominal) stays `at_most` 0.05 mm. A
+  tolerance in another dimension (`20 kg ± 1 mm`) keeps the nominal. AAS writes the span as a Range
+  with `levelType` nom and reads it back as `equals` (not with an unknown unit: no IEC 61360 data).
+- **Unkeyed values compete per dimension on one item**, names only discount: a roughness
+  `Ra 6.3 µm` can answer a `± 0.05 mm` tolerance (both lengths). Give them different `attr_key`s
+  (then a mismatch is a gate), or put them on items of their own class.
 - **`compat_score` needs its rules table to exist** (may be empty). No rule: equal → 1, else 0.
 - **Covering `score` can exceed 1** (containment + 0.01 × jaccard); a near-full lean cover can
   outrank a full bloated one. `min_score := 1.0` keeps full covers (it tests the raw measure).
@@ -76,7 +93,8 @@ negative/non-finite weight anywhere → error naming the row.
 | Table | Required columns | Optional |
 |---|---|---|
 | nodes (`tree_nodes`) | `tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count` | `source`, `context` |
-| attributes (`tree_attributes`) | `tree_id, node_id, attr_id` | `name, dimension, unit, lo, hi, bound, category, attr_key, role, qualifier` |
+| attributes (`tree_attributes`) | `tree_id, node_id, attr_id` | `name, dimension, unit, lo, hi, bound, category, attr_key, role, qualifier, source_unit` (trace display only) |
+| `templates_table` (`catalogue_attributes`, with `default_bounds := 'catalogue'`) | `class_id, dimension, bound` | `scale`, `bound_policy` (`'fill'`/NULL or `'override'`) |
 | `overrides_table` (reviewed vocabulary) | `wording, class_id` | `source` (NULL matches any source) |
 | `label_table` (classifier output) | `tree_id, node_id, class_id, p` | |
 | `rules_table` / `compatibility_rules` | `dimension, required, provided, score` | |
@@ -191,8 +209,9 @@ parse_quantity(text [, lang [, unit_table]])
 `bound` ∈ `at_least`, `at_most`, `within`, `equals`, NULL (unqualified). `lo`/`hi` are in the
 base unit. Category codes (`IP54`, `F1`, `M8`) go to `category` with `lo` NULL. A bare number is
 a count (`unit` '1'). An unknown unit is never guessed: number kept, `dimension` NULL, every
-comparison a gate. Negations flip (`nicht über`, `must not exceed` → `at_most`). Designations
-(`M8x1,25`, `DIN 933`) come back empty — map them to categories yourself.
+comparison a gate; with another number after the unknown word (`3.1 acc. to EN 10204`,
+`420 x 310 x 180 mm`) the result is empty. Negations flip (`nicht über`, `must not exceed` →
+`at_most`). Designations (`M8x1,25`, `DIN 933`) come back empty — map them to categories yourself.
 
 ```sql
 SELECT t AS text, q.lo, q.hi, q.unit, q.dimension, q.bound, q.category
@@ -201,7 +220,7 @@ FROM (VALUES (1, 'max. 38 dB(A)'), (2, 'mindestens 24 cm'), (3, 'zwischen 15 und
              (8, '12 furlongs')) v(i, t),
      LATERAL (SELECT parse_quantity(t, 'de') AS q)
 ORDER BY i;
--- 38 dB(A) at_most | 0.24 m at_least | 0.015-0.025 m/s within | 220 N equals
+-- 38 dB(A) at_most | 0.24 m at_least | 0.015-0.025 m/s within | 215.6-224.4 N equals
 -- 310.15 K NULL | 7.5 A at_most | category IP54 at_least | 12 furlongs, dimension NULL
 ```
 
@@ -391,11 +410,17 @@ tree_coverage_trace(query_tree_id, <same named>)
   → TABLE(query_id, candidate_id, req_node_id, matched_node_id, matched_path, label_sim, attr_id,
           attr_name, req_value, prov_value, gate, name_sim, value_score, distance, rule, attr_score,
           count_needed, count_available, req_score, is_gap, name_rule, bound_source, label_rule)
+-- req_value / prov_value: base units ('3.2e-06 m'); an attrs column source_unit (parse_quantity's)
+-- shows the written unit ('3.2 µm'), for built-in units only (pass NULL when your unit_table
+-- redefines one). Equal scores: the nearest offer; categories that fail: the one meeting most
+-- levels in rules_table; that pass: the exact match, else the lowest level that is enough
 coverage_recall(query_tree_id, candidates, k, nodes_table, candidate_nodes_table, overrides_table,
                 label_table, mode, tie_break, candidate_multiset_table)   -- no attrs_table parameters
   → TABLE(query_id, candidate_id, score, containment, jaccard, reviewed, mode_used, rank)
 coverage_kernel(query LIST(STRUCT), candidate LIST(STRUCT), options STRUCT)
   → STRUCT(coverage, n_requirements, n_gaps, reviewed, assignment_used, trace LIST(STRUCT))
+-- attrs STRUCT fields: attr_id, name, dimension, unit, lo, hi, bound, category, attr_key,
+-- bound_source, value_text, default_bound, bound_policy, scale, source_unit, name_vec (all optional)
 ```
 
 ```text
@@ -423,7 +448,7 @@ coverage    = mean req(q);   rank_score = coverage + stage1_weight · stage1_sco
 | `partition_gate`, `count_gate` | 0.3, 0.5 | min label agreement for a block / for counting instances |
 | `stage1_weight`, `tie_break` | 0.05, 0.01 | |
 | `tol`, `soft_band` | 0.02, 0.05 | passed to `value_satisfies`; 0, 0 for hard limits |
-| `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: unqualified values take their template's bound |
+| `default_bounds`, `templates_table` | NULL, `'catalogue_attributes'` | `'catalogue'`: unqualified values take their template's bound; a template row with `bound_policy` `'override'` replaces a stated bound too |
 | `rules_table` | NULL | categorical rules |
 | `name_vectors`, `name_floor` | NULL, 0.85 | `(name, vec)` table, `vec` a `FLOAT[n]` array or a list; floor = median cosine of unrelated names |
 | `class_hierarchy`, `generalization_credit` | NULL, 0.0 | `(class_id, parent_class_id)`: subclass offer meets superclass requirement; superclass offer gets credit^distance |
@@ -508,6 +533,24 @@ FROM (SELECT coverage_kernel(
 **Dictionary keys:** an optional `attr_key` column (AAS semanticId / ECLASS IRDI, compared with
 `semantic_key`) makes equal keys `name_sim = 1` (`name_rule = 'key'`) and different keys a hard
 gate (`rule = 'key_mismatch'`). See `anofox-similarity-aas`.
+
+**Sourcing: the class decides the direction** (`bound_policy`):
+
+```sql
+CREATE TABLE sn AS SELECT * FROM (VALUES
+  ('P', 'P', NULL, 'container', 'AND', 'part', NULL, 1.0), ('P', 'P.w', 'P', 'item', 'AND', 'w', 'piece_weight', 1.0),
+  ('F', 'F', NULL, 'container', 'AND', 'foundry', NULL, 1.0), ('F', 'F.w', 'F', 'item', 'AND', 'w', 'piece_weight', 1.0))
+  t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+CREATE TABLE sa AS
+SELECT tree_id, node_id, 'w' AS attr_id, 'Gewicht' AS name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (VALUES ('P', 'P.w', 'max. Stückgewicht 38 kg'), ('F', 'F.w', 'bis 37 kg')) v(tree_id, node_id, txt),
+     LATERAL (SELECT parse_quantity(txt, 'de') AS q);
+CREATE TABLE st AS SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound, 'override' AS bound_policy;
+SELECT req_value, prov_value, value_score, bound_source
+FROM tree_coverage_trace('P', candidates := ['F'], nodes_table := 'sn', attrs_table := 'sa',
+                         default_bounds := 'catalogue', templates_table := 'st', tol := 0, soft_band := 0);
+-- => at_least 38 kg | 37 kg | 0.0 | template_override
+```
 
 ## Canonical coverage pipeline
 

@@ -31,7 +31,7 @@ ORDER BY i;
 | max. 38 dB(A)           | 38.0   | 38.0   | dB(A)    | sound_level | at_most  | NULL     |
 | mindestens 24 cm        | 0.24   | 0.24   | m        | length      | at_least | NULL     |
 | zwischen 15 und 25 mm/s | 0.015  | 0.025  | m/s      | speed       | within   | NULL     |
-| 220 N ± 2 %             | 220.0  | 220.0  | N        | force       | equals   | NULL     |
+| 220 N ± 2 %             | 215.6  | 224.4  | N        | force       | equals   | NULL     |
 | 37 °C                   | 310.15 | 310.15 | K        | temperature | NULL     | NULL     |
 | höchstens 7,5 A         | 7.5    | 7.5    | A        | current     | at_most  | NULL     |
 | IP 54 oder besser       | NULL   | NULL   | NULL     | NULL        | at_least | IP54     |
@@ -58,7 +58,8 @@ FROM (VALUES ('nicht über 38 dB(A)'), ('no more than 38 dB(A)'), ('greater than
 
 - A value without a bound word has `bound` NULL (unqualified).
 - An unknown unit is never guessed. The number stays, `dimension` is NULL, and every comparison with
-  it is a gate.
+  it is a gate. With another number after the unknown word (`3.1 acc. to EN 10204`,
+  `420 x 310 x 180 mm`) the result is empty.
 - A class code such as `IP54` goes to `category`.
 - `lang` only decides ambiguous separators. A comma or dot with one or two digits after it is
   always a decimal separator. With three digits it depends on the language:
@@ -263,6 +264,45 @@ Without `default_bounds`, both values are points and S1 scores 0.307. The catalo
 is `at_least` and noise is `at_most`, so S1 (0.25 m, 36 dB(A)) meets both. On the benchmark this
 option lowers the mean regret from 0.024 to 0.009.
 
+### When the Wording Describes Something Else
+
+The bound word describes the subject of the document. A drawing's `max. Stückgewicht 38 kg` says the
+part weighs at most 38 kg. For sourcing, the requirement on a foundry is the opposite: it must pour
+**at least** 38 kg. A stated bound wins over the template, so here every weight check would be
+backwards. Add a `bound_policy` column to the templates table. With `'override'`, the class's
+bound replaces the stated one:
+
+```sql
+CREATE TABLE src_nodes AS SELECT * FROM (VALUES
+  ('P', 'P',   NULL, 'container', 'AND', 'part',    NULL,           1.0),
+  ('P', 'P.w', 'P',  'item',      'AND', 'weight',  'piece_weight', 1.0),
+  ('F', 'F',   NULL, 'container', 'AND', 'foundry', NULL,           1.0),
+  ('F', 'F.w', 'F',  'item',      'AND', 'weight',  'piece_weight', 1.0))
+  t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+CREATE TABLE src_attrs AS
+SELECT tree_id, node_id, 'w' AS attr_id, 'Gewicht' AS name, q.dimension, q.unit, q.lo, q.hi, q.bound, q.source_unit
+FROM (VALUES ('P', 'P.w', 'max. Stückgewicht 38 kg'), ('F', 'F.w', 'bis 37 kg')) v(tree_id, node_id, txt),
+     LATERAL (SELECT parse_quantity(txt, 'de') AS q);
+CREATE TABLE capability_templates AS
+SELECT 'piece_weight' AS class_id, 'mass' AS dimension, 'at_least' AS bound, 'override' AS bound_policy;
+
+SELECT req_value, prov_value, value_score, bound_source
+FROM tree_coverage_trace('P', candidates := ['F'], nodes_table := 'src_nodes', attrs_table := 'src_attrs',
+                         default_bounds := 'catalogue', templates_table := 'capability_templates',
+                         tol := 0, soft_band := 0);
+```
+
+| req_value      | prov_value | value_score | bound_source      |
+|----------------|------------|------------:|-------------------|
+| at_least 38 kg | 37 kg      | 0.0         | template_override |
+
+Without `bound_policy` (or with `'fill'`) the requirement stays `at_most 38 kg`, and the foundry
+meets it with a score of 1.0. Set the policy per class: a weight or an envelope describes the part,
+while a tolerance means the same for the part and the supplier. Override only replaces a stated
+`max.`/`min.` on one value. A range (`zwischen 15 und 25 kg`), a `±` value and a category keep their
+bound. Rows of one class and dimension that disagree (a NULL policy counts as `'fill'`) only fill,
+and a value other than `'fill'`, `'override'` or NULL is an error.
+
 ## Common Patterns
 
 **Parse a whole archive.** Join the language per document:
@@ -289,11 +329,15 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | A value inside a `von ... bis` range scores below 1 | `within` asks for the whole range. Store an acceptable band as two limits. |
 | Named arguments in the wrong order | On DuckDB 1.5.6 scalars bind by position: `(requirement, provided, scale, tol, soft_band, default_bound)`. |
 | A bare value never matches | Use `default_bound` or `default_bounds := 'catalogue'`. |
+| `max.` on a drawing checks the supplier the wrong way | The word describes the part. Set `bound_policy := 'override'` on the class's template row. |
 | `IP65` does not satisfy `at_least IP54` | Add a row to `compatibility_rules`. |
 | Unknown unit gives score 0 | Add the unit through `unit_table`. |
 | `M8x1,25`, `A4-70`, `EN 10204` or `DIN 933` come back empty | Designations are not values: `parse_quantity` refuses to guess a number from them. Map them to categories in SQL (e.g. `regexp_extract`) and compare them with `compatibility_rules`. `PN 16`, `DN 50` and `IP 65` are categories. |
 | A 2 % overshoot of a hard limit scores 1 | The default `tol` is 0.02. For limits without slack pass `tol := 0` and `soft_band := 0` (by position on DuckDB 1.5.6). |
 | `± 0,02 mm` | A tolerance class without a nominal is an `at_most` limit on the half-width: `± 0,02 mm` satisfies `± 0,05 mm`. |
+| `20 kg ± 1 kg` in an offer passes `min. 20,5 kg` | A nominal with a tolerance is `equals` over 19–21 kg. As a requirement the offer must lie inside; as an offer it counts as the range it spans, like `19–21 kg` (`at_least` uses its high end). For a guaranteed value, offer the limit (`min. 19 kg`). |
+| A part 2.5 % off a `± 2 %` drawing still scores 1 | `tol` applies on top of the span (`1 kHz ± 5 Hz` accepts 1006 Hz by default). Pass `tol := 0` and `soft_band := 0` to check only the drawing's tolerance. |
+| A `±` value came back as one point | The tolerance was not usable (another dimension, `20 kg ± 1 mm`, or an unknown unit): the nominal is kept. Find them with `WHERE q.raw LIKE '%±%' AND q.lo = q.hi AND q.bound = 'equals'`. |
 
 ## Next Steps
 

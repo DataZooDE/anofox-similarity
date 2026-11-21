@@ -26,15 +26,19 @@ SELECT count(*) FROM parsed WHERE q.lo IS NULL AND q.category IS NULL;
 ----
 0
 
-# numeric values: numbers, units and dimensions agree with the verified values (relative 1e-9)
-query II
-SELECT count(*), count(*) FILTER (WHERE abs(p.q.lo - v.lo) <= 1e-9 * abs(v.lo)
-                                    AND abs(p.q.hi - v.hi) <= 1e-9 * abs(v.hi)
-                                    AND p.q.dimension = v.dimension AND p.q.unit = v.unit)
-FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id)
+# numeric values: numbers, units and dimensions agree with the verified values (relative 1e-9);
+# the team verified 'v ± 2 %' as equals v; the parser keeps equals with the range it allows (0.98 v to 1.02 v)
+query III
+SELECT count(*), count(*) FILTER (WHERE abs(p.q.lo - v.lo * f.lo) <= 1e-9 * abs(v.lo)
+                                    AND abs(p.q.hi - v.hi * f.hi) <= 1e-9 * abs(v.hi)
+                                    AND p.q.dimension = v.dimension AND p.q.unit = v.unit),
+       count(*) FILTER (WHERE p.value_text LIKE '%±%' AND p.q.bound = 'equals' AND v.bound = 'equals')
+FROM parsed p JOIN verified v USING (tree_id, node_id, attr_id),
+     LATERAL (SELECT CASE WHEN p.value_text LIKE '%± 2 \%%' ESCAPE '\' THEN 0.98 ELSE 1 END AS lo,
+                     CASE WHEN p.value_text LIKE '%± 2 \%%' ESCAPE '\' THEN 1.02 ELSE 1 END AS hi) f
 WHERE v.category IS NULL;
 ----
-2590	2590
+2590	2590	15
 
 # ordinal classes come out as categories with their bound
 query II

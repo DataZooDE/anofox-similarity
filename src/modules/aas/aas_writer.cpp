@@ -139,6 +139,7 @@ Json ValueElement(const TreeAttrRow &a) {
 		e = Json {{"modelType", "Range"}, {"valueType", "xs:double"}, {"max", Number(a.hi)}};
 	} else if (a.bound == "within" || a.lo != a.hi) {
 		e = Json {{"modelType", "Range"}, {"valueType", "xs:double"}, {"min", Number(a.lo)}, {"max", Number(a.hi)}};
+		nominal = a.bound == "equals"; // a nominal with a tolerance: a Range with levelType nom
 	} else {
 		nominal = a.bound == "equals";
 		e = Json {{"modelType", "Property"}, {"valueType", "xs:double"}, {"value", Number(a.lo)}};
@@ -298,6 +299,22 @@ private:
 		return n.attrs.empty() && (!tree_role.empty() || !n.class_id.empty() || n.node_kind == "item");
 	}
 
+	//! A ComposedOf part that aas_to_trees moved under its composite: its node id is the AAS path of
+	//! another node of the tree (its holder), not one below n. Trees with free node ids (tree_from_json:
+	//! 'c' under 's') have no detached parts.
+	bool Detached(const TreeNodeRow &n, const TreeNodeRow &c) const {
+		if (c.node_id.compare(0, n.node_id.size() + 1, n.node_id + ".") == 0 ||
+		    c.node_id.compare(0, n.node_id.size() + 1, n.node_id + "[") == 0) {
+			return false;
+		}
+		auto cut = c.node_id.rfind('.');
+		if (cut == std::string::npos) {
+			return false;
+		}
+		auto holder = c.node_id.substr(0, cut);
+		return holder != n.node_id && by_id.count(holder) > 0;
+	}
+
 	//! Children whose node ids do not lie below the node: ComposedOf parts written next to it.
 	bool HasDetachedParts(const TreeNodeRow &n) const {
 		auto it = children.find(n.node_id);
@@ -305,7 +322,7 @@ private:
 			return false;
 		}
 		for (auto c : it->second) {
-			if (c->node_id.compare(0, n.node_id.size() + 1, n.node_id + ".") != 0) {
+			if (Detached(n, *c)) {
 				return true;
 			}
 		}
@@ -348,9 +365,7 @@ private:
 			return;
 		}
 		for (auto c : it->second) {
-			bool detached = c->node_id.compare(0, n.node_id.size() + 1, n.node_id + ".") != 0 &&
-			                c->node_id.compare(0, n.node_id.size() + 1, n.node_id + "[") != 0;
-			if (detached && IsCapability(n) && IsCapability(*c)) {
+			if (&n != &submodel && Detached(n, *c) && IsCapability(n) && IsCapability(*c)) {
 				compositions.push_back({&n, c}); // written next to n by the caller of n
 				continue;
 			}
@@ -617,6 +632,9 @@ private:
 		for (auto &entry : parts_of) {
 			auto composite = by_id[entry.first];
 			auto &holder_path = path_of[composite->node_id];
+			if (holder_path.empty()) {
+				continue; // a submodel is never a composite
+			}
 			auto sm_node = by_id[submodel_of[composite->node_id]];
 			Json *holder = FindElements(sm_node, std::vector<std::string>(holder_path.begin(), holder_path.end() - 1));
 			if (!holder) {
