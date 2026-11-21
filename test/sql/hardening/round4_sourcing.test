@@ -18,7 +18,7 @@ ORDER BY i;
 max. 420 x 310 x 180 mm	NULL	NULL
 12 widgets	12.0	widgets
 6 - 18 V	6.0	V
-220 ± 5 N	220.0	N
+220 ± 5 N	215.0	N
 24 1000 N	24.0	1000 N
 
 # raw is kept on the unknown form
@@ -26,6 +26,68 @@ query T
 SELECT parse_quantity('3.1 acc. to EN 10204').raw;
 ----
 3.1 acc. to EN 10204
+
+# --- a nominal with a tolerance is equals over the range it allows ----------------------------
+
+query TRRTT
+SELECT t, round(q.lo, 9), round(q.hi, 9), q.unit, q.bound
+FROM (SELECT i, t, parse_quantity(t, 'de') AS q
+      FROM (VALUES (1, '20 kg ± 1 kg'), (2, '20 kg ± 1'), (3, '20±1 kg'), (4, '20 kg +/- 500 g'),
+                   (5, '220 N ± 2 %'), (6, '20 °C ± 1 K'), (7, '-20 °C ± 2 °C'), (8, '1 V ± 50 ppm'),
+                   (9, '20 kg ± 1 mm'), (10, '20 kg ± 1 foo'), (11, '± 0,05 mm'), (12, '220 ± 2 %')) v(i, t))
+ORDER BY i;
+----
+20 kg ± 1 kg	19.0	21.0	kg	equals
+20 kg ± 1	19.0	21.0	kg	equals
+20±1 kg	19.0	21.0	kg	equals
+20 kg +/- 500 g	19.5	20.5	kg	equals
+220 N ± 2 %	215.6	224.4	N	equals
+20 °C ± 1 K	292.15	294.15	K	equals
+-20 °C ± 2 °C	251.15	255.15	K	equals
+1 V ± 50 ppm	0.99995	1.00005	V	equals
+20 kg ± 1 mm	20.0	20.0	kg	equals
+20 kg ± 1 foo	20.0	20.0	kg	equals
+± 0,05 mm	5e-05	5e-05	m	at_most
+220 ± 2 %	215.6	224.4	1	equals
+
+# as a requirement: inside the tolerance passes, outside fails (strict) or falls across soft_band
+query RRRR
+SELECT value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('20,8 kg', 'de'), 'linear', 0.0, 0.0).score,
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('21,5 kg', 'de'), 'linear', 0.0, 0.0).score,
+       value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('19,5–20,5 kg', 'de'), 'linear', 0.0, 0.0).score,
+       round(value_satisfies(parse_quantity('20 kg ± 1 kg'), parse_quantity('18–20 kg', 'de'), 'linear', 0.0, 0.25).distance, 9);
+----
+1.0	0.0	1.0	0.05
+
+# a point equals (nominal, no tolerance) is unchanged: the relative difference
+query RR
+SELECT round(value_satisfies(parse_quantity('nominal 20 kg'), parse_quantity('20,8 kg', 'de')).distance, 9),
+       round(value_satisfies(parse_quantity('nominal 20 kg'), parse_quantity('20,8 kg', 'de')).score, 9);
+----
+0.04	0.6
+
+# temperature (absolute K): 21.5 °C is 0.5 K outside 19–21 °C, within the 1 K tolerance
+query RR
+SELECT value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity('21,5 °C', 'de')).distance,
+       value_satisfies(parse_quantity('20 °C ± 1 K'), parse_quantity('23,5 °C', 'de')).score;
+----
+0.5	0.4
+
+# as an offer it is a range like any other: at_least compares its high end
+query R
+SELECT value_satisfies(parse_quantity('min. 20,5 kg', 'de'), parse_quantity('20 kg ± 1 kg'), 'linear', 0.0, 0.0).score;
+----
+1.0
+
+# AAS: a span is written as a Range with levelType nom and read back as equals (a plain range stays within)
+query TRRTT
+WITH t AS (SELECT tree_from_json('{"node_id":"P1","label":"part","children":[{"node_id":"c","label":"casting","class_id":"casting","attributes":[{"name":"weight","key":"0173-1#02-AAB713#005","text":"20 kg ± 1 kg"},{"name":"len","key":"0173-1#02-BAA120#008","text":"10–12 mm"}]}]}', 'P1') AS n)
+SELECT a.name, a.lo, a.hi, a.bound, a.bound_source
+FROM (SELECT unnest(aas_to_trees(trees_to_aas(n))) AS x FROM t), LATERAL (SELECT unnest(x.attributes) AS a)
+ORDER BY a.name;
+----
+len	0.01	0.012	within	range
+weight	19.0	21.0	equals	level_type
 
 # --- F2: bound_policy ----------------------------------------------------------------------
 

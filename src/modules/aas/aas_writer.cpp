@@ -139,6 +139,7 @@ Json ValueElement(const TreeAttrRow &a) {
 		e = Json {{"modelType", "Range"}, {"valueType", "xs:double"}, {"max", Number(a.hi)}};
 	} else if (a.bound == "within" || a.lo != a.hi) {
 		e = Json {{"modelType", "Range"}, {"valueType", "xs:double"}, {"min", Number(a.lo)}, {"max", Number(a.hi)}};
+		nominal = a.bound == "equals"; // a nominal with a tolerance: a Range with levelType nom
 	} else {
 		nominal = a.bound == "equals";
 		e = Json {{"modelType", "Property"}, {"valueType", "xs:double"}, {"value", Number(a.lo)}};

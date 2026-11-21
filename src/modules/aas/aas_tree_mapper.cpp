@@ -1133,6 +1133,12 @@ private:
 		ApplyUnit(def, known, written, a);
 		a.bound = has_lo && has_hi ? "within" : has_lo ? "at_least" : "at_most";
 		a.bound_source = "range";
+		// levelType nom alone on a two-sided Range: a nominal with a tolerance, the value lies inside
+		if (has_lo && has_hi && spec && spec->has_level_type && spec->level_nom && !spec->level_min &&
+		    !spec->level_max && !spec->level_typ) {
+			a.bound = "equals";
+			a.bound_source = "level_type";
+		}
 	}
 
 	void MapProperty(const AasElement &e, const AasElement *owner, const AasIec61360 *spec, bool ambiguous,

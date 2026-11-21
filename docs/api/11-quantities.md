@@ -23,7 +23,8 @@ source_unit, category)`
 | `max. 38 dB(A)` | 38, 38 dB(A) | at_most |
 | `mindestens 24 cm` | 0.24, 0.24 m | at_least |
 | `6–18 V`, `40 bis 60 W`, `zwischen 15 und 25 mm/s` | range | within |
-| `220 N ± 2 %`, `Nennwert 220 N` | 220, 220 N | equals |
+| `220 N ± 2 %`, `220 ± 5 N`, `20 kg ± 500 g` | 215.6, 224.4 N (the ends the tolerance allows) | equals |
+| `Nennwert 220 N` | 220, 220 N | equals |
 | `38 dB(A)` | 38, 38 | NULL (unqualified) |
 | `37 °C` | 310.15 K | NULL |
 | `65.000 Zyklen` with lang `'de'` | 65000 (count) | NULL |
@@ -93,6 +94,7 @@ normalised first.
 | `at_most v` | the provided low end `p_lo ≤ v` | `(p_lo − v)/\|v\|` |
 | `within [lo, hi]` | the provided range covers the required range (log: share of the decades) | uncovered share |
 | `equals v` | `\|v − p\| ≤ tol` relative, on every scale; `p` is the farther end of a provided range | `\|v − p\|/\|v\|` |
+| `equals [lo, hi]` (a nominal with a tolerance) | the provided value or range lies inside `[lo, hi]`, within `tol` relative to the nominal | how far the farther end lies outside, `/\|nominal\|` |
 | `point` (no bound) | the provided value lies within `[v·10⁻⁰·⁰¹, v·10⁰·⁰¹]` (log) or ±1 % (linear) | uncovered share |
 | `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
 | `missing` | no provided value; score 0 | NULL |
@@ -165,7 +167,7 @@ CREATE TABLE my_units AS SELECT symbol, alias, unit_id, dimension, factor, "offs
 
 *Scalar function*
 
-Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL; with another number after it ('3.1 acc. to EN 10204', '420 x 310 x 180 mm') the result is empty. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
+Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', 'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, equals or NULL when the text states none. A nominal with a tolerance ('220 N ± 2 %', '20 kg ± 1 kg') is equals with lo and hi at the ends it allows; a tolerance alone ('± 0,05 mm') is at_most its half-width. lang ('en', 'de' or a list, first entry decides ambiguous separators such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator ('1 000 N'). A bare number is a count; an unknown unit keeps the number and has dimension NULL; with another number after it ('3.1 acc. to EN 10204', '420 x 310 x 180 mm') the result is empty. Pass lang before unit_table (DuckDB 1.5.6 binds by position).
 
 ```sql
 parse_quantity(text VARCHAR) → STRUCT(lo DOUBLE, hi DOUBLE, unit VARCHAR, dimension VARCHAR, bound VARCHAR, raw VARCHAR, source_unit VARCHAR, category VARCHAR)
@@ -207,7 +209,7 @@ SELECT normalize_quantity(3, 'lanes', (SELECT list(u) FROM my_units u));
 
 *Scalar function*
 
-Direction-aware comparison of a requirement with a provided value (both STRUCTs with lo, hi, dimension; the requirement also bound, either may carry unit). Returns STRUCT(score, distance, rule). at_least uses the high end of a provided range, at_most the low end, within the share of the required range covered, equals the relative difference; an unqualified value is a point widened by ±0.01 decades unless default_bound gives it a direction. score is 1 within tol (decades on log scale, relative on linear scale), falling to 0 across soft_band; distance is relative (absolute in K for temperature, which uses a 1 K tolerance and 2.5 K band). Different dimensions, or different currencies, give rule 'gate' and score 0. scale defaults per dimension (linear for time, currency, percent, sound level). Pass the options in order: scale, tol, soft_band, default_bound.
+Direction-aware comparison of a requirement with a provided value (both STRUCTs with lo, hi, dimension; the requirement also bound, either may carry unit). Returns STRUCT(score, distance, rule). at_least uses the high end of a provided range, at_most the low end, within the share of the required range covered, equals the relative difference (with lo < hi, as parsed from a tolerance, how far the offer lies outside the span); an unqualified value is a point widened by ±0.01 decades unless default_bound gives it a direction. score is 1 within tol (decades on log scale, relative on linear scale), falling to 0 across soft_band; distance is relative (absolute in K for temperature, which uses a 1 K tolerance and 2.5 K band). Different dimensions, or different currencies, give rule 'gate' and score 0. scale defaults per dimension (linear for time, currency, percent, sound level). Pass the options in order: scale, tol, soft_band, default_bound.
 
 ```sql
 value_satisfies(requirement ANY, provided ANY) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)

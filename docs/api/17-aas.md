@@ -70,6 +70,7 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
 | `CapabilityComposedOf` (first is composed of second) | the part's item moves under the composite (`AND`); a composite without properties of its own becomes a container, so only its parts are requirements |
 | `CapabilityGeneralizedBy` (second is more general) | a row of `aas_class_hierarchy`; second may be an external ontology IRI |
 | IEC 61360 `levelType` of a single value: exactly min / max / nom | `bound` `at_least` / `at_most` / `equals` |
+| Range with min and max and `levelType` exactly nom | `bound` `equals` over [min, max] (a nominal with a tolerance) |
 | IDTA-02020 `BasicConstraint` (`<= 1 ms`) on the properties its `ConstraintHasProperty` names (the value element, a list holding it or its PropertyContainer) | `bound` and limit from the expression; a different stated value or a two-sided Range is reported (`constraint_conflict`), and a Range keeps `within` |
 | collection with a dictionary semanticId and only a profile count | item: "8 digital inputs" without further properties |
 | `Property` with a number (`xs:double`, `xs:int`, ...) | point attribute (`lo = hi`); an absent or unparseable number is kept without value (a gap) and reported |
@@ -215,6 +216,7 @@ numbers are written as `NaN`, `INF`, `-INF`.
 | a capability's children | written next to it, with `CapabilityComposedOf` relations |
 | attribute `at_least` / `at_most` / `within` | Range with min / max / both |
 | `equals`; an ordinal category with a bound (`IP40 or better`) | Property with IEC 61360 `levelType` nom; min / max |
+| `equals` with lo < hi (`20 kg ± 1 kg`) | Range with min / max and `levelType` nom |
 | category | Property; an identifier-like category as `valueId`; `true` / `false` as `xs:boolean` |
 | attribute without value | Property `xs:double` without value (reads back as `empty_value`) |
 | `attr_key` | semanticId (or supplementalSemanticId for IDTA-02020), and a ConceptDescription with IEC 61360 name and unit |
@@ -498,7 +500,7 @@ SELECT tree_id, node_id, value FROM attrs_satisfying('0173-1#02-BAA120#008', par
 
 *Scalar function*
 
-Writes property trees as an AAS v3 Environment (Part 1 JSON): one shell per tree_id, the level below the root as submodels, collections below. nodes is a LIST of node STRUCTs as aas_to_trees and tree_from_json produce them. Items whose attributes carry a role (required, provided) become IDTA-02020 CapabilityContainers (Required / Offered, class as supplementalSemanticId, properties as PropertyRange / PropertyProperty); other items SubmodelElementCollections with their Property / Range elements. Bounds become ranges (at_least: min only, at_most: max only), equals a levelType nom; variant groups and counts use the DataZoo AAS profile; ComposedOf parts are written next to their composite with CapabilityComposedOf relations. Every attr_key becomes a ConceptDescription (IEC 61360 name and unit); catalogue (LIST of STRUCT(class_id, label, definition)) adds class entries. A tree read from AAS reads back the same: aas_to_trees(trees_to_aas(t)).
+Writes property trees as an AAS v3 Environment (Part 1 JSON): one shell per tree_id, the level below the root as submodels, collections below. nodes is a LIST of node STRUCTs as aas_to_trees and tree_from_json produce them. Items whose attributes carry a role (required, provided) become IDTA-02020 CapabilityContainers (Required / Offered, class as supplementalSemanticId, properties as PropertyRange / PropertyProperty); other items SubmodelElementCollections with their Property / Range elements. Bounds become ranges (at_least: min only, at_most: max only), equals a levelType nom (a Range with nom for a nominal with a tolerance); variant groups and counts use the DataZoo AAS profile; ComposedOf parts are written next to their composite with CapabilityComposedOf relations. Every attr_key becomes a ConceptDescription (IEC 61360 name and unit); catalogue (LIST of STRUCT(class_id, label, definition)) adds class entries. A tree read from AAS reads back the same: aas_to_trees(trees_to_aas(t)).
 
 ```sql
 trees_to_aas(nodes ANY) → VARCHAR

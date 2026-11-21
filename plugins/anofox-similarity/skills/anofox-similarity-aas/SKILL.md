@@ -103,7 +103,7 @@ work unchanged. NULL input → NULL. Inputs: Part 1 JSON (Environment, a single 
 | `CapabilityGeneralizedBy` | not a node: a row of `aas_class_hierarchy` |
 | `Property` number | point attribute (`lo = hi`) |
 | `Range` | min only → `bound = 'at_least'`, max only → `'at_most'`, both → `'within'` |
-| IEC 61360 `levelType` min / max / nom | `at_least` / `at_most` / `equals` |
+| IEC 61360 `levelType` min / max / nom | `at_least` / `at_most` / `equals` (a Range with nom: `equals` over min..max) |
 | IDTA-02020 `BasicConstraint` (`<= 1 ms`) | bound + limit from the expression |
 | Property with `valueId` | `category` = `semantic_key(valueId)` |
 | `xs:boolean` | `category` = `'true'` / `'false'` |
@@ -365,7 +365,7 @@ without a root is an error.
 | `[i]` children | SubmodelElementList |
 | `variant_group`, `count` ≠ 1 | qualifiers `anofox:VariantGroup`, `anofox:Count` |
 | `at_least` / `at_most` / `within` | Range min / max / both |
-| `equals`, ordinal category with bound | Property with IEC 61360 `levelType` |
+| `equals`, ordinal category with bound | Property with IEC 61360 `levelType` (`equals` with lo < hi: Range + nom) |
 | category | Property; identifier-like → `valueId`; `true`/`false` → `xs:boolean` |
 | `attr_key` | semanticId + ConceptDescription (IEC 61360 name, unit) |
 

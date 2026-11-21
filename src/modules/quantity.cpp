@@ -996,6 +996,28 @@ Quantity ParseQuantity(const string &text, const vector<string> &langs, const Un
 	    (box || (numbers.size() >= 2 && numbers[1].begin >= end1))) {
 		return Quantity();
 	}
+	// a nominal with a tolerance (20 kg ± 1 kg, 220 ± 5 N, 220 N ± 2 %, 20 kg ± 500 g) is equals over the
+	// range it allows (lo < hi); a tolerance in another dimension or an unknown unit keeps the nominal
+	bool spans = false;
+	if (tolerance) {
+		double t = std::fabs(numbers[1].value);
+		if (!unit2) {
+			spans = token2.empty(); // 20 kg ± 1: the nominal's unit
+		} else if (unit2->dimension == "percent" && !std::isnan(unit2->factor)) {
+			t = std::fabs(first.value) * t * unit2->factor / 100.0;
+			spans = true;
+		} else if (unit2 == lo_unit) {
+			spans = true;
+		} else if (lo_unit && unit2->dimension == lo_unit->dimension && !std::isnan(unit2->factor) &&
+		           !std::isnan(lo_unit->factor) && lo_unit->factor != 0) {
+			t = t * unit2->factor / lo_unit->factor; // a difference: factors only, no offset (20 °C ± 1 K)
+			spans = true;
+		}
+		if (spans) {
+			lo = first.value - t;
+			hi = first.value + t;
+		}
+	}
 	q.source_unit = token;
 
 	if (lo_unit || hi_unit) {
@@ -1085,6 +1107,9 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		} else if (bound == "at_most") {
 			r.distance = MaxValue(0.0, p_lo - r_hi);
 			r.score = soft(r.distance);
+		} else if (bound == "equals" && r_hi > r_lo) { // a nominal with a tolerance: the offer lies inside
+			r.distance = MaxValue(0.0, MaxValue(r_lo - p_hi, p_lo - r_hi));
+			r.score = soft(r.distance);
 		} else if (bound == "equals") {
 			r.distance = MinValue(std::fabs(r_lo - p_lo), std::fabs(r_lo - p_hi));
 			r.score = soft(r.distance);
@@ -1108,7 +1133,19 @@ ValueScore ValueSatisfies(const ValueSide &req, const ValueSide &prov, const Val
 		}
 		return options.soft_band <= 0 ? 0.0 : MaxValue(0.0, 1.0 - (d - tol) / options.soft_band);
 	};
-	if (bound == "at_least" || bound == "at_most" || bound == "equals") {
+	if (bound == "equals" && r_hi > r_lo) {
+		// a nominal with a tolerance (20 kg ± 1 kg): the offer lies inside [lo, hi]; its farther end
+		// outside the span, relative to the nominal, is the distance
+		double nominal = (r_lo + r_hi) / 2;
+		double miss = MaxValue(0.0, MaxValue(r_lo - p_lo, p_hi - r_hi));
+		if (nominal == 0) {
+			r.distance = miss;
+			r.score = miss == 0 ? 1.0 : 0.0;
+		} else {
+			r.distance = miss / std::fabs(nominal);
+			r.score = soften_with(r.distance, options.tol);
+		}
+	} else if (bound == "at_least" || bound == "at_most" || bound == "equals") {
 		double v = bound == "at_most" ? r_hi : r_lo;
 		double p = bound == "at_least" ? p_hi : p_lo;
 		if (bound == "equals") {
@@ -1522,7 +1559,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "Parses a quantity written in English or German ('max. 38 dB(A)', 'mindestens 24 cm', '6–18 V', "
 	    "'zwischen 15 und 25 mm/s', '220 N ± 2 %', 'IP54 or better') into STRUCT(lo, hi, unit, dimension, bound, raw, "
 	    "source_unit, category). lo/hi are in the base unit of the dimension (unit); bound is at_least, at_most, within, "
-	    "equals or NULL when the text states none. lang ('en', 'de' or a list, first entry decides ambiguous separators "
+	    "equals or NULL when the text states none. A nominal with a tolerance ('220 N ± 2 %', '20 kg ± 1 kg') is equals with lo and hi at the ends it allows; a tolerance alone ('± 0,05 mm') is at_most its half-width. lang ('en', 'de' or a list, first entry decides ambiguous separators "
 	    "such as '2.500') defaults to ['en', 'de']. unit_table is a LIST of STRUCT(symbol, alias, unit_id, dimension, factor, "
 	    "offset) that extends or overrides the seed (see quantity_units()). A space between groups of three digits is a thousands separator "
 	    "('1 000 N'). A bare number is a count; an unknown unit "
@@ -1553,7 +1590,7 @@ void RegisterQuantityFunctions(ExtensionLoader &loader) {
 	    "Direction-aware comparison of a requirement with a provided value (both STRUCTs with lo, hi, dimension; the "
 	    "requirement also bound, either may carry unit). Returns STRUCT(score, distance, rule). at_least uses the high "
 	    "end of a provided range, at_most the low end, within the share of the required range covered, equals the "
-	    "relative difference; an unqualified value is a point widened by ±0.01 decades unless default_bound gives it "
+	    "relative difference (with lo < hi, as parsed from a tolerance, how far the offer lies outside the span); an unqualified value is a point widened by ±0.01 decades unless default_bound gives it "
 	    "a direction. score is 1 within tol (decades on log scale, relative on linear scale), falling to 0 across "
 	    "soft_band; distance is relative (absolute in K for temperature, which uses a 1 K tolerance and 2.5 K band). "
 	    "Different dimensions, or different currencies, give rule 'gate' and score 0. scale defaults per dimension "

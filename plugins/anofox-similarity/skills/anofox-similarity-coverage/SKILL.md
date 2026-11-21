@@ -65,6 +65,11 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
   `at_least`/`at_most` on one value: ranges (`within`), `±` values (`equals`) and categories keep
   theirs. Rows of one class and dimension that disagree (NULL counts as `'fill'`) only fill; any
   other value is an error.
+- **A nominal with a tolerance is `equals` over a span**: `20 kg ± 1 kg` parses to lo 19, hi 21,
+  `equals`; as a requirement the offer must lie inside (plus `tol`, so pass `tol := 0` for the
+  drawing's tolerance only). In an offer it is a range like `19–21 kg`: `at_least` compares its high
+  end. A bare `± 0,05 mm` (no nominal) stays `at_most` 0.05 mm. AAS writes the span as a Range with
+  `levelType` nom and reads it back as `equals`.
 - **Unkeyed values compete per dimension on one item**, names only discount: a roughness
   `Ra 6.3 µm` can answer a `± 0.05 mm` tolerance (both lengths). Give them different `attr_key`s
   (then a mismatch is a gate), or put them on items of their own class.
@@ -213,7 +218,7 @@ FROM (VALUES (1, 'max. 38 dB(A)'), (2, 'mindestens 24 cm'), (3, 'zwischen 15 und
              (8, '12 furlongs')) v(i, t),
      LATERAL (SELECT parse_quantity(t, 'de') AS q)
 ORDER BY i;
--- 38 dB(A) at_most | 0.24 m at_least | 0.015-0.025 m/s within | 220 N equals
+-- 38 dB(A) at_most | 0.24 m at_least | 0.015-0.025 m/s within | 215.6-224.4 N equals
 -- 310.15 K NULL | 7.5 A at_most | category IP54 at_least | 12 furlongs, dimension NULL
 ```
 

@@ -886,7 +886,7 @@ void RegisterAasWriters(ExtensionLoader &loader) {
 	    "them. Items whose attributes carry a role (required, provided) become IDTA-02020 CapabilityContainers "
 	    "(Required / Offered, class as supplementalSemanticId, properties as PropertyRange / PropertyProperty); other "
 	    "items SubmodelElementCollections with their Property / Range elements. Bounds become ranges (at_least: min "
-	    "only, at_most: max only), equals a levelType nom; variant groups and counts use the DataZoo AAS profile; "
+	    "only, at_most: max only), equals a levelType nom (a Range with nom for a nominal with a tolerance); variant groups and counts use the DataZoo AAS profile; "
 	    "ComposedOf parts are written next to their composite with CapabilityComposedOf relations. Every attr_key "
 	    "becomes a ConceptDescription (IEC 61360 name and unit); catalogue (LIST of STRUCT(class_id, label, "
 	    "definition)) adds class entries. A tree read from AAS reads back the same: aas_to_trees(trees_to_aas(t)).",

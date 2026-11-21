@@ -31,7 +31,7 @@ ORDER BY i;
 | max. 38 dB(A)           | 38.0   | 38.0   | dB(A)    | sound_level | at_most  | NULL     |
 | mindestens 24 cm        | 0.24   | 0.24   | m        | length      | at_least | NULL     |
 | zwischen 15 und 25 mm/s | 0.015  | 0.025  | m/s      | speed       | within   | NULL     |
-| 220 N ± 2 %             | 220.0  | 220.0  | N        | force       | equals   | NULL     |
+| 220 N ± 2 %             | 215.6  | 224.4  | N        | force       | equals   | NULL     |
 | 37 °C                   | 310.15 | 310.15 | K        | temperature | NULL     | NULL     |
 | höchstens 7,5 A         | 7.5    | 7.5    | A        | current     | at_most  | NULL     |
 | IP 54 oder besser       | NULL   | NULL   | NULL     | NULL        | at_least | IP54     |
@@ -335,6 +335,8 @@ SELECT count(*) AS n, count(*) FILTER (WHERE dimension IS NULL AND category IS N
 | `M8x1,25`, `A4-70`, `EN 10204` or `DIN 933` come back empty | Designations are not values: `parse_quantity` refuses to guess a number from them. Map them to categories in SQL (e.g. `regexp_extract`) and compare them with `compatibility_rules`. `PN 16`, `DN 50` and `IP 65` are categories. |
 | A 2 % overshoot of a hard limit scores 1 | The default `tol` is 0.02. For limits without slack pass `tol := 0` and `soft_band := 0` (by position on DuckDB 1.5.6). |
 | `± 0,02 mm` | A tolerance class without a nominal is an `at_most` limit on the half-width: `± 0,02 mm` satisfies `± 0,05 mm`. |
+| `20 kg ± 1 kg` in an offer passes `min. 20,5 kg` | A nominal with a tolerance is `equals` over 19–21 kg. As a requirement the offer must lie inside; as an offer it counts as the range it spans, like `19–21 kg` (`at_least` uses its high end). For a guaranteed value, offer the limit (`min. 19 kg`). |
+| A part 2.5 % off a `± 2 %` drawing still scores 1 | `tol` applies on top of the span. Pass `tol := 0` to check only the drawing's tolerance. |
 
 ## Next Steps
 
