@@ -196,8 +196,8 @@ SELECT parse_quantity('3 Stk.', ['de'], (SELECT list(u) FROM my_units u));
 Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit is a symbol, an alias or a unit identifier (UN/ECE Rec 20 code such as 'AMP', or a unit_id from unit_table such as an ECLASS unit IRDI, compared with semantic_key). unit_table extends the seed as in parse_quantity; an entry with only symbol and unit_id attaches identifiers to a known unit.
 
 ```sql
-normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)
-normalize_quantity(value DOUBLE, unit VARCHAR, unit_table ANY) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)
+normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT(value DOUBLE, unit VARCHAR, dimension VARCHAR)
+normalize_quantity(value DOUBLE, unit VARCHAR, unit_table ANY) → STRUCT(value DOUBLE, unit VARCHAR, dimension VARCHAR)
 ```
 
 **Examples**
@@ -214,10 +214,10 @@ SELECT normalize_quantity(3, 'lanes', (SELECT list(u) FROM my_units u));
 Direction-aware comparison of a requirement with a provided value (both STRUCTs with lo, hi, dimension; the requirement also bound, either may carry unit). Returns STRUCT(score, distance, rule). at_least uses the high end of a provided range, at_most the low end, within the share of the required range covered, equals the relative difference (with lo < hi, as parsed from a tolerance, how far the offer lies outside the span); an unqualified value is a point widened by ±0.01 decades unless default_bound gives it a direction. score is 1 within tol (decades on log scale, relative on linear scale), falling to 0 across soft_band; distance is relative (absolute in K for temperature, which uses a 1 K tolerance and 2.5 K band). Different dimensions, or different currencies, give rule 'gate' and score 0. scale defaults per dimension (linear for time, currency, percent, sound level). Pass the options in order: scale, tol, soft_band, default_bound.
 
 ```sql
-value_satisfies(requirement ANY, provided ANY) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE, default_bound VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
+value_satisfies(requirement ANY, provided ANY) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE, default_bound VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
 ```
 
 **Examples**
