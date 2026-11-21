@@ -169,7 +169,7 @@ FROM threshold_at_precision('my_results', 'my_gold'), unnest(curve) AS u(c);   -
 Operating rule: apply `coverage >= threshold` on the rank-1 row of new results; route the rest
 to review. Re-derive the threshold when the pipeline, vocabulary or data changes. Report the
 threshold's precision on a holdout, not on the data it was chosen on. On the seating benchmark
-(80 requests) the result is threshold 0.769, precision 0.958, accepted share 0.888.
+(80 requests) the result is threshold 0.769, precision 0.958, accepted share 0.8875 (71 of 80).
 
 ## `bootstrap_ci` — confidence intervals by cluster
 

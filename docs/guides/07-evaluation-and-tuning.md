@@ -125,9 +125,9 @@ FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 
 | threshold | precision | accepted_share |
 |----------:|----------:|---------------:|
-| 0.769     | 0.958     | 0.888          |
+| 0.769     | 0.958     | 0.8875         |
 
-Accept picks with coverage ≥ 0.769 automatically: 88.8 % of the requests, 95.8 % of them good.
+Accept picks with coverage ≥ 0.769 automatically: 88.75 % of the requests (71 of 80), 95.8 % of them good.
 The `curve` column holds every (threshold, precision, share) point. The parameter is called
 `target_precision` because `target` is a reserved word in DuckDB.
 

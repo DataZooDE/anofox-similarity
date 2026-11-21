@@ -29,17 +29,17 @@ SELECT * FROM read_csv('test/data/coverage/mini/tree_attributes.csv');
 
 .print '>>> 1. Rank programmes S1..S6 against request Q1'
 -- mu := 0.0 switches off the attribute-name discount so only the values count.
-SELECT candidate_id, coverage, round(stage1_score, 4) AS stage1, rank,
+SELECT candidate_id, coverage, round(stage1_score, 5) AS stage1, rank,
        n_requirements, n_gaps, assignment_used
 FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'], mu := 0.0)
 ORDER BY rank;
 -- Expected:
---   S1 | 1.0   | 1.0089 | 1 | 4 | 0 | partition   meets everything
---   S6 | 1.0   | 1.0067 | 2 | 4 | 0 | partition   meets everything, more surplus
---   S3 | 0.625 | 0.6313 | 3 | 4 | 2 | partition   2 of 4 massage zones, no memory
---   S2 | 0.5   | 1.01   | 4 | 4 | 2 | partition   right classes, values miss
---   S4 | 0.125 | 0.2517 | 5 | 4 | 4 | partition
---   S5 | 0.0   | 0.1261 | 6 | 4 | 4 | partition
+--   S1 | 1.0   | 1.00889 | 1 | 4 | 0 | partition   meets everything
+--   S6 | 1.0   | 1.00667 | 2 | 4 | 0 | partition   meets everything, more surplus
+--   S3 | 0.625 | 0.63125 | 3 | 4 | 2 | partition   2 of 4 massage zones, no memory
+--   S2 | 0.5   | 1.01    | 4 | 4 | 2 | partition   right classes, values miss
+--   S4 | 0.125 | 0.25167 | 5 | 4 | 4 | partition
+--   S5 | 0.0   | 0.12611 | 6 | 4 | 4 | partition
 -- S2 has the best class multiset (stage 1) but its values fail: stage 2 ranks it 4th.
 
 .print ''

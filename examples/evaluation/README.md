@@ -55,7 +55,7 @@ FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 | top-1 is a best programme | 0.925 | ≥ 0.85 |
 | mean regret of the top-1 pick | 0.0087 | ≤ 0.01 |
 | MAE over all 1 600 ranked pairs | 0.0361 | ≤ 0.05 |
-| auto-accept threshold at 95 % precision | 0.769 (88.8 % accepted) | |
+| auto-accept threshold at 95 % precision | 0.769 (88.75 % accepted, 71 of 80) | |
 
 ## Key Concepts
 

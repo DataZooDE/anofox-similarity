@@ -83,6 +83,10 @@ EXECUTE search(MAP {'y': 1});
 - **DuckDB 1.5.6 cannot `CASE` over an array**: `CASE WHEN c THEN embed_text(t) END` fails with
   "Unimplemented type for case expression: FLOAT[384]" (2.0 is fine). Cast inside and back:
   `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
+- **`round()` of a DOUBLE half-way value differs by DuckDB version**: from 2.0.1 it rounds the stored
+  binary value, so `round(0.8875, 3)` is 0.887 there and 0.888 on 1.5.6 and 2.0.0. Shares such as 71/80
+  are such values; the examples show them with one more digit. Round a DECIMAL
+  (`round(x::DECIMAL(18, 6), 3)`) when a report must match across versions.
 - Upgrading from a release with list-typed embeddings: see [upgrading](../UPGRADING.md).
 
 ### What LOAD creates
