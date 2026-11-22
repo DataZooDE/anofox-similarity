@@ -135,3 +135,31 @@ SELECT i.issue, i.severity FROM (SELECT unnest(aas_issues('{"submodels": [{"mode
 WHERE i.issue = 'unknown_unit';
 ----
 unknown_unit	warning
+
+# ---------------------------------------------------------------- names choose, without discount
+# Without name vectors the names still choose which value answers (token overlap), but do not
+# lower the score: both offered lengths meet 'at least 60 mm', the one named like the
+# requirement answers it, and the coverage is 1.
+
+statement ok
+CREATE TABLE np_docs AS SELECT * FROM (VALUES
+  ('{"tree_id": "NQ", "root": {"node_id": "NQ", "children": [{"node_id": "NQ.1", "label": "headrest", "class_id": "headrest",
+     "attributes": [{"attr_id": "h", "name": "height travel", "text": "at least 60 mm"}]}]}}'),
+  ('{"tree_id": "NO", "root": {"node_id": "NO", "children": [{"node_id": "NO.1", "label": "headrest", "class_id": "headrest",
+     "attributes": [{"attr_id": "a", "name": "width", "text": "70 mm"}, {"attr_id": "z", "name": "height travel", "text": "65 mm"}]}]}}')
+) t(doc);
+
+statement ok
+CREATE TABLE np_n AS SELECT unnest(tree_from_json(doc)) AS x FROM np_docs;
+
+statement ok
+CREATE TABLE np_nodes AS SELECT x.* EXCLUDE (attributes) FROM np_n;
+
+statement ok
+CREATE TABLE np_attrs AS SELECT unnest(x.attributes, recursive := true) FROM np_n;
+
+query TRRT
+SELECT prov_value, attr_score, (SELECT coverage FROM tree_coverage('NQ', candidates := ['NO'], nodes_table := 'np_nodes', attrs_table := 'np_attrs')), name_rule
+FROM tree_coverage_trace('NQ', candidates := ['NO'], nodes_table := 'np_nodes', attrs_table := 'np_attrs');
+----
+0.065 m	1.0	1.0	exact

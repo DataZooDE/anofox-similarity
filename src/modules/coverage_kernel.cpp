@@ -741,7 +741,8 @@ struct AttrMatch {
 	double distance = 0;
 	string rule;
 	string name_rule; // key | vector | exact | tokens (see NameSim)
-	double score = 0;
+	double score = 0; // the attribute's score: discounted by the names only for name_rule 'vector'
+	double pick = 0;  // the score the value is chosen by: always discounted by the names
 	string bound;
 };
 
@@ -879,12 +880,13 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.name_sim = name.sim;
 			m.name_rule = name.rule;
 		}
-		// without name vectors on both sides the names are not evidence enough to discount a value
-		// (cross-language token overlap is often 0): mu applies to vector agreement only
-		double mu = m.name_rule == string("vector") ? o.mu : 0.0;
-		m.score = (mu * m.name_sim + (1 - mu)) * m.value_score;
-		if (best.gate || m.score > best.score ||
-		    (m.score == best.score && m.value_score == best.value_score && Closer(m, best, o))) {
+		// names choose which value answers (pick, discounted by mu in every case); only name-vector
+		// agreement also lowers the attribute's score: without vectors the names are not evidence
+		// enough to discount a value (cross-language token overlap is often 0)
+		m.pick = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
+		m.score = m.name_rule == string("vector") ? m.pick : m.value_score;
+		if (best.gate || m.pick > best.pick ||
+		    (m.pick == best.pick && m.value_score == best.value_score && Closer(m, best, o))) {
 			best = m;
 		}
 	}
