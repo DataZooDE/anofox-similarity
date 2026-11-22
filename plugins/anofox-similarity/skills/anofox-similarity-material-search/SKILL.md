@@ -16,8 +16,9 @@ user-invocable: false
 
 **Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/01-similarity-scalars.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/01-similarity-scalars.md), [`docs/api/02-material-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/02-material-search.md), [`docs/api/03-bom-traversal.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/03-bom-traversal.md)
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> Every SQL block here builds its data inline and runs as it stands, without a clone of the
+> repository. Mentions of `test/data/...` name the benchmark files (repository data: clone, or
+> download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage).
 
 Compare materials by their bills of materials: score two component sets, rank the materials most
 similar to one material (direct-children Jaccard or the multi-level WL kernel), detect which old

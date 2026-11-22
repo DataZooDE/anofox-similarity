@@ -16,8 +16,9 @@ user-invocable: false
 
 **Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/14-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/14-classification-and-review.md) (guide: [`docs/guides/06-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/06-classification-and-review.md))
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> Every SQL block here builds its data inline and runs as it stands, without a clone of the
+> repository. Mentions of `test/data/...` name the benchmark files (repository data: clone, or
+> download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage).
 
 Coverage matching (`tree_coverage`, see **anofox-similarity-coverage**) compares items by
 class. Specifications and archives rarely carry classes, so this toolkit gives them classes: the

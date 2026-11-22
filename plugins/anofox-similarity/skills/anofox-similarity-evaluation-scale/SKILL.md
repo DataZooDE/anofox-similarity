@@ -16,8 +16,9 @@ user-invocable: false
 
 **Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/15-evaluation.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/15-evaluation.md), [`docs/api/16-lsh-and-clustering.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/16-lsh-and-clustering.md)
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> Every SQL block here runs as it stands, without a clone of the repository: the coverage
+> fixture is inline. Only the benchmark mentions (`test/data/coverage/...`) need the repository
+> data (clone, or download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage).
 
 Measure a matching pipeline against reviewed results, pick an operating threshold, put
 confidence intervals on the KPIs and fit the coverage kernel's weights; then scale the
@@ -216,8 +217,122 @@ classifier's `attr_bonus` / `temperature` are **not** tuned here: use `classify_
 `eval_ranking` (anofox-similarity-classification-review skill).
 
 ```sql
-CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
-CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+-- the coverage fixture (requests Q1-Q3, programmes S1-S6, modules M1-M5)
+CREATE OR REPLACE TABLE tree_nodes (tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count BIGINT, source VARCHAR);
+INSERT INTO tree_nodes VALUES
+  ('Q1', 'Q1', NULL, 'container', 'AND', 'Seat specification Q1 (premium front seat)', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.c1', 'Q1', 'container', 'AND', '2 Comfort functions', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.1', 'Q1.c1', 'item', 'AND', '2 x seat heating with time to 37 °C max. 180 s and current draw max. 8 A', '2 Comfort functions', 'seat_heating', 2, 'aurivon'),
+  ('Q1', 'Q1.2', 'Q1.c1', 'item', 'AND', '4-zone massage', '2 Comfort functions', 'massage', 4, 'aurivon'),
+  ('Q1', 'Q1.3', 'Q1.c1', 'item', 'AND', 'powered headrest with height travel at least 60 mm', '2 Comfort functions', 'headrest_powered', 1, 'aurivon'),
+  ('Q1', 'Q1.s1', 'Q1', 'container', 'AND', '3 Electrics', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.4', 'Q1.s1', 'item', 'AND', 'seat memory for at least 8 ways', '3 Electrics', 'memory_module', 1, 'aurivon'),
+  ('Q2', 'Q2', NULL, 'container', 'AND', 'Lastenheft Q2 Sitzschiene', NULL, NULL, 1, 'brennholt'),
+  ('Q2', 'Q2.1', 'Q2', 'item', 'AND', 'Längsverstellung mindestens 24 cm Weg und max. 38 dB(A)', NULL, 'seat_track', 1, 'brennholt'),
+  ('Q3', 'Q3', NULL, 'container', 'AND', 'Seat specification Q3 (climate package)', NULL, NULL, 1, 'calvento'),
+  ('Q3', 'Q3.1', 'Q3', 'item', 'AND', '2 heated zones', NULL, 'seat_heating', 2, 'calvento'),
+  ('Q3', 'Q3.2', 'Q3', 'item', 'AND', '2 ventilated zones', NULL, 'seat_ventilation', 2, 'calvento'),
+  ('S1', 'S1', NULL, 'container', 'AND', 'S1 premium front row', NULL, NULL, 1, 'internal'),
+  ('S1', 'S1.1', 'S1', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S1', 'S1.2', 'S1', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S1', 'S1.3', 'S1', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S1', 'S1.4', 'S1', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S1', 'S1.5', 'S1', 'item', 'AND', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('S2', 'S2', NULL, 'container', 'AND', 'S2 premium front row lean', NULL, NULL, 1, 'internal'),
+  ('S2', 'S2.g', 'S2', 'container', 'AND', 'Komfortfunktionen', NULL, NULL, 1, 'internal'),
+  ('S2', 'S2.1', 'S2.g', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S2', 'S2.2', 'S2.g', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S2', 'S2.3', 'S2.g', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S2', 'S2.4', 'S2', 'item', 'AND', 'Sitzmemory', NULL, 'memory_module', 1, 'internal'),
+  ('S3', 'S3', NULL, 'container', 'AND', 'S3 mid front row', NULL, NULL, 1, 'internal'),
+  ('S3', 'S3.1', 'S3', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S3', 'S3.2', 'S3', 'item', 'AND', 'Massage-Blasenmatte', NULL, 'massage', 2, 'internal'),
+  ('S3', 'S3.3', 'S3', 'item', 'AND', 'Kopfstützenantrieb', NULL, 'headrest_powered', 1, 'internal'),
+  ('S4', 'S4', NULL, 'container', 'AND', 'S4 climate seat', NULL, NULL, 1, 'internal'),
+  ('S4', 'S4.1', 'S4', 'item', 'AND', 'Sitzheizung Carbon', NULL, 'seat_heating', 4, 'internal'),
+  ('S4', 'S4.2', 'S4', 'item', 'AND', 'Lüftermodul', NULL, 'seat_ventilation', 2, 'internal'),
+  ('S5', 'S5', NULL, 'container', 'AND', 'S5 economy front row', NULL, NULL, 1, 'internal'),
+  ('S5', 'S5.1', 'S5', 'item', 'AND', 'LV-Schiene', NULL, 'seat_track', 1, 'internal'),
+  ('S5', 'S5.2', 'S5', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S6', 'S6', NULL, 'container', 'AND', 'S6 premium front row with climate package', NULL, NULL, 1, 'internal'),
+  ('S6', 'S6.1', 'S6', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S6', 'S6.2', 'S6', 'item', 'AND', 'Klimapaket Heizung', NULL, 'seat_ventilation', 2, 'internal'),
+  ('S6', 'S6.3', 'S6', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S6', 'S6.4', 'S6', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S6', 'S6.5', 'S6', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S6', 'S6.6', 'S6', 'item', 'AND', 'Längsversteller', NULL, 'seat_track', 2, 'internal'),
+  ('M1', 'M1', NULL, 'variant_group', 'AND', 'Längsversteller', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C1', 'M1', 'variant_group', 'OR', 'Längsversteller Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C1.A1', 'M1.C1', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M1', 'M1.C1.A2', 'M1.C1', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M1', 'M1.C2', 'M1', 'variant_group', 'OR', 'Längsversteller Ausführung 2', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C2.A1', 'M1.C2', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M2', 'M2', NULL, 'variant_group', 'AND', 'Heizmatte', NULL, NULL, 1, 'internal'),
+  ('M2', 'M2.C1', 'M2', 'variant_group', 'OR', 'Heizmatte Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M2', 'M2.C1.A1', 'M2.C1', 'item', 'OR', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M2', 'M2.C1.A2', 'M2.C1', 'item', 'OR', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M3', 'M3', NULL, 'variant_group', 'AND', 'Komfortpaket Premium', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1', 'M3', 'variant_group', 'OR', 'Komfortpaket Premium Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1.A1', 'M3.C1', 'container', 'OR', 'Komfortpaket Premium 1.1', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1.A1.h', 'M3.C1.A1', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M3', 'M3.C1.A1.v', 'M3.C1.A1', 'item', 'AND', 'Lüftermodul', NULL, 'seat_ventilation', 2, 'internal'),
+  ('M3', 'M3.C1.A1.m', 'M3.C1.A1', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('M4', 'M4', NULL, 'variant_group', 'AND', 'Memory-SG', NULL, NULL, 1, 'internal'),
+  ('M4', 'M4.C1', 'M4', 'variant_group', 'OR', 'Memory-SG Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M4', 'M4.C1.A1', 'M4.C1', 'item', 'OR', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('M4', 'M4.C1.A2', 'M4.C1', 'item', 'OR', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('M5', 'M5', NULL, 'variant_group', 'AND', 'KS elektrisch', NULL, NULL, 1, 'internal'),
+  ('M5', 'M5.C1', 'M5', 'variant_group', 'OR', 'KS elektrisch Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M5', 'M5.C1.A1', 'M5.C1', 'item', 'OR', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('M5', 'M5.C1.A2', 'M5.C1', 'item', 'OR', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal');
+CREATE OR REPLACE TABLE tree_attributes (tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR);
+INSERT INTO tree_attributes VALUES
+  ('Q1', 'Q1.1', 'a1', 'time to 37 °C', 'time', 's', 180, 180, 'required', 'at_most', NULL, NULL),
+  ('Q1', 'Q1.1', 'a2', 'current draw', 'current', 'A', 8, 8, 'required', 'at_most', NULL, NULL),
+  ('Q1', 'Q1.3', 'a1', 'height travel', 'length', 'm', 0.06, 0.06, 'required', 'at_least', NULL, NULL),
+  ('Q1', 'Q1.4', 'a1', 'ways', 'count', '1', 8, 8, 'required', 'at_least', NULL, NULL),
+  ('Q2', 'Q2.1', 'a1', 'Verstellweg', 'length', 'm', 0.24, 0.24, 'required', 'at_least', NULL, NULL),
+  ('Q2', 'Q2.1', 'a2', 'Geräusch', 'sound_level', 'dB(A)', 38, 38, 'required', 'at_most', NULL, NULL),
+  ('S1', 'S1.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.07, 0.07, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.4', 'ways', 'gespeicherte Verstellwege', 'count', '1', 10, 10, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.5', 'travel', 'Verstellweg', 'length', 'm', 0.25, 0.25, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.5', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 36, 36, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 240, 240, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 9, 9, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.05, 0.05, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.4', 'ways', 'gespeicherte Verstellwege', 'count', '1', 8, 8, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 170, 170, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 7.5, 7.5, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.06, 0.06, 'provided', NULL, NULL, NULL),
+  ('S4', 'S4.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 160, 160, 'provided', NULL, NULL, NULL),
+  ('S4', 'S4.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 10, 10, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.1', 'travel', 'Verstellweg', 'length', 'm', 0.22, 0.22, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 34, 34, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.2', 'ways', 'gespeicherte Verstellwege', 'count', '1', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.4', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.07, 0.07, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.5', 'ways', 'gespeicherte Verstellwege', 'count', '1', 12, 12, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.6', 'travel', 'Verstellweg', 'length', 'm', 0.26, 0.26, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.6', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 35, 35, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A1', 'travel', 'Verstellweg', 'length', 'm', 0.22, 0.22, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 35, 35, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A2', 'travel', 'Verstellweg', 'length', 'm', 0.26, 0.26, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A2', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 41, 41, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C2.A1', 'travel', 'Verstellweg', 'length', 'm', 0.25, 0.25, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C2.A1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 36, 36, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A2', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 240, 240, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A2', 'current_draw', 'Stromaufnahme', 'current', 'A', 9, 9, 'provided', NULL, NULL, NULL),
+  ('M3', 'M3.C1.A1.h', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 200, 200, 'provided', NULL, NULL, NULL),
+  ('M3', 'M3.C1.A1.h', 'current_draw', 'Stromaufnahme', 'current', 'A', 7, 7, 'provided', NULL, NULL, NULL),
+  ('M4', 'M4.C1.A1', 'ways', 'gespeicherte Verstellwege', 'count', '1', 8, 8, 'provided', NULL, NULL, NULL),
+  ('M4', 'M4.C1.A2', 'ways', 'gespeicherte Verstellwege', 'count', '1', 12, 12, 'provided', NULL, NULL, NULL),
+  ('M5', 'M5.C1.A1', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.05, 0.05, 'provided', NULL, NULL, NULL),
+  ('M5', 'M5.C1.A2', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.08, 0.08, 'provided', NULL, NULL, NULL);
 CREATE TABLE reviewed_matches AS SELECT * FROM (VALUES
     ('Q1', 'S1', 1.0::DOUBLE), ('Q1', 'S6', 1.0), ('Q1', 'S3', 0.625), ('Q1', 'S2', 0.5),
     ('Q1', 'S4', 0.125), ('Q1', 'S5', 0.0)) t(query_id, candidate_id, true_coverage);
@@ -283,9 +398,33 @@ below). Use `lsh_bands` directly only for a custom pipeline, e.g. Jaccard near-d
 candidates by joining on equal band hashes:
 
 ```sql
+CREATE OR REPLACE TABLE feature_multiset (entity_id VARCHAR, feature_id VARCHAR, weight BIGINT);
+INSERT INTO feature_multiset VALUES
+  ('S1', 'seat_heating', 2),
+  ('S1', 'massage', 4),
+  ('S1', 'headrest_powered', 1),
+  ('S1', 'memory_module', 1),
+  ('S1', 'seat_track', 1),
+  ('S2', 'seat_heating', 2),
+  ('S2', 'massage', 4),
+  ('S2', 'headrest_powered', 1),
+  ('S2', 'memory_module', 1),
+  ('S3', 'seat_heating', 2),
+  ('S3', 'massage', 2),
+  ('S3', 'headrest_powered', 1),
+  ('S4', 'seat_heating', 4),
+  ('S4', 'seat_ventilation', 2),
+  ('S5', 'seat_track', 1),
+  ('S5', 'memory_module', 1),
+  ('S6', 'seat_heating', 2),
+  ('S6', 'seat_ventilation', 2),
+  ('S6', 'massage', 4),
+  ('S6', 'headrest_powered', 1),
+  ('S6', 'memory_module', 1),
+  ('S6', 'seat_track', 2);
 CREATE TABLE sigs AS
 SELECT entity_id, weighted_minhash(map(list(feature_id), list(weight::DOUBLE)), 64) AS sig
-FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv') GROUP BY entity_id;
+FROM feature_multiset GROUP BY entity_id;
 CREATE TABLE sig_bands AS
 SELECT entity_id, generate_subscripts(lsh_bands(sig, 16), 1) AS j, unnest(lsh_bands(sig, 16)) AS h FROM sigs;
 WITH cand AS (
@@ -422,9 +561,7 @@ the extension).
 ## Canonical evaluation pipeline
 
 ```sql
--- 1. trees (mini fixture) and the matcher's results with default weights
-CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
-CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+-- 1. trees: tree_nodes and tree_attributes of the fixture above; the matcher's results with default weights
 CREATE TABLE results AS SELECT * FROM tree_coverage(['Q1', 'Q2', 'Q3'], k := 4);
 
 -- 2. reviewed gold: the coverage reviewers confirmed per (query, candidate)
