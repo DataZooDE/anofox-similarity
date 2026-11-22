@@ -2,6 +2,10 @@
 
 > Use consumption history to find the material a new one replaces, and analogs to forecast it.
 
+> **Data.** The examples read files from the repository ([`test/data/synthetic`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/synthetic)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Detect predecessor-successor pairs with `infer_predecessors`
 - Find analogs with history for a new product with `cold_start_analogs`

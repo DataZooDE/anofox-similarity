@@ -204,7 +204,8 @@ tree_coverage_trace(query_tree_id, candidates, k, nodes_table, candidate_nodes_t
 **Examples**
 
 ```sql
-SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;
+SELECT * FROM tree_coverage_trace('R01', candidates := ['P001'])
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);
 ```
 
 ### `coverage_recall`

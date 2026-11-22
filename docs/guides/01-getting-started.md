@@ -106,7 +106,7 @@ Every function reads plain tables. You map your ERP data to these shapes with SQ
 | BOM edges | `bom_items(parent_id, child_id[, quantity])` | Jaccard and WL search, cold start, predecessors |
 | Goods movements | `goods_movements(material_id, movement_date, quantity)` | `infer_predecessors`, `cold_start_analogs` |
 | Feature multisets | `(entity_id, feature_id, weight)` | `find_covering_entities`, `minhash_index` |
-| Property trees | `tree_nodes(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count[, source, context])` and `tree_attributes(tree_id, node_id, attr_id, name, dimension, unit, lo, hi[, bound, category])` | `tree_coverage`, `validate_trees`, `classify_to_catalogue` |
+| Property trees | `tree_nodes(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count[, source, context])` and `tree_attributes(tree_id, node_id, attr_id, name, dimension, unit, lo, hi[, bound, category, attr_key])` | `tree_coverage`, `validate_trees`, `classify_to_catalogue` |
 | Universal BOM | `bom_header(bom_id, parent_material_id, ...)` and `bom_component(bom_id, child_material_id, quantity_per, ...)` | `bom_explosion_*`, `bom_where_used`, `bom_common_components` |
 
 Notes:

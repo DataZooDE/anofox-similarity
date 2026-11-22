@@ -2,6 +2,10 @@
 
 > Find products with similar bills of materials, and walk the BOM structure.
 
+> **Data.** The examples read files from the repository ([`test/data/synthetic`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/synthetic)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Choose between Jaccard (component overlap) and the WL kernel (BOM structure)
 - Run `find_similar_materials_jaccard` and `find_similar_materials_wl_kernel`

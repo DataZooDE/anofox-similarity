@@ -2,6 +2,10 @@
 
 > Does a past solution cover what a new request asks for, and where are the gaps?
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Understand directional (coverage) matching and how it differs from similarity
 - Rank feature multisets with `containment`, the `weighted_*` measures and `find_covering_entities`
@@ -190,7 +194,7 @@ SELECT req_node_id, matched_node_id, attr_name, req_value, prov_value,
        round(value_score, 3) AS value_score, round(distance, 3) AS distance
 FROM tree_coverage_trace('NEW-1', candidates := ['S2'], nodes_table := 'spec_nodes', attrs_table := 'spec_attrs',
                          candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes')
-WHERE is_gap;
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);
 ```
 
 | req_node_id | matched_node_id | attr_name             | req_value     | prov_value | value_score | distance |

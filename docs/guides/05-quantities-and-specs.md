@@ -2,6 +2,10 @@
 
 > Parse limits like "max. 38 dB(A)" or "mindestens 24 cm" and check offered values against them.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Parse English and German quantity texts with `parse_quantity`
 - Check a provided value against a requirement with `value_satisfies`

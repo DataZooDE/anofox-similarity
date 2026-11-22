@@ -2,6 +2,10 @@
 
 > Map free-text items onto your catalogue with your own vectors, and review only what matters.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Classify items with `classify_to_catalogue` using vectors you compute yourself
 - Use centring, late interaction, the attribute bonus, the temperature and the margin

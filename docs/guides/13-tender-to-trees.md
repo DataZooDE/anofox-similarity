@@ -27,6 +27,13 @@ The format is [tree.schema.json](../requirements-matching/tree.schema.json). Val
 `tree_from_json` parses them with `parse_quantity` in the document's `lang`. `class_id` is
 usually missing in a fresh extraction, so this guide leaves it out.
 
+A **band** in a tender (`6 bis 8 m`, `zwischen 6 und 8 m`) reads as a capability range: the offer
+must cover the whole range, so a cable of 7 m scores 0.32 against it. When the tender means "any
+value from 6 to 8 m", the extraction must deliver two limits with the same `attr_key`:
+`{"attr_id": "len_min", "text": "mind. 6 m", "attr_key": "length"}` and
+`{"attr_id": "len_max", "text": "max. 8 m", "attr_key": "length"}`; 7 m then meets both. The rules
+per bound: [quantities and bounds](../concepts/quantities-and-bounds.md).
+
 ## Load the Tender
 
 Two items: an electric seat track with two lengths, and a seat heater.

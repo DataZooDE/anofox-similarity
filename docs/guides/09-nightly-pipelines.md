@@ -3,6 +3,10 @@
 > Run the extension as a scheduled job on a persistent database file: re-runnable, gated, and
 > safe for the readers.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Keep the extension's own tables out of your database file
 - Write a pipeline script that can run again without duplicating rows, and stops on bad data

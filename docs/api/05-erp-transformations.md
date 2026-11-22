@@ -31,7 +31,8 @@ sap_to_bom_items(
     unit VARCHAR,
     valid_from DATE,
     valid_to DATE,
-    bom_version VARCHAR
+    bom_version VARCHAR,
+    client VARCHAR    -- MANDT when every table has mandt, else NULL
 )
 ```
 

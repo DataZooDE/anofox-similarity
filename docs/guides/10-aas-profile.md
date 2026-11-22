@@ -3,6 +3,10 @@
 > Say "one of these configurations" and "8 channels per card, 2 cards" in an Asset
 > Administration Shell, so offers match without one shell per variant.
 
+> **Data.** The examples read files from the repository ([`examples/aas_capability_matching/data`](https://github.com/DataZooDE/anofox-similarity/tree/main/examples/aas_capability_matching/data)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 [Guides](README.md) · [AAS API](../api/17-aas.md) · [Term reference](../aas/index.md) · [Examples](../../examples/aas_capability_matching/)
 
 > Advanced. New to AAS matching? Start with [AAS: First Match](11-aas-first-match.md).

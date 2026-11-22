@@ -2,6 +2,10 @@
 
 > Measure a matching pipeline against reviewed results before you trust it, and tune it on data.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Score a ranking with `eval_ranking` (top-k accuracy, recall, MRR, regret)
 - Check whether the predicted coverage is calibrated with `eval_calibration`

@@ -246,12 +246,14 @@ FROM tree_coverage('REQ', candidates := ['OFFER-A', 'OFFER-B']);
 -- Why OFFER-B falls short: the gap list, value by value
 SELECT req_node_id, attr_name, req_value, prov_value, value_score
 FROM tree_coverage_trace('REQ', candidates := ['OFFER-B'])
-WHERE is_gap ORDER BY req_node_id, attr_name;
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed)
+ORDER BY req_node_id, attr_name;
 -- => REQ.2 | height travel | at_least 0.06 m | 0.05 m | 0.0
 ```
 
-`n_gaps` counts the requirements that fall short (OFFER-B: the headrest travel); the trace lists
-each failing attribute with both values in base units. OFFER-A's German attribute names cost
+`n_gaps` counts the requirements that fall short (OFFER-B: the headrest travel). `is_gap` marks the
+whole requirement on all its rows; the filter keeps only what fails (a value or a count), with
+both values in base units. OFFER-A's German attribute names cost
 nothing: without name vectors the names only pick which value answers a requirement. For real
 tenders see [from a tender to trees](docs/guides/13-tender-to-trees.md); the
 [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,

@@ -2,6 +2,10 @@
 
 > Export the right SAP or Dynamics 365 tables and turn them into the BOM and movement tables the searches read.
 
+> **Data.** The examples read files from the repository ([`examples/erp_extract/data`](https://github.com/DataZooDE/anofox-similarity/tree/main/examples/erp_extract/data)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Know which SAP and D365 tables and columns to export, and which filters matter
 - Build `bom_items`, `materials` and `goods_movements` from the raw tables
@@ -51,8 +55,14 @@ CREATE TABLE stpo AS
 SELECT * REPLACE (menge::DECIMAL(13, 3) AS menge) FROM read_csv('examples/erp_extract/data/stpo.csv', all_varchar = true);
 CREATE TABLE stas AS SELECT * FROM read_csv('examples/erp_extract/data/stas.csv', all_varchar = true);
 CREATE TABLE mseg AS
-SELECT * REPLACE (menge::DECIMAL(13, 3) AS menge) FROM read_csv('examples/erp_extract/data/mseg.csv', all_varchar = true);
+SELECT * REPLACE (menge::DECIMAL(13, 3) AS menge,
+                  -- MSEG from another export may carry ALPHA-converted numbers (100100): pad them
+                  CASE WHEN regexp_full_match(matnr, '[0-9]+') THEN lpad(matnr, 18, '0') ELSE matnr END AS matnr)
+FROM read_csv('examples/erp_extract/data/mseg.csv', all_varchar = true);
 ```
+
+A German-locale export (SE16 with decimal comma) writes `1.000,500`: cast
+`replace(replace(menge, '.', ''), ',', '.')::DECIMAL(13, 3)` instead.
 
 ## SAP: BOM Edges
 
@@ -177,7 +187,7 @@ FROM find_similar_materials_jaccard('PUMP-65', 5);
 | Empty `description` | No text in that language; `language` takes `'E'` or `'EN'` |
 | Demand too high | Goods receipts in the movements. Filter `bwart`, sign by `shkzg` |
 | One D365 parent with two BOMs' children | Two companies flattened together. Filter `company` before `bom_to_items` |
-| Quantities in mixed units | `unit` / `quantity_uom` pass through. Jaccard ignores quantities; normalise before you compare quantities |
+| Quantities in mixed units (`12000 MM` next to `12 M`) | `unit` / `quantity_uom` pass through and Jaccard ignores quantities. Before a quantity-weighted comparison convert to base units: `(parse_quantity(qty::VARCHAR \|\| ' ' \|\| unit)).lo`; SAP units such as `ST`, `M`, `MM`, `KG` are read as written (check others in `quantity_units()`) |
 
 ## Next Steps
 
