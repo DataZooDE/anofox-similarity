@@ -38,7 +38,8 @@ a reader will quote; leave run-to-run-variable values (bootstrap bounds) unasser
 Status per block: PASS, FAIL, EXPECTED-ERROR (keyed in expected_errors.txt by
 "file<TAB>first SQL line"; such a block must fail), SYNOPSIS (keyed in synopsis.txt; a signature
 or placeholder, not run), SKIP-NETWORK, SKIP-VERSION (first line `-- DuckDB 2.0+` on an older
-binary). A default scan also reports STALE keys in the support files.
+binary), SKIP-AFTER-FAIL (in a guide or concepts page, a block after the first FAIL: not run, so
+the first failure is the one reported). A default scan also reports STALE keys in the support files.
 
 Writes a TSV (status, file, line, first SQL line, detail) to --out (default
 build/doc-snippets.tsv). Exit 0 clean; 1 on any FAIL or STALE; 2 when the binary is missing.
@@ -76,6 +77,14 @@ DEFAULT_SCAN_DIRS = [SKILLS_DIR]
 GUIDES_DIR = os.path.join("docs", "guides")
 # The concepts pages (docs/concepts/*.md): their examples run like the guides', top down.
 CONCEPTS_DIR = os.path.join("docs", "concepts")
+
+
+def skip_after_fail(sequential, failed_at):
+    """In a file read top down, the blocks after a FAIL are not run: they would fail for the same
+    reason and hide it. Returns (status, detail), or None when the block runs."""
+    if sequential and failed_at is not None:
+        return "SKIP-AFTER-FAIL", f"not run: the block at line {failed_at} failed"
+    return None
 
 
 def is_sequential(rel_path):
@@ -124,14 +133,16 @@ def git_show(ref, path):
 
 def changed_md_files(ref):
     result = subprocess.run(
-        ["git", "diff", "--name-only", ref, "--", "README.md"] + DEFAULT_SCAN_DIRS,
+        ["git", "diff", "--name-only", ref, "--", "README.md", GUIDES_DIR, CONCEPTS_DIR] + DEFAULT_SCAN_DIRS,
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=True,
     )
     files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return [f for f in files if f.endswith(".md") and os.path.exists(os.path.join(REPO_ROOT, f))]
+    # only what a default scan would check (top-level guides and concepts, not the tutorials)
+    scanned = set(default_scan_files())
+    return [f for f in files if f in scanned]
 
 
 def default_scan_files():
@@ -516,7 +527,8 @@ def main():
     duckdb_major = query_duckdb_major()
 
     rows = []  # (status, file, line, first_sql_line, detail)
-    status_counts = {"PASS": 0, "FAIL": 0, "EXPECTED-ERROR": 0, "SYNOPSIS": 0, "SKIP-NETWORK": 0, "SKIP-VERSION": 0, "STALE": 0}
+    status_counts = {"PASS": 0, "FAIL": 0, "EXPECTED-ERROR": 0, "SYNOPSIS": 0, "SKIP-NETWORK": 0, "SKIP-VERSION": 0,
+                     "SKIP-AFTER-FAIL": 0, "STALE": 0}
 
     all_block_keys = set()
     all_mentioned_names = set()
@@ -545,6 +557,7 @@ def main():
         setup_accum = []  # list of (created_name, block_text)
         sequential = is_sequential(rel_path)
         passed_before = []  # sequential files: earlier blocks that passed, in order
+        failed_at = None  # sequential files: the line of the first FAIL
 
         for block_text, start_line in blocks:
             key = f"{rel_path}\t{first_non_comment_line(block_text)}"
@@ -553,7 +566,10 @@ def main():
             is_setup_only = bool(SETUP_RE.search(block_text)) and not is_placeholder
             first_line_trunc = first_non_comment_line(block_text)[:100]
 
-            if WRITES_REPO_RE.search(strip_sql_comments(block_text)):
+            skipped = skip_after_fail(sequential, failed_at)
+            if skipped:
+                status, detail = skipped
+            elif WRITES_REPO_RE.search(strip_sql_comments(block_text)):
                 status = "FAIL"
                 detail = "writes into test/ or examples/ (shared with the repository); write to the cwd"
             elif NETWORK_RE.search(strip_sql_comments(block_text)):
@@ -601,6 +617,8 @@ def main():
             status_counts[status] = status_counts.get(status, 0) + 1
             if sequential and status == "PASS":
                 passed_before.append(block_text)
+            if sequential and status == "FAIL" and failed_at is None:
+                failed_at = start_line + 1
 
             if is_setup_only:
                 # every table/view/macro the block creates (comments ignored), so a later block
@@ -647,7 +665,9 @@ def main():
     n = status_counts.get("SKIP-NETWORK", 0)
     v = status_counts.get("SKIP-VERSION", 0)
     t = status_counts.get("STALE", 0)
-    print(f"check_doc_snippets: {p} PASS, {fcount} FAIL, {e} EXPECTED-ERROR, {s} SYNOPSIS, {n} SKIP-NETWORK, {v} SKIP-VERSION, {t} STALE")
+    af = status_counts.get("SKIP-AFTER-FAIL", 0)
+    after = f", {af} SKIP-AFTER-FAIL" if af else ""
+    print(f"check_doc_snippets: {p} PASS, {fcount} FAIL, {e} EXPECTED-ERROR, {s} SYNOPSIS, {n} SKIP-NETWORK, {v} SKIP-VERSION, {t} STALE{after}")
 
     return 1 if (fcount or t) else 0
 

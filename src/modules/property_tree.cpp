@@ -1118,26 +1118,36 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			WHERE s.dimension IS NOT NULL
 			UNION ALL
 			-- a unit slip: a value about 1000 x (or 1/1000 of) the other values of the same property
+			-- (key or name, dimension; currencies also by currency, as they never convert). A value is
+			-- flagged when it is that far off from more than half of the other values, never compared
+			-- with itself; with one other value, both are flagged (which one slipped is not known).
 			SELECT tree_id, node_id, attr_id, 'magnitude_outlier', 'warning',
 			       'value ' || v::VARCHAR || ' ' || coalesce(unit, '') || ' is about ' ||
 			       CASE WHEN v > ref THEN round(v / ref)::BIGINT::VARCHAR || ' x'
 			            ELSE '1/' || round(ref / v)::BIGINT::VARCHAR || ' of' END ||
-			       ' the other values of ' || k || ' (median ' || ref::VARCHAR || '): a unit slip (W for kW, mm for m)?'
+			       CASE WHEN n_other = 1 THEN ' the other value (' || ref::VARCHAR || ')'
+			            ELSE ' the median (' || ref::VARCHAR || ') of ' || n_off::VARCHAR || ' of its ' ||
+			                 n_other::VARCHAR || ' other values' END ||
+			       ' of ' || k || ': a unit slip (W for kW, mm for m)?'
 			FROM (
-				SELECT *, CASE WHEN cnt = 2 THEN total - v ELSE med END AS ref
-				FROM (
+				WITH vals AS (
 					SELECT tree_id, node_id, attr_id, unit, coalesce(attr_key, name) || ' [' || dimension || ']' AS k,
-					       abs(coalesce((lo + hi) / 2, lo, hi)) AS v,
-					       count(*) OVER w AS cnt, sum(abs(coalesce((lo + hi) / 2, lo, hi))) OVER w AS total,
-					       median(abs(coalesce((lo + hi) / 2, lo, hi))) OVER w AS med
+					       coalesce(attr_key, name) || '|' || dimension ||
+					       CASE WHEN dimension = 'currency' THEN '|' || coalesce(unit, '') ELSE '' END AS pk,
+					       abs(coalesce((lo + hi) / 2, lo, hi)) AS v
 					FROM a
 					WHERE dimension IS NOT NULL AND coalesce(attr_key, name) IS NOT NULL
 					  AND coalesce(lo, hi) IS NOT NULL AND abs(coalesce((lo + hi) / 2, lo, hi)) > 0
-					WINDOW w AS (PARTITION BY coalesce(attr_key, name), dimension)
 				)
-				WHERE cnt >= 2
+				SELECT x.tree_id, x.node_id, x.attr_id, x.unit, x.k, x.v, count(*) AS n_other,
+				       count(*) FILTER (WHERE x.v / y.v BETWEEN 300 AND 3000 OR y.v / x.v BETWEEN 300 AND 3000) AS n_off,
+				       median(y.v) FILTER (WHERE x.v / y.v BETWEEN 300 AND 3000 OR y.v / x.v BETWEEN 300 AND 3000) AS ref
+				FROM vals x JOIN vals y ON y.pk = x.pk
+				 AND NOT (y.tree_id IS NOT DISTINCT FROM x.tree_id AND y.node_id IS NOT DISTINCT FROM x.node_id
+				          AND y.attr_id IS NOT DISTINCT FROM x.attr_id)
+				GROUP BY x.tree_id, x.node_id, x.attr_id, x.unit, x.k, x.v
 			)
-			WHERE ref > 0 AND (v / ref BETWEEN 300 AND 3000 OR ref / v BETWEEN 300 AND 3000)
+			WHERE n_off > 0 AND 2 * n_off > n_other OR (n_other = 1 AND n_off = 1)
 		)";
 		attr_checks = ", a AS (" + a + ") SELECT * FROM (SELECT * FROM checks" + attr_checks + ")";
 	} else {
@@ -1362,7 +1372,8 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "attributes with an attr_key: the key identifies the property), mixed_roles (required and provided "
 	                  "attributes in one tree; role is informational), mixed_dimensions (one "
 	                  "attribute name with several dimensions within a source), magnitude_outlier (a value about 1000 x or 1/1000 of "
-	                  "the other values of the same attr_key, else name, and dimension: a unit slip). The details name "
+	                  "more than half of the other values of the same attr_key, else name, and dimension; currencies "
+	                  "only within one currency: a unit slip). The details name "
 	                  "the fix.",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }

@@ -104,7 +104,7 @@ B	ip	category_without_dimension
 
 query I
 SELECT count(*) FROM validate_trees('n', 'attrs')
-WHERE (issue = 'magnitude_outlier' AND detail LIKE '%1/1273 of%unit slip%')
+WHERE (issue = 'magnitude_outlier' AND tree_id = 'A' AND detail LIKE '%1/1318 of the median (725.0) of 2 of its 2 other values%unit slip%')
    OR (issue = 'unknown_unit' AND detail LIKE '%unit msec%unit_table%')
    OR (issue = 'category_without_dimension' AND detail LIKE '%give the attribute an attr_key%');
 ----
@@ -163,3 +163,79 @@ SELECT prov_value, attr_score, (SELECT coverage FROM tree_coverage('NQ', candida
 FROM tree_coverage_trace('NQ', candidates := ['NO'], nodes_table := 'np_nodes', attrs_table := 'np_attrs');
 ----
 0.065 m	1.0	1.0	exact
+
+# ---------------------------------------------------------------- final review F8: promised behaviour
+
+# mu still discounts with name vectors: cos 0.96, floor 0.85 -> name_sim 0.7333;
+# attr = (0.2 * 0.7333 + 0.8) * 1 = 0.9467, and 1.0 with mu := 0
+statement ok
+CREATE TABLE nvd AS SELECT * FROM (VALUES
+ ('{"tree_id": "VQ", "root": {"node_id": "VQ", "children": [{"node_id": "VQ.1", "label": "heater", "class_id": "heating", "attributes": [{"attr_id": "p", "name": "Heizleistung", "text": "mind. 60 W"}]}]}}'),
+ ('{"tree_id": "VO", "root": {"node_id": "VO", "children": [{"node_id": "VO.1", "label": "heater", "class_id": "heating", "attributes": [{"attr_id": "q", "name": "heating power", "text": "80 W"}]}]}}')) t(doc);
+
+statement ok
+CREATE TABLE nvn AS SELECT unnest(tree_from_json(doc)) AS x FROM nvd;
+
+statement ok
+CREATE TABLE nv_nodes AS SELECT x.* EXCLUDE (attributes) FROM nvn;
+
+statement ok
+CREATE TABLE nv_attrs AS SELECT unnest(x.attributes, recursive := true) FROM nvn;
+
+statement ok
+CREATE TABLE nv_vec AS SELECT * FROM (VALUES ('Heizleistung', [1.0, 0.0]::FLOAT[2]), ('heating power', [0.96, 0.28]::FLOAT[2])) t(name, vec);
+
+query RRT
+SELECT (SELECT round(coverage, 4) FROM tree_coverage('VQ', candidates := ['VO'], nodes_table := 'nv_nodes', attrs_table := 'nv_attrs', name_vectors := 'nv_vec')),
+       (SELECT round(coverage, 4) FROM tree_coverage('VQ', candidates := ['VO'], nodes_table := 'nv_nodes', attrs_table := 'nv_attrs', name_vectors := 'nv_vec', mu := 0.0)),
+       (SELECT name_rule FROM tree_coverage_trace('VQ', candidates := ['VO'], nodes_table := 'nv_nodes', attrs_table := 'nv_attrs', name_vectors := 'nv_vec'));
+----
+0.9467	1.0	vector
+
+# aas_quality counts an unknown unit text (msec) as an issue and an unresolved unit
+query III
+SELECT q.n_values, q.n_unresolved_units, q.n_issues FROM (SELECT unnest(aas_quality('{"submodels": [{"modelType": "Submodel", "id": "urn:x:sm", "idShort": "TechnicalData", "submodelElements": [{"modelType": "Property", "idShort": "CycleTime", "valueType": "xs:double", "value": "1", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAQ326#004"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "msec"}}]}]}]}')) AS q);
+----
+1	1	1
+
+# without name vectors every mu gives the same coverage, so fit_coverage_weights finds equal MAE
+statement ok
+CREATE TABLE fit_nodes AS SELECT * FROM read_csv('test/data/coverage/mini/tree_nodes.csv');
+
+statement ok
+CREATE TABLE fit_attrs AS SELECT * FROM read_csv('test/data/coverage/mini/tree_attributes.csv');
+
+statement ok
+CREATE TABLE fit_rm AS SELECT * FROM (VALUES ('Q1','S1',1.0),('Q1','S2',0.5),('Q1','S3',0.6),('Q1','S6',1.0)) t(query_id, candidate_id, true_coverage);
+
+query II
+SELECT count(*), count(DISTINCT mae) FROM fit_coverage_weights('fit_rm', label_weights := [0.0], mus := [0.0, 0.2, 0.5],
+  nodes_table := 'fit_nodes', attrs_table := 'fit_attrs');
+----
+3	1
+
+# ---------------------------------------------------------------- final review F4, F9: magnitude_outlier
+
+statement ok
+CREATE TABLE mo_nodes AS SELECT * FROM (VALUES ('T1','T1',NULL,'container','AND','x',NULL,1.0),('T1','T1.1','T1','item','AND','x','c',1.0),
+  ('T2','T2',NULL,'container','AND','x',NULL,1.0),('T2','T2.1','T2','item','AND','x','c',1.0),
+  ('T3','T3',NULL,'container','AND','x',NULL,1.0),('T3','T3.1','T3','item','AND','x','c',1.0)) t(tree_id,node_id,parent_id,node_kind,edge_type,label,class_id,count);
+
+# currencies never convert: 150 EUR against 150000 JPY is not a unit slip
+statement ok
+CREATE TABLE mo_cur AS SELECT * FROM (VALUES ('T1','T1.1','a','price','currency','EUR',150.0,150.0),('T2','T2.1','a','price','currency','JPY',150000.0,150000.0)) t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi);
+
+query I
+SELECT count(*) FROM validate_trees('mo_nodes', 'mo_cur') WHERE issue = 'magnitude_outlier';
+----
+0
+
+# compared with the other values, never with itself: of 0.55, 0.6 and 750 W only 750 W is off from
+# more than half of the others
+statement ok
+CREATE TABLE mo_pw AS SELECT * FROM (VALUES ('T1','T1.1','a','power','power','W',0.55,0.55),('T2','T2.1','a','power','power','W',0.6,0.6),('T3','T3.1','a','power','power','W',750.0,750.0)) t(tree_id,node_id,attr_id,name,dimension,unit,lo,hi);
+
+query TT
+SELECT tree_id, detail FROM validate_trees('mo_nodes', 'mo_pw') WHERE issue = 'magnitude_outlier';
+----
+T3	value 750.0 W is about 1304 x the median (0.575) of 2 of its 2 other values of power [power]: a unit slip (W for kW, mm for m)?

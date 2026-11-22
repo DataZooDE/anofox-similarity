@@ -52,9 +52,18 @@ FROM (SELECT transactional_embedding::FLOAT[] AS e FROM te WHERE material_id = '
      (SELECT transactional_embedding::FLOAT[] AS e FROM te WHERE material_id = 'PUMP-A') b,
      (SELECT transactional_embedding::FLOAT[] AS e FROM te WHERE material_id = 'MOTOR-C') c;
 
--- a material against itself: cosine 1
-SELECT CASE WHEN abs(array_cosine_similarity(transactional_embedding, transactional_embedding) - 1) < 1e-5
-       THEN 'ok' ELSE error('self cosine') END AS check
-FROM te WHERE material_id = 'PUMP-A';
+-- a feature that cannot be computed is 0, not -mean/std: on four weeks VALVE-D has no
+-- autocorrelation at 4 and 8 weeks (positions 28, 29), which PUMP-A has
+SELECT CASE WHEN v.e[29] = 0 AND v.e[30] = 0 AND a.e[30] <> 0
+       THEN 'ok' ELSE error('missing features: VALVE-D 28/29 = ' || v.e[29] || '/' || v.e[30] || ', PUMP-A 29 = ' || a.e[30]) END AS check
+FROM (SELECT transactional_embedding::FLOAT[] AS e FROM te WHERE material_id = 'VALVE-D') v,
+     (SELECT transactional_embedding::FLOAT[] AS e FROM te WHERE material_id = 'PUMP-A') a;
+
+-- volume counts: PUMP-X is PUMP-A's pattern at ten times the volume, and the cosine is far below 1
+-- (docs/concepts/embeddings-and-fusion.md quotes it)
+SELECT CASE WHEN array_cosine_similarity(a.transactional_embedding, x.transactional_embedding) < 0.5
+       THEN 'ok' ELSE error('volume: cosine PUMP-A / PUMP-X = '
+                            || array_cosine_similarity(a.transactional_embedding, x.transactional_embedding)) END AS check
+FROM te a, te x WHERE a.material_id = 'PUMP-A' AND x.material_id = 'PUMP-X';
 
 SELECT 'OK transactional embeddings' AS result;

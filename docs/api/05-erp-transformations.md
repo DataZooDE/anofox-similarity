@@ -285,7 +285,7 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 *Table macro*
 
-Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'), returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
+Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'); clients (mandt) are merged, so filter MAKT to one client first. Returns (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
 
 ```sql
 extract_material_descriptions(makt_table, language)

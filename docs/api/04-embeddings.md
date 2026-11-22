@@ -122,7 +122,7 @@ CREATE INDEX my_idx ON material_embeddings USING HNSW (combined_embedding) WITH 
 
 *Table macro*
 
-Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E') and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).
+Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E'; clients are merged, so filter MAKT to one client first) and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).
 
 ```sql
 compute_textual_embeddings(makt_table, language, provider, provider_config)

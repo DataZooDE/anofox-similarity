@@ -124,7 +124,8 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 					FROM query_table(%s) gm
 					INNER JOIN similar_mats s ON gm.material_id = s.material_id
 					INNER JOIN query_boundaries b ON b.query_id = s.query_id
-					WHERE gm.movement_date >= b.start_date - INTERVAL (%lld) MONTHS
+					-- whole weeks: a cutoff inside a week would net only part of it
+					WHERE DATE_TRUNC('week', gm.movement_date) >= DATE_TRUNC('week', b.start_date - INTERVAL (%lld) MONTHS)
 				),
 				candidate_ts AS (
 					SELECT *, SUM(quantity) OVER (PARTITION BY query_id, material_id, week) AS week_net

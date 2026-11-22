@@ -289,7 +289,7 @@ static const DefaultTableMacro COMPUTE_TEXTUAL_EMBEDDINGS_MACRO = {
 			-- repeats per MANDT/client) so a material is not fanned out into duplicate embeddings.
 			SELECT
 				material_id,
-				ANY_VALUE(full_text) AS full_text
+				ANY_VALUE(full_text ORDER BY full_text) AS full_text  -- clients (mandt) are merged
 			FROM (
 				SELECT
 					TRIM(matnr) AS material_id,
@@ -314,7 +314,7 @@ void RegisterTextualEmbeddingMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "embeddings"});
 	reg.RegisterTableMacro(COMPUTE_TEXTUAL_EMBEDDINGS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E') and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).")
+	                .Describe("Generates an embedding per material from its description text, returning (material_id, textual_embedding). In the released build every provider returns a deterministic hash PLACEHOLDER, not a semantic embedding. Reads descriptions from 'makt_table' in the given 'language' (SAP key 'E' or ISO 'EN', either form matches; default 'E'; clients are merged, so filter MAKT to one client first) and embeds them with 'provider'; 'provider_config' is accepted but not read yet (do not put API keys in it).")
 	                .Example("SELECT * FROM compute_textual_embeddings(makt_table := 'sap_makt', language := 'E')")});
 }
 

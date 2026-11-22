@@ -279,3 +279,46 @@ query I
 SELECT count(*) FROM sap_to_materials(mara_table := 'mara_2c');
 ----
 2
+
+# ============================================================================
+# final review F3: one row per client and material, the client's own text wins over a MAKT row
+# without a client; several matching texts (E and EN rows) give a deterministic one
+# ============================================================================
+
+statement ok
+CREATE TABLE mara_f3 AS SELECT * FROM (VALUES
+    ('100', 'M', 'FERT', 'G', '20200101', NULL),
+    ('200', 'M', 'FERT', 'G', '20200101', NULL)
+) AS t(mandt, matnr, mtart, matkl, ersda, lvorm);
+
+statement ok
+CREATE TABLE makt_f3 AS SELECT * FROM (VALUES
+    ('100', 'M', 'E',  'own 100', 'O1'),
+    (NULL,  'M', 'E',  'unassigned', 'U'),
+    ('100', 'M', 'EN', 'own 100 b', 'O2')
+) AS t(mandt, matnr, spras, maktx, maktg);
+
+query TT
+SELECT client, description FROM sap_to_materials_with_desc('mara_f3', 'makt_f3') ORDER BY client;
+----
+100	own 100
+200	unassigned
+
+# extract_material_descriptions merges clients and is deterministic (the smallest text wins)
+query T
+SELECT full_text FROM extract_material_descriptions(makt_table := 'makt_f3');
+----
+own 100 O1
+
+# ============================================================================
+# final review F10: a MAKT whose keys are only digits reads as INTEGER; 1 = Chinese (ZH)
+# ============================================================================
+
+statement ok
+CREATE TABLE makt_num AS SELECT * FROM (VALUES ('M', 1, 'Zhongwen', 'ZW'), ('M', 3, 'Hangul', 'HG')) AS t(matnr, spras, maktx, maktg);
+
+query TT
+SELECT (SELECT typeof(spras) FROM makt_num LIMIT 1),
+       (SELECT full_text FROM extract_material_descriptions(makt_table := 'makt_num', language := 'ZH'));
+----
+INTEGER	Zhongwen ZW

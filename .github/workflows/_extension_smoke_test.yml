@@ -186,7 +186,10 @@ jobs:
       # Transactional embeddings need the community anofox_forecast extension, which the unit tests
       # cannot install. This runs the whole pipeline (statistics refresh, embeddings, checks on
       # dimensions, NaN, the ERP positions) against the artifact and the current community build.
-      # When anofox_forecast is not published for this DuckDB version yet, say so and skip.
+      # When anofox_forecast is not published for this DuckDB version yet (the repository answers
+      # HTTP 404), say so and skip, on tags too (a release must not wait for another extension);
+      # any other INSTALL error (network, server) fails, and so does a 404 on v1.5.6, where it is
+      # published.
       - name: Transactional embeddings with the community anofox_forecast
         if: steps.gate.outputs.skip != 'true' && matrix.arch == 'linux_amd64'
         shell: bash
@@ -194,9 +197,15 @@ jobs:
           DUCKDB: /tmp/duckdb_cli/duckdb
           ANOFOX_EXTENSION: ${{ github.workspace }}/extension_artifact/${{ inputs.extension_name }}.duckdb_extension
           DATAZOO_DISABLE_TELEMETRY: '1'
+          DUCKDB_VERSION: ${{ inputs.duckdb_version }}
         run: |
-          if ! "$DUCKDB" -c "INSTALL anofox_forecast FROM community;" 2>"$RUNNER_TEMP/fcst.err"; then
-            echo "::notice::anofox_forecast is not available from community for DuckDB ${{ inputs.duckdb_version }}; skipped ($(head -1 "$RUNNER_TEMP/fcst.err"))"
-            exit 0
+          if ! "$DUCKDB" -c "INSTALL anofox_forecast FROM community;" >"$RUNNER_TEMP/fcst.err" 2>&1; then
+            cat "$RUNNER_TEMP/fcst.err"
+            if grep -q '(HTTP 404)' "$RUNNER_TEMP/fcst.err" && [[ "$DUCKDB_VERSION" != v1.5.6 ]]; then
+              echo "::notice::anofox_forecast is not published on community for DuckDB $DUCKDB_VERSION (HTTP 404); skipped"
+              exit 0
+            fi
+            echo "::error::INSTALL anofox_forecast FROM community failed"
+            exit 1
           fi
           "$DUCKDB" -unsigned -cmd "LOAD '$ANOFOX_EXTENSION'" < scripts/smoke_transactional.sql
