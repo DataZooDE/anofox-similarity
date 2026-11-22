@@ -41,13 +41,13 @@ static unique_ptr<SubqueryRef> ParseSubquery(const string &query, ClientContext 
 static const char *CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO = R"(() AS (
 			SELECT COUNT(*) > 0
 			FROM duckdb_functions()
-			WHERE function_name = 'anofox_fcst_ts_features'
+			WHERE function_name = 'anofox_fcst_ts_features_agg'
 		))";
 
 void RegisterCheckAnofoxForecastMacro(ExtensionLoader &loader) {
 	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "check_anofox_forecast_available", CHECK_ANOFOX_FORECAST_AVAILABLE_MACRO),
 	           {ddoc::Doc()
-	                .Describe("Returns true when the anofox_forecast extension is loaded, so a caller can choose the richer time-series feature path over the built-in one. anofox_forecast is an optional soft dependency and is never auto-installed.")
+	                .Describe("Returns true when anofox_forecast is loaded with the aggregate anofox_fcst_ts_features_agg, which the transactional embeddings need. anofox_forecast is an optional soft dependency and is never auto-installed.")
 	                .Example("SELECT check_anofox_forecast_available()")}, {"similarity", "embeddings"});
 }
 
@@ -87,24 +87,31 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	// Fail fast, with an actionable message, when the anofox-forecast dependency is missing.
-	// Without this guard the inner extract_ts_features() call resolves anofox_fcst_ts_features()
+	// Without this guard the inner extract_ts_features() call resolves anofox_fcst_ts_features_agg()
 	// at bind time and raises a cryptic Catalog Error, contradicting the documented graceful
 	// degradation. We check the catalog directly through a fresh connection.
 	{
 		Connection dep_con(*context.db);
-		auto dep = dep_con.Query("SELECT COUNT(*) FROM duckdb_functions() "
-		                         "WHERE function_name = 'anofox_fcst_ts_features'");
-		bool available = false;
-		if (dep && !dep->HasError()) {
-			auto chunk = dep->Fetch();
-			if (chunk && chunk->size() > 0 && !chunk->GetValue(0, 0).IsNull()) {
-				available = chunk->GetValue(0, 0).GetValue<int64_t>() > 0;
+		auto count = [&](const string &q) -> int64_t {
+			auto r = dep_con.Query(q);
+			if (!r || r->HasError()) {
+				return 0;
 			}
-		}
-		if (!available) {
-			throw BinderException(
-			    "compute_transactional_embeddings requires the anofox-forecast extension, which is not "
-			    "loaded. Install and load it first: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
+			auto chunk = r->Fetch();
+			if (!chunk || chunk->size() == 0 || chunk->GetValue(0, 0).IsNull()) {
+				return 0;
+			}
+			return chunk->GetValue(0, 0).GetValue<int64_t>();
+		};
+		if (count("SELECT COUNT(*) FROM duckdb_functions() WHERE function_name = 'anofox_fcst_ts_features_agg'") == 0) {
+			if (count("SELECT COUNT(*) FROM duckdb_extensions() WHERE extension_name = 'anofox_forecast' AND loaded") > 0) {
+				throw BinderException(
+				    "compute_transactional_embeddings needs the aggregate anofox_fcst_ts_features_agg, which the loaded "
+				    "anofox_forecast does not have. Update it: FORCE INSTALL anofox_forecast FROM community; then "
+				    "restart and LOAD anofox_forecast;");
+			}
+			throw BinderException("compute_transactional_embeddings needs the anofox_forecast extension, which is not "
+			                      "loaded. Install and load it: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;");
 		}
 	}
 
@@ -179,7 +186,7 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				gm.material_id,
 				COUNT(*) AS total_moves,
 				COUNT(*) FILTER (WHERE movement_type = '261')::FLOAT / NULLIF(COUNT(*), 0) AS issue_ratio,  -- 261: goods issue to production
-				COUNT(*) FILTER (WHERE movement_type = '262')::FLOAT / NULLIF(COUNT(*), 0) AS reversal_ratio,
+				COUNT(*) FILTER (WHERE movement_type IN ('262', '602'))::FLOAT / NULLIF(COUNT(*), 0) AS reversal_ratio,
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) IN (0, 6))::FLOAT / NULLIF(COUNT(*), 0) AS weekend_ratio,
 				CASE
 					WHEN COUNT(*) > 0 THEN
@@ -211,9 +218,10 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				NULL::FLOAT AS trend_strength,
 				NULL::FLOAT AS growth_indicator
 			FROM (
-				SELECT material_id, movement_date, %s AS movement_type
+				-- movements of either sign (a reversal signed by SHKZG is negative), as in the statistics
+				SELECT material_id, movement_date, TRIM((%s)::VARCHAR) AS movement_type
 				FROM query_table('%s')
-				WHERE movement_date IS NOT NULL AND quantity IS NOT NULL AND quantity > 0
+				WHERE movement_date IS NOT NULL AND quantity IS NOT NULL AND quantity <> 0
 				  AND movement_date >= (SELECT MAX(movement_date) FROM query_table('%s'))
 				                       - (INTERVAL '1 day' * %lld)
 			) gm
@@ -238,7 +246,7 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				(COALESCE(fe.features.coefficient_variation, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'coefficient_variation' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'coefficient_variation' LIMIT 1), 0.0) AS cv_z,
 				(COALESCE(fe.features.skewness, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'skewness' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'skewness' LIMIT 1), 0.0) AS skew_z,
 				(COALESCE(fe.features.kurtosis, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'kurtosis' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'kurtosis' LIMIT 1), 0.0) AS kurt_z,
-				(COALESCE(fe.features.range_count, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'range_count' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'range_count' LIMIT 1), 0.0) AS range_z,
+				(COALESCE(fe.features.range, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'range' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'range' LIMIT 1), 0.0) AS range_z,
 				(COALESCE(fe.features.ratio_beyond_r_sigma__r_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'ratio_beyond_r_sigma__r_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'ratio_beyond_r_sigma__r_1' LIMIT 1), 0.0) AS ratio_z,
 				(COALESCE(fe.features.approximate_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'approximate_entropy' LIMIT 1), 0.0) AS approx_ent_z,
 				(COALESCE(fe.features.sample_entropy, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'sample_entropy' LIMIT 1), 0.0) AS sample_ent_z,
@@ -251,12 +259,12 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 				(COALESCE(fe.features.fft_coefficient__attr_imag__coeff_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_1' LIMIT 1), 0.0) AS fft_i1_z,
 				(COALESCE(fe.features.fft_coefficient__attr_real__coeff_2, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_2' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_real__coeff_2' LIMIT 1), 0.0) AS fft_r2_z,
 				(COALESCE(fe.features.fft_coefficient__attr_imag__coeff_2, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_2' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_coefficient__attr_imag__coeff_2' LIMIT 1), 0.0) AS fft_i2_z,
-				(COALESCE(fe.features.fft_aggregated__aggtype_mean, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_mean' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_mean' LIMIT 1), 0.0) AS fft_mean_z,
-				(COALESCE(fe.features.fft_aggregated__aggtype_variance, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_variance' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'fft_aggregated__aggtype_variance' LIMIT 1), 0.0) AS fft_var_z,
-				(COALESCE(fe.features.autocorrelation__lag_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_1' LIMIT 1), 0.0) AS ac1_z,
-				(COALESCE(fe.features.autocorrelation__lag_7, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_7' LIMIT 1), 0.0) AS ac7_z,
-				(COALESCE(fe.features.autocorrelation__lag_14, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_14' LIMIT 1), 0.0) AS ac14_z,
-				(COALESCE(fe.features.autocorrelation__lag_28, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__lag_28' LIMIT 1), 0.0) AS ac28_z,
+				(COALESCE(fe.features.spectral_centroid, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'spectral_centroid' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'spectral_centroid' LIMIT 1), 0.0) AS fft_mean_z,
+				(COALESCE(fe.features.spectral_variance, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'spectral_variance' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'spectral_variance' LIMIT 1), 0.0) AS fft_var_z,
+				(COALESCE(fe.features.autocorrelation__week_1, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_1' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_1' LIMIT 1), 0.0) AS ac1_z,
+				(COALESCE(fe.features.autocorrelation__week_2, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_2' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_2' LIMIT 1), 0.0) AS ac7_z,
+				(COALESCE(fe.features.autocorrelation__week_4, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_4' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_4' LIMIT 1), 0.0) AS ac14_z,
+				(COALESCE(fe.features.autocorrelation__week_8, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_8' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'autocorrelation__week_8' LIMIT 1), 0.0) AS ac28_z,
 				(COALESCE(p2c.issue_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'movement_type_issue_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'movement_type_issue_ratio' LIMIT 1), 0.0) AS issue_ratio_z,
 				(COALESCE(p2c.reversal_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'movement_type_reversal_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'movement_type_reversal_ratio' LIMIT 1), 0.0) AS reversal_ratio_z,
 				(COALESCE(p2c.weekend_ratio, 0.0) - (SELECT COALESCE(mean_value, 0.0) FROM statistics_lookup WHERE feature_name = 'weekday_weekend_ratio' LIMIT 1)) / NULLIF((SELECT COALESCE(std_value, 1.0) FROM statistics_lookup WHERE feature_name = 'weekday_weekend_ratio' LIMIT 1), 0.0) AS weekend_ratio_z,
@@ -304,24 +312,16 @@ static unique_ptr<TableRef> ComputeTransactionalEmbeddingsBindReplace(ClientCont
 			FROM normalized_features
 		),
 		l2_normalization AS (
-			SELECT
-				material_id,
-				raw_embedding,
-				SQRT(SUM(v * v)) AS l2_norm
+			-- list functions, not UNNEST: DuckDB 1.5.6 cannot unnest a FLOAT[128] array in FROM
+			SELECT material_id, raw_embedding::FLOAT[] AS e,
+			       sqrt(list_dot_product(raw_embedding::FLOAT[], raw_embedding::FLOAT[])) AS l2_norm
 			FROM raw_embedding_vectors
-			CROSS JOIN LATERAL UNNEST(raw_embedding) AS t(v)
-			GROUP BY material_id, raw_embedding
 		),
 		normalized_embedding_vectors AS (
-			SELECT
-				material_id,
-				LIST(CASE
-					WHEN l2_norm > 1e-8 THEN v / l2_norm
-					ELSE v
-				END ORDER BY idx)::FLOAT[128] AS transactional_embedding
+			SELECT material_id,
+			       (CASE WHEN l2_norm > 1e-8 THEN list_transform(e, lambda v: v / l2_norm) ELSE e END)::FLOAT[128]
+			           AS transactional_embedding
 			FROM l2_normalization
-			CROSS JOIN LATERAL UNNEST(raw_embedding) WITH ORDINALITY AS t(v, idx)
-			GROUP BY material_id, l2_norm
 		)
 		SELECT
 			material_id,
@@ -344,10 +344,13 @@ void RegisterTransactionalEmbeddingFunctions(ExtensionLoader &loader) {
 	TableFunction compute_trans("compute_transactional_embeddings", {}, nullptr, nullptr);
 	compute_trans.bind_replace = ComputeTransactionalEmbeddingsBindReplace;
 	FunctionDescription desc;
-	desc.description = "Computes 128-dimensional transactional embeddings from goods movement data and returns "
-	                   "them (it does not write to material_embeddings). Features include demand velocity, seasonality, frequency, "
-	                   "and quantity statistics normalized against transactional_embedding_statistics. "
-	                   "Supports batched computation via batch_size and batch_offset.";
+	desc.description = "Computes 128-dimensional transactional embeddings from goods movements (material_id, movement_date, "
+	                   "quantity[, movement_type]) and returns them (it does not write to material_embeddings): 30 "
+	                   "time-series features of the weekly series (positions 0-29, from anofox_forecast) and six ERP "
+	                   "features (92-97), each a z-score against transactional_embedding_statistics (fill it with "
+	                   "recompute_embedding_statistics), then scaled to length 1; the other positions are 0. Needs "
+	                   "anofox_forecast (INSTALL/LOAD anofox_forecast FROM community). Volume features count: the same "
+	                   "pattern at another volume is not close. Supports batched computation via batch_size and batch_offset.";
 	desc.examples    = {"SELECT * FROM compute_transactional_embeddings();",
 	                    "SELECT * FROM compute_transactional_embeddings(movements_table := 'sap_mseg', time_window_days := 365);",
 	                    "SELECT * FROM compute_transactional_embeddings(batch_size := 1000, batch_offset := 0);"};

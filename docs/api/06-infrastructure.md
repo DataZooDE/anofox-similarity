@@ -253,7 +253,7 @@ SELECT * FROM filter_recent_movements(movements_table := 'goods_movements', time
 
 *Scalar macro*
 
-Returns true when the anofox_forecast extension is loaded, so a caller can choose the richer time-series feature path over the built-in one. anofox_forecast is an optional soft dependency and is never auto-installed.
+Returns true when anofox_forecast is loaded with the aggregate anofox_fcst_ts_features_agg, which the transactional embeddings need. anofox_forecast is an optional soft dependency and is never auto-installed.
 
 ```sql
 check_anofox_forecast_available()

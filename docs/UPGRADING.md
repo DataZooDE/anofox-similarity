@@ -4,9 +4,9 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
-## Unreleased: no name discount without name vectors, SAP language keys in either form, SAP clients in the materials
+## Unreleased: transactional embeddings work again, no name discount without name vectors, SAP language keys in either form, SAP clients in the materials
 
-Coverage scores rise where attribute names were compared without `name_vectors`; the SAP material readers get a last column. Check these:
+Transactional embeddings work again and their vectors change: recompute them. Coverage scores rise where attribute names were compared without `name_vectors`; the SAP material readers get a last column. Check these:
 
 | Before | Now |
 |---|---|
@@ -14,6 +14,7 @@ Coverage scores rise where attribute names were compared without `name_vectors`;
 | `extract_material_descriptions` and `compute_textual_embeddings` defaulted to `language := 'EN'`, which matched no SAP `MAKT.spras` (`'E'`): 0 rows, no error. `language := 'E'` did not match an extract with ISO codes (`spras = 'EN'`) | all three MAKT readers (also `sap_to_materials_with_desc`) default to `'E'` and match the SAP key and the ISO code in either direction (`'E'`/`'EN'`, `'D'`/`'DE'`, ... for 23 common languages, case-insensitive). Other codes match only literally |
 | `sap_to_materials`, `sap_to_materials_with_desc` ignored MARA/MAKT `mandt`: a two-client extract gave a material once per client with no way to tell them apart, and MAKT texts of either client | a last column `client` (MARA `mandt`, NULL without it), as in `sap_to_bom_items`; MAKT texts are taken per client when MAKT has `mandt`. Keep one client with `WHERE client = '100'`. A table you fill with `INSERT INTO ... SELECT *` from them needs `ALTER TABLE ... ADD COLUMN client VARCHAR` |
 | `transactional_embedding_statistics` row `movement_type_receipt_ratio` (feature 92) | `movement_type_issue_ratio`: it counts movement type 261, a goods issue to production, not a receipt. The values and stored vectors are unchanged; re-run the statistics refresh once (a table with only the old row name gives feature 92 the value 0) |
+| `compute_transactional_embeddings`, `extract_ts_features` and `recompute_embedding_statistics` called the scalar `anofox_fcst_ts_features`, which the current community anofox_forecast no longer has ("not loaded" or a Catalog Error); on DuckDB 1.5.6 the embedding also failed to bind ("UNNEST requires a single list as input"); the refresh left positions 92–97 at 0, and short histories gave NaN vectors or failed the refresh (`STDDEV_POP is out of range`) | they run with the current community `anofox_forecast` (`INSTALL anofox_forecast FROM community; LOAD anofox_forecast;`). Features come from a weekly, zero-filled series, so lags and length count weeks; positions 13, 24, 25, 26–29 are now range, spectral centroid, spectral variance and autocorrelation at 1, 2, 4, 8 weeks. `recompute_embedding_statistics` returns the 36 rows the embedding reads (0–29, 92–97). A feature that cannot be computed is 0. The ERP shares count movements of either sign; the reversal share includes 602. Refresh once (`DELETE FROM transactional_embedding_statistics; INSERT INTO transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics();`) and recompute stored transactional vectors |
 
 ## v2026.11.21: sourcing bounds, tolerances as spans, closest value in the trace, unknown designations
 

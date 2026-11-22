@@ -131,7 +131,7 @@ CREATE TABLE goods_movements(material_id VARCHAR, movement_date DATE, quantity D
 statement error
 SELECT * FROM compute_transactional_embeddings();
 ----
-anofox-forecast
+anofox_forecast
 
 statement ok
 DROP TABLE goods_movements;

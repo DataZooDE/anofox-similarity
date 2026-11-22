@@ -93,8 +93,9 @@ Runnable end to end on a small SAP and D365 extract (STAS, two clients, two comp
 - **SAP clients stay apart in the `client` column** (`mandt` when every table has it, else NULL):
   the same material in clients 100 and 200 gives two sets of rows, never summed. The searches do
   not see `client`: filter one client (`WHERE client = '100'`) before you build `bom_items`.
-- **anofox-forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
-  `recompute_embedding_statistics` and `compute_domain_specific_statistics` need `anofox_fcst_ts_features`.
+- **anofox_forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
+  `recompute_embedding_statistics` and `compute_domain_specific_statistics` need its aggregate
+  `anofox_fcst_ts_features_agg`: `INSTALL anofox_forecast FROM community; LOAD anofox_forecast;`.
   Check with `check_anofox_forecast_available` first (see the dependency section). It is never auto-installed.
 - **No function produces `structural_embedding` (FLOAT[256]).** The fusion default is 0.5/0.5/0
   (structural + textual): bring structural vectors or set `weights_structural := 0`. A positive weight
@@ -433,11 +434,11 @@ Without anofox-forecast these fail at bind time (no partial result, nothing to c
 
 ```text
 SELECT * FROM compute_transactional_embeddings();
--- Binder Error: compute_transactional_embeddings requires the anofox-forecast extension, which is
---   not loaded. Install and load it first: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;
+-- Binder Error: compute_transactional_embeddings needs the anofox_forecast extension, which is not
+--   loaded. Install and load it: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;
 SELECT * FROM extract_ts_features();  -- with goods_movements present; also recompute_embedding_statistics(),
                                                      -- compute_domain_specific_statistics()
--- Catalog Error: Scalar Function with name anofox_fcst_ts_features does not exist!
+-- Catalog Error: ... anofox_fcst_ts_features_agg does not exist!
 ```
 
 In a script, gate on the check (e.g. `SELECT error('load anofox_forecast first') WHERE NOT check_anofox_forecast_available();` under `-bail`).
@@ -513,16 +514,22 @@ recompute_embedding_statistics(time_window_days := 365, min_observations := 3,
   → (feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples)
 compute_domain_specific_statistics(movements_table := 'goods_movements', time_window_days := 365,
                                    min_observations := 3)
-  → same statistics shape, features 92-97 (receipt/reversal ratio, weekday pattern, lifecycle)
+  → same statistics shape, features 92-97 (261 share, reversal share 262/602, weekday pattern, lifecycle);
+    recompute_embedding_statistics already includes these rows
 check_statistics_freshness()
   → (stat_count, max_samples, current_version, last_updated, is_fresh)
 ```
 
-- Movements need `material_id, movement_date, quantity`; `movement_type` is optional for
-  `compute_transactional_embeddings` (NULL when absent) but required by
-  `compute_domain_specific_statistics`. The window is relative to the latest date in the data.
-- `recompute_embedding_statistics` **returns** the z-score statistics; persist them yourself into
-  `transactional_embedding_statistics` (it also has `updated_at`, `version`).
+- Movements need `material_id, movement_date, quantity`; `movement_type` (SAP `bwart`) is optional
+  (positions 92-93 are 0 without it). Features 0-29 use a weekly series of the positive quantities,
+  zero-filled; 92-95 count movements of either sign. The window is relative to the latest date in
+  the data; a material needs `min_observations` (3) movements.
+- `recompute_embedding_statistics` **returns** all 36 statistics rows the embedding reads (0-29,
+  92-97); persist them once per refresh:
+  `INSERT OR REPLACE INTO transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics();`
+  A feature a short history cannot give (NaN) is 0 in that vector.
+- Volume counts (level features are z-scored, then the vector is scaled): the same pattern at ten
+  times the volume is not close. Divide quantities by each material's mean first to compare shape.
 - `check_statistics_freshness` reads that table (no anofox-forecast needed): `is_fresh` needs at least
   30 rows, the newest updated within the last 7 days. `last_updated` is NULL with no statistics; on a
   read-only database (no table) it returns `0` / NULL / `false` instead of an error.

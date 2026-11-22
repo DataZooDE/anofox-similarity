@@ -22,12 +22,13 @@ functions take. A list of the right length casts in implicitly. See
 
 | Function | Returns | Real or placeholder | Needs |
 |---|---|---|---|
-| `compute_transactional_embeddings` | `material_id, transactional_embedding FLOAT[128]` | real | `anofox-forecast`; `transactional_embedding_statistics` (writable database once) |
+| `compute_transactional_embeddings` | `material_id, transactional_embedding FLOAT[128]` | real | `anofox_forecast` from community (with `anofox_fcst_ts_features_agg`); `transactional_embedding_statistics` filled once (writable database) |
 | `compute_jaccard_embeddings` | `material_id, seed, minhash_value FLOAT, num_components` (one row per seed) | real (MinHash) | a BOM table (`parent_id, child_id`) |
 | `fuse_embeddings` | `FLOAT[768]` | real (as good as its inputs) | — |
 | `compute_fused_embeddings` | `material_id, combined_embedding FLOAT[768], fusion_weights STRUCT(structural, textual, transactional FLOAT)` | real (as good as its inputs) | `material_embeddings` (writable database once) |
 | `compute_textual_embeddings`, `embed_text`, `embedding_backend` | `FLOAT[384]` | **placeholder** (hash) | MAKT with `matnr, spras, maktx, maktg` for the table macro |
-| `recompute_embedding_statistics`, `compute_domain_specific_statistics`, `extract_ts_features` | per-feature statistics; features per material | real | `anofox-forecast` |
+| `recompute_embedding_statistics`, `extract_ts_features` | the 36 statistics rows the embedding reads; weekly features per material | real | `anofox_forecast` |
+| `compute_domain_specific_statistics` | the six ERP rows (92-97), also part of `recompute_embedding_statistics` | real | `anofox_forecast` |
 | `check_statistics_freshness` | `stat_count, max_samples, current_version, last_updated, is_fresh` | real | — (a read-only database gives `0`, NULL, `false`) |
 
 What the vectors contain, how fusion weighs them and which distance fits which vector:
@@ -58,15 +59,21 @@ check_statistics_freshness()
 - **`language`** takes SAP's one-character key (`'E'`, default) or the ISO code (`'EN'`); MAKT rows
   match in either form. Several MAKT rows per `(matnr, spras)` collapse to one description; a MAKT
   without `maktg` is an error.
-- **`anofox-forecast`**: without it `compute_transactional_embeddings` raises an error saying so;
-  `recompute_embedding_statistics` fails at bind time with a catalog error naming
-  `anofox_fcst_ts_features`.
-- **Movements** need `material_id, movement_date, quantity`; `movement_type` is optional for
-  `compute_transactional_embeddings` (treated as NULL when absent) and required
-  by `compute_domain_specific_statistics`. `time_window_days` counts back from the latest movement
-  date in the data.
-- **Statistics**: `recompute_embedding_statistics` returns them; store them in
-  `transactional_embedding_statistics` yourself. `check_statistics_freshness` says `is_fresh` with
+- **`anofox_forecast`**: `INSTALL anofox_forecast FROM community; LOAD anofox_forecast;` first.
+  Without it `compute_transactional_embeddings` says to install and load it; with a build that has
+  no `anofox_fcst_ts_features_agg` it says to update it. `recompute_embedding_statistics` and
+  `extract_ts_features` fail at bind time with a catalog error naming that aggregate.
+- **Movements** need `material_id, movement_date, quantity`; `movement_type` (SAP `bwart`) is
+  optional, without it positions 92 and 93 are 0. The time-series features (0-29) read the
+  positive quantities as a weekly series, zero-filled between a material's first and last week;
+  the ERP features (92-95) count movements of either sign, so a reversal signed negative counts.
+  A material needs `min_observations` (default 3) movements. `time_window_days` counts back from
+  the latest movement date in the data.
+- **Statistics**: `recompute_embedding_statistics` returns all 36 rows the embedding reads
+  (positions 0-29 and 92-97); store them yourself, once per refresh:
+  `INSERT OR REPLACE INTO transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics();`
+  A feature a short history cannot give (NaN, infinite) is left out of the statistics and is 0 in
+  that material's vector. `check_statistics_freshness` says `is_fresh` with
   at least 30 rows, the newest updated within 7 days; `last_updated` is NULL without statistics.
 - **`compute_fused_embeddings`** reads the fixed `material_embeddings` table (no table parameter);
   the column is `combined_embedding`, and `fusion_weights` reports the normalised weights as `FLOAT`.
@@ -164,7 +171,7 @@ SELECT embedding_backend('valve seat', 'openai', '');
 
 *Table function*
 
-Computes 128-dimensional transactional embeddings from goods movement data and returns them (it does not write to material_embeddings). Features include demand velocity, seasonality, frequency, and quantity statistics normalized against transactional_embedding_statistics. Supports batched computation via batch_size and batch_offset.
+Computes 128-dimensional transactional embeddings from goods movements (material_id, movement_date, quantity[, movement_type]) and returns them (it does not write to material_embeddings): 30 time-series features of the weekly series (positions 0-29, from anofox_forecast) and six ERP features (92-97), each a z-score against transactional_embedding_statistics (fill it with recompute_embedding_statistics), then scaled to length 1; the other positions are 0. Needs anofox_forecast (INSTALL/LOAD anofox_forecast FROM community). Volume features count: the same pattern at another volume is not close. Supports batched computation via batch_size and batch_offset.
 
 ```sql
 compute_transactional_embeddings(movements_table, time_window_days, batch_size, batch_offset)
@@ -231,7 +238,7 @@ SELECT * FROM compute_jaccard_embeddings(bom_table := 'sap_stpo');
 
 *Table macro*
 
-Shared time-series feature extraction over a goods-movement table, computed once as a CTE so callers do not each re-run the expensive per-material feature computation. 'batch_size' and 'batch_offset' page through large material sets; NULL batch_size means all of them.
+The 30 time-series features of the transactional embedding per material, from anofox_forecast's anofox_fcst_ts_features_agg over the weekly series of positive quantities (zero-filled between the first and last week in the window). Returns (material_id, features STRUCT) with stable field names; NaN and infinite values (short histories) are NULL. A material needs min_observations movements. 'batch_size' and 'batch_offset' page through large material sets; NULL batch_size means all of them. Needs anofox_forecast (INSTALL/LOAD anofox_forecast FROM community).
 
 ```sql
 extract_ts_features(movements_table, time_window_days, min_observations, batch_size, batch_offset)
@@ -247,7 +254,7 @@ SELECT * FROM extract_ts_features(movements_table := 'goods_movements', time_win
 
 *Table macro*
 
-Recomputes the transactional embedding statistics from current movement data, returning the per-feature normalisation statistics the embedding pipeline uses. 'time_window_days' is the historical window and 'min_observations' the minimum data points a material needs to qualify.
+Recomputes the statistics compute_transactional_embeddings normalises with: one row per feature it reads (positions 0-29 from extract_ts_features, 92-97 from compute_domain_specific_statistics), mean and standard deviation over the finite values. Store them: INSERT OR REPLACE INTO transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics(). 'time_window_days' is the historical window and 'min_observations' the minimum movements a material needs. Needs anofox_forecast.
 
 ```sql
 recompute_embedding_statistics(time_window_days, min_observations, movements_table)
@@ -279,7 +286,7 @@ SELECT * FROM check_statistics_freshness();
 
 *Table macro*
 
-Computes the advanced domain-specific ERP features — movement type mix, day-of-week pattern and lifecycle position — used alongside the core time-series features.
+Statistics of the six ERP features of the transactional embedding (positions 92-97): share of movement type 261, share of reversals (262, 602), weekend share, weekday concentration, lifecycle trend strength and growth. Counts movements of either sign; movement_type is optional (shares 0 without it). Part of recompute_embedding_statistics. Needs anofox_forecast for the lifecycle features.
 
 ```sql
 compute_domain_specific_statistics(movements_table, time_window_days, min_observations)

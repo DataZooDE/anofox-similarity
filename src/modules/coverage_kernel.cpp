@@ -2118,7 +2118,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
 	    "different attr_keys. Same parameters as tree_coverage." +
 	        common,
-	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
+	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001'])\nWHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);"}, true);
 	RegisterCoverageTable(
 	    loader, "coverage_recall", CoverageRecallBindReplace,
 	    "Stage-1 recall over class multisets: the top-k candidate trees per query with score, "

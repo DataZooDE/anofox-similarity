@@ -1,0 +1,69 @@
+# name: test/sql/functions/embeddings/forecast_pipeline.test
+# description: transactional embeddings end to end with the community anofox_forecast. Needs the
+#              network: runs with ANOFOX_FORECAST_TEST=1 (CI runs scripts/smoke_transactional.sql)
+# group: [embeddings]
+
+require anofox_similarity
+
+require-env ANOFOX_FORECAST_TEST
+
+statement ok
+INSTALL anofox_forecast FROM community
+
+statement ok
+LOAD anofox_forecast
+
+statement ok
+CREATE OR REPLACE TABLE goods_movements AS
+WITH w AS (SELECT i, DATE '2024-01-01' + INTERVAL (7 * i) DAY AS d FROM range(104) r(i))
+SELECT 'PUMP-A' AS material_id, d::DATE AS movement_date,
+       (10 + 5 * sin(i * 2 * pi() / 52))::DOUBLE AS quantity, '601' AS movement_type FROM w
+UNION ALL SELECT 'PUMP-A', (d + INTERVAL 2 DAY)::DATE, 1.0, '602' FROM w WHERE i % 13 = 0
+UNION ALL SELECT 'PUMP-X', d::DATE, (10 * (10 + 5 * sin(i * 2 * pi() / 52)))::DOUBLE, '601' FROM w
+UNION ALL SELECT 'SEAL-B', d::DATE, (20 + i % 5)::DOUBLE, '261' FROM w
+UNION ALL SELECT 'SEAL-B', (d + INTERVAL 3 DAY)::DATE, (15 + i % 3)::DOUBLE, '261' FROM w
+UNION ALL SELECT 'SEAL-B', (d + INTERVAL 4 DAY)::DATE, -2.0, '262' FROM w WHERE i % 10 = 0
+UNION ALL SELECT 'MOTOR-C', d::DATE, (1 + i / 10)::DOUBLE, '261' FROM w WHERE i % 2 = 0
+UNION ALL SELECT 'VALVE-D', d::DATE, 3.0, '601' FROM w WHERE i >= 100
+UNION ALL SELECT 'ODD-E', DATE '2025-12-01', 1.0, '601';
+
+statement ok
+DELETE FROM transactional_embedding_statistics;
+
+statement ok
+INSERT INTO transactional_embedding_statistics
+SELECT *, now(), 1 FROM recompute_embedding_statistics(time_window_days := 730);
+
+# one refresh fills every row the embedding reads (0-29, 92-97), all finite
+query III
+SELECT count(*), count(*) FILTER (WHERE feature_index BETWEEN 92 AND 97),
+       bool_and(isfinite(mean_value) AND isfinite(std_value))
+FROM transactional_embedding_statistics;
+----
+36	6	true
+
+statement ok
+CREATE TABLE te AS SELECT * FROM compute_transactional_embeddings(time_window_days := 730);
+
+# ODD-E (one posting) is left out; VALVE-D (four weeks) gets a finite vector
+query IIII
+SELECT count(*), bool_and(len(transactional_embedding::FLOAT[]) = 128),
+       bool_or(list_bool_or(list_transform(transactional_embedding::FLOAT[], lambda x: NOT isfinite(x)))),
+       bool_and(abs(sqrt(list_dot_product(transactional_embedding::FLOAT[], transactional_embedding::FLOAT[])) - 1) < 1e-4)
+FROM te;
+----
+5	true	false	true
+
+# SEAL-B issues to production and has reversals posted as negative quantities (positions 92, 93)
+query II
+SELECT (transactional_embedding::FLOAT[])[93] > 0, (transactional_embedding::FLOAT[])[94] > 0
+FROM te WHERE material_id = 'SEAL-B';
+----
+true	true
+
+# volume counts: the same weekly pattern at ten times the volume is not close
+query I
+SELECT array_cosine_similarity(a.transactional_embedding, b.transactional_embedding) < 0.5
+FROM te a, te b WHERE a.material_id = 'PUMP-A' AND b.material_id = 'PUMP-X';
+----
+true

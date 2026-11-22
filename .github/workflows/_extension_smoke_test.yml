@@ -182,3 +182,21 @@ jobs:
           python3 scripts/generate_api_reference.py --check
           python3 scripts/check_doc_snippets.py --out "$RUNNER_TEMP/doc-snippets.tsv" || {
             grep -P '^(FAIL|STALE)\t' "$RUNNER_TEMP/doc-snippets.tsv"; exit 1; }
+
+      # Transactional embeddings need the community anofox_forecast extension, which the unit tests
+      # cannot install. This runs the whole pipeline (statistics refresh, embeddings, checks on
+      # dimensions, NaN, the ERP positions) against the artifact and the current community build.
+      # When anofox_forecast is not published for this DuckDB version yet, say so and skip.
+      - name: Transactional embeddings with the community anofox_forecast
+        if: steps.gate.outputs.skip != 'true' && matrix.arch == 'linux_amd64'
+        shell: bash
+        env:
+          DUCKDB: /tmp/duckdb_cli/duckdb
+          ANOFOX_EXTENSION: ${{ github.workspace }}/extension_artifact/${{ inputs.extension_name }}.duckdb_extension
+          DATAZOO_DISABLE_TELEMETRY: '1'
+        run: |
+          if ! "$DUCKDB" -c "INSTALL anofox_forecast FROM community;" 2>"$RUNNER_TEMP/fcst.err"; then
+            echo "::notice::anofox_forecast is not available from community for DuckDB ${{ inputs.duckdb_version }}; skipped ($(head -1 "$RUNNER_TEMP/fcst.err"))"
+            exit 0
+          fi
+          "$DUCKDB" -unsigned -cmd "LOAD '$ANOFOX_EXTENSION'" < scripts/smoke_transactional.sql

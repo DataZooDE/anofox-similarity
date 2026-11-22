@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | `structural_embedding` | 256 | your BOM-structure pipeline (no function here computes it) | as good as your model | L2 (`array_distance`), HNSW `l2sq` |
 | `textual_embedding` | 384 | `compute_textual_embeddings`, `embed_text` | **no** in the released build: a hash placeholder | cosine, HNSW `cosine` |
-| `transactional_embedding` | 128 | `compute_transactional_embeddings` (goods movements) | yes | cosine |
+| `transactional_embedding` | 128 | `compute_transactional_embeddings` (goods movements; needs `anofox_forecast`) | yes | cosine |
 | `jaccard_embedding` | 128 | `compute_jaccard_embeddings` (BOM component sets) | yes, as a MinHash signature | `minhash_similarity` only |
 | `combined_embedding` | 768 | `compute_fused_embeddings`, `fuse_embeddings` | as much as its parts | cosine, HNSW `cosine` |
 
@@ -39,21 +39,37 @@ write them into `textual_embedding` and fuse.
 
 ## Transactional Embeddings
 
-A material's goods movements become a time series. Thirty features are taken from
-`anofox_fcst_ts_features` (the `anofox-forecast` extension): level and spread (mean, median,
-variance, standard deviation, sum, length, trend slope and intercept, position of the maximum),
-shape and volatility (coefficient of variation, skewness, kurtosis, entropies, Benford
-correlation), three FFT coefficients and two FFT aggregates, and autocorrelation at lags 1, 7,
-14 and 28 days. Six ERP features follow at positions 92 to 97: the shares of movement types
-261 and 262, the weekend share, the weekday concentration, and two lifecycle indicators from the
-trend relative to the mean.
+A material's positive goods movements become a **weekly** series: quantities summed per week,
+zero-filled between its first and last week in the window. Thirty features of that series come
+from the aggregate `anofox_fcst_ts_features_agg` of the community `anofox_forecast` extension
+(install and load it first):
 
-Each feature is turned into a z-score with the statistics in `transactional_embedding_statistics`
-(`recompute_embedding_statistics` returns them; store them in that table yourself; a feature without a
-statistics row comes out as 0), so a feature counts by how unusual it is across your materials, not
-by its unit. The 36 values sit at positions 0 to 29 and 92 to 97; the other 92
-positions are 0, kept free for further features. The vector is then scaled to length 1, so cosine
-compares the profile of demand, not its volume.
+| Positions | Features |
+|---|---|
+| 0-9 | level and spread: mean, median, variance, standard deviation, trend slope and intercept (per week), sum, length (weeks), first and last position of the maximum |
+| 10-17 | shape and volatility: coefficient of variation, skewness, kurtosis, range, share beyond 1 σ, approximate and sample entropy, Benford correlation |
+| 18-25 | frequency: real and imaginary FFT coefficients 0-2, spectral centroid, spectral variance |
+| 26-29 | autocorrelation at 1, 2, 4 and 8 weeks |
+| 92-97 | ERP: share of movement type 261 (goods issue to production), share of reversals (262, 602), weekend share, weekday concentration, two lifecycle indicators from the trend relative to the mean |
+
+The ERP shares count movements of either sign, so a reversal signed negative by SHKZG counts;
+without a `movement_type` column positions 92 and 93 are 0. A finished good delivered with 601
+has a 261 share of 0: position 92 tells components from finished goods.
+
+Each value becomes a z-score with the statistics in `transactional_embedding_statistics`. One
+refresh writes every row the embedding reads (`INSERT OR REPLACE INTO
+transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics();`),
+so a feature counts by how unusual it is across your materials, not by its unit. A feature a short
+history cannot give (NaN or infinite, such as the entropies over four weeks) is left out of the
+statistics and is 0 in that material's vector; a feature without a statistics row is 0 as well.
+The other 92 positions are 0, kept free. The vector is then scaled to length 1.
+
+**Volume counts.** Ten of the thirty features are levels (mean, median, sum, variance, intercept,
+range, the first FFT coefficient ...). Scaling to length 1 happens after the z-scores, so it does not
+remove volume: the same weekly pattern at ten times the volume is not close (cosine about 0 in
+`scripts/smoke_transactional.sql`, PUMP-A against PUMP-X). To compare the shape of demand alone,
+divide each material's quantities by its mean in the movements view before computing the
+embeddings.
 
 ## Jaccard Embeddings: MinHash, Not a Geometry
 
@@ -118,7 +134,7 @@ and placeholder text vectors, that share of the cosine is noise.
 |---|---|---|
 | structural | `array_distance` (the `l2sq` index) | — |
 | textual, combined | `array_cosine_distance` (the `cosine` index), only with real text vectors | the placeholder for anything semantic |
-| transactional | `array_cosine_distance` (length 1: same order as L2) | raw volume comparisons (the vector is normalised) |
+| transactional | `array_cosine_distance` (length 1: same order as L2) | a scale-free comparison without dividing by the mean first: volume features count |
 | jaccard | `minhash_similarity` | cosine or L2: no meaning |
 
 An HNSW index is used only for `ORDER BY array_cosine_distance(col, <constant>) LIMIT k` (check
@@ -130,7 +146,8 @@ with `EXPLAIN`: `HNSW_INDEX_SCAN`); a join or correlated subquery scans everythi
 |---|---|
 | Fusion weights 0.5 / 0.5 / 0.0 | A weight-0 modality may be NULL, so the default works for materials without movement history (new parts) |
 | √weight scaling | The fused cosine is the weighted mean of the parts' cosines |
-| z-scores, then length 1 | Features in different units count equally; cosine compares demand profiles, not volumes |
+| z-scores, then length 1 | Features in different units count equally; cosine then weighs level and shape together |
+| Weekly series, zero-filled | Lags and lengths count weeks, as in `infer_predecessors`, not postings; a week without demand is a 0, not a gap |
 | 128 MinHash seeds | A standard error of about 0.04 on the Jaccard estimate at 0.5, at 128 floats per material |
 | No index on `jaccard_embedding` | No vss metric approximates Jaccard on MinHash values |
 | Placeholder instead of an error | Pipelines and tests run end to end before a real model is wired in |
