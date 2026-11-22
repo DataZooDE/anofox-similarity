@@ -16,14 +16,13 @@ optional accelerators.
 | `find_covering_entities_lsh(queries_table, index_table [, k := 20, mode := 'containment', threshold := 0.5, bands_table])` | `query_id, entity_id, estimate, jaccard_estimate, rank, n_candidates` |
 | `minhash_bands(index_table)` | the band hashes in long form `(entity_id, part, r, j, h, num_hashes, seed)`, for `bands_table`; a band table from another index is an error |
 
-The index works in the LSH-Ensemble style. Entities are split into size partitions, and for
-each query and partition the containment threshold becomes a Jaccard threshold for the
-partition's largest set. The rows per band (1, 2, 4 or 8) are chosen so that the LSH S-curve
-passes below that threshold. The containment estimate is J (|q| + |c|) / ((1 + J) |q|), capped
-at 1. With a pivot vocabulary of about 20 classes the multisets overlap so much that LSH still
-scores about half the candidates (examples/dedup_and_lsh). It can pay off for large raw
-vocabularies such as BOM components, but measure first: on 20 000 and 100 000 BOMs a batched
-exact join was faster ([guide 08](../guides/08-scale-and-dedup.md)). A
+**How the index works.** Entities are split into size partitions; per query and partition the
+containment threshold becomes a Jaccard threshold, and the rows per band are chosen to match it.
+The containment estimate is derived from the Jaccard estimate and the set sizes. The model and why
+LSH rarely pays off with a small pivot vocabulary:
+[evaluation and scale](../concepts/evaluation-and-scale.md#scale-estimate-instead-of-join).
+Measure first: on 20 000 and 100 000 BOMs a batched exact join was faster
+([guide 08](../guides/08-scale-and-dedup.md)). A
 stored `minhash_bands` table turns the band lookup into a hash join, while without it the
 index is unnested on every call. Unlike `find_covering_entities`, the queries table takes
 `(query_id, feature_id[, weight])` rows, so many requests are searched in one call.
@@ -49,7 +48,8 @@ cluster_size` from a C++ union-find over the pairs at or above the threshold. Ev
 the pairs table appears (ids as text), and `cluster_id` is the smallest member id in text order. `connected_components(LIST
 of STRUCT(a, b))` is the scalar behind it. examples/dedup_and_lsh shows a customer-master recipe: blocking,
 normalised names, and tax-id and address agreement. It clusters at 0.85, merges all 152 planted
-duplicates and none of the 12 near misses.
+duplicates and none of the 12 near misses. Clustering is transitive, so the guards belong before
+it: [evaluation and scale](../concepts/evaluation-and-scale.md#clustering-is-transitive).
 
 **DuckPGQ recipe** (optional, not called by the extension). For graph queries over the matches:
 

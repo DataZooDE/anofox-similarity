@@ -50,7 +50,8 @@ the empty sample as a measured value.
 
 Pipeline per item: centring → similarity → z-score across the catalogue (+ β × bonus) →
 softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p` and
-`overridden = true`. The output is a `label_table` for `tree_coverage`.
+`overridden = true`. The output is a `label_table` for `tree_coverage`. Why each step, a worked
+example that reproduces `p` by hand, and the floor: [classification and calibration](../concepts/classification-and-calibration.md#the-pipeline).
 
 **Workflow: review the archive's vocabulary** (runs on the benchmark files)
 
@@ -127,12 +128,11 @@ FROM request_nodes n LEFT JOIN (SELECT * FROM request_labels WHERE p = 1.0) l US
 ```
 
 **Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after
-per-source centring and 0.95 with the attribute bonus. On 200 unseen phrasings, late
-interaction beats the centroid by more than 10 points. The review queue puts the four
-misleading archive wordings first. With classifier labels on the request side, the pipeline
-reaches recall@20 0.86 and regret 0.022. After a reviewer answers the 15 % lowest-margin items,
-it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets all BRD
-targets. The tests `test/sql/coverage/r4/uc_01`…`uc_07` assert these figures (with tolerances).
+centring and 0.95 with the attribute bonus. After a reviewer answers the 15 % lowest-margin items,
+the pipeline meets all BRD targets (recall@20 0.91, top-1 0.91, regret 0.0099, MAE 0.035; with
+classifier labels alone recall@20 0.86, regret 0.022). The
+tests `test/sql/coverage/r4/uc_01`…`uc_07` assert these figures (with tolerances); the reasons are
+in [classification and calibration](../concepts/classification-and-calibration.md#why-these-defaults).
 
 **`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
 are reviewed. Classifier labels are not reviewed, so `auto` uses best match. The

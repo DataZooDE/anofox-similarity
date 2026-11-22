@@ -5,12 +5,11 @@
 
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
-AAS v3.x standardises the data envelope and dictionary-coded properties (semanticId → ECLASS or
-IEC CDD). IDTA-02020 (Capability Description, April 2026) marks capabilities as *Required* or
-*Offered*. No AAS specification says how to match the two, rank offers or explain a gap. The
-coverage kernel does that. This page covers reading AAS into property trees and the identifier
-rules. The [coverage kernel](13-coverage-kernel.md) and [quantities](11-quantities.md) pages
-cover `attr_key` and unit identifiers.
+This page covers reading AAS into property trees, writing trees and results back, and the
+identifier rules. AAS standardises the envelope and dictionary keys, not matching; how submodels
+become trees, why keys and not wording decide, and where bounds and units come from:
+[AAS mapping](../concepts/aas-mapping.md). The [coverage kernel](13-coverage-kernel.md) and
+[quantities](11-quantities.md) pages cover `attr_key` and unit identifiers.
 
 ## Load AAS: aas_to_trees, aas_issues
 
@@ -119,7 +118,7 @@ FROM read_blob('examples/aas_capability_matching/data/offers/*');
 - **References** in relations and constraints resolve by submodel **id** across the whole input,
   so two submodels with the same idShort never mix, and a GeneralizedBy may point into another
   submodel of the same input.
-- **`role`** comes from the `CapabilityRoleQualifier` (values true/false/1/0, else `bad_value`) and is informational ([HLD §12](../requirements-matching/HLD.md)):
+- **`role`** comes from the `CapabilityRoleQualifier` (values true/false/1/0, else `bad_value`) and is informational ([why](../concepts/aas-mapping.md#roles-are-informational)):
   `tree_coverage` reads the query tree as the requirement. `validate_trees` warns (`mixed_roles`)
   when one tree mixes both roles.
 - **Text is not a number.** A string value counts as a quantity only with a written unit. Product
@@ -361,11 +360,9 @@ The same dictionary concept arrives in several spellings:
 | `Rated current` (not an identifier) | `Rated current` |
 | NULL, blank | NULL |
 
-- **Version suffixes are stripped by default.** A new ECLASS release usually keeps the meaning of
-  a property, and an offer written against release 12 should match a request written against
-  release 14. But a version bump *may* change the meaning (a new unit, a narrower definition).
-  `semantic_key(id, true)` keeps the version for joins where that matters. The coverage kernel
-  always compares keys without the version.
+- **Version suffixes are stripped by default.** `semantic_key(id, true)` keeps the version for
+  joins where it matters. The coverage kernel always compares keys without the version. Why:
+  [AAS mapping](../concepts/aas-mapping.md#keys-not-wording).
 - An IRDI is `<RAI>#<item>[#<version>]`: the RAI starts with four digits and `-` or `/`, and
   the version is all digits. The ECLASS IRI form is recognised on any host whose name contains
   `eclass`, with the IRDI in the last path segment (`-` for `#`).

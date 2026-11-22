@@ -7,7 +7,8 @@
 ## Quantities: units, parsing and direction-aware comparison
 
 Numbers need rules, not embeddings: the unit is a hard gate, the value is checked
-with a direction, and the distance to compliance is reported.
+with a direction, and the distance to compliance is reported. Why these rules, and how bounds,
+tolerances, spans, scales and gates combine: [quantities and bounds](../concepts/quantities-and-bounds.md).
 
 **`quantity_units()`**: the built-in, read-only units seed. It returns `symbol, alias
 VARCHAR[], dimension, factor, offset, base_unit` (base = value × factor + offset). It covers SI
@@ -100,6 +101,9 @@ normalised first.
 | `point` (no bound) | the provided value lies within `[v·10⁻⁰·⁰¹, v·10⁰·⁰¹]` (log) or ±1 % (linear) | uncovered share |
 | `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
 | `missing` | no provided value; score 0 | NULL |
+
+Worked examples of each rule, and why `tol`, `soft_band` and the scale are set as they are:
+[scoring per bound](../concepts/quantities-and-bounds.md#scoring-per-bound).
 
 - `score` is 1 within `tol` (default 0.02: decades on a log scale, i.e. 4.5 % relative;
   relative on a linear scale) and falls linearly to 0 across `soft_band` (default 0.05).

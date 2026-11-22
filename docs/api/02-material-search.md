@@ -5,7 +5,10 @@
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
 ## Predecessor Inference
-Identifies predecessor-successor relationships through BOM similarity combined with anti-correlation temporal analysis.
+Identifies predecessor-successor relationships from three signals: BOM similarity, weekly
+consumption that hands over (negative correlation after `lag_weeks`), and the time order.
+`confidence = 0.4 · max(0, −correlation) + 0.3 · similarity + 0.3 · temporal_score`; the temporal
+score and why: [predecessors and cold start](../concepts/predecessors-and-cold-start.md#predecessor-three-signals).
 It only considers the 100 materials with the most similar BOMs; with many near-identical variants a
 predecessor can fall outside them (see [guide 03](../guides/03-predecessors-and-cold-start.md)).
 
@@ -170,7 +173,9 @@ WHERE similarity >= 0.5;
 ```
 
 ### Cold Start Analogs
-Finds analog materials with consumption history for cold-start forecasting.
+Finds analog materials with consumption history for cold-start forecasting: the most similar BOMs
+among materials with movements. How to use the analogs:
+[predecessors and cold start](../concepts/predecessors-and-cold-start.md#cold-start-analogs-with-history).
 
 **Signature:**
 ```sql

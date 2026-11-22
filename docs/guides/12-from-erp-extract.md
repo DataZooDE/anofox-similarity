@@ -11,7 +11,8 @@
 The blocks run from the repository root on the fictional extract in
 [`examples/erp_extract/data`](../../examples/erp_extract/README.md): a pump maker with SAP for its
 plants and D365 for two legal entities. The question: the new pump KP-65 has no history; which
-pumps are built like it?
+pumps are built like it? Why the SAP and D365 tables need these rules (alternatives, versions,
+clients, movement types): [ERP BOM models](../concepts/erp-bom-models.md).
 
 ## What to Export
 
@@ -129,7 +130,8 @@ FROM cold_start_analogs('000000000000100300', 3);
 ```
 
 KP-50 is the analog: built like KP-65, with three months of deliveries. See
-[Predecessors and cold start](03-predecessors-and-cold-start.md) for the parameters.
+[Predecessors and cold start](03-predecessors-and-cold-start.md) for the parameters and
+[consumption from MSEG](../concepts/erp-bom-models.md#consumption-from-mseg) for the movement types.
 
 ## Dynamics 365
 

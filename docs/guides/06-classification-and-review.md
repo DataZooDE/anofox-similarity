@@ -55,7 +55,8 @@ The output is a distribution over classes per item. `margin` is p1 − p2. A mar
 ## The Pipeline
 
 Per item: centring → similarity → z-score across the catalogue (+ attribute bonus) → softmax with
-the temperature → margin.
+the temperature → margin. Why each step, and a worked example that reproduces `p` by hand:
+[classification and calibration](../concepts/classification-and-calibration.md#the-pipeline).
 
 | Parameter | Default | Effect |
 |---|---|---|
@@ -107,8 +108,8 @@ The same check for the other settings:
 | centring (default), no attributes | 0.853 |
 | centring + attribute bonus (above) | 0.953 |
 
-`cosine_floor` estimates the cosine of unrelated names (here 0.853, from 14 365 pairs). Sentence
-encoders give unrelated texts a high cosine. The floor calibrates it, so only real synonyms count.
+`cosine_floor` estimates the cosine of unrelated names (here 0.853, from 14 365 pairs), so only
+real synonyms count ([why](../concepts/classification-and-calibration.md#calibrated-cosine-and-the-floor)).
 Use the same floor in `tree_coverage(name_vectors := ..., name_floor := ...)`.
 
 ## Review the Archive Vocabulary
@@ -136,7 +137,8 @@ FROM vocabulary_review_queue(trees_table := 'programme_nodes', decisions := 'wor
 | Massagelordose     | lumbar_support   | massage          | 0.996  | 38               | 0.1    |
 | Lüftermodul        | seat_ventilation | trim_cover       | 0.999  | 68               | 0.1    |
 
-`impact` = trees affected × (1 − margin). The first four wordings mislead: "Klimapaket Heizung" is a
+`impact` = trees affected × (1 − margin), so uncertain and frequent wordings come first
+([why the wording is the unit](../concepts/classification-and-calibration.md#review-where-it-matters)). The first four wordings mislead: "Klimapaket Heizung" is a
 ventilation module. In each case the runner-up `top2` is the true class, so the reviewer confirms
 the second choice. Together they touch more than 60 % of the programmes.
 

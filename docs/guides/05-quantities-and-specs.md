@@ -10,7 +10,8 @@
 - Give unqualified values a direction with `default_bound` and `default_bounds := 'catalogue'`
 
 Numbers need rules, not text similarity. The unit is a hard gate, the bound gives the direction,
-and the result says how far a value misses.
+and the result says how far a value misses. The rules in full, and why:
+[quantities and bounds](../concepts/quantities-and-bounds.md).
 
 ## Parse a Quantity
 
@@ -123,23 +124,16 @@ ORDER BY module;
 | H-190  | 0.2889 | 0.0556   | at_most |
 | H-240  | 0.0    | 0.3333   | at_most |
 
-- `distance` is relative for the limit rules: H-190 misses by 5.6 %.
-- `score` is 1 within the tolerance `tol` (default 0.02) and falls linearly to 0 across the soft band
-  (default 0.05). H-183 is 1.7 % over the limit and still scores 1.
-- Time, currency, percent and sound level use a linear scale. Other dimensions use a log scale,
-  where the default tolerance is about 4.5 %.
+H-183 is 1.7 % over the limit and still scores 1 (inside `tol`, default 0.02); H-190 misses by
+5.6 % and lands in the soft band. How `tol`, `soft_band` and the log or linear scale shape the score:
+[tolerance, soft band and scale](../concepts/quantities-and-bounds.md#tolerance-soft-band-and-scale).
 
 ### The Rules
 
-| Bound | Satisfied when |
-|---|---|
-| `at_least v` | the provided high end ≥ v |
-| `at_most v` | the provided low end ≤ v |
-| `within [lo, hi]` | the provided range covers the required range |
-| `equals v` | within 2 % of v |
-| `equals [lo, hi]` (`20 kg ± 1 kg`) | the provided value lies inside 19–21 kg, plus `tol` |
-| none (point) | the provided value is about the same (±1 % linear) |
-| `gate` | different or unknown dimensions, or different currencies: score 0 |
+`at_least` is met by the offer's high end, `at_most` by its low end, an `equals` span
+(`20 kg ± 1 kg`) when the offer lies inside 19–21 kg plus `tol`, and an unqualified value when it is
+about the same. Different or unknown dimensions are a gate (score 0). The table of rules with
+distances: [scoring per bound](../concepts/quantities-and-bounds.md#scoring-per-bound).
 
 `within` means the offer must cover the whole required range, as for an adjustment travel of
 22 to 26 cm. A single value inside the range covers only part of it. If the range is a band of

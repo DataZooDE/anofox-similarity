@@ -24,6 +24,8 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 - `docs/API_REFERENCE.md` + `docs/api/NN-*.md`: one page per area; the text between
   `<!-- generated:functions:start/end -->` is generated, the rest is hand-written
 - `docs/guides/`: task guides and tutorials; `docs/aas/index.md`: AAS identifier terms
+- `docs/concepts/`: how and why it works (the theory layer); guides, API pages and skills link to it
+- `docs/requirements-matching/`, `docs/background/`: design records, not the contract
 - `examples/<topic>/*.sql`: runnable, numbers checked
 
 ## Claude Code plugin
@@ -44,8 +46,9 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 ## When you add or change a SQL function
 
 1. Description, parameter names and examples in the C++ registration.
-2. Add it to `PAGES` in `scripts/generate_api_reference.py`, write the concept text on its
-   `docs/api` page, run the generator.
+2. Add it to `PAGES` in `scripts/generate_api_reference.py`, write the contract (signature,
+   defaults, errors, pitfalls) on its `docs/api` page and the why/how on its `docs/concepts` page,
+   run the generator.
 3. Update the owning skill above (signature, gotchas, a runnable example).
 4. `make check-docs` and `make test` must pass.
 

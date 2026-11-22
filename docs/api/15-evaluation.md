@@ -6,6 +6,8 @@
 
 **Evaluation.** `results` holds `query_id, candidate_id` and a `rank` (or a score
 column), as `tree_coverage` returns them; `gold` holds `query_id, candidate_id, true_coverage`.
+What each metric measures, why intervals resample clusters and how to fit weights without
+overfitting: [evaluation and scale](../concepts/evaluation-and-scale.md).
 
 | Function | Returns |
 |---|---|

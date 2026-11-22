@@ -49,15 +49,12 @@ same week. Weeks without any movement are skipped, not counted as zero.
 
 ## How Predecessor Detection Works
 
-A successor replaces its predecessor. Three signals point to such a pair:
-
-1. **Similar BOMs.** Jaccard similarity of the components, at least `min_similarity` (default 0.3).
-2. **Anti-correlated consumption.** The weekly consumption of the old material falls while the new
-   one rises. The series are aligned in weekly buckets and shifted by `lag_weeks` (default 8).
-   At least `min_overlapping_weeks` (default 8) buckets must overlap.
-3. **Succession in time.** The old material's usage ends around the time the new one starts.
-
-The confidence combines the three. Rows below `min_confidence` (default 0.5) are dropped.
+Three signals point to a successor-predecessor pair: similar BOMs (Jaccard at least
+`min_similarity`), weekly consumption that hands over (negatively correlated after a shift of
+`lag_weeks`, over at least `min_overlapping_weeks`), and the time order (the old material ends
+around the new one's start). `confidence` weights them; rows below `min_confidence` are dropped.
+The formula, the temporal score and a worked example:
+[predecessors and cold start](../concepts/predecessors-and-cold-start.md#predecessor-three-signals).
 
 ## Find a Predecessor
 

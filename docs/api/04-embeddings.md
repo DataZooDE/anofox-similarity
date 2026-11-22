@@ -18,363 +18,74 @@ indexes and the `array_distance` / `array_cosine_distance` / `array_negative_inn
 functions take. A list of the right length casts in implicitly. See
 [Embedding vs signature](00-conventions.md#embedding-vs-signature).
 
-## Textual Embeddings
+## Status
 
-### Compute Textual Embeddings
-Generates one placeholder embedding per material description (see the warning above).
+| Function | Returns | Real or placeholder | Needs |
+|---|---|---|---|
+| `compute_transactional_embeddings` | `material_id, transactional_embedding FLOAT[128]` | real | `anofox-forecast`; `transactional_embedding_statistics` (writable database once) |
+| `compute_jaccard_embeddings` | `material_id, seed, minhash_value FLOAT, num_components` (one row per seed) | real (MinHash) | a BOM table (`parent_id, child_id`) |
+| `fuse_embeddings` | `FLOAT[768]` | real (as good as its inputs) | — |
+| `compute_fused_embeddings` | `material_id, combined_embedding FLOAT[768], fusion_weights STRUCT(structural, textual, transactional FLOAT)` | real (as good as its inputs) | `material_embeddings` (writable database once) |
+| `compute_textual_embeddings`, `embed_text`, `embedding_backend` | `FLOAT[384]` | **placeholder** (hash) | MAKT with `matnr, spras, maktx, maktg` for the table macro |
+| `recompute_embedding_statistics`, `compute_domain_specific_statistics`, `extract_ts_features` | per-feature statistics; features per material | real | `anofox-forecast` |
+| `check_statistics_freshness` | `stat_count, max_samples, current_version, last_updated, is_fresh` | real | — (a read-only database gives `0`, NULL, `false`) |
 
-**Signature:**
-```sql
-compute_textual_embeddings(
-    makt_table := 'sap_makt',
-    language := 'E',
-    provider := 'gemma-local',
-    provider_config := ''
-) → TABLE (
-    material_id VARCHAR,
-    textual_embedding FLOAT[384]
-)
+What the vectors contain, how fusion weighs them and which distance fits which vector:
+[embeddings and fusion](../concepts/embeddings-and-fusion.md).
+
+## Signatures and Defaults
+
+```text
+compute_textual_embeddings(makt_table := 'sap_makt', language := 'E', provider := 'gemma-local', provider_config := '')
+embed_text(description VARCHAR) → FLOAT[384]          -- embedding_backend(description, 'gemma-local', '')
+compute_transactional_embeddings(movements_table := 'goods_movements', time_window_days := 365,
+                                 batch_size := NULL, batch_offset := 0)
+recompute_embedding_statistics(time_window_days := 365, min_observations := 3, movements_table := 'goods_movements')
+  → TABLE(feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples)
+compute_domain_specific_statistics(movements_table := 'goods_movements', time_window_days := 365, min_observations := 3)
+extract_ts_features(movements_table := 'goods_movements', time_window_days := 365, min_observations := 3,
+                    batch_size := NULL, batch_offset := 0) → TABLE(material_id, features STRUCT)
+compute_fused_embeddings(weights_structural := 0.5, weights_textual := 0.5, weights_transactional := 0.0)
+compute_jaccard_embeddings(bom_table := 'bom_items')
+check_statistics_freshness()
 ```
 
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `makt_table` | VARCHAR | 'sap_makt' | Material text master table |
-| `language` | VARCHAR | 'E' | SAP language key ('E') or ISO code ('EN'); MAKT rows in either form match |
-| `provider` | VARCHAR | 'gemma-local' | Embedding provider |
-| `provider_config` | VARCHAR | '' | Provider-specific config JSON |
+## Rules and Pitfalls
 
-**Providers** (the only names accepted; none is wired to a real model in the released build):
-- `gemma-local` - intended for a local OpenVINO model (384-D)
-- `openai`, `anthropic`, `cohere` - intended for the vendors' APIs
+- **Textual providers** are `gemma-local`, `openai`, `anthropic` and `cohere` (case-insensitive);
+  any other name is an error (`embedding_backend: unknown provider ...`). None is wired to a model
+  in the released build. `provider_config` is not read yet; do not put API keys in SQL.
+- **`language`** takes SAP's one-character key (`'E'`, default) or the ISO code (`'EN'`); MAKT rows
+  match in either form. Several MAKT rows per `(matnr, spras)` collapse to one description; a MAKT
+  without `maktg` is an error.
+- **`anofox-forecast`**: without it `compute_transactional_embeddings` raises an error saying so;
+  `recompute_embedding_statistics` fails at bind time with a catalog error naming
+  `anofox_fcst_ts_features`.
+- **Movements** need `material_id, movement_date, quantity`; `movement_type` is optional for
+  `compute_transactional_embeddings` (treated as NULL when absent) and required
+  by `compute_domain_specific_statistics`. `time_window_days` counts back from the latest movement
+  date in the data.
+- **Statistics**: `recompute_embedding_statistics` returns them; store them in
+  `transactional_embedding_statistics` yourself. `check_statistics_freshness` says `is_fresh` with
+  at least 30 rows, the newest updated within 7 days; `last_updated` is NULL without statistics.
+- **`compute_fused_embeddings`** reads the fixed `material_embeddings` table (no table parameter);
+  the column is `combined_embedding`, and `fusion_weights` reports the normalised weights as `FLOAT`.
+  Weights need not sum to 1. A modality with weight 0 may be NULL; a positive weight on a NULL
+  vector gives NULL.
+- **`fuse_embeddings`** takes `FLOAT[256]`, `FLOAT[384]`, `FLOAT[128]` and a weights STRUCT; a list
+  of another length is a cast error (`Cannot cast list with length 2 to array with length 256`),
+  not NULL. All weights 0 gives NULL.
+- **`compute_jaccard_embeddings`** returns rows; aggregate them in seed order into the `FLOAT[128]`
+  `jaccard_embedding` and compare with `minhash_similarity`, never with cosine or L2:
 
-Names are matched case-insensitively. `provider_config` is accepted but not read yet; do not put
-API keys in SQL text (a real backend will read them from a DuckDB secret).
-
-Any other provider name is an error (`Invalid Input Error: embedding_backend: unknown provider ...`).
-
-> [!IMPORTANT]
-> Unless the extension is built with a local OpenVINO model or a real API backend is wired in,
-> **all providers currently return a deterministic hash-based PLACEHOLDER embedding** — useful for
-> plumbing and tests, but not for semantic search. The `makt_table` must have `matnr`, `spras`,
-> `maktx`, **and `maktg`** (both description columns are referenced; a MAKT lacking `maktg` errors).
-> Multiple MAKT rows per `(matnr, spras)` are collapsed to one description. `language` takes
-> SAP's one-character key (`'E'`, the default) or the ISO code (`'EN'`); a MAKT whose `spras`
-> holds either form matches.
-
-**Returns:**
-- `material_id` - Material identifier
-- `textual_embedding` - `FLOAT[384]`
-
-**Example:**
 ```sql
-SELECT
-  material_id,
-  textual_embedding
-FROM compute_textual_embeddings(
-  provider := 'gemma-local'
-);
-```
-
-### Embed Text
-
-User-friendly text embedding function.
-
-**Signature:**
-```sql
-embed_text(description VARCHAR) → FLOAT[384]
-```
-
-**Example:**
-```sql
-SELECT embed_text('High-precision ball bearing assembly') AS embedding;
-```
-
----
-
-## Transactional Embeddings
-
-### Compute Transactional Embeddings
-Extracts 98+ time-series features from goods movement history.
-
-**Signature:**
-```sql
-compute_transactional_embeddings(
-    movements_table := 'goods_movements',
-    time_window_days := 365,
-    batch_size := NULL,
-    batch_offset := 0
-) → TABLE (
-    material_id VARCHAR,
-    transactional_embedding FLOAT[128]
-)
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
-| `time_window_days` | INTEGER | 365 | Historical window (relative to the latest movement date in the data) |
-| `batch_size` | INTEGER | NULL | Optional batch size for incremental processing |
-| `batch_offset` | INTEGER | 0 | Offset for batch processing |
-
-> [!IMPORTANT]
-> **Requires the `anofox-forecast` extension** (`anofox_fcst_ts_features`). If it is not loaded,
-> this function raises a clear error telling you to install it — it does not silently return NULL.
-> It also reads `transactional_embedding_statistics`, which is not created on a read-only database;
-> there it raises an error saying so (open the database writable once).
-> The `movements_table` must have `material_id`, `movement_date`, `quantity`; a `movement_type`
-> column is used for the ERP movement-type features when present and treated as NULL when absent.
-
-**Features Extracted:**
-- **Consumption Metrics** (0-9): mean, median, variance, std dev, trend, sum, length, extrema
-- **Volatility Metrics** (10-19): coefficient of variation, skewness, kurtosis, entropy
-- **Frequency Metrics** (20-29): FFT coefficients and aggregates
-- **Temporal Metrics** (30-91): Autocorrelation, quantiles, seasonality indicators
-- **Domain-Specific Features** (92-97): Movement types, lifecycle indicators
-
-**Returns:**
-- `material_id` - Material identifier
-- `transactional_embedding` - normalized `FLOAT[128]`
-
-**Example:**
-```sql
-SELECT
-  material_id,
-  transactional_embedding
-FROM compute_transactional_embeddings(
-  movements_table := 'goods_movements',
-  time_window_days := 180
-);
-```
-
-### Recompute Embedding Statistics
-Computes z-score normalization statistics for transactional embeddings.
-
-**Signature:**
-```sql
-recompute_embedding_statistics(
-    time_window_days := 365,
-    min_observations := 3,
-    movements_table := 'goods_movements'
-) → TABLE (
-    feature_name VARCHAR,
-    feature_index INTEGER,
-    feature_category VARCHAR,
-    mean_value DOUBLE,
-    std_value DOUBLE,
-    min_value DOUBLE,
-    max_value DOUBLE,
-    num_samples INTEGER
-)
-```
-> [!NOTE]
-> Requires the `anofox-forecast` extension; without it this fails at bind time with a catalog error
-> naming `anofox_fcst_ts_features` (unlike `compute_transactional_embeddings`, which gives a friendlier message).
-
-**Example:**
-```sql
-SELECT * FROM recompute_embedding_statistics();
-```
-
----
-
-## Multi-modal Fusion
-
-### Compute Fused Embeddings
-Combines structural, textual, and transactional embeddings.
-
-**Signature:**
-```sql
-compute_fused_embeddings(
-    weights_structural := 0.5,
-    weights_textual := 0.5,
-    weights_transactional := 0.0
-) → TABLE (
-    material_id VARCHAR,
-    combined_embedding FLOAT[768],
-    fusion_weights STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT)
-)
-```
-
-> [!NOTE]
-> The fused-vector column is named **`combined_embedding`** (not `fused_embedding`). `fusion_weights`
-> reports the **normalized** weights actually applied (each input weight divided by their sum), typed
-> `FLOAT` (not `DOUBLE`). Each modality's vector is scaled by `sqrt(weight)` before concatenation (so
-> that combining two unit-norm vectors at weight 0.5 each yields a unit-norm result), not by the raw
-> weight — this affects magnitude if you consume `combined_embedding` for anything beyond cosine
-> similarity / nearest-neighbor search.
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `weights_structural` | DOUBLE | 0.5 | Structural embedding weight |
-| `weights_textual` | DOUBLE | 0.5 | Textual embedding weight |
-| `weights_transactional` | DOUBLE | 0.0 | Transactional embedding weight |
-
-> [!NOTE]
-> Reads from the fixed `material_embeddings` table (there is no `embedding_table` parameter), which
-> is not created on a read-only database (`Catalog Error`); open the database writable once.
-> Weights need not sum to 1 — they are normalized. A modality with weight `0` is ignored even if
-> its vector is NULL, so the default (structural + textual) works without transactional embeddings.
-
-**Returns:**
-- `material_id` - Material identifier
-- `combined_embedding` - Combined `FLOAT[768]` (column name is `combined_embedding`)
-- `fusion_weights` - STRUCT(structural FLOAT, textual FLOAT, transactional FLOAT) of the normalized weights applied
-
-### Fuse Embeddings (scalar)
-
-`fuse_embeddings(structural FLOAT[256], textual FLOAT[384], transactional FLOAT[128], weights)`
-returns `FLOAT[768]` with the same weighting and `sqrt(weight)` scaling. A list of the right length
-casts in; a list or array of another length is a cast error (`Conversion Error: Cannot cast list
-with length 2 to array with length 256`), not NULL. A positive weight on a NULL modality, or all
-weights 0, gives NULL.
-
-**Example:**
-```sql
-SELECT
-  material_id,
-  combined_embedding
-FROM compute_fused_embeddings(
-  weights_structural := 0.4,
-  weights_textual := 0.4,
-  weights_transactional := 0.2
-);
-```
-
----
-
-## Statistics & Normalization
-
-### Check Statistics Freshness
-Validates whether transactional embedding statistics are current and complete.
-
-**Signature:**
-```sql
-check_statistics_freshness() → TABLE (
-    stat_count BIGINT,
-    max_samples INTEGER,
-    current_version INTEGER,
-    last_updated TIMESTAMP,
-    is_fresh BOOLEAN
-)
-```
-
-**Returns:**
-- `stat_count` - Number of statistics records
-- `max_samples` - Maximum samples used in computation
-- `current_version` - Statistics version number
-- `last_updated` - Newest `updated_at`; NULL when there are no statistics
-- `is_fresh` - TRUE if ≥30 rows and the newest was updated within the last 7 days
-
-On a read-only database (where `transactional_embedding_statistics` does not exist) it returns
-`stat_count = 0`, `last_updated = NULL`, `is_fresh = false` instead of an error.
-
-**Example:**
-```sql
-SELECT * FROM check_statistics_freshness();
--- Fresh database: stat_count=0, last_updated=NULL, is_fresh=false
-```
-
-### Compute Domain-Specific Statistics
-Computes advanced domain-specific ERP features (indices 92-97).
-
-**Signature:**
-```sql
-compute_domain_specific_statistics(
-    movements_table := 'goods_movements',
-    time_window_days := 365,
-    min_observations := 3
-) → TABLE (feature_name, feature_index, feature_category, mean_value, std_value, ...)
-```
-
-> [!NOTE]
-> The movements table must use the canonical column names `material_id`, `movement_date`,
-> `quantity`, `movement_type`. Requires the `anofox-forecast` extension (lifecycle features 96–97).
-
-**Features Computed:**
-- Feature 92: Movement type receipt ratio
-- Feature 93: Movement type reversal ratio
-- Feature 94: Weekday/weekend ratio
-- Feature 95: Weekday concentration (entropy-based)
-- Feature 96: Lifecycle trend strength
-- Feature 97: Lifecycle growth indicator
-
----
-
-## Embedding Generation
-
-### Compute Jaccard Embeddings
-Generates 128-dimensional min-hash embeddings for Jaccard similarity approximation.
-
-**Signature:**
-```sql
-compute_jaccard_embeddings(
-    bom_table := 'bom_items'
-) → TABLE (
-    material_id VARCHAR,
-    seed BIGINT,
-    minhash_value FLOAT,
-    num_components INTEGER
-)
-```
-
-**Returns:**
-- `material_id` - Material identifier
-- `seed` - Seed index [0-127] for 128-D embedding
-- `minhash_value` - Min-hash value for this seed, scaled to `[0, 1)`
-- `num_components` - Component count for this material
-
-Aggregate in seed order to a `FLOAT[128]`. Two such vectors are compared with
-`minhash_similarity(a, b)`, the share of equal positions, which estimates the Jaccard of the direct
-component sets. L2 / cosine distance over MinHash values does not approximate Jaccard, so there is
-no HNSW index on `jaccard_embedding`.
-
-**Usage Pattern:**
-```sql
--- Generate embeddings and aggregate into FLOAT[128] arrays
 INSERT INTO material_embeddings (material_id, jaccard_embedding, num_components)
-SELECT
-    material_id,
-    array_agg(minhash_value ORDER BY seed)::FLOAT[128],
-    MAX(num_components)
+SELECT material_id, array_agg(minhash_value ORDER BY seed)::FLOAT[128], max(num_components)
 FROM compute_jaccard_embeddings(bom_table := 'bom_items')
 GROUP BY material_id
 ON CONFLICT (material_id) DO UPDATE SET
-    jaccard_embedding = EXCLUDED.jaccard_embedding,
-    num_components = EXCLUDED.num_components;
+    jaccard_embedding = EXCLUDED.jaccard_embedding, num_components = EXCLUDED.num_components;
 ```
-
-### Extract Time-Series Features
-Shared macro for efficient time-series feature extraction (avoids redundant computation).
-
-**Signature:**
-```sql
-extract_ts_features(
-    movements_table := 'goods_movements',
-    time_window_days := 365,
-    min_observations := 3,
-    batch_size := NULL,
-    batch_offset := 0
-) → TABLE (
-    material_id VARCHAR,
-    features STRUCT
-)
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `movements_table` | VARCHAR | 'goods_movements' | Source movements table |
-| `time_window_days` | INTEGER | 365 | Historical window |
-| `min_observations` | INTEGER | 3 | Minimum data points |
-| `batch_size` | INTEGER | NULL | Batch size for incremental processing |
-| `batch_offset` | INTEGER | 0 | Offset for batch processing |
-
-**Note:** Requires anofox-forecast extension for `anofox_fcst_ts_features()`.
-
----
 
 ## Vector Search & Indexing
 

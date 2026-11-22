@@ -9,14 +9,10 @@
 
 ## What AAS cannot say
 
-The coverage kernel needs two things that AAS v3 has no construct for:
-
-- **A configuration space.** A product family (a base module, configurations, applications)
-  offers *alternatives*; the best one should count. ECLASS polymorphism picks one variant per
-  *instance*. IDTA-02020 has no "one of". Without a convention, a supplier has to publish one
-  shell per variant, which hides the engineering choice and multiplies near-duplicates.
-- **Additive counts.** "2 cards with 8 channels each" means 16 channels. ECLASS cardinality
-  blocks describe instance structure; IDTA-02020 has no multiplicity.
+AAS v3 has no construct for a configuration space ("one of these variants") or for additive
+counts ("2 cards with 8 channels each" = 16 channels), so without a convention a supplier
+publishes one shell per variant. Why ECLASS and IDTA-02020 do not cover it:
+[AAS mapping](../concepts/aas-mapping.md#what-aas-cannot-say).
 
 The profile is three small, optional markers. Plain AAS without them still loads. The markers are
 ordinary AAS (qualifiers and a semanticId), so every AAS tool keeps reading the file.

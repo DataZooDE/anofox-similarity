@@ -8,7 +8,10 @@
 
 ### SAP Transformations
 
-Convert SAP-format BOM to universal schema.
+Convert SAP tables to flat BOM edges and universal materials. The rules below choose one BOM per
+material and date (category, alternative, versions, STAS selection, usage, clients); why each rule
+exists and how the SAP and D365 models differ:
+[ERP BOM models](../concepts/erp-bom-models.md).
 
 **sap_to_bom_items** - Convert MAST/STKO/STPO (and optionally STAS) to flat BOM edges:
 ```sql
@@ -125,7 +128,9 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 ### Dynamics 365 Transformations
 
-Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs.
+Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs. How
+versions choose a BOM and why lines are per `BOMQtySerie`:
+[ERP BOM models](../concepts/erp-bom-models.md#dynamics-365-versions-choose-a-bom).
 
 These table functions RETURN **universal-schema** rows (materials / bom_header / bom_component
 shapes). They do not write an output table, and the component function does **not** return flat

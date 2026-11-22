@@ -25,7 +25,8 @@ Measure before you switch: on the archive below (20 000 BOMs, 400 000 rows) and 
 BOMs (2 million rows), the exact batch join is faster than the LSH search for 100 queries.
 
 It does not pay off with a small pivot vocabulary. With about 20 catalogue classes, the multisets
-overlap so much that LSH still scores about half the archive.
+overlap so much that LSH still scores about half the archive. How the estimate, the size
+partitions and the threshold work: [evaluation and scale](../concepts/evaluation-and-scale.md#scale-estimate-instead-of-join).
 
 ## Weighted MinHash
 

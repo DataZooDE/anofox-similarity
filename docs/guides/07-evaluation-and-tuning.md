@@ -11,7 +11,8 @@
 
 All functions take two tables. `results` holds `query_id, candidate_id` and a `rank` or a score
 column, as `tree_coverage` returns them. `gold` holds `query_id, candidate_id, true_coverage`: the
-coverage a reviewer confirmed.
+coverage a reviewer confirmed. What each metric measures and why:
+[evaluation and scale](../concepts/evaluation-and-scale.md).
 
 ## A First Example
 
@@ -133,8 +134,10 @@ The `curve` column holds every (threshold, precision, share) point. The paramete
 
 ## Confidence Intervals by Cluster
 
-Requests from one customer share wording and habits. They are not independent. `bootstrap_ci`
-resamples whole clusters:
+Requests from one customer share wording and habits. They are not independent, so resampling
+single requests gives too narrow an interval
+([why](../concepts/evaluation-and-scale.md#intervals-by-cluster)). `bootstrap_ci` resamples whole
+clusters:
 
 ```sql
 CREATE TABLE per_request AS

@@ -4,6 +4,9 @@
 
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
+What each measure computes, worked examples and which one answers which question:
+[similarity measures](../concepts/similarity-measures.md).
+
 ## Core Similarity Algorithms
 
 ### Jaccard Similarity
@@ -46,7 +49,9 @@ WHERE a.material_id = 'PUMP-A' AND b.material_id = 'PUMP-B';
 ```
 
 ### WL Kernel Similarity
-Computes graph-structural similarity using Weisfeiler-Lehman kernel.
+Compares BOM structure: weighted Jaccard of depth fingerprints (every component reachable within
+`iterations` levels, weighted by the number of levels it appears at). See
+[the depth kernel](../concepts/similarity-measures.md#bom-structure-the-depth-kernel).
 
 **Signature:**
 ```sql
@@ -103,7 +108,8 @@ FROM cross_product_of_materials;
   for example `::VARCHAR[]`, before comparing ids from different sources.
 - NULL arguments give NULL. `alpha` and `beta` must be non-negative.
 - The parameters are called `query` and `candidate` because the measures are directional
-  (`jaccard_similarity` keeps `list_a` / `list_b`).
+  (`jaccard_similarity` keeps `list_a` / `list_b`). Which one to use:
+  [similarity measures](../concepts/similarity-measures.md#which-one-to-use).
 
 ```sql
 SELECT containment(['a','b'], ['a','b','c','d']);                          -- 1.0
