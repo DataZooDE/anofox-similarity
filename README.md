@@ -31,7 +31,7 @@ matters; the extension does not ship language models.
 ## ✨ Key Features
 
 ### 🔩 Material similarity
-- **Set and graph similarity**: Jaccard and Weisfeiler-Lehman kernel similarity of BOMs, top-k
+- **Set and graph similarity**: Jaccard and BOM depth-kernel (Weisfeiler-Lehman family) similarity of BOMs, top-k
   search (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`)
 - **Predecessors and cold start**: detect a predecessor from anti-correlated consumption, find
   analogs with history for a new product (`infer_predecessors`, `cold_start_analogs`)

@@ -382,9 +382,11 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	                {"mode", LogicalType::VARCHAR}});
 
 	RegisterSearch(loader, "find_similar_materials_wl_kernel", FindSimilarMaterialsWLKernelBindReplace,
-	               "Finds the k most structurally similar materials using the Weisfeiler-Lehman graph "
-	               "kernel, which captures multi-hop BOM structure beyond direct component overlap. "
-	               "iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows "
+	               "Finds the k most structurally similar materials by BOM depth fingerprints (a kernel of the "
+	               "Weisfeiler-Lehman family, not WL relabelling): each component weighted by the number of depths "
+	               "1..iterations at which it is reachable, compared by weighted Jaccard. It sees multi-level "
+	               "structure beyond direct components, but not quantities or which subassembly a part sits in. "
+	               "iterations is the depth (default 3; exact up to 5). Without min_similarity, rows "
 	               "scoring 0 are left out; min_similarity := 0 keeps them.",
 	               {"SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);",
 	                "SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := "

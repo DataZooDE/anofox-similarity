@@ -461,7 +461,7 @@ static const DefaultTableMacro COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO = {
 			SELECT
 				material_id,
 				COUNT(*) AS total_moves,
-				COUNT(*) FILTER (WHERE movement_type = '261') AS receipt_count,
+				COUNT(*) FILTER (WHERE movement_type = '261') AS issue_count,
 				COUNT(*) FILTER (WHERE movement_type = '262') AS reversal_count,
 				COUNT(*) FILTER (WHERE EXTRACT(DOW FROM movement_date) IN (0, 6)) AS weekend_count,
 				-- Weekday distribution: compute entropy for concentration metric
@@ -483,8 +483,8 @@ static const DefaultTableMacro COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO = {
 		domain_specific_features AS (
 			SELECT
 				material_id,
-				-- Feature 92: Movement type receipt ratio
-				COALESCE(receipt_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS receipt_ratio,
+				-- Feature 92: share of movement type 261 (goods issue to production)
+				COALESCE(issue_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS issue_ratio,
 				-- Feature 93: Movement type reversal ratio
 				COALESCE(reversal_count::FLOAT / NULLIF(total_moves, 0), 0.0) AS reversal_ratio,
 				-- Feature 94: Weekday/weekend ratio
@@ -532,7 +532,7 @@ static const DefaultTableMacro COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO = {
 		combined_domain_features AS (
 			SELECT
 				pf.material_id,
-				pf.receipt_ratio,
+				pf.issue_ratio,
 				pf.reversal_ratio,
 				pf.weekend_ratio,
 				pf.weekday_concentration,
@@ -543,12 +543,12 @@ static const DefaultTableMacro COMPUTE_DOMAIN_SPECIFIC_STATISTICS_MACRO = {
 		),
 		domain_stats AS (
 			SELECT
-				'movement_type_receipt_ratio' AS feature_name, 92 AS feature_index, 'advanced' AS feature_category,
-				AVG(receipt_ratio) AS mean_value, STDDEV_POP(receipt_ratio) AS std_value,
-				MIN(receipt_ratio) AS min_value, MAX(receipt_ratio) AS max_value,
+				'movement_type_issue_ratio' AS feature_name, 92 AS feature_index, 'advanced' AS feature_category,
+				AVG(issue_ratio) AS mean_value, STDDEV_POP(issue_ratio) AS std_value,
+				MIN(issue_ratio) AS min_value, MAX(issue_ratio) AS max_value,
 				COUNT(*) AS num_samples
 			FROM combined_domain_features
-			WHERE receipt_ratio IS NOT NULL
+			WHERE issue_ratio IS NOT NULL
 			UNION ALL
 			SELECT
 				'movement_type_reversal_ratio', 93, 'advanced',

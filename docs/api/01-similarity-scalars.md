@@ -145,7 +145,7 @@ SELECT jaccard_similarity([1,2,3,4], [3,4,5,6]); -- 0.3333
 
 *Scalar macro*
 
-Weisfeiler-Lehman kernel similarity between two materials' BOM structures, comparing their depth-expanded component fingerprints. Returns a score in [0, 1] where 1 means structurally identical. Iterations 1-5 are exact; higher values are capped at depth 5.
+BOM structure similarity of two materials: weighted Jaccard of their depth fingerprints (wl_fingerprint: component -> number of depths at which it is reachable), a kernel of the Weisfeiler-Lehman family, not WL relabelling. Does not see quantities or which subassembly a part sits in. Returns a score in [0, 1]; 1 means the same components at the same depths. Iterations 1-5 are exact; higher values are capped at depth 5.
 
 ```sql
 wl_kernel_similarity(material_a, material_b, iterations, bom_table)

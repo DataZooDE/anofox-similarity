@@ -112,7 +112,7 @@ void RegisterWLKernelMacros(ExtensionLoader &loader) {
 	                .Example("SELECT * FROM wl_fingerprint('PUMP-A', 3, 'bom_items')")});
 	compat_anofox::RegisterMacroInfo(loader, duckdb_compat::ScalarMacroInfo(DEFAULT_SCHEMA, "wl_kernel_similarity", WL_KERNEL_SIMILARITY_MACRO),
 	           {ddoc::Doc()
-	                .Describe("Weisfeiler-Lehman kernel similarity between two materials' BOM structures, comparing their depth-expanded component fingerprints. Returns a score in [0, 1] where 1 means structurally identical. Iterations 1-5 are exact; higher values are capped at depth 5.")
+	                .Describe("BOM structure similarity of two materials: weighted Jaccard of their depth fingerprints (wl_fingerprint: component -> number of depths at which it is reachable), a kernel of the Weisfeiler-Lehman family, not WL relabelling. Does not see quantities or which subassembly a part sits in. Returns a score in [0, 1]; 1 means the same components at the same depths. Iterations 1-5 are exact; higher values are capped at depth 5.")
 	                .Example("SELECT wl_kernel_similarity('PUMP-A', 'PUMP-B')")}, categories);
 }
 

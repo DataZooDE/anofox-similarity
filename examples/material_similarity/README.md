@@ -4,7 +4,7 @@
 
 Runnable SQL examples for comparing bills of materials (BOMs) with the anofox-similarity
 extension: set overlap (Jaccard), structural similarity over several BOM levels
-(Weisfeiler-Lehman kernel) and BOM traversal.
+(a depth kernel of the Weisfeiler-Lehman family) and BOM traversal.
 
 ## Functions
 

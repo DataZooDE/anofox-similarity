@@ -10,7 +10,7 @@ namespace anofox {
 // Infrastructure placeholder for future optimization
 //
 // DESIGN NOTES:
-// The Weisfeiler-Lehman kernel similarity computation is currently implemented
+// The depth-fingerprint (WL-family) kernel similarity computation is currently implemented
 // in SQL within wl_kernel.cpp:
 //   - bom_dfs_neighborhood: DFS helper macro for component neighborhood
 //   - wl_kernel_similarity: Graph-structural similarity computation

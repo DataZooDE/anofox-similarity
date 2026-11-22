@@ -1,8 +1,8 @@
 -- ============================================================================
 -- WL Kernel Similarity: compare BOMs by structure, not just by parts list
 -- ============================================================================
--- The Weisfeiler-Lehman kernel walks each BOM down several levels and compares
--- the components reached at each depth. Two products whose direct children
+-- The depth kernel (of the Weisfeiler-Lehman family) walks each BOM down several
+-- levels and compares the components reached at each depth (weighted Jaccard). Two products whose direct children
 -- differ can still be close when their sub-assemblies contain the same parts;
 -- the top-level Jaccard score cannot see that.
 --
