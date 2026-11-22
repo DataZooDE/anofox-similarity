@@ -63,7 +63,13 @@ all releases in the input agree on the unit, because a property may change its u
 releases. A `unitId` is resolved before the unit text. ECLASS unit IRDIs are licensed content:
 the extension ships UN/ECE Rec 20 codes and takes ECLASS units from your `unit_table`. A
 dictionary entry without a unit makes the value a count; a value with no unit information at all
-is reported, not guessed.
+is reported, not guessed. A unit text nobody knows (`msec`) keeps the value without a dimension, so it
+matches nothing, and `aas_issues` reports it (`unknown_unit`).
+
+One error no single file shows is a unit slip: `0.55` with unit W where the supplier meant kW.
+It passes an `at_most 0.75 kW` limit with score 1. Only the other values of the same key can
+expose it, so the check sits where all trees meet: `validate_trees` over the request and the offers
+together warns `magnitude_outlier` for a value about 1000 times (or 1/1000 of) the others.
 
 ## Bounds From the Data Model
 

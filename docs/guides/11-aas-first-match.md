@@ -57,16 +57,18 @@ or `read_blob` for JSON, XML and AASX alike.
 ## 1. Audit the Files
 
 `aas_issues` never fails. It lists what will not compare: values without a unit, unknown unit
-ids, a decimal comma in an `xs:double`, a semanticId without a dictionary entry.
+ids and unit texts, a decimal comma in an `xs:double`, a semanticId without a dictionary entry.
 
 ```sql
 SELECT name, i.issue, i.severity, i.path
 FROM (SELECT name, unnest(aas_issues(content)) AS i FROM aas_files)
 ORDER BY name, i.issue;
+-- => DS-12 | unknown_unit | warning | TechnicalData.ServoDrive.CycleTime
 -- => OX-6 | decimal_comma | info | TechnicalData.ServoDrive.CycleTime
 ```
 
-Orbitec wrote `0,5` ms; the reader takes it as 0.5 and tells you. When units come as ECLASS unit
+Driventa wrote the unit `msec`, which no dictionary knows: that value will match nothing. Orbitec
+wrote `0,5` ms; the reader takes it as 0.5 and tells you. When units come as ECLASS unit
 IRDIs (`unitId`), pass your unit list as the third argument (`symbol, irdi`; ECLASS units are
 licensed, so bring your own).
 
@@ -213,6 +215,7 @@ Keep counts where the offer itself states a quantity (a module with 4 channels, 
 | A non-AAS tender matches no AAS offer | the tender class is not the ECLASS class key | map the wording to the class key (`overrides_table`) |
 | An older ECLASS release (`#007` vs `#008`) | the key ignores the version suffix | nothing; `aas_quality` counts mixed releases |
 | A product family is one shell per variant | AAS has no "one of these configurations" | the [DataZoo AAS profile](10-aas-profile.md) |
+| An offer value 1000 times off (`0.55` W for kW) passes an `at_most` limit | a unit slip passes a one-sided limit | `validate_trees` over the request and the offers together (a view with `UNION ALL`) warns `magnitude_outlier`; one file alone cannot tell |
 | The RFQ appears in its own ranking | `candidates` not passed | pass `candidates` or keep the RFQ in its own tables |
 
 ## Next

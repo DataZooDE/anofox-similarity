@@ -33,16 +33,17 @@ WHERE material_id LIKE 'CHARGER-65W-EU-%' ORDER BY material_id;
 -- | CHARGER-65W-EU-GREY  | 2            |
 -- | CHARGER-65W-EU-WHITE | 156          |
 
-.print '>>> 3. Raw analogs include sparse and returns-only candidates'
-SELECT material_id, round(similarity, 4) AS similarity, history_months
+.print '>>> 3. Raw analogs: returns are not history, but a sparse lookalike still ranks first'
+-- History is consumption (weeks with a positive net quantity), so the returns-only RETURN is
+-- not an analog. GREY's two issues span 34 months: movement_weeks (2) shows how thin that is.
+SELECT material_id, round(similarity, 4) AS similarity, history_months, movement_weeks
 FROM cold_start_analogs('CHARGER-65W-EU-BLACK', 5, min_similarity := 0.2,
   bom_table := 'bom_items', movements_table := 'raw_movements')
 ORDER BY similarity DESC, material_id;
 -- Expected:
--- | material_id           | similarity | history_months |
--- | CHARGER-65W-EU-GREY   | 0.875      | 34             |
--- | CHARGER-65W-EU-RETURN | 0.7647     | 27             |
--- | CHARGER-65W-EU-WHITE  | 0.6667     | 35             |
+-- | material_id           | similarity | history_months | movement_weeks |
+-- | CHARGER-65W-EU-GREY   | 0.875      | 34             | 2              |
+-- | CHARGER-65W-EU-WHITE  | 0.6667     | 35             | 156            |
 
 .print '>>> 4. Filter to dense issues before borrowing history'
 -- BRIDGE (proper fix: a movement-type and density filter in the API).

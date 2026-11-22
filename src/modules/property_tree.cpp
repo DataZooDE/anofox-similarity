@@ -1060,15 +1060,17 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 		bool has_bound = TableHasColumn(context, src.attrs_table, "bound");
 		bool has_attr_key = TableHasColumn(context, src.attrs_table, "attr_key");
 		bool has_role = TableHasColumn(context, src.attrs_table, "role");
+		bool has_unit = TableHasColumn(context, src.attrs_table, "unit");
 		auto a = StringUtil::Format(
 		    "SELECT CAST(tree_id AS VARCHAR) AS tree_id, CAST(node_id AS VARCHAR) AS node_id, "
 		    "CAST(attr_id AS VARCHAR) AS attr_id, %s AS name, %s AS dimension, %s AS lo, %s AS hi, %s AS category, "
-		    "%s AS bound, %s AS attr_key, %s AS role FROM %s",
+		    "%s AS bound, %s AS attr_key, %s AS role, %s AS unit FROM %s",
 		    CastOrNullSQL(has_name, "name", "VARCHAR"),
 		    CastOrNullSQL(has_dimension, "dimension", "VARCHAR"), CastOrNullSQL(has_lo, "lo", "DOUBLE"),
 		    CastOrNullSQL(has_hi, "hi", "DOUBLE"), CastOrNullSQL(has_category, "category", "VARCHAR"),
 		    CastOrNullSQL(has_bound, "bound", "VARCHAR"), CastOrNullSQL(has_attr_key, "attr_key", "VARCHAR"),
-		    CastOrNullSQL(has_role, "role", "VARCHAR"), QuotedIdentifier(src.attrs_table) + TreeFilter(src));
+		    CastOrNullSQL(has_role, "role", "VARCHAR"), CastOrNullSQL(has_unit, "unit", "VARCHAR"),
+		    QuotedIdentifier(src.attrs_table) + TreeFilter(src));
 		attr_checks = R"(
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'null_key', 'error', 'an attribute row without tree_id or node_id'
@@ -1086,11 +1088,14 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			SELECT a.tree_id, a.node_id, a.attr_id, 'orphan_attribute', 'error', 'no such node'
 			FROM a WHERE NOT EXISTS (SELECT 1 FROM n WHERE n.tree_id = a.tree_id AND n.node_id = a.node_id)
 			UNION ALL
-			SELECT tree_id, node_id, attr_id, 'unknown_unit', 'warning', 'a value without a known dimension'
+			SELECT tree_id, node_id, attr_id, 'unknown_unit', 'warning',
+			       'a value without a known dimension' || coalesce(' (unit ' || unit || ')', '') ||
+			       ': it matches nothing; fix the unit text or add the unit with unit_table'
 			FROM a WHERE lo IS NOT NULL AND dimension IS NULL AND category IS NULL
 			UNION ALL
 			SELECT tree_id, node_id, attr_id, 'category_without_dimension', 'warning',
-			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair'
+			       'category ' || category || ' has no dimension; rules apply only when every dimension agrees on the pair: '
+			       || 'give the attribute an attr_key (or a dimension such as protection_class)'
 			FROM a WHERE category IS NOT NULL AND dimension IS NULL AND attr_key IS NULL
 			UNION ALL
 			SELECT tree_id, NULL, NULL, 'mixed_roles', 'warning',
@@ -1111,6 +1116,28 @@ unique_ptr<TableRef> ValidateTreesBindReplace(ClientContext &context, TableFunct
 			      WHERE a.dimension IS NOT NULL GROUP BY ALL HAVING count(DISTINCT a.dimension) > 1) m
 			  ON m.name = s.name AND m.source IS NOT DISTINCT FROM s.source
 			WHERE s.dimension IS NOT NULL
+			UNION ALL
+			-- a unit slip: a value about 1000 x (or 1/1000 of) the other values of the same property
+			SELECT tree_id, node_id, attr_id, 'magnitude_outlier', 'warning',
+			       'value ' || v::VARCHAR || ' ' || coalesce(unit, '') || ' is about ' ||
+			       CASE WHEN v > ref THEN round(v / ref)::BIGINT::VARCHAR || ' x'
+			            ELSE '1/' || round(ref / v)::BIGINT::VARCHAR || ' of' END ||
+			       ' the other values of ' || k || ' (median ' || ref::VARCHAR || '): a unit slip (W for kW, mm for m)?'
+			FROM (
+				SELECT *, CASE WHEN cnt = 2 THEN total - v ELSE med END AS ref
+				FROM (
+					SELECT tree_id, node_id, attr_id, unit, coalesce(attr_key, name) || ' [' || dimension || ']' AS k,
+					       abs(coalesce((lo + hi) / 2, lo, hi)) AS v,
+					       count(*) OVER w AS cnt, sum(abs(coalesce((lo + hi) / 2, lo, hi))) OVER w AS total,
+					       median(abs(coalesce((lo + hi) / 2, lo, hi))) OVER w AS med
+					FROM a
+					WHERE dimension IS NOT NULL AND coalesce(attr_key, name) IS NOT NULL
+					  AND coalesce(lo, hi) IS NOT NULL AND abs(coalesce((lo + hi) / 2, lo, hi)) > 0
+					WINDOW w AS (PARTITION BY coalesce(attr_key, name), dimension)
+				)
+				WHERE cnt >= 2
+			)
+			WHERE ref > 0 AND (v / ref BETWEEN 300 AND 3000 OR ref / v BETWEEN 300 AND 3000)
 		)";
 		attr_checks = ", a AS (" + a + ") SELECT * FROM (SELECT * FROM checks" + attr_checks + ")";
 	} else {
@@ -1334,7 +1361,9 @@ void RegisterPropertyTreeFunctions(ExtensionLoader &loader) {
 	                  "bad_interval, bad_bound. Warnings: mixed_edge_types, unknown_unit, category_without_dimension (not for "
 	                  "attributes with an attr_key: the key identifies the property), mixed_roles (required and provided "
 	                  "attributes in one tree; role is informational), mixed_dimensions (one "
-	                  "attribute name with several dimensions within a source).",
+	                  "attribute name with several dimensions within a source), magnitude_outlier (a value about 1000 x or 1/1000 of "
+	                  "the other values of the same attr_key, else name, and dimension: a unit slip). The details name "
+	                  "the fix.",
 	                  {"SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');"}, true);
 }
 

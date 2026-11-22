@@ -231,6 +231,7 @@ Same arguments and reading as `aas_to_trees`; `path` is the idShort path, submod
 | `missing_concept_description` | warning | no dictionary entry: unit unknown (`validate_trees` → `unknown_unit`) |
 | `ambiguous_concept_description` | warning | no CD for this release, others disagree on unit |
 | `unknown_unit_id` | warning | unitId not in `unit_table`; unit text used |
+| `unknown_unit` | warning | unit text unknown (`msec`): no dimension, matches nothing; fix it or add it with `unit_table`. A unit slip with a known unit (`0.55` W for kW) needs the other files: `validate_trees` over request and offers → `magnitude_outlier` |
 | `no_unit_information` | warning | number without semanticId or data spec |
 | `assumed_dimensionless` | info | dictionary entry has no unit: a count |
 | `duplicate_id_short` | warning | second sibling kept as `X~2` |

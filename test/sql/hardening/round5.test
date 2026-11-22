@@ -1,0 +1,137 @@
+# name: test/sql/hardening/round5.test
+# description: Round-5 exploratory findings: usage from consumption, cold-start density, unit slips
+# group: [hardening]
+
+require anofox_similarity
+
+# ---------------------------------------------------------------- usage is consumption (planner F7)
+
+statement ok
+CREATE TABLE bom_items (parent_id VARCHAR, child_id VARCHAR);
+
+statement ok
+INSERT INTO bom_items VALUES
+  ('OLD', 'SEAL'), ('OLD', 'SHAFT'), ('OLD', 'MOTOR'),
+  ('NEW', 'SEAL'), ('NEW', 'SHAFT'), ('NEW', 'MOTOR'),
+  ('A-SPARSE', 'SEAL'), ('A-SPARSE', 'SHAFT'), ('A-SPARSE', 'PUMP-HEAD'),
+  ('B-DENSE', 'SEAL'), ('B-DENSE', 'SHAFT'), ('B-DENSE', 'PUMP-HEAD'),
+  ('NEXT', 'SEAL'), ('NEXT', 'SHAFT'), ('NEXT', 'PUMP-HEAD');
+
+# OLD runs down over 30 weeks, NEW ramps up from week 20; one late return of OLD in week 60
+statement ok
+CREATE TABLE goods_movements AS
+SELECT 'OLD' AS material_id, DATE '2024-01-01' + 7 * w::INTEGER AS movement_date, 300.0 - 10 * w AS quantity
+FROM range(0, 30) t(w)
+UNION ALL
+SELECT 'NEW', DATE '2024-01-01' + 7 * w::INTEGER, 10.0 * w - 150 FROM range(20, 50) t(w)
+UNION ALL
+SELECT 'OLD', DATE '2024-01-01' + 7 * 60, -3.0;
+
+statement ok
+CREATE VIEW no_return AS SELECT * FROM goods_movements WHERE quantity > 0 OR material_id <> 'OLD';
+
+# the late return changes nothing: same result as without it
+query TRRTI
+SELECT predecessor_id, confidence, temporal_score, predecessor_last_usage, overlapping_weeks
+FROM infer_predecessors('NEW')
+EXCEPT
+SELECT predecessor_id, confidence, temporal_score, predecessor_last_usage, overlapping_weeks
+FROM infer_predecessors('NEW', movements_table := 'no_return');
+----
+
+query TT
+SELECT predecessor_id, predecessor_last_usage FROM infer_predecessors('NEW');
+----
+OLD	2024-07-22
+
+# cold start: the return does not extend OLD's history
+query TT
+SELECT material_id, last_usage FROM cold_start_analogs('NEXT', 5, min_similarity := 0.2) WHERE material_id = 'OLD';
+----
+OLD	2024-07-22
+
+# a material with returns only has no history and is no analog
+statement ok
+CREATE TABLE returns_only AS SELECT * FROM goods_movements
+UNION ALL SELECT 'A-SPARSE', DATE '2024-01-01' + 7 * w::INTEGER, -2.0 FROM range(0, 40) t(w);
+
+query I
+SELECT count(*) FROM cold_start_analogs('NEXT', 5, min_similarity := 0.2, movements_table := 'returns_only')
+WHERE material_id = 'A-SPARSE';
+----
+0
+
+# ---------------------------------------------------------------- density breaks ties (planner F12)
+
+# A-SPARSE and B-DENSE have the same BOM similarity to NEXT and the same span; by id A-SPARSE would come first
+statement ok
+CREATE TABLE density AS SELECT * FROM goods_movements
+UNION ALL SELECT 'A-SPARSE', DATE '2024-01-01', 5.0
+UNION ALL SELECT 'A-SPARSE', DATE '2025-06-02', 5.0
+UNION ALL SELECT 'B-DENSE', DATE '2024-01-01' + 7 * w::INTEGER, 20.0 FROM range(0, 75) t(w);
+
+query TRII
+SELECT material_id, similarity, history_months, movement_weeks
+FROM cold_start_analogs('NEXT', 2, movements_table := 'density');
+----
+B-DENSE	1.0	17	75
+A-SPARSE	1.0	17	2
+
+# ---------------------------------------------------------------- unit slips and fixes in the details (new user F5, F9)
+
+statement ok
+CREATE TABLE n AS SELECT * FROM (VALUES
+  ('R', 'R', NULL, 'container', 'AND', 'request', NULL, 1.0), ('R', 'R.1', 'R', 'item', 'AND', 'motor', 'motor', 1.0),
+  ('A', 'A', NULL, 'container', 'AND', 'offer a', NULL, 1.0), ('A', 'A.1', 'A', 'item', 'AND', 'motor', 'motor', 1.0),
+  ('B', 'B', NULL, 'container', 'AND', 'offer b', NULL, 1.0), ('B', 'B.1', 'B', 'item', 'AND', 'motor', 'motor', 1.0)
+) t(tree_id, node_id, parent_id, node_kind, edge_type, label, class_id, count);
+
+statement ok
+CREATE TABLE attrs AS SELECT * FROM (VALUES
+  ('R', 'R.1', 'p', 'Nennleistung', 'power', 'W', 750.0, 750.0, NULL, 'rated_power'),
+  ('A', 'A.1', 'p', 'rated power', 'power', 'W', 0.55, 0.55, NULL, 'rated_power'),
+  ('B', 'B.1', 'p', 'rated power', 'power', 'W', 700.0, 700.0, NULL, 'rated_power'),
+  ('B', 'B.1', 'ip', 'protection', NULL, NULL, NULL, NULL, 'IP65', NULL),
+  ('A', 'A.1', 't', 'response', NULL, 'msec', 5.0, 5.0, NULL, NULL)
+) t(tree_id, node_id, attr_id, name, dimension, unit, lo, hi, category, attr_key);
+
+query TTT
+SELECT tree_id, attr_id, issue FROM validate_trees('n', 'attrs') ORDER BY ALL;
+----
+A	p	magnitude_outlier
+A	t	unknown_unit
+B	ip	category_without_dimension
+
+query I
+SELECT count(*) FROM validate_trees('n', 'attrs')
+WHERE (issue = 'magnitude_outlier' AND detail LIKE '%1/1273 of%unit slip%')
+   OR (issue = 'unknown_unit' AND detail LIKE '%unit msec%unit_table%')
+   OR (issue = 'category_without_dimension' AND detail LIKE '%give the attribute an attr_key%');
+----
+3
+
+# two values of one key: each is compared with the other
+query I
+SELECT count(*) FROM validate_trees('n', 'attrs', tree_ids := ['R', 'A']) WHERE issue = 'magnitude_outlier';
+----
+2
+
+# values within a factor of 300 are not flagged
+statement ok
+UPDATE attrs SET lo = 7.5, hi = 7.5 WHERE tree_id = 'A' AND attr_id = 'p';
+
+query I
+SELECT count(*) FROM validate_trees('n', 'attrs') WHERE issue = 'magnitude_outlier';
+----
+0
+
+# aas_issues reports a unit text it does not know (validate_trees warns too)
+query TT
+SELECT i.issue, i.severity FROM (SELECT unnest(aas_issues('{"submodels": [{"modelType": "Submodel", "id": "urn:t:sm", "idShort": "TechnicalData", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "Drive", "value": [
+    {"modelType": "Property", "idShort": "ResponseTime", "valueType": "xs:double", "value": "5",
+     "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAA001#001"}]},
+     "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "msec"}}]}]}]}]}', 'T')) AS i)
+WHERE i.issue = 'unknown_unit';
+----
+unknown_unit	warning

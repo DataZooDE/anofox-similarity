@@ -86,7 +86,7 @@ the BOM base that every search has to look through.
 | Trap | Where | What happens |
 |------|-------|--------------|
 | Sparse lookalike | `CHARGER-65W-EU-GREY`: 14 of BLACK's 15 components, 2 issues of 1 piece, 2023-01-02 and 2025-11-17 | `history_months` is 34, so it passes `min_history_months := 12` and ranks first by similarity. It has 2 active weeks |
-| Returns-only material | `CHARGER-65W-EU-RETURN`: 120 postings, all type `262` | 27 history months from returns alone; ranks second as a raw analog |
+| Returns-only material | `CHARGER-65W-EU-RETURN`: 120 postings, all type `262` | No history: `cold_start_analogs` counts only weeks with a positive net quantity, so it is not an analog |
 | Dense analog | `CHARGER-65W-EU-WHITE`: 156 active issue weeks, mixed with returns and receipts | The right analog, but only third by similarity (12 shared components) |
 | Duplicate BOM positions | 36 modules: the first component is `1 + 1` rows | `sum(quantity)` gives the 900 positions with the right quantity; `DISTINCT` would halve them |
 | Clean cut-over | V1 issued weekly until 2024-06-24, V2 from 2024-07-01, about 100 a week each | No overlap and no ramp, so there is no anti-correlated demand for `infer_predecessors` to find |
@@ -95,12 +95,12 @@ the BOM base that every search has to look through.
 
 ## What to Look At
 
-**01: density before similarity.** The raw `cold_start_analogs` call ranks GREY first:
+**01: density before similarity.** The raw `cold_start_analogs` call ranks GREY first; its
+`movement_weeks` shows the two issues behind 34 months:
 
-| material_id | similarity | history_months | active issue weeks |
-|-------------|-----------:|---------------:|-------------------:|
+| material_id | similarity | history_months | movement_weeks |
+|-------------|-----------:|---------------:|---------------:|
 | CHARGER-65W-EU-GREY | 0.875 | 34 | 2 |
-| CHARGER-65W-EU-RETURN | 0.7647 | 27 | 0 (returns only) |
 | CHARGER-65W-EU-WHITE | 0.6667 | 35 | 156 |
 
 On the `dense_issues` view (positive `261` issues, at least 20 active weeks) only WHITE remains,
@@ -136,8 +136,8 @@ behind on BOM, but it has no issue history.
 
 | Limit | Effect here | Workaround in this folder | Proper fix |
 |-------|-------------|---------------------------|------------|
-| `cold_start_analogs` measures history as the calendar span between postings, of any movement type | GREY (2 issues) and RETURN (returns only) outrank WHITE | `-- BRIDGE` in 01, step 2: `issue_density` counts active issue weeks per material | An `active_weeks` output column and threshold in `cold_start_analogs` |
-| `cold_start_analogs` reads every row of `movements_table` | Returns and receipts count as history | `-- BRIDGE` in 01, step 4: `dense_issues` keeps positive `261` issues with at least 20 active weeks | A movement-type and density filter in the API |
+| `cold_start_analogs` measures history as the calendar span of its consumption weeks | GREY (2 issues over 34 months) outranks WHITE | `movement_weeks` in the result; `-- BRIDGE` in 01, step 2 (`issue_density`) applies a threshold | A `min_movement_weeks` threshold in `cold_start_analogs` |
+| `cold_start_analogs` reads every row of `movements_table` with a positive net week | Receipts posted as positive quantities count as history | `-- BRIDGE` in 01, step 4: `dense_issues` keeps positive `261` issues with at least 20 active weeks | A movement-type filter in the API, or the signed view of guide 12 |
 | `infer_predecessors` needs anti-correlated demand (default `min_confidence` 0.5) | A clean cut-over scores 0.3556 and is dropped | `-- BRIDGE` in 02, step 3: Jaccard plus a 12-week window before the successor's first issue | A cut-over signal (last issue just before first issue) in `infer_predecessors` |
 | `infer_predecessors` considers only the 100 materials with the most similar BOMs | No effect in 60 parents; in a base with many near-identical variants the predecessor can fall outside | The step 3 recipe has no such cap; raise its `k` | See [the predecessors guide](../../docs/guides/03-predecessors-and-cold-start.md) |
 | `find_similar_materials_jaccard` leaves out materials with no shared component | With `k = 5` only the three other chargers come back; with `min_similarity := 0` the two cables fill `k` at 0.0 | None needed (02, step 6 still passes `min_similarity := 0.01`, which changes nothing) | Fixed in the extension |

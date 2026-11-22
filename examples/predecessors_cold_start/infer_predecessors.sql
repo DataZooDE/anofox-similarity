@@ -41,8 +41,9 @@ SELECT predecessor_id, round(confidence, 2) AS confidence, correlation,
        similarity, overlapping_weeks
 FROM infer_predecessors('NEW-PUMP')
 ORDER BY confidence DESC;
--- Expected: OLD-PUMP | 0.79 | -1.0 | 1.0 | 38
--- (identical BOMs, perfectly anti-correlated demand over 38 aligned weeks)
+-- Expected: OLD-PUMP | 0.79 | -1.0 | 1.0 | 37
+-- (identical BOMs, perfectly anti-correlated demand over 37 aligned weeks; the successor's
+--  first week has quantity 0, which is not consumption)
 
 .print ''
 .print '>>> 2. Direction: the newer material is not a predecessor of the older one'

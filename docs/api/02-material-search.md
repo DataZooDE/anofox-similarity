@@ -40,7 +40,7 @@ infer_predecessors(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | Material to find predecessors for (positional) |
-| `lookback_months` | INTEGER | 24 | Historical window in months |
+| `lookback_months` | INTEGER | 24 | Months before the successor's start from which candidate rows are read; `predecessor_first_usage` starts no earlier |
 | `min_similarity` | DOUBLE | 0.3 | Minimum Jaccard similarity threshold |
 | `min_confidence` | DOUBLE | 0.5 | Minimum confidence threshold |
 | `lag_weeks` | INTEGER | 8 | Expected temporal lag between predecessor decline and successor rise |
@@ -54,8 +54,11 @@ infer_predecessors(
 - `correlation` - Temporal correlation (negative = anti-correlation)
 - `similarity` - Jaccard similarity score
 - `temporal_score` - Temporal succession score
-- `predecessor_first_usage` - First usage date of predecessor
-- `predecessor_last_usage` - Last usage date of predecessor
+- `predecessor_first_usage` - First consumption date of the predecessor (within `lookback_months`)
+- `predecessor_last_usage` - Last consumption date of the predecessor
+
+Usage is consumption: only weeks with a positive net quantity count, for the dates and the
+correlation, so a late return or a reversal alone does not move them.
 - `successor_start` - Start date of successor (query material)
 - `overlapping_weeks` - Weeks of overlapping consumption
 
@@ -194,7 +197,8 @@ cold_start_analogs(
     total_components BIGINT,
     history_months BIGINT,
     first_usage DATE,
-    last_usage DATE
+    last_usage DATE,
+    movement_weeks BIGINT
 )
 ```
 
@@ -203,7 +207,7 @@ cold_start_analogs(
 |-----------|------|---------|-------------|
 | `material_id` | VARCHAR | Required | New product needing analogs (positional) |
 | `k` | BIGINT | Required | Number of analog materials to return |
-| `min_history_months` | INTEGER | 0 | Minimum months between the first and the last movement |
+| `min_history_months` | INTEGER | 0 | Minimum months between the first and the last consumption week |
 | `min_similarity` | DOUBLE | NULL | Minimum Jaccard similarity; without it materials scoring 0 are left out, `0.0` keeps them |
 | `bom_table` | VARCHAR | 'bom_items' | BOM table name |
 | `movements_table` | VARCHAR | 'goods_movements' | Movements history table |
@@ -213,9 +217,13 @@ cold_start_analogs(
 - `similarity` - Jaccard similarity to query material
 - `shared_components` - Count of shared components
 - `total_components` - Count of unique components in union
-- `history_months` - Calendar months from the first to the last movement (not months with movements)
-- `first_usage` - First usage date
-- `last_usage` - Last usage date
+- `history_months` - Calendar months from the first to the last consumption week (not months with consumption)
+- `first_usage` - First consumption date
+- `last_usage` - Last consumption date
+- `movement_weeks` - Number of consumption weeks (the density); ties of `similarity` are broken by it, denser first, then by `material_id`
+
+A week counts as consumption when its net quantity is positive; a material with only returns has
+no history and is not returned.
 
 **Example:**
 ```sql
@@ -311,7 +319,7 @@ SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, m
 
 *Table function*
 
-Identifies predecessor (superseded) materials for a given successor by combining BOM structural similarity with anti-correlated consumption patterns. Returns predecessor candidates ranked by confidence score along with correlation, similarity, and temporal overlap data. Useful for lifecycle transition planning and inventory run-down. Batch form: infer_predecessors(materials_table := 'tbl') infers them for every material_id of the table in one query and returns query_id (the successor) in front of the same columns.
+Identifies predecessor (superseded) materials for a given successor by combining BOM structural similarity with anti-correlated consumption patterns. Returns predecessor candidates ranked by confidence score along with correlation, similarity, and temporal overlap data. Usage is consumption: first and last usage and the correlated weeks come from weeks with a positive net quantity, so a late return or a reversal alone does not move them. lookback_months bounds how far before the successor's start candidate rows are read (and so predecessor_first_usage). Useful for lifecycle transition planning and inventory run-down. Batch form: infer_predecessors(materials_table := 'tbl') infers them for every material_id of the table in one query and returns query_id (the successor) in front of the same columns.
 
 ```sql
 infer_predecessors(material_id, movements_table, bom_table, min_overlapping_weeks, lag_weeks, min_confidence, min_similarity, lookback_months)
@@ -330,7 +338,7 @@ SELECT * FROM infer_predecessors(materials_table := 'new_products');
 
 *Table function*
 
-Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting. Without min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them. Batch form: cold_start_analogs(k, materials_table := 'tbl') runs the search for every material_id of the table in one query, k per material, and returns query_id (the material searched for) in front of the same columns.
+Finds structural analogs for a cold-start material (one with little or no demand history). Returns established materials that are structurally similar and have at least min_history_months of goods movement data, enabling surrogate forecasting. History is consumption (weeks with a positive net quantity, so a late return does not extend it); movement_weeks counts those weeks and breaks ties of similarity (denser first). Without min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them. Batch form: cold_start_analogs(k, materials_table := 'tbl') runs the search for every material_id of the table in one query, k per material, and returns query_id (the material searched for) in front of the same columns.
 
 ```sql
 cold_start_analogs(k, movements_table, bom_table, min_similarity, min_history_months, materials_table)

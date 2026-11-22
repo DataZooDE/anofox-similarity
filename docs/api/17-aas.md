@@ -142,6 +142,7 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `missing_concept_description` | warning | no dictionary entry for the semanticId: the unit is unknown (`validate_trees` reports `unknown_unit`) |
 | `no_unit_information` | warning | a number without semanticId or data specification |
 | `unknown_unit_id` | warning | the `unitId` is not in the unit table; the `unit` text is used |
+| `unknown_unit` | warning | the unit text (`msec`) is not known: the value has no dimension and matches nothing; fix the text or add the unit with `unit_table`. Counted in `aas_quality.n_issues` and `n_unresolved_units`. A value 1000 times off with a known unit (`0.55` W meant as kW) needs the other files: `validate_trees` over the request and the offers reports it as `magnitude_outlier` |
 | `capability_missing` | warning | a CapabilityContainer without a Capability |
 | `missing_submodel` | info | a shell references a submodel that is not in the input |
 | `unresolved_constraint` | warning | a `ConstraintHasProperty` names no mapped property |
@@ -433,7 +434,7 @@ SELECT aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM re
 
 *Scalar function*
 
-Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). It never raises on malformed input: a broken file gives one parse_error row with the reader's message, so SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, ambiguous_concept_description, unknown_unit_id, assumed_dimensionless, duplicate_id_short, ...). path is the idShort path, submodel first. Same arguments as aas_to_trees.
+Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). It never raises on malformed input: a broken file gives one parse_error row with the reader's message, so SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, ambiguous_concept_description, unknown_unit_id, unknown_unit, assumed_dimensionless, duplicate_id_short, ...). A unit slip across files (0.55 W against max. 0.75 kW) needs the other values: validate_trees over the loaded trees reports it as magnitude_outlier. path is the idShort path, submodel first. Same arguments as aas_to_trees.
 
 ```sql
 aas_issues(content BLOB) → STRUCT(tree_id VARCHAR, path VARCHAR, issue VARCHAR, severity VARCHAR, detail VARCHAR)[]

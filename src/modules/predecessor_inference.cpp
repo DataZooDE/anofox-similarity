@@ -97,66 +97,77 @@ static unique_ptr<TableRef> InferPredecessorsBindReplace(ClientContext &context,
 		SELECT * FROM (
 			WITH
 				queries AS (%s),
-				query_ts AS (
-					SELECT q.query_id, m.movement_date, m.quantity
+				-- Usage is consumption: a week counts when its net quantity is positive (issues and
+				-- deliveries outweigh returns and reversals, guide 12's signed view). A late customer
+				-- return or a reversal alone does not move a first or last usage.
+				query_rows AS (
+					SELECT q.query_id, m.movement_date, m.quantity, DATE_TRUNC('week', m.movement_date) AS week
 					FROM query_table(%s) m JOIN queries q ON %s
+				),
+				query_ts AS (
+					SELECT *, SUM(quantity) OVER (PARTITION BY query_id, week) AS week_net FROM query_rows
 				),
 				query_boundaries AS (
 					SELECT query_id, MIN(movement_date) AS start_date, MAX(movement_date) AS end_date
 					FROM query_ts
+					WHERE week_net > 0 AND quantity > 0
 					GROUP BY query_id
 				),
 				similar_mats AS (%s),
-				candidate_ts AS (
+				candidate_rows AS (
 					SELECT
 						s.query_id,
 						gm.material_id,
 						gm.movement_date,
 						gm.quantity,
-						MIN(gm.movement_date) OVER (PARTITION BY s.query_id, gm.material_id) AS cand_first_usage,
-						MAX(gm.movement_date) OVER (PARTITION BY s.query_id, gm.material_id) AS cand_last_usage
+						DATE_TRUNC('week', gm.movement_date) AS week
 					FROM query_table(%s) gm
 					INNER JOIN similar_mats s ON gm.material_id = s.material_id
 					INNER JOIN query_boundaries b ON b.query_id = s.query_id
 					WHERE gm.movement_date >= b.start_date - INTERVAL (%lld) MONTHS
 				),
+				candidate_ts AS (
+					SELECT *, SUM(quantity) OVER (PARTITION BY query_id, material_id, week) AS week_net
+					FROM candidate_rows
+				),
+				candidate_usage AS (
+					SELECT query_id, material_id, MIN(movement_date) AS first_usage, MAX(movement_date) AS last_usage
+					FROM candidate_ts
+					WHERE week_net > 0 AND quantity > 0
+					GROUP BY query_id, material_id
+				),
 				query_weekly AS (
-					SELECT query_id, DATE_TRUNC('week', movement_date) AS week, SUM(quantity) AS weekly_qty
+					SELECT query_id, week, SUM(quantity) AS weekly_qty
 					FROM query_ts
-					GROUP BY query_id, DATE_TRUNC('week', movement_date)
+					GROUP BY query_id, week
+					HAVING SUM(quantity) > 0
 				),
 				candidate_weekly AS (
-					SELECT
-						query_id,
-						material_id,
-						DATE_TRUNC('week', movement_date) AS week,
-						SUM(quantity) AS weekly_qty,
-						MIN(cand_first_usage) AS first_usage,
-						MAX(cand_last_usage) AS last_usage
+					SELECT query_id, material_id, week, SUM(quantity) AS weekly_qty
 					FROM candidate_ts
-					GROUP BY query_id, material_id, DATE_TRUNC('week', movement_date)
+					GROUP BY query_id, material_id, week
+					HAVING SUM(quantity) > 0
 				),
 				lagged_join AS (
 					SELECT
 						c.query_id,
 						c.material_id,
 						c.weekly_qty AS cand_qty,
-						q.weekly_qty AS query_qty,
-						c.first_usage,
-						c.last_usage
+						q.weekly_qty AS query_qty
 					FROM candidate_weekly c
 					INNER JOIN query_weekly q ON q.query_id = c.query_id AND c.week = q.week - INTERVAL (%lld) WEEKS
 				),
 				correlations AS (
 					SELECT
-						query_id,
-						material_id,
-						CORR(cand_qty, query_qty) AS correlation,
+						l.query_id,
+						l.material_id,
+						CORR(l.cand_qty, l.query_qty) AS correlation,
 						COUNT(*) AS overlapping_weeks,
-						MIN(first_usage) AS first_usage,
-						MAX(last_usage) AS last_usage
-					FROM lagged_join
-					GROUP BY query_id, material_id
+						ANY_VALUE(u.first_usage) AS first_usage,
+						ANY_VALUE(u.last_usage) AS last_usage
+					FROM lagged_join l
+					JOIN candidate_usage u ON u.query_id = l.query_id AND u.material_id = l.material_id
+					GROUP BY l.query_id, l.material_id
 					HAVING COUNT(*) >= %lld
 				),
 				scored AS (
@@ -243,7 +254,10 @@ void RegisterPredecessorInferenceFunctions(ExtensionLoader &loader) {
 		desc.description = "Identifies predecessor (superseded) materials for a given successor by combining BOM "
 		                   "structural similarity with anti-correlated consumption patterns. Returns predecessor "
 		                   "candidates ranked by confidence score along with correlation, similarity, and temporal "
-		                   "overlap data. Useful for lifecycle transition planning and inventory run-down. Batch form: "
+		                   "overlap data. Usage is consumption: first and last usage and the correlated weeks come from weeks "
+		                   "with a positive net quantity, so a late return or a reversal alone does not move them. "
+		                   "lookback_months bounds how far before the successor's start candidate rows are read (and so "
+		                   "predecessor_first_usage). Useful for lifecycle transition planning and inventory run-down. Batch form: "
 		                   "infer_predecessors(materials_table := 'tbl') infers them for every material_id of the table "
 		                   "in one query and returns query_id (the successor) in front of the same columns.";
 		if (batch) {

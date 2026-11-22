@@ -39,6 +39,13 @@ A successor replaces its predecessor. Three signals point to such a pair:
    start and falls to 0.7 six months later; ending up to three months before the start scores
    0.7 down to 0.4; ending later than six months after scores 0.3; anything else excludes the pair.
 
+**Usage is consumption.** A week counts when its net quantity is positive: issues and deliveries
+outweigh returns and reversals (the signed view of [guide 12](../guides/12-from-erp-extract.md)).
+Only such weeks enter the correlation and set first and last usage, so one late customer return
+does not make an ended material look active. The candidates' rows are read from at most
+`lookback_months` before the successor's start, so `predecessor_first_usage` is never older than
+that window.
+
 The confidence weights the three:
 
 ```
@@ -85,6 +92,10 @@ Two patterns defeat the correlation by design:
   noise and the pair is dropped. Guide 03 shows a time-window recipe for this case.
 - **Sparse history.** A few movements months apart give too few aligned weeks. An empty result then
   means "no evidence", not "no predecessor".
+- **An extract that ends too early.** The temporal score cannot tell "ended" from "still selling
+  when the extract stops". If the successor started less than six months before the extract's
+  last date, every sibling still in use scores near 1. Treat such a pair as open until the
+  candidate has visibly stopped.
 
 The signal also depends on what counts as consumption: goods receipts and stock corrections in the
 movements make the demand curve wrong (see [ERP BOM models](erp-bom-models.md#consumption-from-mseg)).
@@ -104,10 +115,36 @@ FROM cold_start_analogs('VALVE-NEXT', 3);
 -- => VALVE-OLD | 0.333 | 2 | 8
 ```
 
-`history_months` is the calendar span from the first to the last movement, not the number of
-months with movements: two movements two years apart count as 24. Check the density before you
-forecast from an analog, and check `last_usage`: an analog that stopped long ago describes an old
-market. Weight the analogs' demand by `similarity`, or take the closest one.
+`history_months` is the calendar span from the first to the last consumption week, not the
+number of months with consumption: two deliveries two years apart count as 24. `movement_weeks`
+is the number of consumption weeks, the density; among analogs with the same similarity the
+denser one comes first. A material with only returns has no history and is not returned. Check
+`last_usage` too: an analog that stopped long ago describes an old market. Weight the analogs'
+demand by `similarity`, or take the closest one.
+
+## Combining BOM and Consumption
+
+BOM similarity and consumption similarity answer different questions, and adding them misleads.
+A sibling that is still selling has a consumption pattern like the new product's, so a sum of
+BOM Jaccard and consumption cosine can rank it above the true predecessor, whose demand runs
+*opposite* to the new product's. Use each signal for its question:
+
+- **What does the new product replace?** `infer_predecessors`: it already combines BOM
+  similarity with anti-correlated demand and the time order.
+- **Whose history do I borrow?** Rank by BOM similarity (`cold_start_analogs`), then filter by
+  density and recency, not by a summed score:
+
+```sql
+SELECT material_id, round(similarity, 3) AS similarity, history_months, movement_weeks, last_usage
+FROM cold_start_analogs('VALVE-NEXT', 3)
+WHERE movement_weeks >= 8;
+-- => VALVE-NEW | 0.6 | 9 | 40 | 2024-02-19
+-- => VALVE-OLD | 0.333 | 8 | 36 | 2023-09-04
+```
+
+`fuse_embeddings` does not combine them either: it fuses vectors (a structural vector you bring,
+the textual and the transactional embedding), and a BOM Jaccard score is not a vector. If you do
+need one number, keep BOM similarity first and use consumption only to break ties or to review.
 
 ## Why These Defaults
 
@@ -120,6 +157,8 @@ market. Weight the analogs' demand by `similarity`, or take the closest one.
 | Weights 0.4 / 0.3 / 0.3 | The hand-over in demand weighs most; BOM similarity and time order confirm it |
 | 100 most similar materials | Bounds the correlation work per query; a predecessor among many near-identical variants can fall outside |
 | `min_history_months` 0 (cold start) | Return every analog with movements; raise it when you need seasonality |
+| Usage = weeks with a positive net quantity | A return or a reversal is not demand; dates set by them would move a phase-out |
+| Ties broken by `movement_weeks` | A dense analog is the safer history to borrow than a sparse one with the same BOM similarity |
 
 The design history (use cases, the original algorithm) is in the
 [concept memo](../background/CONCEPT.md); it records how the method was chosen, not the current

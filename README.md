@@ -193,11 +193,11 @@ FROM range(10, 52) t(w);
 
 SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
 FROM infer_predecessors('NEW-PUMP');
--- OLD-PUMP | 0.79 | -1.0 | 38
+-- OLD-PUMP | 0.79 | -1.0 | 37
 
 SELECT material_id, similarity, history_months, first_usage, last_usage
 FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 6);
--- OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
+-- => OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
 ```
 
 Predecessor detection needs dense weekly history; sparse movements return no rows. See the

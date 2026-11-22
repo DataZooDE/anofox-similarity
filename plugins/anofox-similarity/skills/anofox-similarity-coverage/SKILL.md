@@ -522,7 +522,9 @@ Errors: `duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orph
 multiple_roots, cycle, unreachable, too_deep` (> 256 levels), and with attributes
 `duplicate_attribute, attribute_on_container, orphan_attribute, bad_interval, bad_bound`.
 Warnings: `mixed_edge_types, unknown_unit, category_without_dimension, mixed_roles,
-mixed_dimensions`.
+mixed_dimensions, magnitude_outlier` (a value about 1000× or 1/1000 of the other values of the same
+`attr_key`/name and dimension: a unit slip such as W for kW, which passes a one-sided limit with
+score 1; run it over the request and the offers together). The `detail` says the fix.
 
 ```sql
 SELECT count(*) FILTER (WHERE severity = 'error') AS n_errors

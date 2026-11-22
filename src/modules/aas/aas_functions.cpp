@@ -334,7 +334,9 @@ void RegisterAasReader(ExtensionLoader &loader) {
 	    "raises on malformed input: a broken file gives one parse_error row with the reader's message, so "
 	    "SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for "
 	    "the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, "
-	    "ambiguous_concept_description, unknown_unit_id, assumed_dimensionless, duplicate_id_short, ...). path is "
+	    "ambiguous_concept_description, unknown_unit_id, unknown_unit, assumed_dimensionless, duplicate_id_short, ...). "
+	    "A unit slip across files (0.55 W against max. 0.75 kW) needs the other values: validate_trees over the "
+	    "loaded trees reports it as magnitude_outlier. path is "
 	    "the idShort path, submodel first. Same arguments as aas_to_trees.",
 	    AAS_CATEGORIES};
 	issues.special_null_handling = true;

@@ -1085,7 +1085,8 @@ private:
 	}
 
 	//! Converts lo/hi into the base unit of the resolved unit; without a unit the value is a count.
-	void ApplyUnit(const UnitDef *def, bool known, const std::string &written, TreeAttrRow &a) {
+	void ApplyUnit(const UnitDef *def, bool known, const std::string &written, const std::string &path,
+	               TreeAttrRow &a) {
 		if (def) {
 			a.dimension = def->dimension;
 			if (std::isnan(def->factor)) {
@@ -1100,6 +1101,11 @@ private:
 			a.unit = "1";
 		} else {
 			a.unit = written; // unknown: kept as written, dimension NULL (validate_trees: unknown_unit)
+			if (!Trim(written).empty()) {
+				Issue(tree_id, path, "unknown_unit", "warning",
+				      "unit '" + written + "' is not known, so the value has no dimension and matches nothing: fix the "
+				      "unit text or add it with unit_table");
+			}
 		}
 	}
 
@@ -1131,7 +1137,7 @@ private:
 		a.has_value = true;
 		a.lo = has_lo ? lo.value : hi.value;
 		a.hi = has_hi ? hi.value : lo.value;
-		ApplyUnit(def, known, written, a);
+		ApplyUnit(def, known, written, path, a);
 		a.bound = has_lo && has_hi ? "within" : has_lo ? "at_least" : "at_most";
 		a.bound_source = "range";
 		// levelType nom alone on a two-sided Range: a nominal with a tolerance, the value lies inside
@@ -1174,7 +1180,7 @@ private:
 			bool known = ResolveUnit(e, spec, ambiguous, path, def, written);
 			a.has_value = true;
 			a.lo = a.hi = n.value;
-			ApplyUnit(def, known, written, a);
+			ApplyUnit(def, known, written, path, a);
 			ApplyLevelType(spec, a);
 			return;
 		}
