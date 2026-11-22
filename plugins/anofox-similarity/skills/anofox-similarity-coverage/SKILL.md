@@ -9,13 +9,13 @@ description: >
   `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`). Use when asked "which past
   programme/offer covers this request", "what is missing", "does 9 A meet max. 8 A", "parse
   'mindestens 24 cm'", "load spec trees from JSON", or "explain the gaps of this candidate".
-version: 2026.11.21
+version: 2026.11.22
 user-invocable: false
 ---
 
 # Anofox Similarity — Coverage Matching Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
+**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
 
 > Every SQL block here runs as it stands, without a clone of the repository: the fixture is
 > inline. Only the benchmark mentions (`test/data/coverage/...`) need the repository data (clone,

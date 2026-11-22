@@ -4,7 +4,7 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
-## Unreleased: transactional embeddings work again, no name discount without name vectors, SAP language keys in either form, SAP clients in the materials
+## v2026.11.22: transactional embeddings work again, no name discount without name vectors, SAP language keys in either form, SAP clients in the materials
 
 Transactional embeddings work again and their vectors change: recompute them. Coverage scores rise where attribute names were compared without `name_vectors`; the SAP material readers get a last column. Check these:
 
