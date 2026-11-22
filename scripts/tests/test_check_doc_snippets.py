@@ -107,11 +107,9 @@ def test_changed_since_covers_guides_and_concepts():
     assert "docs/guides/04-coverage-matching.md" in scanned
     assert "docs/concepts/coverage-semantics.md" in scanned
     assert not any(f.startswith("docs/guides/tutorials/") for f in scanned)
-    # every scanned file was added after the repository's first commit
-    import subprocess
-    root = subprocess.run(["git", "rev-list", "--max-parents=0", "HEAD"], cwd=cds.REPO_ROOT,
-                          capture_output=True, text=True, check=True).stdout.split()[0]
-    changed = set(cds.changed_md_files(root))
+    # against the empty tree every file is changed (works in shallow CI clones too)
+    empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+    changed = set(cds.changed_md_files(empty_tree))
     assert "docs/guides/04-coverage-matching.md" in changed
     assert "docs/concepts/coverage-semantics.md" in changed
     assert changed <= scanned
