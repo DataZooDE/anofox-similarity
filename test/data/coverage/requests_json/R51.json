@@ -23,8 +23,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 370.0,
-          "lo": 370.0,
+          "hi": 377.4,
+          "lo": 362.6,
           "name": "Härte",
           "text": "370 N ± 2 %",
           "unit": "N"

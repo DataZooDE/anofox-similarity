@@ -2,6 +2,10 @@
 
 > Use consumption history to find the material a new one replaces, and analogs to forecast it.
 
+> **Data.** The examples read files from the repository ([`test/data/synthetic`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/synthetic)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Detect predecessor-successor pairs with `infer_predecessors`
 - Find analogs with history for a new product with `cold_start_analogs`
@@ -27,29 +31,36 @@ FROM read_csv_auto('test/data/synthetic/goods_movements.csv.gz');
 `quantity`. Other columns are ignored. The data has 3 991 movements of 41 materials, about one per
 week.
 
-Map your own tables with a view. A date stored as text, such as SAP's `BUDAT` (`20230115`), must be
-converted; otherwise the call fails with `column movement_date is VARCHAR, expected DATE or TIMESTAMP`:
+Map your own tables with a view. Keep consumption only: MSEG also holds goods receipts (101),
+transfers and stock corrections, which are not demand. A date stored as text, such as SAP's posting
+date (`20230115`), must be converted; otherwise the call fails with
+`column movement_date is VARCHAR, expected DATE or TIMESTAMP`:
 
 ```sql
 CREATE VIEW my_movements AS
-SELECT matnr AS material_id, strptime(budat, '%Y%m%d')::DATE AS movement_date, menge AS quantity
-FROM mseg;
+SELECT matnr AS material_id,
+       strptime(budat_mkpf, '%Y%m%d')::DATE AS movement_date,   -- posting date (MKPF.BUDAT)
+       CASE shkzg WHEN 'H' THEN menge ELSE -menge END AS quantity -- issue +, reversal -
+FROM mseg
+WHERE bwart IN ('201', '202', '261', '262', '601', '602');      -- cost centre, order, delivery
 ```
+
+The posting date is in MKPF (`BUDAT`); MSEG carries a copy as `BUDAT_MKPF`. On S/4HANA read the
+same columns from `MATDOC`. Add the movement types your plants use for consumption.
 
 Quantities are summed per week. Returns with a negative quantity net against the issues of the
 same week. Weeks without any movement are skipped, not counted as zero.
 
 ## How Predecessor Detection Works
 
-A successor replaces its predecessor. Three signals point to such a pair:
-
-1. **Similar BOMs.** Jaccard similarity of the components, at least `min_similarity` (default 0.3).
-2. **Anti-correlated consumption.** The weekly consumption of the old material falls while the new
-   one rises. The series are aligned in weekly buckets and shifted by `lag_weeks` (default 8).
-   At least `min_overlapping_weeks` (default 8) buckets must overlap.
-3. **Succession in time.** The old material's usage ends around the time the new one starts.
-
-The confidence combines the three. Rows below `min_confidence` (default 0.5) are dropped.
+Three signals point to a successor-predecessor pair: similar BOMs (Jaccard at least
+`min_similarity`), weekly consumption that hands over (negatively correlated after a shift of
+`lag_weeks`, over at least `min_overlapping_weeks`), and the time order (the old material ends
+around the new one's start). `confidence` weights them; rows below `min_confidence` are dropped.
+Usage means consumption: only weeks with a positive net quantity count, for the correlation and
+for first and last usage, so a late customer return or a reversal alone does not move a date.
+The formula, the temporal score and a worked example:
+[predecessors and cold start](../concepts/predecessors-and-cold-start.md#predecessor-three-signals).
 
 ## Find a Predecessor
 
@@ -74,7 +85,7 @@ The material id is the first, positional argument. The tuning arguments are name
 | `correlation` | Correlation of the aligned weekly series | Negative: one falls as the other rises. |
 | `similarity` | Jaccard similarity of the BOMs | Low values mean a different product. |
 | `temporal_score` | How well the time order fits a succession | Low values: the time order does not fit. |
-| `predecessor_first_usage`, `predecessor_last_usage` | Usage window of the candidate | The window should start before `successor_start`. |
+| `predecessor_first_usage`, `predecessor_last_usage` | First and last consumption week of the candidate, read from at most `lookback_months` before `successor_start` | The window should start before `successor_start`. An older first usage is cut to the lookback. |
 | `successor_start` | First usage of the queried material | |
 | `overlapping_weeks` | Aligned weekly buckets used for the correlation | Few weeks make the correlation unstable. |
 
@@ -106,7 +117,7 @@ successor started can be its predecessor.
 | `min_confidence` | 0.5 | keep only clear cases | see weak candidates for review |
 | `min_overlapping_weeks` | 8 | demand longer overlap | work with shorter overlap (less reliable) |
 | `lag_weeks` | 8 | allow a longer ramp-up | match fast changeovers |
-| `lookback_months` | 24 | search older materials | search recent ones only |
+| `lookback_months` | 24 | read the candidates' history further back (`predecessor_first_usage` starts no earlier) | read recent history only |
 
 A stricter setting can return nothing. `S7-PRED-OLD` overlaps 25 weeks:
 
@@ -220,32 +231,32 @@ SELECT 'FAMILY-00-NEXT', child_id, quantity FROM bom_items WHERE parent_id = 'FA
 UNION ALL SELECT 'FAMILY-00-NEXT', 'FAMILY-00-NEXT-NEW-000', 1.0;
 
 SELECT material_id, round(similarity, 4) AS similarity, shared_components,
-       history_months, first_usage, last_usage
+       history_months, first_usage, last_usage, movement_weeks
 FROM cold_start_analogs('FAMILY-00-NEXT', 3, min_history_months := 12, min_similarity := 0.3);
 ```
 
-| material_id     | similarity | shared_components | history_months | first_usage | last_usage |
-|-----------------|-----------:|------------------:|---------------:|-------------|------------|
-| FAMILY-00-VAR-1 | 0.9091     | 10                | 17             | 2022-07-01  | 2023-12-22 |
-| FAMILY-00-BASE  | 0.75       | 9                 | 47             | 2020-01-01  | 2023-12-20 |
-| FAMILY-00-VAR-2 | 0.5        | 7                 | 23             | 2022-01-01  | 2023-12-23 |
+| material_id     | similarity | shared_components | history_months | first_usage | last_usage | movement_weeks |
+|-----------------|-----------:|------------------:|---------------:|-------------|------------|---------------:|
+| FAMILY-00-VAR-1 | 0.9091     | 10                | 17             | 2022-07-01  | 2023-12-22 | 78             |
+| FAMILY-00-BASE  | 0.75       | 9                 | 47             | 2020-01-01  | 2023-12-20 | 208            |
+| FAMILY-00-VAR-2 | 0.5        | 7                 | 23             | 2022-01-01  | 2023-12-23 | 104            |
 
 Only materials with at least one movement row are returned. `k` (here 3) is positional.
 `history_months` is the calendar-month difference between the first and the last movement
 (`date_diff('month', first_usage, last_usage)`: 31 January to 1 February is 1), not the number of
 months with movements. A material with a single movement reports `history_months = 0` and still
 passes the default `min_history_months := 0`; pass a positive `min_history_months` when you need a
-usable history. Every row counts, whatever its sign or size: a material with only returns
-(negative quantities) or zero-quantity postings has history too. Pass a view with only the
-consumption rows.
+usable history. History is consumption: only weeks with a positive net quantity count, so a
+material with only returns has no history and is not returned. `movement_weeks` counts those weeks
+(the density); among analogs with the same similarity the denser one comes first.
 
 How to use the result:
 
 - Weight the analogs' demand by `similarity`, or take the closest one.
 - Prefer analogs with a long `history_months` when you need seasonality. `history_months` is the
   calendar span from the first to the last movement, not the number of months with movements.
-  Two movements two years apart count as 24 months, so check the density as in the
-  [sparse-data query](#pitfall-sparse-data-returns-nothing) before you forecast from an analog.
+  Two movements two years apart count as 24 months: check `movement_weeks` before you forecast
+  from an analog.
 - Check `last_usage`. An analog that stopped long ago describes an old market.
 
 If no material has enough history, the result is empty:
@@ -266,7 +277,9 @@ SELECT count(*) AS n FROM cold_start_analogs('FAMILY-00-NEXT', 3, min_history_mo
 | Old material stops the week the new one starts | No ramp, no anti-correlation. Use the [cut-over recipe](#pitfall-a-clean-cut-over-returns-nothing). |
 | "column movement_date is VARCHAR, expected DATE or TIMESTAMP" | `movement_date` is text. Convert it to a DATE in a view. |
 | `query_material_id :=` or `k :=` raises an error | The material id and `k` are positional. |
-| Receipts and issues in one table | Filter to consumption before you call the functions. |
+| Receipts and issues in one table | Use the signed view of [guide 12](12-from-erp-extract.md#sap-consumption-and-cold-start) (consumption positive, reversals negative); receipts posted as positive quantities would count as consumption. |
+| A candidate still selling at the end of the extract scores `temporal_score` near 1 | When the successor started less than six months before the extract ends, every active sibling looks like it just ended. Check `predecessor_last_usage` against the extract's last date; treat a pair as open until the candidate has stopped. |
+| BOM and consumption similarity disagree | Do not add the two: `infer_predecessors` already combines them with the time order. See [combining the signals](../concepts/predecessors-and-cold-start.md#combining-bom-and-consumption). |
 | Missing column error | The movements table needs `material_id`, `movement_date`, `quantity`. |
 
 ## Next Steps

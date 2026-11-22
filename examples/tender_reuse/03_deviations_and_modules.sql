@@ -42,7 +42,7 @@ SELECT * FROM tree_coverage_trace('RFQ-2026-014', k := 12,
   nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
-  mu := 0.0, default_bounds := 'catalogue');
+  default_bounds := 'catalogue');
 
 -- One verdict per candidate and clause. The trace marks a whole requirement item as
 -- a gap (is_gap) when any of its attributes misses, so verdicts use value_score per
@@ -159,7 +159,7 @@ FROM tree_coverage(['RFQ-2026-014.C', 'RFQ-2026-014.D', 'RFQ-2026-014.F', 'RFQ-2
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'variant_nodes', candidate_attrs_table := 'variant_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
-  mu := 0.0, default_bounds := 'catalogue') r
+  default_bounds := 'catalogue') r
 JOIN gold_station g ON g.station = r.query_id AND g.variant = r.candidate_id
 ORDER BY station, variant;
 -- Expected:
@@ -186,7 +186,7 @@ SELECT candidate_id, round(coverage, 4) AS coverage, n_gaps
 FROM tree_coverage('RFQ-2026-014.F', candidates := ['MOD-FEED'],
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
-  mu := 0.0, default_bounds := 'catalogue');
+  default_bounds := 'catalogue');
 -- Expected:
 -- | candidate_id | coverage | n_gaps |
 -- | MOD-FEED     | 0.9333   | 1      |
@@ -194,7 +194,7 @@ SELECT req_node_id, matched_node_id, attr_id, req_value, prov_value, round(value
 FROM tree_coverage_trace('RFQ-2026-014.F', candidates := ['MOD-FEED'],
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
-  mu := 0.0, default_bounds := 'catalogue')
+  default_bounds := 'catalogue')
 ORDER BY req_node_id, attr_id;
 -- Expected:
 -- | req_node_id     | matched_node_id | attr_id      | req_value        | prov_value | value_score |
@@ -208,7 +208,7 @@ SELECT candidate_id, coverage, n_gaps
 FROM tree_coverage('RFQ-2026-014.F', candidates := ['MOD-FEED'],
   nodes_table := 'station_nodes', attrs_table := 'station_attributes',
   candidate_nodes_table := 'module_nodes', candidate_attrs_table := 'module_attributes',
-  mu := 0.0, default_bounds := 'catalogue', alternatives := 'per_requirement');
+  default_bounds := 'catalogue', alternatives := 'per_requirement');
 -- Expected:
 -- | candidate_id | coverage | n_gaps |
 -- | MOD-FEED     | 1.0      | 0      |

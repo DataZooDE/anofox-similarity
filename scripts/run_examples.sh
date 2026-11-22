@@ -55,7 +55,8 @@ for file in "${files[@]}"; do
         continue
     fi
     start=$(date +%s.%N)
-    output=$("$DUCKDB" "${SHELL_ARGS[@]}" < "$file" 2>&1)
+    # -list: one line per row, so check_expected.py can match whole rows (box mode truncates)
+    output=$("$DUCKDB" -list "${SHELL_ARGS[@]}" < "$file" 2>&1)
     status=$?
     elapsed=$(awk -v s="$start" -v e="$(date +%s.%N)" 'BEGIN { printf "%.1f", e - s }')
 

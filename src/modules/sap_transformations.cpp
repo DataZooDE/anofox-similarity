@@ -1,4 +1,5 @@
 #include "modules/sap_transformations.hpp"
+#include "core/sap_language.hpp"
 #include "duckdb/common/types/date.hpp"
 
 #include <algorithm>
@@ -33,8 +34,10 @@ static const DefaultTableMacro SAP_TO_MATERIALS_MACRO = {
 			matkl AS material_group,
 			'' AS description,
 			-- SAP YYYYMMDD text, or an ersda that is already a DATE / ISO string
-			COALESCE(TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(ersda AS DATE)) AS created_date
-		FROM query_table(mara_table)
+			COALESCE(TRY_STRPTIME(ersda::VARCHAR, '%Y%m%d')::DATE, TRY_CAST(ersda AS DATE)) AS created_date,
+			-- the SAP client (MANDT) keeps clients apart, as in sap_to_bom_items; NULL without mandt
+			NULLIF(TRIM(mandt::VARCHAR), '') AS client
+		FROM ((SELECT NULL AS mandt WHERE false) UNION ALL BY NAME (SELECT * FROM query_table(mara_table)))
 		WHERE lvorm IS NULL OR lvorm = '' OR lvorm = ' ')"};
 
 static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
@@ -47,32 +50,51 @@ static const DefaultTableMacro SAP_TO_MATERIALS_WITH_DESC_MACRO = {
 			m.material_id,
 			m.material_type,
 			m.material_group,
-			COALESCE(k.maktx, '') AS description,
-			m.created_date
+			COALESCE(k.maktx, kn.maktx, a.maktx, '') AS description,
+			m.created_date,
+			m.client
 		FROM sap_to_materials(mara_table := mara_table) m
 		LEFT JOIN (
-			-- One description per material: real MAKT can have several rows per (matnr, spras)
-			-- (e.g. across MANDT/client), which would otherwise fan the material out into duplicates.
-			SELECT material_id, ANY_VALUE(maktx) AS maktx
-			FROM (SELECT TRIM(matnr) AS material_id, maktx FROM query_table(makt_table) WHERE spras = COALESCE(language, 'E'))
+			-- One description per material and client (MANDT, when MAKT has it): several rows per
+			-- (matnr, spras) would otherwise fan the material out into duplicates. A client's own
+			-- text (k) wins over a MAKT row without a client (kn); each join gives at most one row.
+			SELECT material_id, client, ANY_VALUE(maktx ORDER BY maktx) AS maktx
+			FROM (SELECT TRIM(matnr) AS material_id, NULLIF(TRIM(mandt::VARCHAR), '') AS client, maktx
+			      FROM ((SELECT NULL AS mandt WHERE false) UNION ALL BY NAME (SELECT * FROM query_table(makt_table)))
+			      WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"()
+			GROUP BY material_id, client
+		) k ON m.client IS NOT NULL AND m.material_id = k.material_id AND k.client = m.client
+		LEFT JOIN (
+			SELECT material_id, ANY_VALUE(maktx ORDER BY maktx) AS maktx
+			FROM (SELECT TRIM(matnr) AS material_id, NULLIF(TRIM(mandt::VARCHAR), '') AS client, maktx
+			      FROM ((SELECT NULL AS mandt WHERE false) UNION ALL BY NAME (SELECT * FROM query_table(makt_table)))
+			      WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"()
+			WHERE client IS NULL
 			GROUP BY material_id
-		) k ON m.material_id = k.material_id)"};
+		) kn ON m.client IS NOT NULL AND m.material_id = kn.material_id
+		LEFT JOIN (
+			-- a MARA without mandt: one description per material, whatever MAKT's clients
+			SELECT TRIM(matnr) AS material_id, ANY_VALUE(maktx ORDER BY maktx) AS maktx
+			FROM query_table(makt_table) WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"(
+			GROUP BY TRIM(matnr)
+		) a ON m.client IS NULL AND m.material_id = a.material_id)"};
 
 static const DefaultTableMacro EXTRACT_MATERIAL_DESCRIPTIONS_MACRO = {
     DEFAULT_SCHEMA,
     "extract_material_descriptions",
     {nullptr},
-    {{"makt_table", "'sap_makt'"}, {"language", "'EN'"}, {nullptr, nullptr}},
+    {{"makt_table", "'sap_makt'"}, {"language", "'E'"}, {nullptr, nullptr}},
     R"(
 		WITH descriptions AS (
 			-- Collapse multiple MAKT rows per (matnr, spras) to a single description so a material
-			-- is not duplicated (real MAKT repeats per MANDT/client).
+			-- is not duplicated. Clients (MANDT) are merged: filter MAKT to one client first. Both
+			-- texts come from the same row (the smallest maktx), so the result is deterministic.
 			SELECT
 				TRIM(matnr) AS material_id,
-				ANY_VALUE(TRIM(maktx)) AS description,
-				ANY_VALUE(TRIM(maktg)) AS short_text
+				ANY_VALUE(TRIM(maktx) ORDER BY TRIM(maktx), TRIM(maktg)) AS description,
+				ANY_VALUE(TRIM(maktg) ORDER BY TRIM(maktx), TRIM(maktg)) AS short_text
 			FROM query_table(makt_table)
-			WHERE spras = COALESCE(language, 'EN')
+			WHERE )" ANOFOX_SPRAS_MATCHES("spras") R"(
 			GROUP BY TRIM(matnr)
 		),
 		combined_text AS (
@@ -290,16 +312,16 @@ void RegisterSAPTransformationMacros(ExtensionLoader &loader) {
 	ddoc::Registrar reg(loader, {"similarity", "erp"});
 	reg.RegisterTableMacro(SAP_TO_MATERIALS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.")
+	                .Describe("Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The last column, client, is MARA's mandt (NULL without it), so a multi-client extract keeps one row per client and material. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.")
 	                .Example("SELECT * FROM sap_to_materials('MARA')")});
 	reg.RegisterTableMacro(SAP_TO_MATERIALS_WITH_DESC_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language' (SAP single-character language key, e.g. 'E').")
+	                .Describe("Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match. With mandt in MAKT, each client gets its own client's text.")
 	                .Example("SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E')")});
 	reg.RegisterTableMacro(EXTRACT_MATERIAL_DESCRIPTIONS_MACRO,
 	           {ddoc::Doc()
-	                .Describe("Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.")
-	                .Example("SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')")});
+	                .Describe("Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'); clients (mandt) are merged, so filter MAKT to one client first. Returns (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.")
+	                .Example("SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E')")});
 	// Two overloads, as the macro allowed: positional tables, and (2.0 has no varargs and 1.5.6
 	// cannot pass a positional argument by name) the three tables as named parameters.
 	TableFunctionSet bom_items_set("sap_to_bom_items");

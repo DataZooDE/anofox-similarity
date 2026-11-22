@@ -114,8 +114,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 340.0,
-          "lo": 340.0,
+          "hi": 346.8,
+          "lo": 333.2,
           "name": "hardness",
           "text": "340 N ± 2 %",
           "unit": "N"

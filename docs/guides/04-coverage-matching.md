@@ -2,12 +2,20 @@
 
 > Does a past solution cover what a new request asks for, and where are the gaps?
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Understand directional (coverage) matching and how it differs from similarity
 - Rank feature multisets with `containment`, the `weighted_*` measures and `find_covering_entities`
 - Load property trees from JSON and check them with `validate_trees` and `tree_anchors`
 - Rank candidate trees with `tree_coverage` and list the gaps with `tree_coverage_trace`
 - Give every item a class, choose the assignment rule and index a large archive
+
+> [!TIP]
+> Starting from a real tender (extracted JSON without classes, properties that share a dimension,
+> clause numbers)? Read [From a tender to trees](13-tender-to-trees.md) first.
 
 The examples use the hand-made fixture in `test/data/coverage/mini`: requests `Q1`–`Q3`, seat
 programmes `S1`–`S6` and modules `M1`–`M5`. Run them from the repository root.
@@ -52,6 +60,8 @@ SELECT weighted_containment(MAP {'massage': 4}, MAP {'massage': 2}) AS counts_ma
 | 0.5           |
 
 The first argument is always the query (the request), the second the candidate (the offer).
+How the coverage number is built, and why the defaults are what they are:
+[coverage semantics](../concepts/coverage-semantics.md).
 
 ## Stage 1: Rank Feature Multisets
 
@@ -162,8 +172,7 @@ CREATE TABLE programme_nodes AS SELECT * FROM tree_nodes WHERE tree_id LIKE 'S%'
 
 SELECT candidate_id, round(coverage, 3) AS coverage, rank, n_requirements, n_gaps
 FROM tree_coverage('NEW-1', k := 3, nodes_table := 'spec_nodes', attrs_table := 'spec_attrs',
-                   candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes',
-                   mu := 0.0);
+                   candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes');
 ```
 
 | candidate_id | coverage | rank | n_requirements | n_gaps |
@@ -184,9 +193,8 @@ failing attribute. It takes the same parameters:
 SELECT req_node_id, matched_node_id, attr_name, req_value, prov_value,
        round(value_score, 3) AS value_score, round(distance, 3) AS distance
 FROM tree_coverage_trace('NEW-1', candidates := ['S2'], nodes_table := 'spec_nodes', attrs_table := 'spec_attrs',
-                         candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes',
-                         mu := 0.0)
-WHERE is_gap;
+                         candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes')
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);
 ```
 
 | req_node_id | matched_node_id | attr_name             | req_value     | prov_value | value_score | distance |
@@ -207,11 +215,11 @@ the nearest one. For categories that fail, that is the one meeting the most leve
 
 ### Attribute Names
 
-`mu` (default 0.2) discounts a value match by the similarity of the attribute names. Without
-name vectors the similarity is word overlap, so a German offer name never matches an English
-request name. With the default, `Q1` scores 0.858 against `S1` with no gaps, and 1.0 with
-`mu := 0.0`. Pass `name_vectors` and a calibrated `name_floor` for multilingual data (see
-[Classification and review](06-classification-and-review.md)), or set `mu := 0.0`.
+Without name vectors, attribute names are compared by word overlap (`name_rule` `tokens`). That
+picks which offered value answers a requirement, but does not lower its score: `Q1` scores 1.0
+against `S1`. With `name_vectors` and a calibrated `name_floor` (see
+[Classification and review](06-classification-and-review.md)), `mu` (default 0.2) discounts a
+value match by how well the names agree (`name_rule` `vector`); `mu := 0.0` turns that off.
 
 Names only discount: a required value without an `attr_key` is compared with every offered value
 **of the same dimension on the matched item**. If one item carries a surface roughness
@@ -241,7 +249,7 @@ Invalid Input Error: tree_coverage: query tree 'Q1' has no classified items (giv
 ```
 
 A query tree with only *some* classified items is not an error. Its unclassified items count as
-requirements without a counterpart: S1, which meets all of Q1, drops to 0.208 (0.25 with `mu := 0.0`) when
+requirements without a counterpart: S1, which meets all of Q1, drops to 0.25 when
 only `Q1.1` has a class, and the trace shows the other items with `matched_node_id` NULL, exactly like a missing
 module. List the unclassified items before you trust a low score:
 
@@ -267,7 +275,7 @@ SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/mini/voc
 
 SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps, reviewed, assignment_used
 FROM tree_coverage('Q1', k := 3, candidate_nodes_table := 'archive_nodes', candidate_attrs_table := 'tree_attributes',
-                   overrides_table := 'vocabulary_overrides', mu := 0.0);
+                   overrides_table := 'vocabulary_overrides');
 ```
 
 | candidate_id | coverage | n_gaps | reviewed | assignment_used |
@@ -302,7 +310,7 @@ CREATE TABLE programme_index AS SELECT * FROM tree_class_multiset('programme_nod
 SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps
 FROM tree_coverage('NEW-1', k := 3, nodes_table := 'spec_nodes', attrs_table := 'spec_attrs',
                    candidate_nodes_table := 'programme_nodes', candidate_attrs_table := 'tree_attributes',
-                   mu := 0.0, candidate_multiset_table := 'programme_index');
+                   candidate_multiset_table := 'programme_index');
 ```
 
 The result is the same as without the index. On 100 000 archive trees, stage 1 drops from about 2 s
@@ -316,7 +324,7 @@ to 0.1 s. Rebuild the index when the archive or the vocabulary changes. Pass the
 | Empty result | `candidate_nodes_table` defaults to the query table. Name the archive. |
 | "nodes_table ... is given but attrs_table is not" | Name the attributes table of each side, or pass `NULL` for none. |
 | "has no classified items" | Give `class_id`, `overrides_table` or `label_table`. |
-| Coverage below 1 without gaps | Attribute-name discount. Use `name_vectors` or `mu := 0.0`. |
+| Coverage below 1 without gaps | With `name_vectors`: the name discount `mu` (synonyms at cosine 0.98 give 0.98). Check `n_gaps` and the trace, or pass `mu := 0.0`. |
 | A roughness answers a tolerance | Unkeyed values compete per dimension on one item. Give them `attr_key`s, or put them on items of their own class. |
 | A nearly full cover outranks a full one | The tie-break is additive. Filter with `min_score := 1.0` in stage 1. |
 | Many requests at once | `tree_coverage` accepts a list of ids: `tree_coverage(['R01', 'R02'], ...)`. |

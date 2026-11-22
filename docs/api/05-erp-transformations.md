@@ -8,7 +8,10 @@
 
 ### SAP Transformations
 
-Convert SAP-format BOM to universal schema.
+Convert SAP tables to flat BOM edges and universal materials. The rules below choose one BOM per
+material and date (category, alternative, versions, STAS selection, usage, clients); why each rule
+exists and how the SAP and D365 models differ:
+[ERP BOM models](../concepts/erp-bom-models.md).
 
 **sap_to_bom_items** - Convert MAST/STKO/STPO (and optionally STAS) to flat BOM edges:
 ```sql
@@ -28,7 +31,8 @@ sap_to_bom_items(
     unit VARCHAR,
     valid_from DATE,
     valid_to DATE,
-    bom_version VARCHAR
+    bom_version VARCHAR,
+    client VARCHAR    -- MANDT when every table has mandt, else NULL
 )
 ```
 
@@ -93,7 +97,7 @@ column is always empty; use **`sap_to_materials_with_desc`** (below) to populate
 ```sql
 sap_to_materials(
     mara_table VARCHAR
-) → TABLE (material_id, material_type, material_group, description, created_date)
+) → TABLE (material_id, material_type, material_group, description, created_date, client)
 ```
 
 **sap_to_materials_with_desc** - Materials with descriptions (MARA + MAKT):
@@ -102,7 +106,7 @@ sap_to_materials_with_desc(
     mara_table VARCHAR,
     makt_table VARCHAR,
     language := 'E'
-) → TABLE (material_id, material_type, material_group, description, created_date)
+) → TABLE (material_id, material_type, material_group, description, created_date, client)
 ```
 
 **extract_material_descriptions** - Extract descriptions from MAKT. Requires MAKT columns `matnr`,
@@ -110,7 +114,7 @@ sap_to_materials_with_desc(
 ```sql
 extract_material_descriptions(
     makt_table := 'sap_makt',
-    language := 'EN'
+    language := 'E'      -- SAP key 'E' or ISO 'EN', either matches MAKT.spras in either form
 ) → TABLE (material_id VARCHAR, full_text VARCHAR)
 ```
 
@@ -125,7 +129,9 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 ### Dynamics 365 Transformations
 
-Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs.
+Convert Microsoft Dynamics 365 (Finance & Operations / Supply Chain Management) BOMs. How
+versions choose a BOM and why lines are per `BOMQtySerie`:
+[ERP BOM models](../concepts/erp-bom-models.md#dynamics-365-versions-choose-a-bom).
 
 These table functions RETURN **universal-schema** rows (materials / bom_header / bom_component
 shapes). They do not write an output table, and the component function does **not** return flat
@@ -247,7 +253,7 @@ SELECT * FROM sap_to_bom_items('MAST', 'STKO', 'STPO', stas_table := 'STAS', ref
 
 *Table macro*
 
-Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.
+Extracts materials from a SAP MARA table into the universal materials shape. Requires MARA columns matnr, mtart, matkl, ersda and lvorm; rows flagged deleted via lvorm are excluded. The last column, client, is MARA's mandt (NULL without it), so a multi-client extract keeps one row per client and material. The description column is always empty here -- use sap_to_materials_with_desc to populate it from MAKT; the makt_table and language parameters are accepted for compatibility and ignored.
 
 ```sql
 sap_to_materials(mara_table, makt_table, language)
@@ -263,7 +269,7 @@ SELECT * FROM sap_to_materials('MARA');
 
 *Table macro*
 
-Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language' (SAP single-character language key, e.g. 'E').
+Like sap_to_materials, but joins MAKT to populate the description column in the requested 'language': SAP's one-character key ('E', 'D') or the two-letter ISO code ('EN', 'DE'); MAKT rows in either form match. With mandt in MAKT, each client gets its own client's text.
 
 ```sql
 sap_to_materials_with_desc(mara_table, makt_table, language)
@@ -279,7 +285,7 @@ SELECT * FROM sap_to_materials_with_desc('MARA', 'MAKT', language := 'E');
 
 *Table macro*
 
-Extracts material descriptions from a SAP MAKT table for one language, returning (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
+Extracts material descriptions from a SAP MAKT table for one language ('E' or 'EN', either form matches; default 'E'); clients (mandt) are merged, so filter MAKT to one client first. Returns (material_id, full_text): the description (MAKTX) and the search text (MAKTG) joined by a space, one row per material.
 
 ```sql
 extract_material_descriptions(makt_table, language)
@@ -288,7 +294,7 @@ extract_material_descriptions(makt_table, language)
 **Examples**
 
 ```sql
-SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'EN');
+SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E');
 ```
 
 ### `dynamics365_to_bom_header`

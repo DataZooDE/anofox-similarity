@@ -3,7 +3,8 @@
 > Task-based guides for anofox-similarity. Each one has runnable SQL and the output to expect.
 
 Run the examples from the repository root with the built shell, `./build/release/duckdb`. They use
-only the data in `test/data` or small inline tables.
+only the data in `test/data`, `examples/*/data` or small inline tables. `make check-docs` runs every
+guide top down.
 
 | # | Guide | You learn to |
 |---|---|---|
@@ -16,19 +17,22 @@ only the data in `test/data` or small inline tables.
 | 07 | [Evaluation and tuning](07-evaluation-and-tuning.md) | Measure ranking and calibration, set an auto-accept threshold, fit weights |
 | 08 | [Scale and deduplication](08-scale-and-dedup.md) | Use MinHash/LSH for large archives and cluster duplicate records |
 | 09 | [Nightly pipelines](09-nightly-pipelines.md) | Run it as a scheduled job on a database file: re-runs, data gates, rebuilds, readers |
-| 10 | [The DataZoo AAS profile](10-aas-profile.md) | Express configuration variants and additive counts in an Asset Administration Shell |
+| 10 | [The DataZoo AAS profile](10-aas-profile.md) | Advanced: express configuration variants and additive counts in an Asset Administration Shell |
+| 11 | [AAS: first match](11-aas-first-match.md) | Audit, load and rank AAS offers against an AAS request, read the gaps, write the result back |
+| 12 | [From an ERP extract](12-from-erp-extract.md) | Export the right SAP or Dynamics 365 tables and turn them into BOM edges, texts, consumption and a first similarity search |
+| 13 | [From a tender to trees](13-tender-to-trees.md) | Turn an extracted tender into trees the kernel can score: JSON, `attr_key`, classes, the clause sidecar |
 
 ## Where to Start
 
 | Your task | Read |
 |---|---|
-| "Which existing product is like this one?" | 01 → 02 |
-| "What did this new material replace, and how do I forecast it?" | 01 → 02 → 03 |
-| "Which past solution covers this customer specification?" | 01 → 04 → 05 → 06 |
+| "Which existing product is like this one?" | 01 → 12 → 02 |
+| "What did this new material replace, and how do I forecast it?" | 01 → 12 → 02 → 03 |
+| "Which past solution covers this customer specification?" | 01 → 04 → 13 → 06 → 05 |
 | "Can we trust the matches?" | 07 |
 | "The archive has a million entries" or "the customer master has duplicates" | 08 |
 | "This has to run every night" | 09 |
-| "Requests and offers arrive as Asset Administration Shells" | [AAS API](../api/17-aas.md) → 10 |
+| "Requests and offers arrive as Asset Administration Shells" | 11 → 10 ([AAS API](../api/17-aas.md) for the mapping) |
 
 ## Using an AI Assistant
 
@@ -41,6 +45,8 @@ for the install line.
 End-to-end walkthroughs on real ERP data (AdventureWorks and SAP) are in [tutorials/](tutorials/).
 
 ## See Also
+
+- How it works and why: [concepts](../concepts/README.md)
 
 - API reference: [conventions](../api/00-conventions.md) and one page per function group in [../api/](../api/)
 - Runnable scripts: [../../examples/](../../examples/)

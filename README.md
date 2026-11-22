@@ -30,14 +30,14 @@ matters; the extension does not ship language models.
 
 ## ✨ Key Features
 
-### 🔩 Material similarity (20 functions)
-- **Set and graph similarity**: Jaccard and Weisfeiler-Lehman kernel similarity of BOMs, top-k
+### 🔩 Material similarity
+- **Set and graph similarity**: Jaccard and BOM depth-kernel (Weisfeiler-Lehman family) similarity of BOMs, top-k
   search (`find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`)
 - **Predecessors and cold start**: detect a predecessor from anti-correlated consumption, find
   analogs with history for a new product (`infer_predecessors`, `cold_start_analogs`)
 - **BOM traversal**: explosion, where-used, common components, property graph helpers
 
-### 📐 Coverage matching (16 functions)
+### 📐 Coverage matching
 - **Covering search**: rank entities by how much of a request they contain, with the
   directional set measures listed under material similarity (`containment`, Tversky and
   weighted variants) that do not punish a richer offer (`find_covering_entities`)
@@ -47,21 +47,27 @@ matters; the extension does not ship language models.
   coverage, and list every gap with the failing value and its distance (`tree_from_json`,
   `tree_coverage`, `tree_coverage_trace`)
 
-### 🏷️ Classification and review (8 functions)
+### 🏷️ Classification and review
 - Map items onto a catalogue with your own vectors (`classify_to_catalogue`, `maxsim`)
 - Review the few wordings that matter most, and send uncertain items to an external reviewer as
   JSON (`vocabulary_review_queue`, `apply_vocabulary_review`, `uncertain_decisions`)
 
-### 📊 Evaluation and scale (13 functions)
+### 📊 Evaluation and scale
 - Recall@k, MRR, regret, calibration, the auto-accept threshold for a target precision,
   cluster bootstrap intervals and a weight fit (`eval_ranking`, `threshold_at_precision`, …)
 - Weighted MinHash and size-partitioned LSH for large archives; duplicate clustering
   (`find_covering_entities_lsh`, `cluster_matches`)
 
-### 🏭 ERP and embeddings (22 functions)
+### 🏭 ERP and embeddings
 - SAP and Dynamics 365 transformations, transactional and Jaccard embeddings, HNSW indexes
 - Textual embeddings are a **placeholder** in the released build; see
   [embeddings](docs/api/04-embeddings.md)
+
+### 🔌 Asset Administration Shell (AAS)
+- Read IDTA submodels (Nameplate, Technical Data, Capability) into trees, match on IEC 61360 /
+  ECLASS keys rather than wording, and audit the shells first (`aas_to_trees`, `aas_issues`)
+- Write requests, offers and the coverage result back as AAS JSON (`trees_to_aas`,
+  `coverage_result_to_aas`); see the [AAS first-match guide](docs/guides/11-aas-first-match.md)
 
 ## 📋 Table of Contents
 
@@ -187,11 +193,11 @@ FROM range(10, 52) t(w);
 
 SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
 FROM infer_predecessors('NEW-PUMP');
--- OLD-PUMP | 0.79 | -1.0 | 38
+-- OLD-PUMP | 0.79 | -1.0 | 37
 
 SELECT material_id, similarity, history_months, first_usage, last_usage
 FROM cold_start_analogs('NEW-PUMP', 5, min_history_months := 6);
--- OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
+-- => OLD-PUMP | 1.0 | 9 | 2023-01-02 | 2023-10-02
 ```
 
 Predecessor detection needs dense weekly history; sparse movements return no rows. See the
@@ -201,35 +207,57 @@ Using an AI assistant? Install the [Claude Code skills](#-claude-code-skills-ai-
 
 ## 📐 Quick Start: coverage matching
 
-A request asks for a set of items with values; past programmes provide items with values. Which
-programme covers the request, and what is missing? This runs on the small fixture in the
-repository (run it from the repository root):
+A request asks for items with values; offers provide items with values. Which offer covers the
+request, and what is missing? Trees come as JSON from your extraction step, with values as text
+in German or English; this runs as it stands:
 
 ```sql
-CREATE OR REPLACE TABLE tree_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
-CREATE OR REPLACE TABLE tree_attributes AS SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+-- One request and two offers, as an extraction step would deliver them (JSON, values as text)
+CREATE OR REPLACE TABLE docs AS SELECT * FROM (VALUES
+  ('{"tree_id": "REQ", "root": {"node_id": "REQ", "kind": "container", "children": [
+     {"node_id": "REQ.1", "kind": "item", "label": "seat heating", "class_id": "heating", "attributes": [
+        {"attr_id": "t", "name": "time to 37 °C", "text": "max. 180 s"},
+        {"attr_id": "i", "name": "current draw", "text": "höchstens 8 A"}]},
+     {"node_id": "REQ.2", "kind": "item", "label": "headrest", "class_id": "headrest", "attributes": [
+        {"attr_id": "h", "name": "height travel", "text": "at least 60 mm"}]}]}}'),
+  ('{"tree_id": "OFFER-A", "root": {"node_id": "A", "kind": "container", "children": [
+     {"node_id": "A.1", "kind": "item", "label": "heater mat", "class_id": "heating", "attributes": [
+        {"attr_id": "t", "name": "Aufheizzeit", "text": "150 s"},
+        {"attr_id": "i", "name": "Stromaufnahme", "text": "7,5 A"}]},
+     {"node_id": "A.2", "kind": "item", "label": "powered headrest", "class_id": "headrest", "attributes": [
+        {"attr_id": "h", "name": "Verstellweg", "text": "8 cm"}]}]}}'),
+  ('{"tree_id": "OFFER-B", "root": {"node_id": "B", "kind": "container", "children": [
+     {"node_id": "B.1", "kind": "item", "label": "heater mat", "class_id": "heating", "attributes": [
+        {"attr_id": "t", "name": "heat-up time", "text": "170 s"},
+        {"attr_id": "i", "name": "current", "text": "7 A"}]},
+     {"node_id": "B.2", "kind": "item", "label": "headrest", "class_id": "headrest", "attributes": [
+        {"attr_id": "h", "name": "height travel", "text": "50 mm"}]}]}}')
+) t(doc);
+CREATE OR REPLACE TABLE nodes AS SELECT unnest(tree_from_json(doc)) AS n FROM docs;
+CREATE OR REPLACE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM nodes;
+CREATE OR REPLACE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM nodes;
 
--- Rank the candidates for request Q1 by the share of it they cover
+-- Rank the offers by the share of the request they cover
 SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
-FROM tree_coverage('Q1', k := 3, mu := 0.0);
--- S1 | 1.0 | 4 | 0
--- S6 | 1.0 | 4 | 0
--- S2 | 0.5 | 4 | 2
+FROM tree_coverage('REQ', candidates := ['OFFER-A', 'OFFER-B']);
+-- OFFER-A | 1.0 | 2 | 0
+-- OFFER-B | 0.5 | 2 | 1
 
--- Why S2 falls short: the gap list, value by value
+-- Why OFFER-B falls short: the gap list, value by value
 SELECT req_node_id, attr_name, req_value, prov_value, value_score
-FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
-WHERE is_gap
+FROM tree_coverage_trace('REQ', candidates := ['OFFER-B'])
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed)
 ORDER BY req_node_id, attr_name;
--- Q1.1 | current draw  | at_most 8 A     | 9 A    | 0.0
--- Q1.1 | time to 37 °C | at_most 180 s   | 240 s  | 0.0
--- Q1.3 | height travel | at_least 0.06 m | 0.05 m | 0.0
+-- => REQ.2 | height travel | at_least 0.06 m | 0.05 m | 0.0
 ```
 
-`n_gaps` counts the requirements that fall short (S2: heating and headrest); the trace lists each
-failing attribute. `mu := 0.0` switches off the attribute-name discount, which needs name vectors to be meaningful.
-The [coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,
-alternatives and large archives; the [examples](examples/coverage_matching/) run the full
+`n_gaps` counts the requirements that fall short (OFFER-B: the headrest travel). `is_gap` marks the
+whole requirement on all its rows; the filter keeps only what fails (a value or a count), with
+both values in base units. OFFER-A's German attribute names cost
+nothing: without name vectors the names only pick which value answers a requirement. For real
+tenders see [from a tender to trees](docs/guides/13-tender-to-trees.md); the
+[coverage-matching guide](docs/guides/04-coverage-matching.md) covers classes, values,
+alternatives and large archives, and the [examples](examples/coverage_matching/) run the full
 seating benchmark.
 
 ### Use your own ERP columns
@@ -279,7 +307,8 @@ this whole area.
 
 | | |
 |---|---|
-| **[Guides](docs/guides/README.md)** | Task-based guides: getting started, material similarity, predecessors and cold start, coverage matching, quantities, classification and review, evaluation, scale and dedup, nightly pipelines |
+| **[Guides](docs/guides/README.md)** | Task-based guides: getting started, from an ERP extract, material similarity, predecessors and cold start, coverage matching, from a tender to trees, quantities, classification and review, evaluation, scale and dedup, nightly pipelines, AAS first match and profile |
+| **[Concepts](docs/concepts/README.md)** | How it works and why: coverage semantics, and the models behind the other areas |
 | **[API reference](docs/API_REFERENCE.md)** | Every function by topic, with signatures, descriptions and examples |
 | **[Examples](examples/README.md)** | Runnable SQL files on data in this repository |
 | **[Tutorials](docs/guides/tutorials/)** | AdventureWorks walkthrough; SAP walkthrough (bring your own extract) |

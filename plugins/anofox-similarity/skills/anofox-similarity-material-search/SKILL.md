@@ -8,16 +8,17 @@ description: >
   `bom_where_used`, `bom_dfs_neighborhood`) in the anofox_similarity DuckDB extension. Use when asked to
   "find materials with a similar BOM", "which part did this new one replace", "find analogs to forecast a
   new product", "explode a BOM", "where is this component used", or to compare two component lists.
-version: 2026.11.21
+version: 2026.11.22
 user-invocable: false
 ---
 
 # Anofox Similarity — Material Search, Predecessors & BOM Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/01-similarity-scalars.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/01-similarity-scalars.md), [`docs/api/02-material-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/02-material-search.md), [`docs/api/03-bom-traversal.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/03-bom-traversal.md)
+**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/01-similarity-scalars.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/01-similarity-scalars.md), [`docs/api/02-material-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/02-material-search.md), [`docs/api/03-bom-traversal.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/03-bom-traversal.md)
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> Every SQL block here builds its data inline and runs as it stands, without a clone of the
+> repository. Mentions of `test/data/...` name the benchmark files (repository data: clone, or
+> download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage).
 
 Compare materials by their bills of materials: score two component sets, rank the materials most
 similar to one material (direct-children Jaccard or the multi-level WL kernel), detect which old
@@ -48,8 +49,10 @@ and `examples/predecessors_cold_start/`.
   swaps alpha and beta on 1.5.6. Table functions and table macros bind by name on both.
 - **`goods_movements` contract:** `material_id`, `movement_date` (DATE or TIMESTAMP), `quantity`
   (numeric). A VARCHAR date fails with `column movement_date is VARCHAR, expected DATE or TIMESTAMP`
-  — convert in a view (`strptime(budat, '%Y%m%d')::DATE AS movement_date`). Every row counts,
-  receipts included: pass a view with consumption (issues) only.
+  — convert in a view (`strptime(budat, '%Y%m%d')::DATE AS movement_date`). Usage is consumption:
+  only weeks with a positive net quantity count (dates, correlation, cold-start history), so a late
+  return or a reversal does not move a date. Receipts posted as positive quantities would count:
+  pass a signed consumption view (issues and deliveries +, reversals −).
 - **`infer_predecessors` needs dense weekly history.** Quantities are summed per ISO week, the
   candidate series is shifted by `lag_weeks` (default 8), and at least `min_overlapping_weeks`
   (default 8) aligned non-empty weeks must exist. A handful of scattered movements, or a clean
@@ -256,7 +259,8 @@ How it scores (from the build):
 1. Candidates: the 100 materials most Jaccard-similar to the successor with similarity ≥
    `min_similarity`. With many near-identical variants a predecessor can fall outside them.
 2. Weekly sums of both series; candidate weeks joined to successor weeks shifted by `lag_weeks`;
-   candidate history limited to `lookback_months` before the successor's first movement. Pairs with
+   candidate history limited to `lookback_months` before the successor's first consumption week
+   (`predecessor_first_usage` starts no earlier). Pairs with
    fewer than `min_overlapping_weeks` aligned weeks are dropped.
 3. `temporal_score`: high when the candidate's last usage lies within 3 months before to 6 months
    after `successor_start`; 0.3 if it keeps running longer; 0 (dropped) if it stopped earlier.
@@ -267,7 +271,7 @@ How it scores (from the build):
 ```sql
 SELECT predecessor_id, confidence, correlation, similarity, temporal_score, overlapping_weeks
 FROM infer_predecessors('NEW-PUMP', bom_table := 'bom_items', movements_table := 'goods_movements');
--- OLD-PUMP | 0.64 | -1.0 | 0.5 | 0.3 | 38
+-- OLD-PUMP | 0.64 | -1.0 | 0.5 | 0.3 | 37
 SELECT count(*) AS n FROM infer_predecessors('OLD-PUMP', movements_table := 'goods_movements'); -- 0: direction matters
 ```
 
@@ -307,23 +311,24 @@ cold_start_analogs(material_id VARCHAR, k BIGINT,  -- both positional
     min_history_months := 0, min_similarity := NULL,
     bom_table := 'bom_items', movements_table := 'goods_movements')
   → TABLE(material_id VARCHAR, similarity DOUBLE, shared_components BIGINT, total_components BIGINT,
-          history_months BIGINT, first_usage DATE, last_usage DATE)
+          history_months BIGINT, first_usage DATE, last_usage DATE, movement_weeks BIGINT)
 ```
 
 - Jaccard-similar materials that have **at least one movement row**; the new material needs a BOM
   in `bom_table`, not history.
-- `history_months` = `date_diff('month', first_usage, last_usage)` — the calendar span, not the
-  number of months with movements. One movement → 0 and still passes the default 0. Check density
-  (query above) before forecasting from an analog; check `last_usage` for stale analogs.
+- `history_months` = `date_diff('month', first_usage, last_usage)` over consumption weeks — the
+  calendar span, not the density. One movement → 0 and still passes the default 0. `movement_weeks`
+  is the density (consumption weeks); ties of `similarity` go to the denser analog. A material with
+  only returns is no analog. Check `last_usage` for stale analogs.
 - No analog with enough history → empty result.
 
 ```sql
 SELECT material_id, similarity, shared_components, history_months, first_usage, last_usage
 FROM cold_start_analogs('NEXT-PUMP', 3, min_history_months := 6, min_similarity := 0.3,
                         bom_table := 'bom_items', movements_table := 'goods_movements');
--- NEW-PUMP | 0.75 | 3 | 9 | 2023-03-13 | 2023-12-25
+-- NEW-PUMP | 0.75 | 3 | 9 | 2023-03-20 | 2023-12-25   (week 10 has quantity 0: not consumption)
 -- OLD-PUMP | 0.4  | 2 | 9 | 2023-01-02 | 2023-10-02
--- => NEW-PUMP | 0.75 | 3 | 9 | 2023-03-13 | 2023-12-25
+-- => NEW-PUMP | 0.75 | 3 | 9 | 2023-03-20 | 2023-12-25
 -- => OLD-PUMP | 0.4 | 2 | 9 | 2023-01-02 | 2023-10-02
 ```
 

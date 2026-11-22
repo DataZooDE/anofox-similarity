@@ -2,6 +2,10 @@
 
 > Measure a matching pipeline against reviewed results before you trust it, and tune it on data.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Score a ranking with `eval_ranking` (top-k accuracy, recall, MRR, regret)
 - Check whether the predicted coverage is calibrated with `eval_calibration`
@@ -11,7 +15,8 @@
 
 All functions take two tables. `results` holds `query_id, candidate_id` and a `rank` or a score
 column, as `tree_coverage` returns them. `gold` holds `query_id, candidate_id, true_coverage`: the
-coverage a reviewer confirmed.
+coverage a reviewer confirmed. What each metric measures and why:
+[evaluation and scale](../concepts/evaluation-and-scale.md).
 
 ## A First Example
 
@@ -119,22 +124,24 @@ coverage threshold at which the picks reach the target precision. A pick counts 
 true coverage is at least `good` (default 0.9).
 
 ```sql
-SELECT round(threshold, 4) AS threshold, round(precision, 3) AS precision, round(accepted_share, 3) AS accepted_share
+SELECT round(threshold, 4) AS threshold, round(precision, 3) AS precision, round(accepted_share, 4) AS accepted_share
 FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
 ```
 
 | threshold | precision | accepted_share |
 |----------:|----------:|---------------:|
-| 0.769     | 0.958     | 0.888          |
+| 0.769     | 0.958     | 0.8875         |
 
-Accept picks with coverage ≥ 0.769 automatically: 88.8 % of the requests, 95.8 % of them good.
+Accept picks with coverage ≥ 0.769 automatically: 88.75 % of the requests (71 of 80), 95.8 % of them good.
 The `curve` column holds every (threshold, precision, share) point. The parameter is called
 `target_precision` because `target` is a reserved word in DuckDB.
 
 ## Confidence Intervals by Cluster
 
-Requests from one customer share wording and habits. They are not independent. `bootstrap_ci`
-resamples whole clusters:
+Requests from one customer share wording and habits. They are not independent, so resampling
+single requests gives too narrow an interval
+([why](../concepts/evaluation-and-scale.md#intervals-by-cluster)). `bootstrap_ci` resamples whole
+clusters:
 
 ```sql
 CREATE TABLE per_request AS

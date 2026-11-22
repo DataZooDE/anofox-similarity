@@ -17,3 +17,6 @@ test/data/cyclonedx/raw/
 .cache/
 .crew/
 __pycache__/
+
+# DuckDB databases created by guides and examples (e.g. nightly.duckdb)
+*.duckdb

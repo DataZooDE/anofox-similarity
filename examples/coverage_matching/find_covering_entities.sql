@@ -24,7 +24,8 @@ SELECT * FROM read_csv('test/data/coverage/programme_class_multiset.csv.gz');
 
 .print '>>> 1. The class multiset of programme P001'
 SELECT feature_id, weight FROM programme_classes WHERE entity_id = 'P001' ORDER BY feature_id;
--- Expected: 13 classes, 37 items in total (e.g. seat_heating 8, seat_motor 8)
+SELECT count(*) AS classes, sum(weight) AS items FROM programme_classes WHERE entity_id = 'P001';
+-- Expected: 13 | 37   (e.g. seat_heating 8, seat_motor 8)
 
 .print ''
 .print '>>> 2. Programmes that contain everything P001 contains'

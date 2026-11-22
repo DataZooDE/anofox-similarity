@@ -9,8 +9,8 @@
 Asymmetric, explainable matching of a **request** (a specification, a BOM to source, a
 profile) against **offers** (products, past solutions, modules). It answers "does B
 satisfy what A asks for?", where the [similarity functions](01-similarity-scalars.md) answer "how alike are A
-and B?". Design: [requirements-matching/HLD.md](../requirements-matching/HLD.md) (§11 lists
-the amendments decided during implementation). Test dataset:
+and B?". Concepts: [coverage semantics](../concepts/coverage-semantics.md); design history:
+[HLD](../requirements-matching/HLD.md). Test dataset:
 [test/data/coverage](../../test/data/coverage/README.md).
 
 On DuckDB 1.5.6, named arguments of **scalar** functions bind by position (the table functions
@@ -99,8 +99,10 @@ SELECT request_id, map_from_entries(list((class_id, n))) AS classes
 FROM (SELECT request_id, class_id, sum(count)::DOUBLE AS n FROM request_items GROUP BY ALL)
 GROUP BY request_id;
 CREATE TABLE candidates AS
-SELECT entity_id, map_from_entries(list((feature_id, weight))) AS classes
-FROM feature_multiset GROUP BY entity_id;
+SELECT entity_id, map_from_entries(list((feature_id, w))) AS classes
+FROM (SELECT entity_id, feature_id, sum(COALESCE(weight, 1))::DOUBLE AS w FROM feature_multiset
+      WHERE entity_id IS NOT NULL AND feature_id IS NOT NULL GROUP BY ALL)   -- as the table function does
+GROUP BY entity_id;
 
 SELECT r.request_id, c.entity_id,
        weighted_containment(r.classes, c.classes) + 0.01 * weighted_jaccard(r.classes, c.classes) AS score

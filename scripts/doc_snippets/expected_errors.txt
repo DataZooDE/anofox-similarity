@@ -1,0 +1,3 @@
+# file<TAB>first SQL line of a block that must fail (the docs show the error on purpose)
+docs/guides/04-coverage-matching.md	CREATE TABLE request_nodes AS SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM tree_nodes WHERE tree_id = 'Q1';
+docs/guides/13-tender-to-trees.md	SELECT * FROM tree_coverage('RFQ-7', candidates := ['OFF-A', 'OFF-B'],

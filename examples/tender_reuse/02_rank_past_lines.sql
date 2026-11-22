@@ -42,7 +42,7 @@ SELECT * FROM tree_coverage_trace('RFQ-2026-014', k := 12,
   nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
-  mu := 0.0, default_bounds := 'catalogue');
+  default_bounds := 'catalogue');
 
 -- One verdict per candidate and clause. The trace marks a whole requirement item as
 -- a gap (is_gap) when any of its attributes misses, so verdicts use value_score per
@@ -92,7 +92,7 @@ FROM tree_coverage('RFQ-2026-014', k := 12,
   nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
-  mu := 0.0, default_bounds := 'catalogue') r
+  default_bounds := 'catalogue') r
 JOIN clause_check k USING (candidate_id)
 GROUP BY ALL ORDER BY must_missed, should_missed, r.rank;
 -- Expected:
@@ -114,9 +114,9 @@ GROUP BY ALL ORDER BY must_missed, should_missed, r.rank;
 -- PAST-FAST-2024 ranks 11th on coverage only because it lacks the optional labeller.
 
 .print ''
-.print '>>> 2. Why the three settings matter: three full-cover lines under each setting'
+.print '>>> 2. Why the settings matter: three full-cover lines under each setting'
 -- PAST-RICH-2022 offers IP67 and PN25 (better than asked), PAST-SWAP-2018 has
--- English attribute names, and RFQ item C1 has no class_id.
+-- English attribute names (no cost without name vectors), and RFQ item C1 has no class_id.
 CREATE OR REPLACE TABLE settings AS
 SELECT 1 AS step, 'defaults' AS setting, * FROM tree_coverage('RFQ-2026-014',
   candidates := ['PAST-LEAN-2019', 'PAST-RICH-2022', 'PAST-SWAP-2018'],
@@ -135,17 +135,11 @@ SELECT 3, '+ rules', * FROM tree_coverage('RFQ-2026-014',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules')
 UNION ALL
-SELECT 4, '+ mu 0', * FROM tree_coverage('RFQ-2026-014',
+SELECT 4, '+ catalogue bounds', * FROM tree_coverage('RFQ-2026-014',
   candidates := ['PAST-LEAN-2019', 'PAST-RICH-2022', 'PAST-SWAP-2018'],
   nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
-  overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules', mu := 0.0)
-UNION ALL
-SELECT 5, '+ catalogue bounds', * FROM tree_coverage('RFQ-2026-014',
-  candidates := ['PAST-LEAN-2019', 'PAST-RICH-2022', 'PAST-SWAP-2018'],
-  nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
-  candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
-  overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules', mu := 0.0,
+  overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
   default_bounds := 'catalogue');
 SELECT setting,
        round(max(coverage) FILTER (WHERE candidate_id = 'PAST-LEAN-2019'), 4) AS lean_2019,
@@ -155,10 +149,9 @@ SELECT setting,
 FROM settings GROUP BY step, setting ORDER BY step;
 -- Expected:
 -- | setting            | lean_2019 | rich_2022 | swap_2018 | assignment_used |
--- | defaults           | 0.858     | 0.8125    | 0.7045    | best_match      |  (C1 has no class)
--- | + vocabulary       | 0.9489    | 0.8807    | 0.7773    | partition       |
--- | + rules            | 0.9489    | 0.9489    | 0.7773    | partition       |  (IP67, PN25 now meet the clauses)
--- | + mu 0             | 0.9489    | 0.9489    | 0.9489    | partition       |  (English names no longer cost)
+-- | defaults           | 0.858     | 0.8125    | 0.858     | best_match      |  (C1 has no class)
+-- | + vocabulary       | 0.9489    | 0.8807    | 0.9489    | partition       |
+-- | + rules            | 0.9489    | 0.9489    | 0.9489    | partition       |  (IP67, PN25 now meet the clauses)
 -- | + catalogue bounds | 0.9697    | 0.9697    | 0.9697    | partition       |  (C-16 and C-33 get a direction)
 -- The remaining 0.0303 is C-42 (1 400 cups/min), which no past line reaches.
 
@@ -188,7 +181,7 @@ SELECT * FROM tree_coverage_trace('RFQ-2026-014', k := 12,
   nodes_table := 'rfq_nodes', attrs_table := 'rfq_attributes',
   candidate_nodes_table := 'past_line_nodes', candidate_attrs_table := 'past_line_attributes',
   overrides_table := 'vocabulary_overrides', rules_table := 'compatibility_rules',
-  mu := 0.0, default_bounds := 'catalogue', tol := 0.0, soft_band := 0.0);
+  default_bounds := 'catalogue', tol := 0.0, soft_band := 0.0);
 SELECT candidate_id, attr_name, req_value, prov_value, value_score
 FROM strict_trace WHERE candidate_id = 'PAST-TOL-2023' AND value_score < 1 ORDER BY ALL;
 -- Expected:

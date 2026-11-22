@@ -23,7 +23,9 @@ import os
 import platform
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -39,38 +41,58 @@ EXTENSION_NAME = "anofox_similarity"
 SMOKE_QUERY = "SELECT jaccard_similarity([1,2],[2,3]) AS s;"
 # ─────────────────────────────────────────────────────────────────────────────
 
-ARCH_TO_CLI_ZIP: dict[str, str] = {
-    "linux_amd64": "duckdb_cli-linux-amd64.zip",
-    "linux_arm64": "duckdb_cli-linux-aarch64.zip",
-    "linux_amd64_musl": "duckdb_cli-linux-amd64.zip",
-    "osx_amd64": "duckdb_cli-osx-universal.zip",
-    "osx_arm64": "duckdb_cli-osx-universal.zip",
-    "windows_amd64": "duckdb_cli-windows-amd64.zip",
+# The platform part of the CLI asset name: v1.x ships duckdb_cli-<platform>.zip,
+# v2.0 duckdb-cli-<platform>.tar.gz.
+ARCH_TO_CLI_PLATFORM: dict[str, str] = {
+    "linux_amd64": "linux-amd64",
+    "linux_arm64": "linux-arm64",
+    "linux_amd64_musl": "linux-amd64",
+    "osx_amd64": "osx-universal",
+    "osx_arm64": "osx-universal",
+    "windows_amd64": "windows-amd64",
 }
 
 
 def _download_duckdb_cli(version: str, arch: str, dest_dir: str) -> str:
-    zip_name = ARCH_TO_CLI_ZIP.get(arch)
-    if zip_name is None:
+    plat = ARCH_TO_CLI_PLATFORM.get(arch)
+    if plat is None:
         raise SystemExit(
-            f"Unsupported arch '{arch}'. Supported: {sorted(ARCH_TO_CLI_ZIP)}"
+            f"Unsupported arch '{arch}'. Supported: {sorted(ARCH_TO_CLI_PLATFORM)}"
         )
 
-    url = f"https://github.com/duckdb/duckdb/releases/download/{version}/{zip_name}"
-    zip_path = os.path.join(dest_dir, "duckdb_cli.zip")
+    base = f"https://github.com/duckdb/duckdb/releases/download/{version}"
+    archive = None
+    for name in (f"duckdb_cli-{plat}.zip", f"duckdb-cli-{plat}.tar.gz"):
+        url = f"{base}/{name}"
+        path = os.path.join(dest_dir, name)
+        print(f"Downloading official DuckDB {version} CLI ({arch}):\n  {url}")
+        try:
+            urllib.request.urlretrieve(url, path)
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            print("  not found")
+            continue
+        archive = path
+        break
+    if archive is None:
+        raise SystemExit(f"No DuckDB {version} CLI for {plat} under {base}")
 
-    print(f"Downloading official DuckDB {version} CLI ({arch}):\n  {url}")
-    urllib.request.urlretrieve(url, zip_path)
-
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(dest_dir)
+    if archive.endswith(".zip"):
+        with zipfile.ZipFile(archive, "r") as zf:
+            zf.extractall(dest_dir)
+            contents = zf.namelist()
+    else:
+        with tarfile.open(archive, "r:gz") as tf:
+            tf.extractall(dest_dir, filter="data")
+            contents = tf.getnames()
 
     bin_name = "duckdb.exe" if platform.system() == "Windows" else "duckdb"
     binary = os.path.join(dest_dir, bin_name)
     if not os.path.isfile(binary):
         raise SystemExit(
             f"DuckDB binary not found after extraction: {binary}\n"
-            f"Zip contents: {zipfile.ZipFile(zip_path).namelist()}"
+            f"Archive contents: {contents}"
         )
 
     if platform.system() != "Windows":

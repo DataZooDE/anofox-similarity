@@ -13,7 +13,7 @@ GEN=ninja make release                          # extension + ./build/release/du
                                                 # LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension')
 DATAZOO_DISABLE_TELEMETRY=1 make test           # whole SQL suite (test/sql/)
 ./build/release/test/unittest "test/sql/coverage/*"
-make check-docs                                 # README + skills SQL runs, API reference current, skills cover every function
+make check-docs                                 # README, guides and skills SQL runs, API reference current, skills cover every function
 python3 scripts/generate_api_reference.py       # regenerate the per-function blocks in docs/api/*.md
 scripts/run_examples.sh                         # examples/*/*.sql with their expected numbers
 ```
@@ -24,6 +24,8 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 - `docs/API_REFERENCE.md` + `docs/api/NN-*.md`: one page per area; the text between
   `<!-- generated:functions:start/end -->` is generated, the rest is hand-written
 - `docs/guides/`: task guides and tutorials; `docs/aas/index.md`: AAS identifier terms
+- `docs/concepts/`: how and why it works (the theory layer); guides, API pages and skills link to it
+- `docs/requirements-matching/`, `docs/background/`: design records, not the contract
 - `examples/<topic>/*.sql`: runnable, numbers checked
 
 ## Claude Code plugin
@@ -44,8 +46,9 @@ scripts/run_examples.sh                         # examples/*/*.sql with their ex
 ## When you add or change a SQL function
 
 1. Description, parameter names and examples in the C++ registration.
-2. Add it to `PAGES` in `scripts/generate_api_reference.py`, write the concept text on its
-   `docs/api` page, run the generator.
+2. Add it to `PAGES` in `scripts/generate_api_reference.py`, write the contract (signature,
+   defaults, errors, pitfalls) on its `docs/api` page and the why/how on its `docs/concepts` page,
+   run the generator.
 3. Update the owning skill above (signature, gotchas, a runnable example).
 4. `make check-docs` and `make test` must pass.
 

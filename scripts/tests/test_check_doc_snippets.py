@@ -83,3 +83,33 @@ def cds_run(marked):
         if m:
             out.append(m.group(1))
     return "\n".join(out) + "\n"
+
+
+def test_only_the_guides_and_concepts_run_top_down():
+    assert cds.is_sequential("docs/guides/04-coverage-matching.md")
+    assert cds.is_sequential("docs/concepts/coverage-semantics.md")
+    assert not cds.is_sequential("docs/guides/tutorials/sap/01_data_transformation.md")
+    assert not cds.is_sequential("README.md")
+    assert not cds.is_sequential("plugins/anofox-similarity/skills/anofox-similarity-aas/SKILL.md")
+
+
+def test_blocks_after_a_fail_in_a_guide_are_skipped():
+    assert cds.skip_after_fail(True, None) is None
+    status, detail = cds.skip_after_fail(True, 42)
+    assert status == "SKIP-AFTER-FAIL" and "42" in detail
+    # README and skills run each block on its own: a failure does not skip the rest
+    assert cds.skip_after_fail(False, 42) is None
+
+
+def test_changed_since_covers_guides_and_concepts():
+    # the incremental scan keeps exactly the files a default scan would check
+    scanned = set(cds.default_scan_files())
+    assert "docs/guides/04-coverage-matching.md" in scanned
+    assert "docs/concepts/coverage-semantics.md" in scanned
+    assert not any(f.startswith("docs/guides/tutorials/") for f in scanned)
+    # against the empty tree every file is changed (works in shallow CI clones too)
+    empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+    changed = set(cds.changed_md_files(empty_tree))
+    assert "docs/guides/04-coverage-matching.md" in changed
+    assert "docs/concepts/coverage-semantics.md" in changed
+    assert changed <= scanned

@@ -3,6 +3,10 @@
 > Run the extension as a scheduled job on a persistent database file: re-runnable, gated, and
 > safe for the readers.
 
+> **Data.** The examples read files from the repository ([`test/data/coverage`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Keep the extension's own tables out of your database file
 - Write a pipeline script that can run again without duplicating rows, and stops on bad data
@@ -23,7 +27,7 @@ file and `ATTACH` your database. The extension then creates its tables in memory
 ```
 
 ```sql
-ATTACH 'nightly.duckdb' AS nightly;
+ATTACH IF NOT EXISTS 'nightly.duckdb' AS nightly;
 USE nightly;
 ```
 
@@ -34,7 +38,7 @@ unchanged.
 
 ```sql
 -- nightly.sql: run with  ./build/release/duckdb -bail < nightly.sql  (from the repository root)
-ATTACH 'nightly.duckdb' AS nightly;
+ATTACH IF NOT EXISTS 'nightly.duckdb' AS nightly;
 USE nightly;
 BEGIN;
 
@@ -51,7 +55,7 @@ FROM validate_trees('tree_nodes', 'tree_attributes') WHERE severity = 'error' HA
 CREATE OR REPLACE TABLE class_multiset AS SELECT * FROM tree_class_multiset('tree_nodes');
 CREATE OR REPLACE TABLE class_minhash AS SELECT * FROM minhash_index(feature_table := 'class_multiset');
 CREATE OR REPLACE TABLE class_bands AS SELECT * FROM minhash_bands('class_minhash');
-CREATE OR REPLACE TABLE coverage_q1 AS SELECT * FROM tree_coverage('Q1', k := 3, mu := 0.0);
+CREATE OR REPLACE TABLE coverage_q1 AS SELECT * FROM tree_coverage('Q1', k := 3);
 
 COMMIT;
 

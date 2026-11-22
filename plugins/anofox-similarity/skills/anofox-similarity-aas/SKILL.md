@@ -7,16 +7,18 @@ description: >
   (`suggest_semantic_id`) and writing back (`trees_to_aas`, `aas_export`, `aas_coverage_result`,
   `coverage_result_to_aas`). Use when the user asks "load these AAS / AASX files", "match offers
   by ECLASS IRDI", "which assets deliver 7.6 A", "audit the supplier's AAS", "export as AAS".
-version: 2026.11.21
+version: 2026.11.22
 user-invocable: false
 ---
 
 # Anofox Similarity — Asset Administration Shell (AAS) Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
+**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/17-aas.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/17-aas.md), [`docs/guides/10-aas-profile.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/10-aas-profile.md), [`docs/aas/index.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/aas/index.md)
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> The first match below runs anywhere: its AAS is inline. Blocks that read `test/data/aas/...`
+> use the IDTA-02020 scenario (capabilities, XML, AASX) and need the repository data (clone, or
+> download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/aas/scenario); in
+> your own project, substitute your files.
 
 AAS v3 standardises the envelope and dictionary-coded properties (semanticId → ECLASS / IEC CDD);
 IDTA-02020 marks capabilities *Required* / *Offered*. Nothing in AAS says how to match the two.
@@ -54,12 +56,76 @@ coverage kernel (see **anofox-similarity-coverage** for `tree_coverage` / `tree_
 - Table-function args must be constants: pass a list of candidates with `SET VARIABLE` +
   `getvariable()`, not a subquery.
 
+## A first match that runs anywhere
+
+An RFQ (Technical Data submodel, four required properties with ECLASS IRDIs, units, `levelType`
+min/max) and three offers, inline. Same steps as on real files: load, rank, read the gaps.
+
+```sql
+CREATE OR REPLACE TABLE quick_files AS SELECT * FROM (VALUES
+('RFQ-117', '{"submodels": [{"modelType": "Submodel", "id": "urn:example:rfq-117/sm/td", "idShort": "TechnicalData", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "ServoDrive", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AKG243#015"}]}, "value": [
+    {"modelType": "Property", "idShort": "RatedCurrent", "valueType": "xs:double", "value": "7.6", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-BAA120#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "A", "levelType": {"min": true, "nom": false, "typ": false, "max": false}}}]},
+    {"modelType": "Range", "idShort": "SupplyVoltage", "valueType": "xs:double", "min": "380", "max": "480", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAC895#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "V"}}]},
+    {"modelType": "Property", "idShort": "AmbientTemperature", "valueType": "xs:double", "value": "45", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ953#005"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "°C", "levelType": {"min": true, "nom": false, "typ": false, "max": false}}}]},
+    {"modelType": "Property", "idShort": "CycleTime", "valueType": "xs:double", "value": "1", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAQ326#004"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "ms", "levelType": {"min": false, "nom": false, "typ": false, "max": true}}}]}
+]}]}]}'),
+('LX-8', '{"submodels": [{"modelType": "Submodel", "id": "urn:example:lenvaro-lx8/sm/td", "idShort": "TechnicalData", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "ServoDrive", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AKG243#015"}]}, "value": [
+    {"modelType": "Property", "idShort": "Nennstrom", "valueType": "xs:double", "value": "8", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-BAA120#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "A"}}]},
+    {"modelType": "Range", "idShort": "Netzspannung", "valueType": "xs:double", "min": "360", "max": "500", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAC895#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "V"}}]},
+    {"modelType": "Property", "idShort": "Umgebungstemperatur", "valueType": "xs:double", "value": "50", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ953#005"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "°C"}}]},
+    {"modelType": "Property", "idShort": "Zykluszeit", "valueType": "xs:double", "value": "0.5", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAQ326#004"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "ms"}}]}
+]}]}]}'),
+('OX-6', '{"submodels": [{"modelType": "Submodel", "id": "urn:example:orbitec-ox6/sm/td", "idShort": "TechnicalData", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "ServoDrive", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AKG243#015"}]}, "value": [
+    {"modelType": "Property", "idShort": "RatedCurrent", "valueType": "xs:double", "value": "6", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-BAA120#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "A"}}]},
+    {"modelType": "Range", "idShort": "SupplyVoltage", "valueType": "xs:double", "min": "380", "max": "480", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAC895#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "V"}}]},
+    {"modelType": "Property", "idShort": "AmbientTemperature", "valueType": "xs:double", "value": "45", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ953#005"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "°C"}}]},
+    {"modelType": "Property", "idShort": "CycleTime", "valueType": "xs:double", "value": "0,5", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAQ326#004"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "ms"}}]}
+]}]}]}'),
+('DS-12', '{"submodels": [{"modelType": "Submodel", "id": "urn:example:driventa-ds12/sm/td", "idShort": "TechnicalData", "submodelElements": [
+  {"modelType": "SubmodelElementCollection", "idShort": "ServoDrive", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#01-AKG243#015"}]}, "value": [
+    {"modelType": "Property", "idShort": "PeakCurrent", "valueType": "xs:double", "value": "12", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-BAA121#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "A"}}]},
+    {"modelType": "Range", "idShort": "SupplyVoltage", "valueType": "xs:double", "min": "400", "max": "480", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAC895#008"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "V"}}]},
+    {"modelType": "Property", "idShort": "AmbientTemperature", "valueType": "xs:double", "value": "40", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAZ953#005"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "°C"}}]},
+    {"modelType": "Property", "idShort": "CycleTime", "valueType": "xs:double", "value": "1", "semanticId": {"type": "ExternalReference", "keys": [{"type": "GlobalReference", "value": "0173-1#02-AAQ326#004"}]}, "embeddedDataSpecifications": [{"dataSpecificationContent": {"modelType": "DataSpecificationIec61360", "unit": "msec"}}]}
+]}]}]}')
+) t(name, content);
+CREATE OR REPLACE TABLE quick_raw AS SELECT unnest(aas_to_trees(content, name)) AS n FROM quick_files;
+CREATE OR REPLACE TABLE quick_nodes AS SELECT n.* EXCLUDE (attributes) FROM quick_raw;
+CREATE OR REPLACE TABLE quick_attrs AS SELECT unnest(n.attributes, recursive := true) FROM quick_raw;
+SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps
+FROM tree_coverage('RFQ-117', candidates := ['LX-8', 'OX-6', 'DS-12'],
+                   nodes_table := 'quick_nodes', attrs_table := 'quick_attrs',
+                   candidate_nodes_table := 'quick_nodes', candidate_attrs_table := 'quick_attrs')
+ORDER BY rank;
+-- => LX-8 | 1.0 | 0
+-- => OX-6 | 0.75 | 1
+-- => DS-12 | 0.244 | 1
+```
+
+```sql
+-- the gaps: DS-12 states a peak current (another key), an unknown unit (msec) and two misses
+SELECT candidate_id AS offer, attr_id, req_value, prov_value, rule
+FROM tree_coverage_trace('RFQ-117', candidates := ['LX-8', 'OX-6', 'DS-12'],
+                         nodes_table := 'quick_nodes', attrs_table := 'quick_attrs',
+                         candidate_nodes_table := 'quick_nodes', candidate_attrs_table := 'quick_attrs')
+WHERE attr_score < 0.99 ORDER BY offer, attr_id;
+-- => DS-12 | AmbientTemperature | at_least 318.15 K | 313.15 K | at_least
+-- => DS-12 | CycleTime | at_most 0.001 s | 1 msec | gate
+-- => DS-12 | RatedCurrent | at_least 7.6 A | 12 A | key_mismatch
+-- => DS-12 | SupplyVoltage | within 380..480 V | 400..480 V | within
+-- => OX-6 | RatedCurrent | at_least 7.6 A | 6 A | at_least
+```
+
 ## Setup used by the examples below
 
 The RFQ (IDTA-02020 Required capabilities, JSON) and four supplier offers (JSON, XML, AASX) from
 `test/data/aas/scenario/`.
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 CREATE TABLE aas_raw AS
 SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n
 FROM read_text('test/data/aas/scenario/rfq_2026_117.aas.json')
@@ -131,6 +197,7 @@ FROM tree_attributes WHERE tree_id = 'RFQ-2026-117' ORDER BY attr_id;
 ```
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- the same offer as JSON, XML and AASX gives the same nodes
 SELECT 'json' AS f, count(*) FROM (SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/scenario/formats/lenvaro_lx8.aas.json'))
 UNION ALL SELECT 'xml', count(*) FROM (SELECT unnest(aas_to_trees(content)) FROM read_text('test/data/aas/scenario/formats/lenvaro_lx8.aas.xml'))
@@ -164,6 +231,7 @@ Same arguments and reading as `aas_to_trees`; `path` is the idShort path, submod
 | `missing_concept_description` | warning | no dictionary entry: unit unknown (`validate_trees` → `unknown_unit`) |
 | `ambiguous_concept_description` | warning | no CD for this release, others disagree on unit |
 | `unknown_unit_id` | warning | unitId not in `unit_table`; unit text used |
+| `unknown_unit` | warning | unit text unknown (`msec`): no dimension, matches nothing; fix it or add it with `unit_table`. A unit slip with a known unit (`0.55` W for kW) needs the other files: `validate_trees` over request and offers → `magnitude_outlier` |
 | `no_unit_information` | warning | number without semanticId or data spec |
 | `assumed_dimensionless` | info | dictionary entry has no unit: a count |
 | `duplicate_id_short` | warning | second sibling kept as `X~2` |
@@ -174,6 +242,7 @@ Same arguments and reading as `aas_to_trees`; `path` is the idShort path, submod
 | `value_in_variant_group`, `bad_count` | — | profile: value directly in a variant group (ignored); non-positive count (1 used) |
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- audit a folder: the truncated file shows up as parse_error instead of aborting
 SELECT parse_filename(filename) AS file, i.issue, i.severity, i.detail
 FROM (SELECT filename, unnest(aas_issues(content)) AS i
@@ -182,6 +251,7 @@ ORDER BY i.severity, file;
 ```
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- with the unit list: only the real findings remain
 SELECT split_part(i.tree_id, '/', 3) AS supplier, i.path, i.issue, i.severity
 FROM (SELECT unnest(aas_issues(content, NULL,
@@ -191,6 +261,7 @@ ORDER BY ALL;
 ```
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- uncoded text values: what a mapping review or suggest_semantic_id should look at
 SELECT i.path, i.detail
 FROM (SELECT unnest(aas_issues(content)) AS i
@@ -213,6 +284,7 @@ MultiLanguageProperty (list members count with the list's key). `n_mixed_release
 referenced in more than one dictionary release anywhere in the input. NULL input → NULL.
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 SELECT parse_filename(filename) AS file, q.submodel, q.n_values, q.n_with_semantic_id,
        round(q.semantic_id_share, 3) AS share, q.n_missing_concept_description,
        q.n_unresolved_units, q.n_unparseable, q.n_mixed_releases
@@ -294,6 +366,7 @@ offer gets c^d for a subclass requirement (`label_rule = 'generalized'`). Unreso
 `aas_issues` `unresolved_relation`.
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 CREATE TABLE class_hierarchy AS
 SELECT unnest(aas_class_hierarchy(content), recursive := true)
 FROM read_text('test/data/aas/scenario/sealing/capability_taxonomy.aas.json');
@@ -370,6 +443,7 @@ without a root is an error.
 | `attr_key` | semanticId + ConceptDescription (IEC 61360 name, unit) |
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- round trip one file: same node count back, profile markers written again
 SELECT len(aas_to_trees(content)) AS once,
        len(aas_to_trees(trees_to_aas(aas_to_trees(content)))) AS twice,
@@ -476,12 +550,14 @@ absolute fit; with `min_similarity`, rows below get `fits = false` and `impact =
 (top of the queue). Wordings in `overrides_table` leave the queue.
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 CREATE TABLE uncoded_names AS
 SELECT node_id, tree_id, label, vec::DOUBLE[] AS vec, tokens::DOUBLE[][] AS tokens
 FROM read_csv('test/data/aas/scenario/enrichment/uncoded_names.csv');
 ```
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 CREATE TABLE eclass_examples AS
 SELECT class_id, label, vec::DOUBLE[] AS vec, exemplar_tokens::DOUBLE[][] AS exemplar_tokens
 FROM read_csv('test/data/aas/scenario/enrichment/dictionary_examples.csv');
@@ -510,6 +586,7 @@ CREATE TABLE attribute_keys AS SELECT * FROM apply_vocabulary_review('review', o
 ```
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 CREATE TABLE nordwerk_attrs AS
 SELECT unnest(n.attributes, recursive := true)
 FROM (SELECT unnest(aas_to_trees(content)) AS n
@@ -527,6 +604,7 @@ WHERE satisfied ORDER BY 1;
 Audit → load → validate → rank (coverage skill) → explain → write back.
 
 ```sql
+-- needs repository data: test/data/aas/ (clone, or download the folder from GitHub)
 -- 1. audit (never raises) and quality per submodel
 SELECT parse_filename(filename) AS file, i.issue, i.severity, i.path
 FROM (SELECT filename, unnest(aas_issues(content, NULL,

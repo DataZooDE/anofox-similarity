@@ -50,16 +50,17 @@ the empty sample as a measured value.
 
 Pipeline per item: centring → similarity → z-score across the catalogue (+ β × bonus) →
 softmax(score / τ) → `margin = p1 − p2`. Overridden items get a one-hot `p` and
-`overridden = true`. The output is a `label_table` for `tree_coverage`.
+`overridden = true`. The output is a `label_table` for `tree_coverage`. Why each step, a worked
+example that reproduces `p` by hand, and the floor: [classification and calibration](../concepts/classification-and-calibration.md#the-pipeline).
 
 **Workflow: review the archive's vocabulary** (runs on the benchmark files)
 
 ```sql
 CREATE TABLE catalogue AS SELECT class_id, vec::FLOAT[64] AS vec, exemplar_tokens::FLOAT[64][] AS exemplar_tokens
-FROM read_csv_auto('catalogue_vectors.csv.gz');
-CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('programme_nodes.csv.gz');
+FROM read_csv_auto('test/data/coverage/catalogue_vectors.csv.gz');
+CREATE TABLE programme_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/programme_nodes.csv.gz');
 CREATE TABLE wordings AS SELECT wording AS node_id, wording AS label, source, vec::FLOAT[64] AS vec
-FROM read_csv_auto('vocabulary_vectors.csv.gz');
+FROM read_csv_auto('test/data/coverage/vocabulary_vectors.csv.gz');
 
 -- classify every wording once; the archive's items take the distribution of their wording
 CREATE TABLE wording_decisions AS SELECT * FROM classify_to_catalogue(items_table := 'wordings', catalogue_table := 'catalogue');
@@ -81,9 +82,9 @@ CREATE OR REPLACE TABLE vocabulary_overrides AS SELECT * FROM apply_vocabulary_r
 
 -- rank with the reviewed wordings; the rest keep the classifier's soft labels. The request
 -- items need classes too: one label_table serves both sides
-CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('request_nodes.csv.gz');
+CREATE TABLE request_nodes AS SELECT * FROM read_csv_auto('test/data/coverage/request_nodes.csv.gz');
 CREATE TABLE request_items AS SELECT tree_id, node_id, source, vec::FLOAT[64] AS vec
-FROM read_csv_auto('request_item_vectors.csv.gz');
+FROM read_csv_auto('test/data/coverage/request_item_vectors.csv.gz');
 CREATE TABLE labels AS
 SELECT tree_id, node_id, class_id, p FROM programme_labels
 UNION ALL
@@ -127,12 +128,11 @@ FROM request_nodes n LEFT JOIN (SELECT * FROM request_labels WHERE p = 1.0) l US
 ```
 
 **Benchmark.** On request items, top-1 class accuracy is 0.59 with raw cosine, 0.85 after
-per-source centring and 0.95 with the attribute bonus. On 200 unseen phrasings, late
-interaction beats the centroid by more than 10 points. The review queue puts the four
-misleading archive wordings first. With classifier labels on the request side, the pipeline
-reaches recall@20 0.86 and regret 0.022. After a reviewer answers the 15 % lowest-margin items,
-it reaches recall@20 0.91, top-1 0.91, regret 0.0099 and MAE 0.035, which meets all BRD
-targets. The tests `test/sql/coverage/r4/uc_01`…`uc_07` assert these figures (with tolerances).
+centring and 0.95 with the attribute bonus. After a reviewer answers the 15 % lowest-margin items,
+the pipeline meets all BRD targets (recall@20 0.91, top-1 0.91, regret 0.0099, MAE 0.035; with
+classifier labels alone recall@20 0.86, regret 0.022). The
+tests `test/sql/coverage/r4/uc_01`…`uc_07` assert these figures (with tolerances); the reasons are
+in [classification and calibration](../concepts/classification-and-calibration.md#why-these-defaults).
 
 **`assignment := 'auto'`** partitions only when both the query tree and the candidate tree
 are reviewed. Classifier labels are not reviewed, so `auto` uses best match. The

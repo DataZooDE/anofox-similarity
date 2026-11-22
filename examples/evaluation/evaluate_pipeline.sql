@@ -109,10 +109,10 @@ FROM eval_calibration('results', 'gold');
 .print '>>> 4. Auto-accept threshold for 95 % precision'
 -- A top-1 pick is "good" when its true coverage is >= 0.9.
 SELECT round(threshold, 4) AS threshold, round(precision, 3) AS precision,
-       round(accepted_share, 3) AS accepted_share, n_queries
+       round(accepted_share, 4) AS accepted_share, n_queries
 FROM threshold_at_precision('results', 'gold', target_precision := 0.95);
--- Expected: 0.769 | 0.958 | 0.888 | 80
--- Accept top-1 picks with coverage >= 0.769 automatically: 88.8 % of the
+-- Expected: 0.769 | 0.958 | 0.8875 | 80
+-- Accept top-1 picks with coverage >= 0.769 automatically: 88.75 % (71 of 80) of the
 -- requests need no review, and 95.8 % of the accepted picks are good.
 
 .print ''

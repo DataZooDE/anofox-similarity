@@ -2,6 +2,10 @@
 
 > Find products with similar bills of materials, and walk the BOM structure.
 
+> **Data.** The examples read files from the repository ([`test/data/synthetic`](https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/synthetic)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 **Use this guide to:**
 - Choose between Jaccard (component overlap) and the WL kernel (BOM structure)
 - Run `find_similar_materials_jaccard` and `find_similar_materials_wl_kernel`
@@ -72,8 +76,8 @@ Containment counts components, not quantities. For quantities, use `find_coverin
 
 ## BOM Structure: the WL Kernel
 
-The Weisfeiler-Lehman (WL) kernel looks below the direct children. It compares the components that
-a material reaches at each BOM level. `S10-PROD-LINEAR` and `S10-PROD-STAR` use the same six leaves.
+The WL kernel looks below the direct children. It compares the components that a material reaches
+within `iterations` BOM levels ([how it scores](../concepts/similarity-measures.md#bom-structure-the-depth-kernel)). `S10-PROD-LINEAR` and `S10-PROD-STAR` use the same six leaves.
 The linear product puts three of them into a subassembly. The star product uses all six directly.
 
 ```sql
@@ -103,6 +107,9 @@ FROM find_similar_materials_wl_kernel('S10-PROD-LINEAR', 3);
 `iterations` (default 3) sets how many levels the kernel looks at. Values above 5 behave like 5.
 
 ### Which One to Use
+
+The measures side by side, with Tversky and the weighted forms:
+[similarity measures](../concepts/similarity-measures.md#which-one-to-use).
 
 | Situation | Use |
 |---|---|

@@ -8,15 +8,18 @@ Usage (from the repository root, after `make release`):
     python3 scripts/check_doc_snippets.py --out PATH [FILE ...]
     make check-docs
 
-Default scan: README.md and plugins/anofox-similarity/skills/**/*.md, whose blocks are written to
-run as they stand. docs/ pages mostly run against the reader's own tables, so they are checked only
-when passed as FILE args. --changed-since REF scans the default set's files changed since REF.
+Default scan: README.md, the task guides docs/guides/*.md, the concepts pages docs/concepts/*.md and
+plugins/anofox-similarity/skills/**/*.md,
+whose blocks are written to run as they stand. Other docs/ pages (API reference, tutorials) mostly
+run against the reader's own tables, so they are checked only when passed as FILE args.
+--changed-since REF scans the default set's files changed since REF.
 
 Each ```sql block runs in a fresh in-memory database of ./build/release/duckdb (the extension is
 linked in), with a temporary directory as cwd and HOME (test/ and examples/ linked in, so relative data paths
 resolve), autoinstall off and telemetry off. The
 block gets scripts/doc_snippets/fixtures.sql plus the earlier setup blocks of the same file that
-create a table it names. A block with INSTALL or a remote read (read_*/ATTACH/FROM '<url>') is not run; a URL used as a
+create a table it names; in a task guide or concepts page (docs/guides/*.md, docs/concepts/*.md, read top down) it gets every earlier
+block of the file that passed. A block with INSTALL or a remote read (read_*/ATTACH/FROM '<url>') is not run; a URL used as a
 value (an AAS semantic id) is fine.
 
 Setup blocks are matched case-insensitively by every name they CREATE or INSERT INTO.
@@ -35,7 +38,8 @@ a reader will quote; leave run-to-run-variable values (bootstrap bounds) unasser
 Status per block: PASS, FAIL, EXPECTED-ERROR (keyed in expected_errors.txt by
 "file<TAB>first SQL line"; such a block must fail), SYNOPSIS (keyed in synopsis.txt; a signature
 or placeholder, not run), SKIP-NETWORK, SKIP-VERSION (first line `-- DuckDB 2.0+` on an older
-binary). A default scan also reports STALE keys in the support files.
+binary), SKIP-AFTER-FAIL (in a guide or concepts page, a block after the first FAIL: not run, so
+the first failure is the one reported). A default scan also reports STALE keys in the support files.
 
 Writes a TSV (status, file, line, first SQL line, detail) to --out (default
 build/doc-snippets.tsv). Exit 0 clean; 1 on any FAIL or STALE; 2 when the binary is missing.
@@ -65,9 +69,26 @@ SHELL_ARGS = [DUCKDB_BIN, "-unsigned"] + (["-cmd", f"LOAD '{EXTENSION}'"] if EXT
 DEFAULT_OUT = os.path.join(REPO_ROOT, "build", "doc-snippets.tsv")
 
 SKILLS_DIR = os.path.join("plugins", "anofox-similarity", "skills")
-# docs/ is not in the default scan: most of its blocks run against the reader's own tables
-# (bom_items, tree_nodes, ...) or are signatures. Pass docs files explicitly to check them.
+# docs/api and the tutorials are not in the default scan: most of their blocks run against the
+# reader's own tables (bom_items, a SAP extract, ...) or are signatures. Pass them explicitly.
 DEFAULT_SCAN_DIRS = [SKILLS_DIR]
+# The task guides are read top down: each block runs after every earlier block of the same file
+# that passed (one session per reader), not only after the setup blocks it names.
+GUIDES_DIR = os.path.join("docs", "guides")
+# The concepts pages (docs/concepts/*.md): their examples run like the guides', top down.
+CONCEPTS_DIR = os.path.join("docs", "concepts")
+
+
+def skip_after_fail(sequential, failed_at):
+    """In a file read top down, the blocks after a FAIL are not run: they would fail for the same
+    reason and hide it. Returns (status, detail), or None when the block runs."""
+    if sequential and failed_at is not None:
+        return "SKIP-AFTER-FAIL", f"not run: the block at line {failed_at} failed"
+    return None
+
+
+def is_sequential(rel_path):
+    return os.path.dirname(rel_path) in (GUIDES_DIR, CONCEPTS_DIR)
 
 FENCE_RE = re.compile(r"^```[ \t]*([A-Za-z0-9_+-]*)[ \t]*$")
 SETUP_RE = re.compile(
@@ -112,20 +133,26 @@ def git_show(ref, path):
 
 def changed_md_files(ref):
     result = subprocess.run(
-        ["git", "diff", "--name-only", ref, "--", "README.md"] + DEFAULT_SCAN_DIRS,
+        ["git", "diff", "--name-only", ref, "--", "README.md", GUIDES_DIR, CONCEPTS_DIR] + DEFAULT_SCAN_DIRS,
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=True,
     )
     files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return [f for f in files if f.endswith(".md") and os.path.exists(os.path.join(REPO_ROOT, f))]
+    # only what a default scan would check (top-level guides and concepts, not the tutorials)
+    scanned = set(default_scan_files())
+    return [f for f in files if f in scanned]
 
 
 def default_scan_files():
     files = []
     if os.path.exists(os.path.join(REPO_ROOT, "README.md")):
         files.append("README.md")
+    for top in (GUIDES_DIR, CONCEPTS_DIR):
+        d = os.path.join(REPO_ROOT, top)
+        if os.path.isdir(d):
+            files += [os.path.join(top, fn) for fn in sorted(os.listdir(d)) if fn.endswith(".md")]
     for scan_dir in DEFAULT_SCAN_DIRS:
         abs_dir = os.path.join(REPO_ROOT, scan_dir)
         if not os.path.isdir(abs_dir):
@@ -175,7 +202,7 @@ def load_key_set(path):
     if not os.path.exists(path):
         return set()
     with open(path) as f:
-        return {line.rstrip("\n") for line in f if line.strip()}
+        return {line.rstrip("\n") for line in f if line.strip() and not line.startswith("#")}
 
 
 def load_removed_names(path):
@@ -500,7 +527,8 @@ def main():
     duckdb_major = query_duckdb_major()
 
     rows = []  # (status, file, line, first_sql_line, detail)
-    status_counts = {"PASS": 0, "FAIL": 0, "EXPECTED-ERROR": 0, "SYNOPSIS": 0, "SKIP-NETWORK": 0, "SKIP-VERSION": 0, "STALE": 0}
+    status_counts = {"PASS": 0, "FAIL": 0, "EXPECTED-ERROR": 0, "SYNOPSIS": 0, "SKIP-NETWORK": 0, "SKIP-VERSION": 0,
+                     "SKIP-AFTER-FAIL": 0, "STALE": 0}
 
     all_block_keys = set()
     all_mentioned_names = set()
@@ -527,6 +555,9 @@ def main():
         # --- SQL fence execution ---
         blocks = extract_sql_blocks(text)
         setup_accum = []  # list of (created_name, block_text)
+        sequential = is_sequential(rel_path)
+        passed_before = []  # sequential files: earlier blocks that passed, in order
+        failed_at = None  # sequential files: the line of the first FAIL
 
         for block_text, start_line in blocks:
             key = f"{rel_path}\t{first_non_comment_line(block_text)}"
@@ -535,7 +566,10 @@ def main():
             is_setup_only = bool(SETUP_RE.search(block_text)) and not is_placeholder
             first_line_trunc = first_non_comment_line(block_text)[:100]
 
-            if WRITES_REPO_RE.search(strip_sql_comments(block_text)):
+            skipped = skip_after_fail(sequential, failed_at)
+            if skipped:
+                status, detail = skipped
+            elif WRITES_REPO_RE.search(strip_sql_comments(block_text)):
                 status = "FAIL"
                 detail = "writes into test/ or examples/ (shared with the repository); write to the cwd"
             elif NETWORK_RE.search(strip_sql_comments(block_text)):
@@ -548,7 +582,10 @@ def main():
                 status = "SYNOPSIS"
                 detail = "narrative placeholder, not executed"
             else:
-                required_setup = select_required_setup(block_text, setup_accum, fixture_names)
+                if sequential:
+                    required_setup = list(passed_before)
+                else:
+                    required_setup = select_required_setup(block_text, setup_accum, fixture_names)
                 full_sql = fixtures
                 for setup_sql in required_setup:
                     full_sql += "\n" + setup_sql
@@ -578,6 +615,10 @@ def main():
 
             rows.append((status, rel_path, str(start_line + 1), first_line_trunc, detail))
             status_counts[status] = status_counts.get(status, 0) + 1
+            if sequential and status == "PASS":
+                passed_before.append(block_text)
+            if sequential and status == "FAIL" and failed_at is None:
+                failed_at = start_line + 1
 
             if is_setup_only:
                 # every table/view/macro the block creates (comments ignored), so a later block
@@ -624,7 +665,9 @@ def main():
     n = status_counts.get("SKIP-NETWORK", 0)
     v = status_counts.get("SKIP-VERSION", 0)
     t = status_counts.get("STALE", 0)
-    print(f"check_doc_snippets: {p} PASS, {fcount} FAIL, {e} EXPECTED-ERROR, {s} SYNOPSIS, {n} SKIP-NETWORK, {v} SKIP-VERSION, {t} STALE")
+    af = status_counts.get("SKIP-AFTER-FAIL", 0)
+    after = f", {af} SKIP-AFTER-FAIL" if af else ""
+    print(f"check_doc_snippets: {p} PASS, {fcount} FAIL, {e} EXPECTED-ERROR, {s} SYNOPSIS, {n} SKIP-NETWORK, {v} SKIP-VERSION, {t} STALE{after}")
 
     return 1 if (fcount or t) else 0
 

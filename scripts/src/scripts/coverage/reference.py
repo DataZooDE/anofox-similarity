@@ -38,7 +38,8 @@ def oracle_satisfies(bound: str, r_lo: float, r_hi: float, p_lo: float, p_hi: fl
     """Does the provided interval [p_lo, p_hi] satisfy the requirement?
 
     at_least v: p_hi >= v; at_most v: p_lo <= v; within [lo, hi]: the provided
-    range covers the required range; equals v: |p - v| <= 2 % of |v|.
+    range covers the required range; equals v: |p - v| <= 2 % of |v|; equals over a span
+    (r_lo < r_hi, a nominal with a tolerance): the provided interval lies inside it.
     """
     if bound == "at_least":
         return p_hi >= r_lo
@@ -46,6 +47,9 @@ def oracle_satisfies(bound: str, r_lo: float, r_hi: float, p_lo: float, p_hi: fl
         return p_lo <= r_hi
     if bound == "within":
         return p_lo <= r_lo and p_hi >= r_hi
+    if bound == "equals" and r_hi > r_lo:
+        eps = 1e-9 * max(abs(r_lo), abs(r_hi))
+        return p_lo >= r_lo - eps and p_hi <= r_hi + eps
     if bound == "equals":
         return abs(p_lo - r_lo) <= EQUALS_TOL * abs(r_lo) and abs(p_hi - r_lo) <= EQUALS_TOL * abs(r_lo)
     raise ValueError(f"unknown bound {bound!r}")

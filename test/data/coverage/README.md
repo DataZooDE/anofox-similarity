@@ -113,7 +113,8 @@ upstream extraction delivers them.
   `unit` in customer units, and `bound`, which is `null` when unqualified).
 - About 30 % of the numeric values are **unqualified**, with no bound word
   (`noise 38 dB(A)`). They are derived with the same slack as qualified values, so they do
-  not copy the source. Some `equals` values are qualified (`220 N ± 2 %`, `Nennwert 220 N`).
+  not copy the source. Some `equals` values are qualified (`220 N ± 2 %`, `Nennwert 220 N`); `± 2 %` is a span
+  (gold and JSON `lo`/`hi` 215.6 and 224.4, as `parse_quantity` reads it), the others a point.
 - About 11 % of the requirements are **stretched**: one attribute is beyond their source
   programme. In 10 requests further attributes are stretched beyond every module and
   programme, so these requests are **unmeetable**. Their best coverage lies between 0.5
@@ -179,6 +180,7 @@ unqualified values separately where that matters.
 | `at_most v` | `p_lo ≤ v` (lower-is-better limits: noise, mass, current, time, price) |
 | `within [lo, hi]` | `p_lo ≤ lo` and `p_hi ≥ hi` (the provided range covers the required one) |
 | `equals v` | `|p − v| ≤ 2 % of |v|` |
+| `equals [lo, hi]` (`220 N ± 2 %`, gold lo 215.6, hi 224.4) | `lo ≤ p_lo` and `p_hi ≤ hi` (the provided interval lies inside the span) |
 | ordinal | provided class at least as good as the required class |
 
 Coverage of a request by a programme uses each programme item **once**

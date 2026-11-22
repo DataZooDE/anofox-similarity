@@ -28,25 +28,25 @@ CREATE OR REPLACE TABLE tree_attributes AS
 SELECT * FROM read_csv('test/data/coverage/mini/tree_attributes.csv');
 
 .print '>>> 1. Rank programmes S1..S6 against request Q1'
--- mu := 0.0 switches off the attribute-name discount so only the values count.
-SELECT candidate_id, coverage, round(stage1_score, 4) AS stage1, rank,
+-- Without name vectors only the values count (mu discounts by name-vector agreement).
+SELECT candidate_id, coverage, round(stage1_score, 5) AS stage1, rank,
        n_requirements, n_gaps, assignment_used
-FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'], mu := 0.0)
+FROM tree_coverage('Q1', candidates := ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'])
 ORDER BY rank;
 -- Expected:
---   S1 | 1.0   | 1.0089 | 1 | 4 | 0 | partition   meets everything
---   S6 | 1.0   | 1.0067 | 2 | 4 | 0 | partition   meets everything, more surplus
---   S3 | 0.625 | 0.6313 | 3 | 4 | 2 | partition   2 of 4 massage zones, no memory
---   S2 | 0.5   | 1.01   | 4 | 4 | 2 | partition   right classes, values miss
---   S4 | 0.125 | 0.2517 | 5 | 4 | 4 | partition
---   S5 | 0.0   | 0.1261 | 6 | 4 | 4 | partition
+--   S1 | 1.0   | 1.00889 | 1 | 4 | 0 | partition   meets everything
+--   S6 | 1.0   | 1.00667 | 2 | 4 | 0 | partition   meets everything, more surplus
+--   S3 | 0.625 | 0.63125 | 3 | 4 | 2 | partition   2 of 4 massage zones, no memory
+--   S2 | 0.5   | 1.01    | 4 | 4 | 2 | partition   right classes, values miss
+--   S4 | 0.125 | 0.25167 | 5 | 4 | 4 | partition
+--   S5 | 0.0   | 0.12611 | 6 | 4 | 4 | partition
 -- S2 has the best class multiset (stage 1) but its values fail: stage 2 ranks it 4th.
 
 .print ''
 .print '>>> 2. The gap list for S2: what fails, and by how much'
 SELECT req_node_id, matched_node_id, attr_id, rule, req_value, prov_value,
        value_score, round(distance, 4) AS distance, is_gap
-FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0)
+FROM tree_coverage_trace('Q1', candidates := ['S2'])
 ORDER BY req_node_id, attr_id;
 -- Expected:
 --   Q1.1 heating: a1 at_most, 240 s provided for 180 s  -> distance 0.3333, gap
@@ -60,7 +60,7 @@ ORDER BY req_node_id, attr_id;
 -- Without candidates, stage 1 (class-multiset containment) keeps the top k
 -- trees of the candidate table. The query tree is never its own candidate.
 SELECT candidate_id, coverage, rank
-FROM tree_coverage('Q1', k := 3, mu := 0.0)
+FROM tree_coverage('Q1', k := 3)
 ORDER BY rank;
 -- Expected: S1 1.0, S6 1.0, S2 0.5
 
@@ -69,6 +69,6 @@ ORDER BY rank;
 -- Q2 asks for a seat track with >= 0.24 m travel and <= 38 dB(A).
 -- Module M1 offers three variants; one of them meets both limits.
 SELECT candidate_id, round(coverage, 4) AS coverage
-FROM tree_coverage('Q2', candidates := ['M1', 'S5'], mu := 0.0)
+FROM tree_coverage('Q2', candidates := ['M1', 'S5'])
 ORDER BY rank;
 -- Expected: M1 1.0, S5 0.6167 (S5's track travels only 0.22 m)

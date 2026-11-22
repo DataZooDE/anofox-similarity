@@ -741,7 +741,8 @@ struct AttrMatch {
 	double distance = 0;
 	string rule;
 	string name_rule; // key | vector | exact | tokens (see NameSim)
-	double score = 0;
+	double score = 0; // the attribute's score: discounted by the names only for name_rule 'vector'
+	double pick = 0;  // the score the value is chosen by: always discounted by the names
 	string bound;
 };
 
@@ -879,9 +880,13 @@ AttrMatch MatchAttr(const KAttr &x, const KItem &c, const Options &o) {
 			m.name_sim = name.sim;
 			m.name_rule = name.rule;
 		}
-		m.score = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
-		if (best.gate || m.score > best.score ||
-		    (m.score == best.score && m.value_score == best.value_score && Closer(m, best, o))) {
+		// names choose which value answers (pick, discounted by mu in every case); only name-vector
+		// agreement also lowers the attribute's score: without vectors the names are not evidence
+		// enough to discount a value (cross-language token overlap is often 0)
+		m.pick = (o.mu * m.name_sim + (1 - o.mu)) * m.value_score;
+		m.score = m.name_rule == string("vector") ? m.pick : m.value_score;
+		if (best.gate || m.pick > best.pick ||
+		    (m.pick == best.pick && m.value_score == best.value_score && Closer(m, best, o))) {
 			best = m;
 		}
 	}
@@ -2084,7 +2089,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    loader, "tree_coverage", TreeCoverageBindReplace,
 	    "Stage-2 coverage: ranks candidate trees by the share of the request they cover. Per request "
 	    "item q and candidate item c: score = label_weight*L + (1-label_weight)*L*a, with L the label agreement (Bhattacharyya of "
-	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies; "
+	    "soft labels, or 0/1) and a the mean over q's attributes of the best (mu*name_sim + 1-mu)*value_satisfies (mu counts only for name-vector agreement; without name_vectors names pick the value but do not discount it); "
 	    "counts are summed over compatible items (never across OR alternatives). alternatives 'joint' (default) holds "
 	    "the request to one alternative per candidate OR group (one configuration), 'per_requirement' lets each "
 	    "requirement pick its own. class_hierarchy (class_id, parent_class_id) makes a subclass offer meet a "
@@ -2115,7 +2120,7 @@ void RegisterCoverageKernelFunctions(ExtensionLoader &loader) {
 	    "missing when the offer states the property without a value; key_mismatch when both attributes carry "
 	    "different attr_keys. Same parameters as tree_coverage." +
 	        common,
-	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001']) WHERE is_gap;"}, true);
+	    {"SELECT * FROM tree_coverage_trace('R01', candidates := ['P001'])\nWHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed);"}, true);
 	RegisterCoverageTable(
 	    loader, "coverage_recall", CoverageRecallBindReplace,
 	    "Stage-1 recall over class multisets: the top-k candidate trees per query with score, "

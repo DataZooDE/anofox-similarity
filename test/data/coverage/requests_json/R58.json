@@ -17,8 +17,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 200.0,
-          "lo": 200.0,
+          "hi": 204.0,
+          "lo": 196.0,
           "name": "hardness",
           "text": "200 N ± 2 %",
           "unit": "N"
@@ -45,8 +45,8 @@
          {
           "attr_id": "a1",
           "bound": "equals",
-          "hi": 200.0,
-          "lo": 200.0,
+          "hi": 204.0,
+          "lo": 196.0,
           "name": "hardness",
           "text": "200 N ± 2 %",
           "unit": "N"

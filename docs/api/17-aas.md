@@ -5,37 +5,48 @@
 
 [API index](../API_REFERENCE.md) · [Guides](../guides/README.md) · [Examples](../../examples/README.md)
 
-AAS v3.x standardises the data envelope and dictionary-coded properties (semanticId → ECLASS or
-IEC CDD). IDTA-02020 (Capability Description, April 2026) marks capabilities as *Required* or
-*Offered*. No AAS specification says how to match the two, rank offers or explain a gap. The
-coverage kernel does that. This page covers reading AAS into property trees and the identifier
-rules. The [coverage kernel](13-coverage-kernel.md) and [quantities](11-quantities.md) pages
-cover `attr_key` and unit identifiers.
+This page covers reading AAS into property trees, writing trees and results back, and the
+identifier rules. AAS standardises the envelope and dictionary keys, not matching; how submodels
+become trees, why keys and not wording decide, and where bounds and units come from:
+[AAS mapping](../concepts/aas-mapping.md). The [coverage kernel](13-coverage-kernel.md) and
+[quantities](11-quantities.md) pages cover `attr_key` and unit identifiers.
 
 ## Load AAS: aas_to_trees, aas_issues
 
 Audit a folder first. `aas_issues` never raises: a broken file gives one `parse_error` row,
 so the query names the file. `aas_to_trees` is strict and stops on the first broken file.
 
+The blocks run from the repository root on the files of
+[examples/aas_capability_matching](../../examples/aas_capability_matching/README.md). Replace the
+paths with your own folder.
+
 ```sql
 SELECT filename, i.issue, i.severity, i.path, i.detail
-FROM (SELECT filename, unnest(aas_issues(content)) AS i FROM read_blob('offers/*'))
+FROM (SELECT filename, unnest(aas_issues(content)) AS i
+      FROM read_blob('examples/aas_capability_matching/data/offers/*'))
 ORDER BY i.severity, filename;
 ```
 
-Then load:
+Then load. `eclass_units` is the unit list that resolves ECLASS unit IRDIs (columns as in
+`unit_table`, see below); the example ships a stand-in for the licensed list.
 
 ```sql
+CREATE TABLE eclass_units AS
+SELECT * FROM read_csv('examples/aas_capability_matching/data/eclass_units.csv');
+
 CREATE TABLE raw AS
-SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n FROM read_text('rfq_2026_117.aas.json')
+SELECT unnest(aas_to_trees(content, 'RFQ-2026-117')) AS n
+FROM read_text('examples/aas_capability_matching/data/rfq_2026_117.aas.json')
 UNION ALL
-SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u))) FROM read_blob('offers/*');
+SELECT unnest(aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)))
+FROM read_blob('examples/aas_capability_matching/data/offers/*');
 
 CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
 CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
 
 SELECT * FROM validate_trees('tree_nodes', 'tree_attributes');
-SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*');
+SELECT unnest(aas_issues(content, NULL, (SELECT list(u) FROM eclass_units u)), recursive := true)
+FROM read_blob('examples/aas_capability_matching/data/offers/*');
 ```
 
 **`aas_to_trees(content [, tree_id [, unit_table]])`** → `LIST` of the node STRUCTs of
@@ -107,7 +118,7 @@ SELECT unnest(aas_issues(content), recursive := true) FROM read_blob('offers/*')
 - **References** in relations and constraints resolve by submodel **id** across the whole input,
   so two submodels with the same idShort never mix, and a GeneralizedBy may point into another
   submodel of the same input.
-- **`role`** comes from the `CapabilityRoleQualifier` (values true/false/1/0, else `bad_value`) and is informational ([HLD §12](../requirements-matching/HLD.md)):
+- **`role`** comes from the `CapabilityRoleQualifier` (values true/false/1/0, else `bad_value`) and is informational ([why](../concepts/aas-mapping.md#roles-are-informational)):
   `tree_coverage` reads the query tree as the requirement. `validate_trees` warns (`mixed_roles`)
   when one tree mixes both roles.
 - **Text is not a number.** A string value counts as a quantity only with a written unit. Product
@@ -131,6 +142,7 @@ severity, detail))`. These are findings, not errors; the mapping goes on.
 | `missing_concept_description` | warning | no dictionary entry for the semanticId: the unit is unknown (`validate_trees` reports `unknown_unit`) |
 | `no_unit_information` | warning | a number without semanticId or data specification |
 | `unknown_unit_id` | warning | the `unitId` is not in the unit table; the `unit` text is used |
+| `unknown_unit` | warning | the unit text (`msec`) is not known: the value has no dimension and matches nothing; fix the text or add the unit with `unit_table`. Counted in `aas_quality.n_issues` and `n_unresolved_units`. A value 1000 times off with a known unit (`0.55` W meant as kW) needs the other files: `validate_trees` over the request and the offers reports it as `magnitude_outlier` |
 | `capability_missing` | warning | a CapabilityContainer without a Capability |
 | `missing_submodel` | info | a shell references a submodel that is not in the input |
 | `unresolved_constraint` | warning | a `ConstraintHasProperty` names no mapped property |
@@ -349,11 +361,9 @@ The same dictionary concept arrives in several spellings:
 | `Rated current` (not an identifier) | `Rated current` |
 | NULL, blank | NULL |
 
-- **Version suffixes are stripped by default.** A new ECLASS release usually keeps the meaning of
-  a property, and an offer written against release 12 should match a request written against
-  release 14. But a version bump *may* change the meaning (a new unit, a narrower definition).
-  `semantic_key(id, true)` keeps the version for joins where that matters. The coverage kernel
-  always compares keys without the version.
+- **Version suffixes are stripped by default.** `semantic_key(id, true)` keeps the version for
+  joins where it matters. The coverage kernel always compares keys without the version. Why:
+  [AAS mapping](../concepts/aas-mapping.md#keys-not-wording).
 - An IRDI is `<RAI>#<item>[#<version>]`: the RAI starts with four digits and `-` or `/`, and
   the version is all digits. The ECLASS IRI form is recognised on any host whose name contains
   `eclass`, with the IRDI in the last path segment (`-` for `#`).
@@ -401,12 +411,12 @@ SELECT semantic_key('0173-1#02-AAC895#008', true); -- 0173-1#02-AAC895#008
 Reads Asset Administration Shell data (AAS v3.x: Part 1 JSON or XML, an AASX package, a single Submodel or a Part 2 paged result) into property trees: a LIST of the node STRUCTs of tree_from_json with their attributes. One tree per shell (tree_id: the shell id, or the tree_id argument), submodels and collections as nodes; a collection that directly holds values is an item (class_id: its semanticId), otherwise a container. Property and Range give attributes: attr_key is the semanticId (the supplementalSemanticId for IDTA-02020 property types), the unit comes from the IEC 61360 data specification (unitId first, then unit) and values are converted to base units. An IDTA-02020 CapabilityContainer is an item whose class is the Capability's supplementalSemanticId and whose attributes come from its PropertySets; the CapabilityRoleQualifier gives role. Pass read_blob(...) for AASX packages. Findings about the input are in aas_issues(). unit_table as in parse_quantity.
 
 ```sql
-aas_to_trees(content BLOB) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
-aas_to_trees(content VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
-aas_to_trees(content BLOB, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
-aas_to_trees(content VARCHAR, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
-aas_to_trees(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
-aas_to_trees(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, "label" VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, "source" VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, "name" VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, "role" VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content BLOB) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content BLOB, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR, tree_id VARCHAR) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content BLOB, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
+aas_to_trees(content VARCHAR, tree_id VARCHAR, unit_table ANY) → STRUCT(tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count DOUBLE, source VARCHAR, attributes STRUCT(tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, value_text VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR, attr_key VARCHAR, bound_source VARCHAR)[])[]
 ```
 
 **Examples**
@@ -424,7 +434,7 @@ SELECT aas_to_trees(content, NULL, (SELECT list(u) FROM eclass_units u)) FROM re
 
 *Scalar function*
 
-Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). It never raises on malformed input: a broken file gives one parse_error row with the reader's message, so SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, ambiguous_concept_description, unknown_unit_id, assumed_dimensionless, duplicate_id_short, ...). path is the idShort path, submodel first. Same arguments as aas_to_trees.
+Findings of aas_to_trees about the input: LIST of STRUCT(tree_id, path, issue, severity, detail). It never raises on malformed input: a broken file gives one parse_error row with the reader's message, so SELECT filename, unnest(aas_issues(content)) FROM read_blob('offers/*') audits a folder. See the API page for the issue codes (bad_value, empty_value, decimal_comma, missing_concept_description, ambiguous_concept_description, unknown_unit_id, unknown_unit, assumed_dimensionless, duplicate_id_short, ...). A unit slip across files (0.55 W against max. 0.75 kW) needs the other values: validate_trees over the loaded trees reports it as magnitude_outlier. path is the idShort path, submodel first. Same arguments as aas_to_trees.
 
 ```sql
 aas_issues(content BLOB) → STRUCT(tree_id VARCHAR, path VARCHAR, issue VARCHAR, severity VARCHAR, detail VARCHAR)[]

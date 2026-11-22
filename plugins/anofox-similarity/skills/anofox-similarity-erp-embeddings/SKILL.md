@@ -10,19 +10,21 @@ description: >
   converting a flat parent/child/quantity export into the universal schema (materials, bom_header,
   bom_component),
   building or fusing material embeddings, or checking the anofox-forecast dependency.
-version: 2026.11.21
+version: 2026.11.22
 user-invocable: false
 ---
 
 # Anofox Similarity — ERP Transforms & Embeddings Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/04-embeddings.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/04-embeddings.md), [`docs/api/05-erp-transformations.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/05-erp-transformations.md), [`docs/api/06-infrastructure.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/06-infrastructure.md)
+**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/04-embeddings.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/04-embeddings.md), [`docs/api/05-erp-transformations.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/05-erp-transformations.md), [`docs/api/06-infrastructure.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/06-infrastructure.md)
 
 Gets ERP data into the flat `bom_items` edge list (`parent_id`, `child_id`, optional `quantity`) that
 every similarity search reads, and builds per-material vectors in `material_embeddings`. The searches (`find_similar_materials_jaccard`, WL kernel, predecessors) are in
 **anofox-similarity-material-search**; MinHash/LSH indexes over feature multisets are in
 **anofox-similarity-evaluation-scale**; classifying with your own text vectors is in
 **anofox-similarity-classification-review**.
+
+Runnable end to end on a small SAP and D365 extract (STAS, two clients, two companies, MSEG): [`docs/guides/12-from-erp-extract.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/12-from-erp-extract.md) and [`examples/erp_extract`](https://github.com/DataZooDE/anofox-similarity/tree/main/examples/erp_extract).
 
 ## Critical gotchas
 
@@ -45,9 +47,10 @@ every similarity search reads, and builds per-material vectors in `material_embe
   similar vectors (`'centrifugal pump'` vs `'centrifugal pumps'`: cosine 0.03). The vectors are the
   same on every platform, and distinct texts get distinct vectors. Plumbing only; for
   semantics bring your own model's vectors as a table and fuse (`fuse_embeddings`) or classify with them.
-- **Language keys differ by function.** `sap_to_materials_with_desc` defaults to `'E'` (SAP's one-char
-  `SPRAS`); `extract_material_descriptions` and `compute_textual_embeddings` default to `'EN'`. On a
-  real MAKT, `'EN'` matches nothing and returns **0 rows, no error**: pass `language := 'E'`.
+- **Language: SAP key or ISO code.** `language` (default `'E'` everywhere) takes SAP's one-char
+  `SPRAS` (`'E'`, `'D'`) or the ISO code (`'EN'`, `'DE'`); MAKT rows match in either form, so an
+  extract that went through the conversion exit (`spras = 'EN'`) works too. A code outside the
+  common languages matches only literally: 0 rows, no error.
 - **Embeddings are `FLOAT[n]` arrays** (`FLOAT[384]` textual, `FLOAT[128]` transactional/Jaccard,
   `FLOAT[256]` structural, `FLOAT[768]` fused), the type vss HNSW indexes take: compare with
   `array_cosine_distance` / `array_distance`, not the `list_*` functions. A list of the right length
@@ -57,8 +60,10 @@ every similarity search reads, and builds per-material vectors in `material_embe
   `... array_cosine_distance(e, getvariable('q')::FLOAT[384]) LIMIT 10` (check with `EXPLAIN`:
   `HNSW_INDEX_SCAN`); a correlated subquery or a join scans everything. An index in a database file
   needs `SET hnsw_enable_experimental_persistence = true` before `CREATE INDEX` (a vss rule).
-- **MAKT duplicates are collapsed.** Several MAKT rows per `(matnr, spras)` (one per client/MANDT)
-  become one row per material (an arbitrary one, via `ANY_VALUE`). Filter `mandt` first if it matters.
+- **SAP clients stay apart.** `sap_to_materials(_with_desc)` end with a `client` column (MARA
+  `mandt`, NULL without it), like `sap_to_bom_items`; with `mandt` in MAKT each client gets its own
+  text. Keep one client (`WHERE client = '100'`). Several MAKT rows per `(matnr, spras)` and client
+  become one description (an arbitrary one, via `ANY_VALUE`).
 - **Required columns.** MARA needs `matnr, mtart, matkl, ersda, lvorm` (`ersda` as `YYYYMMDD` text,
   `DATE` or ISO string); MAKT needs `matnr, spras, maktx` **and `maktg`** for
   `extract_material_descriptions` / `compute_textual_embeddings`; MAST `matnr, stlnr`; STKO
@@ -88,8 +93,9 @@ every similarity search reads, and builds per-material vectors in `material_embe
 - **SAP clients stay apart in the `client` column** (`mandt` when every table has it, else NULL):
   the same material in clients 100 and 200 gives two sets of rows, never summed. The searches do
   not see `client`: filter one client (`WHERE client = '100'`) before you build `bom_items`.
-- **anofox-forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
-  `recompute_embedding_statistics` and `compute_domain_specific_statistics` need `anofox_fcst_ts_features`.
+- **anofox_forecast is not loaded here.** `compute_transactional_embeddings`, `extract_ts_features`,
+  `recompute_embedding_statistics` and `compute_domain_specific_statistics` need its aggregate
+  `anofox_fcst_ts_features_agg`: `INSTALL anofox_forecast FROM community; LOAD anofox_forecast;`.
   Check with `check_anofox_forecast_available` first (see the dependency section). It is never auto-installed.
 - **No function produces `structural_embedding` (FLOAT[256]).** The fusion default is 0.5/0.5/0
   (structural + textual): bring structural vectors or set `weights_structural := 0`. A positive weight
@@ -157,10 +163,10 @@ sap_to_bom_items(mast_table, stko_table, stpo_table, bom_alternative := '01',
                  reference_date := '9999-12-31', bom_usage := NULL, stas_table := NULL)
   → (bom_id, parent_id, child_id, qty, unit, valid_from DATE, valid_to DATE, bom_version, client)
 sap_to_materials(mara_table)                          -- makt_table/language accepted, ignored
-  → (material_id, material_type, material_group, description = '', created_date DATE)
+  → (material_id, material_type, material_group, description = '', created_date DATE, client = MARA mandt or NULL)
 sap_to_materials_with_desc(mara_table, makt_table, language := 'E')
   → same columns, description = MAKTX in that language ('' if none)
-extract_material_descriptions(makt_table := 'sap_makt', language := 'EN')
+extract_material_descriptions(makt_table := 'sap_makt', language := 'E')
   → (material_id, full_text = MAKTX || ' ' || MAKTG)
 ```
 
@@ -192,7 +198,7 @@ ORDER BY material_id;
 
 SELECT * FROM extract_material_descriptions(makt_table := 'sap_makt', language := 'E')
 ORDER BY material_id;
--- 000000000000200001 | Mechanical seal MECHANICAL SEAL  (4 rows; language := 'EN' would give 0)
+-- 000000000000200001 | Mechanical seal MECHANICAL SEAL  (4 rows; language := 'EN' gives the same)
 ```
 
 `sap_to_materials('sap_mara')` gives the same rows with an empty `description`.
@@ -428,11 +434,11 @@ Without anofox-forecast these fail at bind time (no partial result, nothing to c
 
 ```text
 SELECT * FROM compute_transactional_embeddings();
--- Binder Error: compute_transactional_embeddings requires the anofox-forecast extension, which is
---   not loaded. Install and load it first: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;
+-- Binder Error: compute_transactional_embeddings needs the anofox_forecast extension, which is not
+--   loaded. Install and load it: INSTALL anofox_forecast FROM community; LOAD anofox_forecast;
 SELECT * FROM extract_ts_features();  -- with goods_movements present; also recompute_embedding_statistics(),
                                                      -- compute_domain_specific_statistics()
--- Catalog Error: Scalar Function with name anofox_fcst_ts_features does not exist!
+-- Catalog Error: ... anofox_fcst_ts_features_agg does not exist!
 ```
 
 In a script, gate on the check (e.g. `SELECT error('load anofox_forecast first') WHERE NOT check_anofox_forecast_available();` under `-bail`).
@@ -469,7 +475,7 @@ WHERE a.material_id = '000000000000100001' AND b.material_id = '0000000000001000
 ## Textual embeddings (placeholder)
 
 ```text
-compute_textual_embeddings(makt_table := 'sap_makt', language := 'EN',
+compute_textual_embeddings(makt_table := 'sap_makt', language := 'E',
                            provider := 'gemma-local', provider_config := '')
   → (material_id, textual_embedding FLOAT[384])
     text = MAKTX || ' ' || MAKTG, one row per material; MAKT needs maktg
@@ -508,16 +514,22 @@ recompute_embedding_statistics(time_window_days := 365, min_observations := 3,
   → (feature_name, feature_index, feature_category, mean_value, std_value, min_value, max_value, num_samples)
 compute_domain_specific_statistics(movements_table := 'goods_movements', time_window_days := 365,
                                    min_observations := 3)
-  → same statistics shape, features 92-97 (receipt/reversal ratio, weekday pattern, lifecycle)
+  → same statistics shape, features 92-97 (261 share, reversal share 262/602, weekday pattern, lifecycle);
+    recompute_embedding_statistics already includes these rows
 check_statistics_freshness()
   → (stat_count, max_samples, current_version, last_updated, is_fresh)
 ```
 
-- Movements need `material_id, movement_date, quantity`; `movement_type` is optional for
-  `compute_transactional_embeddings` (NULL when absent) but required by
-  `compute_domain_specific_statistics`. The window is relative to the latest date in the data.
-- `recompute_embedding_statistics` **returns** the z-score statistics; persist them yourself into
-  `transactional_embedding_statistics` (it also has `updated_at`, `version`).
+- Movements need `material_id, movement_date, quantity`; `movement_type` (SAP `bwart`) is optional
+  (positions 92-93 are 0 without it). Features 0-29 use a weekly series of the positive quantities,
+  zero-filled; 92-95 count movements of either sign. The window is relative to the latest date in
+  the data; a material needs `min_observations` (3) movements.
+- `recompute_embedding_statistics` **returns** all 36 statistics rows the embedding reads (0-29,
+  92-97); persist them once per refresh:
+  `INSERT OR REPLACE INTO transactional_embedding_statistics SELECT *, now(), 1 FROM recompute_embedding_statistics();`
+  A feature a short history cannot give (NaN) is 0 in that vector.
+- Volume counts (level features are z-scored, then the vector is scaled): the same pattern at ten
+  times the volume is not close. Divide quantities by each material's mean first to compare shape.
 - `check_statistics_freshness` reads that table (no anofox-forecast needed): `is_fresh` needs at least
   30 rows, the newest updated within the last 7 days. `last_updated` is NULL with no statistics; on a
   read-only database (no table) it returns `0` / NULL / `false` instead of an error.

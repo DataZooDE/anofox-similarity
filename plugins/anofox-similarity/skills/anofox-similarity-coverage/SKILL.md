@@ -9,23 +9,24 @@ description: >
   `tree_coverage_trace`, `coverage_recall`, `coverage_kernel`). Use when asked "which past
   programme/offer covers this request", "what is missing", "does 9 A meet max. 8 A", "parse
   'mindestens 24 cm'", "load spec trees from JSON", or "explain the gaps of this candidate".
-version: 2026.11.21
+version: 2026.11.22
 user-invocable: false
 ---
 
 # Anofox Similarity — Coverage Matching Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.21 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
+**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/10-covering-search.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/10-covering-search.md), [`docs/api/11-quantities.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/11-quantities.md), [`docs/api/12-property-trees.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/12-property-trees.md), [`docs/api/13-coverage-kernel.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/13-coverage-kernel.md)
 
-> Paths like `test/data/...` are relative to a clone of the anofox-similarity repository; in
-> your own project, substitute your tables. Examples that build inline tables run anywhere.
+> Every SQL block here runs as it stands, without a clone of the repository: the fixture is
+> inline. Only the benchmark mentions (`test/data/coverage/...`) need the repository data (clone,
+> or download https://github.com/DataZooDE/anofox-similarity/tree/main/test/data/coverage).
 
 Coverage is directional: does offer B provide everything request A asks for? Surplus does not
 hurt; missing items and failed limits do. **Stage 1** ranks candidates by class multisets
 (weighted containment); **stage 2** compares item by item (class, count, each value with unit and
 direction) and returns coverage in [0, 1] plus a gap list. Numbers use rules, not embeddings: the
 dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage-matching.md`,
-`docs/guides/05-quantities-and-specs.md`; concepts: `docs/requirements-matching/HLD.md`.
+`docs/guides/05-quantities-and-specs.md`; concepts: `docs/concepts/coverage-semantics.md`.
 
 ## Critical gotchas
 
@@ -47,10 +48,11 @@ dimension gates, the bound gives the direction. Guides: `docs/guides/04-coverage
   `k := 2` on the mini fixture `S6` (coverage 1.0) is never scored. When you quote more than the
   top candidate, raise `k` (e.g. 300) or pass `candidates`: on the seating benchmark the true #3
   for R02 is outside the default stage-1 top 20.
-- **Coverage < 1 with no gaps** = name discount `mu` (0.2); without `name_vectors` names compare
-  by word overlap (German never matches English). Name vectors only shrink the discount (synonyms
-  at cosine ≈ 0.98 still give about 0.98, not 1.0). Judge "nothing missing" from `n_gaps` and the
-  trace, not from coverage = 1; use `mu := 0.0` when every name pair is a known synonym.
+- **Coverage < 1 with no gaps** = name discount `mu` (0.2), which applies only with `name_vectors`
+  (`name_rule` `vector`). Without vectors names compare by word overlap to pick the value
+  (`name_rule` `tokens`) but do not discount it. With vectors, synonyms at cosine ≈ 0.98 still give
+  about 0.98, not 1.0: judge "nothing missing" from `n_gaps` and the trace, not from coverage = 1;
+  use `mu := 0.0` when every name pair is a known synonym.
 - **Dimension mismatch is not an error**: `value_satisfies` gives score 0, rule `gate` (A vs V,
   unknown unit, EUR vs USD). A categorical value (`IP54`) **is** an error there: use `compat_score`.
 - **`within` = the offer covers the whole required range** (`25 cm` vs `von 22 bis 26 cm` →
@@ -109,15 +111,148 @@ negative/non-finite weight anywhere → error naming the row.
 
 ```sql
 -- Setup used below: the hand-made fixture (requests Q1-Q3, programmes S1-S6, modules M1-M5).
-CREATE OR REPLACE TABLE tree_nodes AS
-SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv');
-CREATE OR REPLACE TABLE tree_attributes AS
-SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv');
+CREATE OR REPLACE TABLE tree_nodes (tree_id VARCHAR, node_id VARCHAR, parent_id VARCHAR, node_kind VARCHAR, edge_type VARCHAR, label VARCHAR, context VARCHAR, class_id VARCHAR, count BIGINT, source VARCHAR);
+INSERT INTO tree_nodes VALUES
+  ('Q1', 'Q1', NULL, 'container', 'AND', 'Seat specification Q1 (premium front seat)', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.c1', 'Q1', 'container', 'AND', '2 Comfort functions', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.1', 'Q1.c1', 'item', 'AND', '2 x seat heating with time to 37 °C max. 180 s and current draw max. 8 A', '2 Comfort functions', 'seat_heating', 2, 'aurivon'),
+  ('Q1', 'Q1.2', 'Q1.c1', 'item', 'AND', '4-zone massage', '2 Comfort functions', 'massage', 4, 'aurivon'),
+  ('Q1', 'Q1.3', 'Q1.c1', 'item', 'AND', 'powered headrest with height travel at least 60 mm', '2 Comfort functions', 'headrest_powered', 1, 'aurivon'),
+  ('Q1', 'Q1.s1', 'Q1', 'container', 'AND', '3 Electrics', NULL, NULL, 1, 'aurivon'),
+  ('Q1', 'Q1.4', 'Q1.s1', 'item', 'AND', 'seat memory for at least 8 ways', '3 Electrics', 'memory_module', 1, 'aurivon'),
+  ('Q2', 'Q2', NULL, 'container', 'AND', 'Lastenheft Q2 Sitzschiene', NULL, NULL, 1, 'brennholt'),
+  ('Q2', 'Q2.1', 'Q2', 'item', 'AND', 'Längsverstellung mindestens 24 cm Weg und max. 38 dB(A)', NULL, 'seat_track', 1, 'brennholt'),
+  ('Q3', 'Q3', NULL, 'container', 'AND', 'Seat specification Q3 (climate package)', NULL, NULL, 1, 'calvento'),
+  ('Q3', 'Q3.1', 'Q3', 'item', 'AND', '2 heated zones', NULL, 'seat_heating', 2, 'calvento'),
+  ('Q3', 'Q3.2', 'Q3', 'item', 'AND', '2 ventilated zones', NULL, 'seat_ventilation', 2, 'calvento'),
+  ('S1', 'S1', NULL, 'container', 'AND', 'S1 premium front row', NULL, NULL, 1, 'internal'),
+  ('S1', 'S1.1', 'S1', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S1', 'S1.2', 'S1', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S1', 'S1.3', 'S1', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S1', 'S1.4', 'S1', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S1', 'S1.5', 'S1', 'item', 'AND', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('S2', 'S2', NULL, 'container', 'AND', 'S2 premium front row lean', NULL, NULL, 1, 'internal'),
+  ('S2', 'S2.g', 'S2', 'container', 'AND', 'Komfortfunktionen', NULL, NULL, 1, 'internal'),
+  ('S2', 'S2.1', 'S2.g', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S2', 'S2.2', 'S2.g', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S2', 'S2.3', 'S2.g', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S2', 'S2.4', 'S2', 'item', 'AND', 'Sitzmemory', NULL, 'memory_module', 1, 'internal'),
+  ('S3', 'S3', NULL, 'container', 'AND', 'S3 mid front row', NULL, NULL, 1, 'internal'),
+  ('S3', 'S3.1', 'S3', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S3', 'S3.2', 'S3', 'item', 'AND', 'Massage-Blasenmatte', NULL, 'massage', 2, 'internal'),
+  ('S3', 'S3.3', 'S3', 'item', 'AND', 'Kopfstützenantrieb', NULL, 'headrest_powered', 1, 'internal'),
+  ('S4', 'S4', NULL, 'container', 'AND', 'S4 climate seat', NULL, NULL, 1, 'internal'),
+  ('S4', 'S4.1', 'S4', 'item', 'AND', 'Sitzheizung Carbon', NULL, 'seat_heating', 4, 'internal'),
+  ('S4', 'S4.2', 'S4', 'item', 'AND', 'Lüftermodul', NULL, 'seat_ventilation', 2, 'internal'),
+  ('S5', 'S5', NULL, 'container', 'AND', 'S5 economy front row', NULL, NULL, 1, 'internal'),
+  ('S5', 'S5.1', 'S5', 'item', 'AND', 'LV-Schiene', NULL, 'seat_track', 1, 'internal'),
+  ('S5', 'S5.2', 'S5', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S6', 'S6', NULL, 'container', 'AND', 'S6 premium front row with climate package', NULL, NULL, 1, 'internal'),
+  ('S6', 'S6.1', 'S6', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('S6', 'S6.2', 'S6', 'item', 'AND', 'Klimapaket Heizung', NULL, 'seat_ventilation', 2, 'internal'),
+  ('S6', 'S6.3', 'S6', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('S6', 'S6.4', 'S6', 'item', 'AND', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('S6', 'S6.5', 'S6', 'item', 'AND', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('S6', 'S6.6', 'S6', 'item', 'AND', 'Längsversteller', NULL, 'seat_track', 2, 'internal'),
+  ('M1', 'M1', NULL, 'variant_group', 'AND', 'Längsversteller', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C1', 'M1', 'variant_group', 'OR', 'Längsversteller Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C1.A1', 'M1.C1', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M1', 'M1.C1.A2', 'M1.C1', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M1', 'M1.C2', 'M1', 'variant_group', 'OR', 'Längsversteller Ausführung 2', NULL, NULL, 1, 'internal'),
+  ('M1', 'M1.C2.A1', 'M1.C2', 'item', 'OR', 'Längsversteller', NULL, 'seat_track', 1, 'internal'),
+  ('M2', 'M2', NULL, 'variant_group', 'AND', 'Heizmatte', NULL, NULL, 1, 'internal'),
+  ('M2', 'M2.C1', 'M2', 'variant_group', 'OR', 'Heizmatte Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M2', 'M2.C1.A1', 'M2.C1', 'item', 'OR', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M2', 'M2.C1.A2', 'M2.C1', 'item', 'OR', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M3', 'M3', NULL, 'variant_group', 'AND', 'Komfortpaket Premium', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1', 'M3', 'variant_group', 'OR', 'Komfortpaket Premium Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1.A1', 'M3.C1', 'container', 'OR', 'Komfortpaket Premium 1.1', NULL, NULL, 1, 'internal'),
+  ('M3', 'M3.C1.A1.h', 'M3.C1.A1', 'item', 'AND', 'Heizmatte', NULL, 'seat_heating', 2, 'internal'),
+  ('M3', 'M3.C1.A1.v', 'M3.C1.A1', 'item', 'AND', 'Lüftermodul', NULL, 'seat_ventilation', 2, 'internal'),
+  ('M3', 'M3.C1.A1.m', 'M3.C1.A1', 'item', 'AND', 'Massagemodul pneumatisch', NULL, 'massage', 4, 'internal'),
+  ('M4', 'M4', NULL, 'variant_group', 'AND', 'Memory-SG', NULL, NULL, 1, 'internal'),
+  ('M4', 'M4.C1', 'M4', 'variant_group', 'OR', 'Memory-SG Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M4', 'M4.C1.A1', 'M4.C1', 'item', 'OR', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('M4', 'M4.C1.A2', 'M4.C1', 'item', 'OR', 'Memory-SG', NULL, 'memory_module', 1, 'internal'),
+  ('M5', 'M5', NULL, 'variant_group', 'AND', 'KS elektrisch', NULL, NULL, 1, 'internal'),
+  ('M5', 'M5.C1', 'M5', 'variant_group', 'OR', 'KS elektrisch Ausführung 1', NULL, NULL, 1, 'internal'),
+  ('M5', 'M5.C1.A1', 'M5.C1', 'item', 'OR', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal'),
+  ('M5', 'M5.C1.A2', 'M5.C1', 'item', 'OR', 'KS elektrisch', NULL, 'headrest_powered', 1, 'internal');
+CREATE OR REPLACE TABLE tree_attributes (tree_id VARCHAR, node_id VARCHAR, attr_id VARCHAR, name VARCHAR, dimension VARCHAR, unit VARCHAR, lo DOUBLE, hi DOUBLE, role VARCHAR, bound VARCHAR, qualifier VARCHAR, category VARCHAR);
+INSERT INTO tree_attributes VALUES
+  ('Q1', 'Q1.1', 'a1', 'time to 37 °C', 'time', 's', 180, 180, 'required', 'at_most', NULL, NULL),
+  ('Q1', 'Q1.1', 'a2', 'current draw', 'current', 'A', 8, 8, 'required', 'at_most', NULL, NULL),
+  ('Q1', 'Q1.3', 'a1', 'height travel', 'length', 'm', 0.06, 0.06, 'required', 'at_least', NULL, NULL),
+  ('Q1', 'Q1.4', 'a1', 'ways', 'count', '1', 8, 8, 'required', 'at_least', NULL, NULL),
+  ('Q2', 'Q2.1', 'a1', 'Verstellweg', 'length', 'm', 0.24, 0.24, 'required', 'at_least', NULL, NULL),
+  ('Q2', 'Q2.1', 'a2', 'Geräusch', 'sound_level', 'dB(A)', 38, 38, 'required', 'at_most', NULL, NULL),
+  ('S1', 'S1.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.07, 0.07, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.4', 'ways', 'gespeicherte Verstellwege', 'count', '1', 10, 10, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.5', 'travel', 'Verstellweg', 'length', 'm', 0.25, 0.25, 'provided', NULL, NULL, NULL),
+  ('S1', 'S1.5', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 36, 36, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 240, 240, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 9, 9, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.05, 0.05, 'provided', NULL, NULL, NULL),
+  ('S2', 'S2.4', 'ways', 'gespeicherte Verstellwege', 'count', '1', 8, 8, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 170, 170, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 7.5, 7.5, 'provided', NULL, NULL, NULL),
+  ('S3', 'S3.3', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.06, 0.06, 'provided', NULL, NULL, NULL),
+  ('S4', 'S4.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 160, 160, 'provided', NULL, NULL, NULL),
+  ('S4', 'S4.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 10, 10, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.1', 'travel', 'Verstellweg', 'length', 'm', 0.22, 0.22, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 34, 34, 'provided', NULL, NULL, NULL),
+  ('S5', 'S5.2', 'ways', 'gespeicherte Verstellwege', 'count', '1', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.4', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.07, 0.07, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.5', 'ways', 'gespeicherte Verstellwege', 'count', '1', 12, 12, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.6', 'travel', 'Verstellweg', 'length', 'm', 0.26, 0.26, 'provided', NULL, NULL, NULL),
+  ('S6', 'S6.6', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 35, 35, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A1', 'travel', 'Verstellweg', 'length', 'm', 0.22, 0.22, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 35, 35, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A2', 'travel', 'Verstellweg', 'length', 'm', 0.26, 0.26, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C1.A2', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 41, 41, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C2.A1', 'travel', 'Verstellweg', 'length', 'm', 0.25, 0.25, 'provided', NULL, NULL, NULL),
+  ('M1', 'M1.C2.A1', 'noise', 'Betriebsgeräusch', 'sound_level', 'dB(A)', 36, 36, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A1', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 150, 150, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A1', 'current_draw', 'Stromaufnahme', 'current', 'A', 6, 6, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A2', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 240, 240, 'provided', NULL, NULL, NULL),
+  ('M2', 'M2.C1.A2', 'current_draw', 'Stromaufnahme', 'current', 'A', 9, 9, 'provided', NULL, NULL, NULL),
+  ('M3', 'M3.C1.A1.h', 'time_to_temp', 'Aufheizzeit auf 37 °C', 'time', 's', 200, 200, 'provided', NULL, NULL, NULL),
+  ('M3', 'M3.C1.A1.h', 'current_draw', 'Stromaufnahme', 'current', 'A', 7, 7, 'provided', NULL, NULL, NULL),
+  ('M4', 'M4.C1.A1', 'ways', 'gespeicherte Verstellwege', 'count', '1', 8, 8, 'provided', NULL, NULL, NULL),
+  ('M4', 'M4.C1.A2', 'ways', 'gespeicherte Verstellwege', 'count', '1', 12, 12, 'provided', NULL, NULL, NULL),
+  ('M5', 'M5.C1.A1', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.05, 0.05, 'provided', NULL, NULL, NULL),
+  ('M5', 'M5.C1.A2', 'height_travel', 'Höhenverstellweg', 'length', 'm', 0.08, 0.08, 'provided', NULL, NULL, NULL);
 ```
 
 ```sql
-CREATE OR REPLACE TABLE feature_multiset AS
-SELECT * FROM read_csv_auto('test/data/coverage/mini/feature_multiset.csv');
+CREATE OR REPLACE TABLE feature_multiset (entity_id VARCHAR, feature_id VARCHAR, weight BIGINT);
+INSERT INTO feature_multiset VALUES
+  ('S1', 'seat_heating', 2),
+  ('S1', 'massage', 4),
+  ('S1', 'headrest_powered', 1),
+  ('S1', 'memory_module', 1),
+  ('S1', 'seat_track', 1),
+  ('S2', 'seat_heating', 2),
+  ('S2', 'massage', 4),
+  ('S2', 'headrest_powered', 1),
+  ('S2', 'memory_module', 1),
+  ('S3', 'seat_heating', 2),
+  ('S3', 'massage', 2),
+  ('S3', 'headrest_powered', 1),
+  ('S4', 'seat_heating', 4),
+  ('S4', 'seat_ventilation', 2),
+  ('S5', 'seat_track', 1),
+  ('S5', 'memory_module', 1),
+  ('S6', 'seat_heating', 2),
+  ('S6', 'seat_ventilation', 2),
+  ('S6', 'massage', 4),
+  ('S6', 'headrest_powered', 1),
+  ('S6', 'memory_module', 1),
+  ('S6', 'seat_track', 2);
 ```
 
 ## `find_covering_entities` / `find_covering_entities_for` — stage-1 search
@@ -296,8 +431,40 @@ compat_score(dimension, required, provided [, rules_table := 'compatibility_rule
 ```
 
 ```sql
-CREATE TABLE compatibility_rules AS
-SELECT * FROM read_csv_auto('test/data/coverage/compatibility_rules.csv.gz');
+CREATE TABLE compatibility_rules (dimension VARCHAR, required VARCHAR, provided VARCHAR, score DOUBLE);
+INSERT INTO compatibility_rules VALUES
+  ('flammability_class', 'F3', 'F3', 1),
+  ('flammability_class', 'F3', 'F2', 1),
+  ('flammability_class', 'F3', 'F1', 1),
+  ('flammability_class', 'F3', 'F0', 1),
+  ('flammability_class', 'F2', 'F3', 0.5),
+  ('flammability_class', 'F2', 'F2', 1),
+  ('flammability_class', 'F2', 'F1', 1),
+  ('flammability_class', 'F2', 'F0', 1),
+  ('flammability_class', 'F1', 'F3', 0),
+  ('flammability_class', 'F1', 'F2', 0.5),
+  ('flammability_class', 'F1', 'F1', 1),
+  ('flammability_class', 'F1', 'F0', 1),
+  ('flammability_class', 'F0', 'F3', 0),
+  ('flammability_class', 'F0', 'F2', 0),
+  ('flammability_class', 'F0', 'F1', 0.5),
+  ('flammability_class', 'F0', 'F0', 1),
+  ('protection_class', 'IP40', 'IP40', 1),
+  ('protection_class', 'IP40', 'IP54', 1),
+  ('protection_class', 'IP40', 'IP65', 1),
+  ('protection_class', 'IP40', 'IP67', 1),
+  ('protection_class', 'IP54', 'IP40', 0.5),
+  ('protection_class', 'IP54', 'IP54', 1),
+  ('protection_class', 'IP54', 'IP65', 1),
+  ('protection_class', 'IP54', 'IP67', 1),
+  ('protection_class', 'IP65', 'IP40', 0),
+  ('protection_class', 'IP65', 'IP54', 0.5),
+  ('protection_class', 'IP65', 'IP65', 1),
+  ('protection_class', 'IP65', 'IP67', 1),
+  ('protection_class', 'IP67', 'IP40', 0),
+  ('protection_class', 'IP67', 'IP54', 0),
+  ('protection_class', 'IP67', 'IP65', 0.5),
+  ('protection_class', 'IP67', 'IP67', 1);
 
 SELECT provided, compat_score('protection_class', parse_quantity('IP54 or better').category, provided) AS score
 FROM (VALUES (1, 'IP67'), (2, 'IP54'), (3, 'IP40')) t(i, provided)
@@ -342,7 +509,7 @@ SELECT node_id, name, dimension, lo, unit, bound FROM spec_attrs;
 ```
 
 Many files at once: `SELECT unnest(n) FROM (SELECT unnest(tree_from_json(content)) AS n FROM
-read_text('test/data/coverage/requests_json/*.json'))` (80 benchmark requests, 3128 nodes).
+read_text('test/data/coverage/requests_json/*.json'))` (80 benchmark requests, 3128 nodes; repository data).
 
 ### `validate_trees` — run on every new batch
 
@@ -355,7 +522,9 @@ Errors: `duplicate_node, null_key, bad_node_kind, bad_edge_type, bad_count, orph
 multiple_roots, cycle, unreachable, too_deep` (> 256 levels), and with attributes
 `duplicate_attribute, attribute_on_container, orphan_attribute, bad_interval, bad_bound`.
 Warnings: `mixed_edge_types, unknown_unit, category_without_dimension, mixed_roles,
-mixed_dimensions`.
+mixed_dimensions, magnitude_outlier` (a value about 1000× or 1/1000 of the other values of the same
+`attr_key`/name and dimension: a unit slip such as W for kW, which passes a one-sided limit with
+score 1; run it over the request and the offers together). The `detail` says the fix.
 
 ```sql
 SELECT count(*) FILTER (WHERE severity = 'error') AS n_errors
@@ -424,7 +593,8 @@ coverage_kernel(query LIST(STRUCT), candidate LIST(STRUCT), options STRUCT)
 ```
 
 ```text
-attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score   (categorical: compat_score)
+attr(x, y)  = gate · (mu·name_sim + 1 − mu) · value_satisfies(x, y).score   (categorical: compat_score;
+              mu counts only for name_rule 'vector', else 0)
 a(q, c)     = mean over q's attributes of the best attr(x, ·)               (1 without attributes)
 L(q, c)     = Bhattacharyya(p(q), p(c))  or 0/1 with labels := 'hard'
 score(q, c) = label_weight·L + (1 − label_weight)·L·a
@@ -443,7 +613,7 @@ coverage    = mean req(q);   rank_score = coverage + stage1_weight · stage1_sco
 | `recall_mode` | `'auto'` | containment if every candidate is reviewed, else jaccard (`mode` in `coverage_recall`) |
 | `assignment` | `'auto'` | `'partition'` (one item serves one requirement, no substitution), `'best_match'` (sharing); auto = partition when both trees reviewed |
 | `alternatives` | `'joint'` | one alternative per candidate OR group for the whole request; `'per_requirement'` |
-| `mu` | 0.2 | attribute-name weight (names only discount) |
+| `mu` | 0.2 | name-vector weight (names only discount; no effect without `name_vectors`) |
 | `labels`, `label_weight` | `'soft'`, 0.0 | `'hard'` = 0/1 class agreement; λ = label credit independent of values |
 | `partition_gate`, `count_gate` | 0.3, 0.5 | min label agreement for a block / for counting instances |
 | `stage1_weight`, `tie_break` | 0.05, 0.01 | |
@@ -473,12 +643,12 @@ a count shortfall, or a value below 1. Unchosen request OR alternatives do not a
 ```sql
 -- Rank, then explain (README quick start)
 SELECT candidate_id, round(coverage, 3) AS coverage, n_requirements, n_gaps
-FROM tree_coverage('Q1', k := 3, mu := 0.0, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes');
+FROM tree_coverage('Q1', k := 3, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes');
 -- S1 1.0 4 0 | S6 1.0 4 0 | S2 0.5 4 2
 SELECT req_node_id, attr_name, req_value, prov_value, value_score, round(distance, 3) AS distance
-FROM tree_coverage_trace('Q1', candidates := ['S2'], mu := 0.0,
+FROM tree_coverage_trace('Q1', candidates := ['S2'],
                          nodes_table := 'tree_nodes', attrs_table := 'tree_attributes')
-WHERE is_gap
+WHERE is_gap AND (value_score IS DISTINCT FROM 1 OR count_available < count_needed)  -- is_gap marks the requirement
 ORDER BY req_node_id, attr_name;
 -- Q1.1 current draw  at_most 8 A     9 A    0.0 0.125
 -- Q1.1 time to 37 °C at_most 180 s   240 s  0.0 0.333
@@ -500,14 +670,26 @@ FROM coverage_recall('Q1', k := 3, nodes_table := 'tree_nodes');
 Archive without `class_id`, classed through the reviewed vocabulary:
 
 ```sql
-CREATE TABLE vocabulary_overrides AS
-SELECT wording, source, class_id FROM read_csv_auto('test/data/coverage/mini/vocabulary.csv');
+CREATE TABLE vocabulary_overrides (wording VARCHAR, source VARCHAR, class_id VARCHAR);
+INSERT INTO vocabulary_overrides VALUES
+  ('Heizmatte', 'internal', 'seat_heating'),
+  ('Sitzheizung Carbon', 'internal', 'seat_heating'),
+  ('Lüftermodul', 'internal', 'seat_ventilation'),
+  ('Klimapaket Heizung', 'internal', 'seat_ventilation'),
+  ('Massagemodul pneumatisch', 'internal', 'massage'),
+  ('Massage-Blasenmatte', 'internal', 'massage'),
+  ('KS elektrisch', 'internal', 'headrest_powered'),
+  ('Kopfstützenantrieb', 'internal', 'headrest_powered'),
+  ('Memory-SG', 'internal', 'memory_module'),
+  ('Sitzmemory', 'internal', 'memory_module'),
+  ('Längsversteller', 'internal', 'seat_track'),
+  ('LV-Schiene', 'internal', 'seat_track');
 CREATE TABLE archive_nodes AS
 SELECT * REPLACE (NULL::VARCHAR AS class_id) FROM tree_nodes WHERE tree_id LIKE 'S%';
 SELECT candidate_id, round(coverage, 3) AS coverage, n_gaps, reviewed, assignment_used
 FROM tree_coverage('Q1', k := 3, nodes_table := 'tree_nodes', attrs_table := 'tree_attributes',
                    candidate_nodes_table := 'archive_nodes', candidate_attrs_table := 'tree_attributes',
-                   overrides_table := 'vocabulary_overrides', mu := 0.0);
+                   overrides_table := 'vocabulary_overrides');
 -- S1 1.0 0 true partition | S6 1.0 0 true partition | S2 0.5 2 true partition
 ```
 
@@ -564,10 +746,9 @@ SELECT unnest(n) FROM (SELECT unnest(tree_from_json('{"tree_id": "RFQ-1", "lang"
     {"node_id": "RFQ-1.2", "kind": "item", "label": "powered headrest", "count": 1, "class_id": "headrest_powered",
      "attributes": [{"attr_id": "a1", "name": "height travel", "text": "at least 60 mm"}]}]}}')) AS n);
 CREATE OR REPLACE TABLE req_attrs AS SELECT unnest(attributes, recursive := true) FROM req_nodes;
-CREATE OR REPLACE TABLE prog_nodes AS
-SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_nodes.csv') WHERE tree_id LIKE 'S%';
-CREATE OR REPLACE TABLE prog_attrs AS
-SELECT * FROM read_csv_auto('test/data/coverage/mini/tree_attributes.csv') WHERE tree_id LIKE 'S%';
+-- the archive: programmes S1-S6 of the setup above
+CREATE OR REPLACE TABLE prog_nodes AS SELECT * FROM tree_nodes WHERE tree_id LIKE 'S%';
+CREATE OR REPLACE TABLE prog_attrs AS SELECT * FROM tree_attributes WHERE tree_id LIKE 'S%';
 
 -- 2. Validate (expect no rows), then 3. index the archive once (rebuild on archive/vocabulary change)
 SELECT * FROM validate_trees('prog_nodes', 'prog_attrs') WHERE severity = 'error';
@@ -577,19 +758,18 @@ CREATE OR REPLACE TABLE prog_index AS SELECT * FROM tree_class_multiset('prog_no
 SELECT candidate_id, round(coverage, 3) AS coverage, rank, n_gaps
 FROM tree_coverage('RFQ-1', k := 5, nodes_table := 'req_nodes', attrs_table := 'req_attrs',
                    candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                   candidate_multiset_table := 'prog_index', mu := 0.0);
+                   candidate_multiset_table := 'prog_index');
 -- S3 1.0 | S1 1.0 | S6 1.0 | S2 0.0 | S4 0.0   (S2: 9 A heater fails max. 8 A; 50 mm travel fails at least 60 mm)
 
 -- 5. Explain the best candidate's gaps (same parameters as the ranking)
 SET VARIABLE top = (SELECT candidate_id FROM tree_coverage('RFQ-1', k := 5,
                     nodes_table := 'req_nodes', attrs_table := 'req_attrs',
                     candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                    candidate_multiset_table := 'prog_index', mu := 0.0) WHERE rank = 1);
+                    candidate_multiset_table := 'prog_index') WHERE rank = 1);
 SELECT req_node_id, matched_node_id, attr_name, req_value, prov_value, value_score, is_gap
 FROM tree_coverage_trace('RFQ-1', candidates := [getvariable('top')],
                          nodes_table := 'req_nodes', attrs_table := 'req_attrs',
-                         candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs',
-                         mu := 0.0);
+                         candidate_nodes_table := 'prog_nodes', candidate_attrs_table := 'prog_attrs');
 -- RFQ-1.1 S3.1 current draw at_most 8 A 7.5 A 1.0 false | RFQ-1.2 S3.3 height travel ... 1.0 false
 ```
 

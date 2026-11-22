@@ -7,7 +7,8 @@
 ## Quantities: units, parsing and direction-aware comparison
 
 Numbers need rules, not embeddings: the unit is a hard gate, the value is checked
-with a direction, and the distance to compliance is reported.
+with a direction, and the distance to compliance is reported. Why these rules, and how bounds,
+tolerances, spans, scales and gates combine: [quantities and bounds](../concepts/quantities-and-bounds.md).
 
 **`quantity_units()`**: the built-in, read-only units seed. It returns `symbol, alias
 VARCHAR[], dimension, factor, offset, base_unit` (base = value × factor + offset). It covers SI
@@ -101,6 +102,9 @@ normalised first.
 | `gate` | different or unknown dimensions, or different currencies; score 0 | NULL |
 | `missing` | no provided value; score 0 | NULL |
 
+Worked examples of each rule, and why `tol`, `soft_band` and the scale are set as they are:
+[scoring per bound](../concepts/quantities-and-bounds.md#scoring-per-bound).
+
 - `score` is 1 within `tol` (default 0.02: decades on a log scale, i.e. 4.5 % relative;
   relative on a linear scale) and falls linearly to 0 across `soft_band` (default 0.05).
   With `soft_band` 0 the limit is strict. For `within` and `point` the score with a band is the
@@ -128,11 +132,16 @@ similarity is never used.
 
 ```sql
 -- Which seat-track applications meet a German spec in cm and dB(A)?
-SELECT a.node_id
-FROM (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
-JOIN module_attributes a ON a.attr_id = r.attr,
-LATERAL (SELECT value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}) AS v)
-GROUP BY a.node_id HAVING min(v.score) = 1;
+-- Every requirement must be met; one the application does not state counts as failed
+-- (an inner join would drop it and let an incomplete offer pass).
+SELECT c.node_id
+FROM (SELECT DISTINCT node_id FROM module_attributes) c
+CROSS JOIN (SELECT attr, parse_quantity(value_text, 'de') AS q FROM requirement) r
+LEFT JOIN module_attributes a ON a.node_id = c.node_id AND a.attr_id = r.attr
+GROUP BY c.node_id
+HAVING bool_and(COALESCE(value_satisfies(r.q, {'lo': a.lo, 'hi': a.hi, 'dimension': a.dimension}).score, 0) = 1);
+-- requirement: travel 'mindestens 24 cm', noise 'max. 38 dB(A)'; A1 offers 0.25 m and 36 dB(A),
+-- A2 only 0.25 m  =>  A1
 
 -- Unqualified values take the direction of their catalogue template
 SELECT value_satisfies(parse_quantity('38 dB(A)'), {'lo': 35, 'hi': 35, 'dimension': 'sound_level'},
@@ -196,8 +205,8 @@ SELECT parse_quantity('3 Stk.', ['de'], (SELECT list(u) FROM my_units u));
 Converts a value in a unit to the base unit of its dimension: STRUCT(value, unit, dimension). An unknown unit is never guessed: value and unit come back unchanged with dimension NULL. Currencies keep their value (same-currency comparison only). unit is a symbol, an alias or a unit identifier (UN/ECE Rec 20 code such as 'AMP', or a unit_id from unit_table such as an ECLASS unit IRDI, compared with semantic_key). unit_table extends the seed as in parse_quantity; an entry with only symbol and unit_id attaches identifiers to a known unit.
 
 ```sql
-normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)
-normalize_quantity(value DOUBLE, unit VARCHAR, unit_table ANY) → STRUCT("value" DOUBLE, unit VARCHAR, dimension VARCHAR)
+normalize_quantity(value DOUBLE, unit VARCHAR) → STRUCT(value DOUBLE, unit VARCHAR, dimension VARCHAR)
+normalize_quantity(value DOUBLE, unit VARCHAR, unit_table ANY) → STRUCT(value DOUBLE, unit VARCHAR, dimension VARCHAR)
 ```
 
 **Examples**
@@ -214,10 +223,10 @@ SELECT normalize_quantity(3, 'lanes', (SELECT list(u) FROM my_units u));
 Direction-aware comparison of a requirement with a provided value (both STRUCTs with lo, hi, dimension; the requirement also bound, either may carry unit). Returns STRUCT(score, distance, rule). at_least uses the high end of a provided range, at_most the low end, within the share of the required range covered, equals the relative difference (with lo < hi, as parsed from a tolerance, how far the offer lies outside the span); an unqualified value is a point widened by ±0.01 decades unless default_bound gives it a direction. score is 1 within tol (decades on log scale, relative on linear scale), falling to 0 across soft_band; distance is relative (absolute in K for temperature, which uses a 1 K tolerance and 2.5 K band). Different dimensions, or different currencies, give rule 'gate' and score 0. scale defaults per dimension (linear for time, currency, percent, sound level). Pass the options in order: scale, tol, soft_band, default_bound.
 
 ```sql
-value_satisfies(requirement ANY, provided ANY) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
-value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE, default_bound VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, "rule" VARCHAR)
+value_satisfies(requirement ANY, provided ANY) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
+value_satisfies(requirement ANY, provided ANY, scale VARCHAR, tol DOUBLE, soft_band DOUBLE, default_bound VARCHAR) → STRUCT(score DOUBLE, distance DOUBLE, rule VARCHAR)
 ```
 
 **Examples**

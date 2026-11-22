@@ -17,13 +17,13 @@
 .read examples/second_source/sql/load.sql
 
 .print '>>> 1. All 40 parts against the 12 approved foundries in one call'
--- mu := 0.0: the wordings differ by design (drawing vs capability sheet); the
--- class already says which values belong together, so names must not discount.
+-- The wordings differ by design (drawing vs capability sheet); without name vectors
+-- they pick the value but do not discount it.
 CREATE OR REPLACE TABLE ranking AS
 SELECT * FROM tree_coverage(getvariable('part_ids'), candidates := getvariable('approved'),
                             nodes_table := 'part_nodes', attrs_table := 'part_attributes',
                             candidate_nodes_table := 'supplier_nodes', candidate_attrs_table := 'supplier_attributes',
-                            rules_table := 'compatibility_rules', mu := 0.0);
+                            rules_table := 'compatibility_rules');
 SELECT query_id AS part_id, candidate_id AS supplier, round(coverage, 3) AS coverage, n_requirements, n_gaps, rank
 FROM ranking WHERE query_id IN ('P-1003', 'P-1005') AND rank <= 3
 ORDER BY query_id, rank;
@@ -42,7 +42,7 @@ CREATE OR REPLACE TABLE trace AS
 SELECT * FROM tree_coverage_trace(getvariable('part_ids'), candidates := getvariable('approved'),
                                   nodes_table := 'part_nodes', attrs_table := 'part_attributes',
                                   candidate_nodes_table := 'supplier_nodes', candidate_attrs_table := 'supplier_attributes',
-                                  rules_table := 'compatibility_rules', mu := 0.0);
+                                  rules_table := 'compatibility_rules');
 SELECT candidate_id AS supplier, split_part(req_node_id, ':', 2) AS class, attr_name, req_value, prov_value,
        round(distance, 3) AS distance
 FROM trace
@@ -79,12 +79,12 @@ SELECT *, n_gaps = 0 AS strict_full
 FROM tree_coverage(getvariable('part_ids'), candidates := getvariable('approved'),
                    nodes_table := 'part_nodes', attrs_table := 'part_attributes',
                    candidate_nodes_table := 'supplier_nodes', candidate_attrs_table := 'supplier_attributes',
-                   rules_table := 'compatibility_rules', mu := 0.0, tol := 0.0, soft_band := 0.0);
+                   rules_table := 'compatibility_rules', tol := 0.0, soft_band := 0.0);
 CREATE OR REPLACE TABLE strict_trace AS
 SELECT * FROM tree_coverage_trace(getvariable('part_ids'), candidates := getvariable('approved'),
                                   nodes_table := 'part_nodes', attrs_table := 'part_attributes',
                                   candidate_nodes_table := 'supplier_nodes', candidate_attrs_table := 'supplier_attributes',
-                                  rules_table := 'compatibility_rules', mu := 0.0, tol := 0.0, soft_band := 0.0);
+                                  rules_table := 'compatibility_rules', tol := 0.0, soft_band := 0.0);
 SELECT query_id AS part_id, candidate_id AS supplier, round(coverage, 3) AS strict_coverage, n_gaps
 FROM strict_ranking WHERE (query_id, candidate_id) IN (('P-1010', 'SUP-VENETO'), ('P-1039', 'SUP-ALPEN'))
 ORDER BY ALL;
@@ -176,7 +176,7 @@ WITH r AS (
                                 nodes_table := 'part_nodes', attrs_table := 'part_attributes',
                                 candidate_nodes_table := 'supplier_nodes',
                                 candidate_attrs_table := 'supplier_attributes',
-                                rules_table := 'compatibility_rules', mu := 0.0)
+                                rules_table := 'compatibility_rules')
 ), top3 AS (SELECT * FROM r WHERE n_gaps = 0 QUALIFY row_number() OVER (PARTITION BY query_id ORDER BY rank) <= 3)
 SELECT (SELECT count(DISTINCT query_id) FROM top3) AS parts_with_full_cover,
        (SELECT count(*) FROM top3 WHERE candidate_id = 'SUP-NOVA') AS novaguss_in_top3,

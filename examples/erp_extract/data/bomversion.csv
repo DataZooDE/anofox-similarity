@@ -1,0 +1,7 @@
+DataAreaId,ItemId,BOMId,FromDate,ToDate,Active,Approved
+usmf,PUMP-40,B-40-2019,2019-03-12,2023-12-31,Yes,Yes
+usmf,PUMP-40,B-40-2024,2024-01-01,,Yes,Yes
+usmf,PUMP-50,B-50,2020-06-05,,Yes,Yes
+usmf,PUMP-50,B-50-DRAFT,2025-09-01,,No,No
+usmf,PUMP-65,B-65,2025-10-20,,Yes,Yes
+demf,PUMP-40,B-40-DE,2019-03-12,,Yes,Yes

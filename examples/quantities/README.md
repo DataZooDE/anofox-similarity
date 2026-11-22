@@ -49,11 +49,12 @@ SELECT compat_score('protection_class', 'IP54', 'IP65');    -- 1.0 (needs compat
 | `at_most v` | provided low end ≤ v | (p_lo − v) / \|v\| |
 | `within [lo, hi]` | provided range covers the required range | uncovered share |
 | `equals v` | \|v − p\| ≤ tol (relative) | \|v − p\| / \|v\| |
-| `point` | no bound: provided value within ±tol | uncovered share |
+| `equals [lo, hi]` (`20 kg ± 1 kg`) | provided value inside 19–21 kg, plus tol | farther end outside the span / nominal |
+| `point` | no bound: score is the covered share of the comparison band (±1 % linear, ±0.01 decades log); `100 s` vs `101.5 s` scores 0.765 | uncovered share |
 | `gate` | different or unknown dimension, different currency | NULL |
 
-`score` is 1 within `tol` (default 0.02) and falls linearly to 0 across `soft_band` (default
-0.05). Temperatures use an absolute tolerance of 1 K and a band of 2.5 K.
+For the limit and `equals` rules, `score` is 1 within `tol` (default 0.02) and falls linearly
+to 0 across `soft_band` (default 0.05). Temperatures use an absolute tolerance of 1 K and a band of 2.5 K.
 
 ## Key Concepts
 

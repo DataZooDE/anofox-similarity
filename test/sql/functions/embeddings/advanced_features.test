@@ -21,7 +21,7 @@ INSERT INTO transactional_embedding_statistics (
     feature_name, feature_index, feature_category, mean_value, std_value,
     min_value, max_value, num_samples, updated_at, version
 ) VALUES
-    ('movement_type_receipt_ratio', 92, 'advanced', 0.6, 0.2, 0.2, 0.95, 5, CURRENT_TIMESTAMP, 1),
+    ('movement_type_issue_ratio', 92, 'advanced', 0.6, 0.2, 0.2, 0.95, 5, CURRENT_TIMESTAMP, 1),
     ('movement_type_reversal_ratio', 93, 'advanced', 0.2, 0.15, 0.0, 0.8, 5, CURRENT_TIMESTAMP, 1),
     ('weekday_weekend_ratio', 94, 'advanced', 0.15, 0.15, 0.0, 0.5, 5, CURRENT_TIMESTAMP, 1),
     ('weekday_concentration', 95, 'advanced', 0.3, 0.15, 0.15, 0.8, 5, CURRENT_TIMESTAMP, 1),
@@ -72,7 +72,7 @@ advanced
 
 query I
 SELECT COUNT(*) FROM transactional_embedding_statistics
-WHERE feature_name IN ('movement_type_receipt_ratio', 'movement_type_reversal_ratio')
+WHERE feature_name IN ('movement_type_issue_ratio', 'movement_type_reversal_ratio')
   AND mean_value >= 0.0
   AND mean_value <= 1.0;
 ----
@@ -80,7 +80,7 @@ WHERE feature_name IN ('movement_type_receipt_ratio', 'movement_type_reversal_ra
 
 query I
 SELECT COUNT(*) FROM transactional_embedding_statistics
-WHERE feature_name IN ('movement_type_receipt_ratio', 'movement_type_reversal_ratio')
+WHERE feature_name IN ('movement_type_issue_ratio', 'movement_type_reversal_ratio')
   AND min_value >= 0.0
   AND max_value <= 1.0;
 ----
@@ -131,13 +131,13 @@ WHERE feature_name = 'lifecycle_growth_indicator'
 
 query R
 SELECT mean_value FROM transactional_embedding_statistics
-WHERE feature_name = 'movement_type_receipt_ratio';
+WHERE feature_name = 'movement_type_issue_ratio';
 ----
 0.6
 
 query R
 SELECT std_value FROM transactional_embedding_statistics
-WHERE feature_name = 'movement_type_receipt_ratio';
+WHERE feature_name = 'movement_type_issue_ratio';
 ----
 0.2
 
@@ -186,7 +186,7 @@ WHERE feature_name = 'lifecycle_growth_indicator';
 query III
 SELECT
     COUNT(*) FILTER (WHERE feature_index >= 92 AND feature_index <= 97) AS phase2c_count,
-    COUNT(*) FILTER (WHERE feature_index = 92) AS receipt_ratio_count,
+    COUNT(*) FILTER (WHERE feature_index = 92) AS issue_ratio_count,
     COUNT(*) FILTER (WHERE feature_index = 97) AS growth_indicator_count
 FROM transactional_embedding_statistics;
 ----

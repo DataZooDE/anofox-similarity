@@ -280,14 +280,23 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	ValidateNumericColumn(context, movements_table, "quantity", "movements_table");
 
 	string sql = "WITH " + JaccardCTEs(bom_table, q, false, min_similarity) + StringUtil::Format(R"(,
+			-- history is consumption: weeks with a positive net quantity (a late return or a reversal
+			-- alone does not extend it); movement_weeks counts those weeks (the density)
+			movement_rows AS (
+				SELECT material_id, movement_date, quantity,
+				       SUM(quantity) OVER (PARTITION BY material_id, DATE_TRUNC('week', movement_date)) AS week_net
+				FROM query_table('%s')
+			),
 			material_history AS (
 				SELECT
 					material_id,
 					MIN(movement_date) AS first_usage,
 					MAX(movement_date) AS last_usage,
 					(EXTRACT(YEAR FROM MAX(movement_date)) - EXTRACT(YEAR FROM MIN(movement_date))) * 12 +
-					(EXTRACT(MONTH FROM MAX(movement_date)) - EXTRACT(MONTH FROM MIN(movement_date))) AS history_months
-				FROM query_table('%s')
+					(EXTRACT(MONTH FROM MAX(movement_date)) - EXTRACT(MONTH FROM MIN(movement_date))) AS history_months,
+					COUNT(DISTINCT DATE_TRUNC('week', movement_date)) AS movement_weeks
+				FROM movement_rows
+				WHERE week_net > 0 AND quantity > 0
 				GROUP BY material_id
 			),
 			with_history AS (
@@ -299,7 +308,8 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 					cs.total_components,
 					COALESCE(mh.history_months, 0)::BIGINT AS history_months,
 					mh.first_usage,
-					mh.last_usage
+					mh.last_usage,
+					COALESCE(mh.movement_weeks, 0)::BIGINT AS movement_weeks
 				FROM computed_similarity cs
 				LEFT JOIN material_history mh ON cs.material_id = mh.material_id
 				WHERE cs.similarity >= %.17g
@@ -312,8 +322,8 @@ static unique_ptr<TableRef> ColdStartAnalogsBindReplace(ClientContext &context, 
 	                                                                                           min_history_months) +
 	             TopK(q,
 	                  "material_id, similarity, shared_components, total_components, history_months, first_usage, "
-	                  "last_usage",
-	                  "with_history", "similarity DESC, material_id", k);
+	                  "last_usage, movement_weeks",
+	                  "with_history", "similarity DESC, movement_weeks DESC, material_id", k);
 	return ParseSubquery(sql, context, "Failed to parse cold_start_analogs query");
 }
 
@@ -382,9 +392,11 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	                {"mode", LogicalType::VARCHAR}});
 
 	RegisterSearch(loader, "find_similar_materials_wl_kernel", FindSimilarMaterialsWLKernelBindReplace,
-	               "Finds the k most structurally similar materials using the Weisfeiler-Lehman graph "
-	               "kernel, which captures multi-hop BOM structure beyond direct component overlap. "
-	               "iterations controls the number of WL refinement rounds (default 3). Without min_similarity, rows "
+	               "Finds the k most structurally similar materials by BOM depth fingerprints (a kernel of the "
+	               "Weisfeiler-Lehman family, not WL relabelling): each component weighted by the number of depths "
+	               "1..iterations at which it is reachable, compared by weighted Jaccard. It sees multi-level "
+	               "structure beyond direct components, but not quantities or which subassembly a part sits in. "
+	               "iterations is the depth (default 3; exact up to 5). Without min_similarity, rows "
 	               "scoring 0 are left out; min_similarity := 0 keeps them.",
 	               {"SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10);",
 	                "SELECT * FROM find_similar_materials_wl_kernel('MAT-001', 10, iterations := 3, min_similarity := "
@@ -398,7 +410,9 @@ void RegisterSimilaritySearchFunctions(ExtensionLoader &loader) {
 	RegisterSearch(loader, "cold_start_analogs", ColdStartAnalogsBindReplace,
 	               "Finds structural analogs for a cold-start material (one with little or no demand "
 	               "history). Returns established materials that are structurally similar and have at "
-	               "least min_history_months of goods movement data, enabling surrogate forecasting. Without "
+	               "least min_history_months of goods movement data, enabling surrogate forecasting. History is consumption "
+	               "(weeks with a positive net quantity, so a late return does not extend it); movement_weeks counts "
+	               "those weeks and breaks ties of similarity (denser first). Without "
 	               "min_similarity, materials scoring 0 are left out; min_similarity := 0 keeps them.",
 	               {"SELECT * FROM cold_start_analogs('NEW-PART', 5);",
 	                "SELECT * FROM cold_start_analogs('NEW-PART', 10, min_history_months := 12, min_similarity := "

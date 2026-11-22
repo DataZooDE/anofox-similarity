@@ -79,15 +79,16 @@ ORDER BY attr_id;
 OFF-C	a1	tokens
 OFF-C	a2	tokens
 
-# The ranking: A covers everything. C has the values but its plain names share no token with
-# the IRDI names, so each attribute keeps only 1 - mu = 0.8. B has a hard gap.
+# The ranking: A and C both meet every value. C's plain names share no token with the IRDI
+# names (name_rule tokens above); without name vectors that is no discount (mu weighs vector
+# agreement only), so C scores 1 like A. B has a hard gap.
 query TRI
 SELECT candidate_id, round(coverage, 3), n_gaps
 FROM tree_coverage('RFQ-117', candidates := ['OFF-A', 'OFF-B', 'OFF-C'], labels := 'hard')
-ORDER BY rank;
+ORDER BY coverage DESC, candidate_id;
 ----
 OFF-A	1.0	0
-OFF-C	0.8	0
+OFF-C	1.0	0
 OFF-B	0.5	1
 
 # An exact key match wins over an unkeyed attribute of the same dimension on the same item,

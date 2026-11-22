@@ -18,6 +18,7 @@ Each page keeps its hand-written guide text; only the part between the markers
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -133,19 +134,30 @@ def coverage_problems(by_name):
     return problems
 
 
+def plain_type(t):
+    """A type as both DuckDB versions agree on it: struct field names without the quotes
+    a version puts around its own keywords ("rule" on v1.5.6, also "distance" on v2.0)."""
+    return re.sub(r'"([A-Za-z_][A-Za-z0-9_]*)"', r"\1", t) if t else t
+
+
 def signature(row):
     params = row["parameters"] or []
-    types = row["parameter_types"] or []
+    types = [plain_type(t) for t in (row["parameter_types"] or [])]
     if row["function_type"] == "scalar" and len(types) == len(params):
         args = ", ".join(p if t in (None, "NULL") else f"{p} {t}" for p, t in zip(params, types))
-        ret = f" → {row['return_type']}" if row.get("return_type") else ""
+        ret = f" → {plain_type(row['return_type'])}" if row.get("return_type") else ""
         return f"{row['function_name']}({args}){ret}"
     # table functions report named-parameter types in their own order: names only
     return f"{row['function_name']}({', '.join(params)})"
 
 
 def render(name, rows):
-    rows = sorted(rows, key=lambda r: (len(r["parameters"]), r["parameter_types"]))
+    # a total order that both DuckDB versions agree on; table functions list named-parameter
+    # types in a version-dependent order, so they sort by parameter names only
+    def order(r):
+        types = r["parameter_types"] if r["function_type"] == "scalar" else []
+        return len(r["parameters"]), [str(t) for t in types], r["parameters"], r.get("examples") or []
+    rows = sorted(rows, key=order)
     if not rows:
         return f"### `{name}`\n\n*Not registered in this build.*\n"
     first = rows[0]

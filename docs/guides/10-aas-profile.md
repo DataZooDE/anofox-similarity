@@ -3,18 +3,20 @@
 > Say "one of these configurations" and "8 channels per card, 2 cards" in an Asset
 > Administration Shell, so offers match without one shell per variant.
 
+> **Data.** The examples read files from the repository ([`examples/aas_capability_matching/data`](https://github.com/DataZooDE/anofox-similarity/tree/main/examples/aas_capability_matching/data)). Run them from the root of a
+> clone (`git clone https://github.com/DataZooDE/anofox-similarity`), or download those folders and
+> keep their paths.
+
 [Guides](README.md) · [AAS API](../api/17-aas.md) · [Term reference](../aas/index.md) · [Examples](../../examples/aas_capability_matching/)
+
+> Advanced. New to AAS matching? Start with [AAS: First Match](11-aas-first-match.md).
 
 ## What AAS cannot say
 
-The coverage kernel needs two things that AAS v3 has no construct for:
-
-- **A configuration space.** A product family (a base module, configurations, applications)
-  offers *alternatives*; the best one should count. ECLASS polymorphism picks one variant per
-  *instance*. IDTA-02020 has no "one of". Without a convention, a supplier has to publish one
-  shell per variant, which hides the engineering choice and multiplies near-duplicates.
-- **Additive counts.** "2 cards with 8 channels each" means 16 channels. ECLASS cardinality
-  blocks describe instance structure; IDTA-02020 has no multiplicity.
+AAS v3 has no construct for a configuration space ("one of these variants") or for additive
+counts ("2 cards with 8 channels each" = 16 channels), so without a convention a supplier
+publishes one shell per variant. Why ECLASS and IDTA-02020 do not cover it:
+[AAS mapping](../concepts/aas-mapping.md#what-aas-cannot-say).
 
 The profile is three small, optional markers. Plain AAS without them still loads. The markers are
 ordinary AAS (qualifiers and a semanticId), so every AAS tool keeps reading the file.
@@ -75,7 +77,7 @@ UNION ALL SELECT unnest(aas_to_trees(content, 'IO-S')) FROM read_text('examples/
 CREATE TABLE tree_nodes AS SELECT n.* EXCLUDE (attributes) FROM raw;
 CREATE TABLE tree_attributes AS SELECT unnest(n.attributes, recursive := true) FROM raw;
 
-SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S'], labels := 'hard');
+SELECT candidate_id, coverage, n_gaps FROM tree_coverage('RFQ-2026-311', candidates := ['IO-S']);
 -- IO-S | 0.9 | 1
 ```
 

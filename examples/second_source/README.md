@@ -64,7 +64,7 @@ depend on the extension.
 | `Werkszeugnis 2.2`, `Abnahmeprüfzeugnis 3.1 nach EN 10204`, `2.2 / 3.1` | certificates | regex to `EN10204-2.2` …; one value per level listed |
 | `Härte 180-220 HB`, `Wärmebehandlung` | 2 parts | not in the vocabulary: listed as not checked |
 | an English copy of a German weight line | 2 parts | kept: both lines must be met |
-| `material_grade` has no dimension in `capability_classes` | 128 values | gate query lists it (`validate_trees` does not) |
+| `material_grade` has no dimension in `capability_classes` | 128 values | `validate_trees` warns on each (`category_without_dimension`: 40 part, 88 supplier rows); the gate query adds a per-class count |
 | `Gießerei Brandt GmbH` and `Giesserei Brandt`: one foundry, two vendor records | suppliers | vendor key dedup |
 | Novaguss can make every part but is not approved | suppliers | only approved master records are candidates |
 | Fonderia Veneta pours 37 kg; part P-1010 weighs 38 kg | near miss | `tol := 0, soft_band := 0` |
@@ -117,7 +117,7 @@ Both scripts read the shared loader [`sql/load.sql`](sql/load.sql) with `.read`;
 |-------|-----------------|
 | The default tolerance of `tree_coverage` (`tol` 0.02, `soft_band` 0.05) passes near misses | `tol := 0, soft_band := 0` for the RFQ ranking |
 | A bound stated in the text always wins over `default_bound` / `default_bounds := 'catalogue'`, but drawing wording describes the part, not the capability | the loader writes `bound` from `capability_classes` and keeps the parsed bound only for the audit |
-| `parse_quantity` refuses certificate texts, but `3.1 acc. to EN 10204` is 3.1 with unit `acc` | certificates are read with a regex, never parsed |
+| `parse_quantity` refuses certificate texts: `3.1 acc. to EN 10204` comes back empty (only `raw` set) | certificates are read with a regex, never parsed |
 | No range of categories (`GJS-400 … GJS-700`) | expanded to one value per standard grade (the kernel takes the best) |
 | A category without a dimension | `validate_trees` warns (`category_without_dimension`); `01`, section 7 also gates on it |
 | Envelope as a box fit | three sorted `at_least` classes. Allows axis-aligned rotation; does not model core prints or draft |

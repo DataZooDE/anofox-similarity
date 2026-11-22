@@ -32,6 +32,18 @@ reference (kind, signature, description, examples).
 
 On DuckDB 1.5.6, named arguments of scalar functions are matched by position, so give them in the documented order; DuckDB 2.0 matches them by name.
 
+Table functions take their leading arguments by position and the rest by name. Whether `k` is
+one of the leading arguments depends on the family:
+
+| Family | Positional | `k` | Example |
+|---|---|---|---|
+| material search: `find_similar_materials_jaccard`, `find_similar_materials_wl_kernel`, `cold_start_analogs` | material id, `k` | positional | `find_similar_materials_jaccard('PUMP-A', 5)` |
+| covering search: `find_covering_entities`, `find_covering_entities_for` | query, `k` | positional | `find_covering_entities('E1', 10, feature_table := 'fm')` |
+| tree functions: `tree_coverage`, `tree_coverage_trace`, `coverage_recall` | the query tree id | named | `tree_coverage('Q1', k := 3)` |
+| `find_covering_entities_lsh`, `eval_ranking` | the tables | named | `eval_ranking('results', 'gold', k := [1, 5])` |
+
+`k := 5` on a material search fails with "No function matches the given name and argument types".
+
 All macros support default parameters with `:=` syntax:
 
 ```sql
@@ -83,6 +95,10 @@ EXECUTE search(MAP {'y': 1});
 - **DuckDB 1.5.6 cannot `CASE` over an array**: `CASE WHEN c THEN embed_text(t) END` fails with
   "Unimplemented type for case expression: FLOAT[384]" (2.0 is fine). Cast inside and back:
   `(CASE WHEN c THEN embed_text(t)::FLOAT[] END)::FLOAT[384]`.
+- **`round()` of a DOUBLE half-way value differs by DuckDB version**: from 2.0.1 it rounds the stored
+  binary value, so `round(0.8875, 3)` is 0.887 there and 0.888 on 1.5.6 and 2.0.0. Shares such as 71/80
+  are such values; the examples show them with one more digit. Round a DECIMAL
+  (`round(x::DECIMAL(18, 6), 3)`) when a report must match across versions.
 - Upgrading from a release with list-typed embeddings: see [upgrading](../UPGRADING.md).
 
 ### What LOAD creates

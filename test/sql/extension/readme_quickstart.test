@@ -47,7 +47,7 @@ query TRRI
 SELECT predecessor_id, round(confidence, 2) AS confidence, correlation, overlapping_weeks
 FROM infer_predecessors('NEW-PUMP');
 ----
-OLD-PUMP	0.79	-1.0	38
+OLD-PUMP	0.79	-1.0	37
 
 query TRITT
 SELECT material_id, similarity, history_months, first_usage, last_usage

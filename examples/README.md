@@ -8,6 +8,7 @@ step in comments and states the expected output next to each query.
 
 | Folder | What it shows | Main functions |
 |--------|---------------|----------------|
+| [`erp_extract/`](erp_extract/) | A synthetic SAP and Dynamics 365 extract (MARA, MAKT, MAST, STKO, STPO, STAS, MSEG; BOMVersion, BOM) to BOM edges, texts, consumption and a first search | `sap_to_bom_items`, `sap_to_materials_with_desc`, `dynamics365_to_bom_header`, `dynamics365_to_bom_component`, `bom_to_items`, `find_similar_materials_jaccard`, `cold_start_analogs` |
 | [`material_similarity/`](material_similarity/) | Compare BOMs by shared parts and by structure; explode BOMs | `jaccard_similarity`, `find_similar_materials_jaccard`, `wl_kernel_similarity`, `find_similar_materials_wl_kernel`, `bom_explosion_*`, `bom_where_used`, `bom_common_components` |
 | [`predecessors_cold_start/`](predecessors_cold_start/) | Which material did a new one replace; which materials can lend it a history | `infer_predecessors`, `cold_start_analogs` |
 | [`coverage_matching/`](coverage_matching/) | Does an offer give what a request asks for: ranking and gap lists | `find_covering_entities`, `find_covering_entities_for`, `tree_coverage`, `tree_coverage_trace` |
@@ -37,9 +38,23 @@ A suggested reading order for coverage matching: `quantities` → `coverage_matc
 
 ## Running the Examples
 
-Build the extension first (`GEN=ninja make release`, see the [README](../README.md#installation)). The shell in `build/release/` has the extension
-linked in, so no `LOAD` is needed. Run the files from the repository root, because the data
-paths are relative to it:
+Run the files from the repository root, because the data paths are relative to it. There are
+three ways to get a shell with the extension.
+
+**Community extension** (no build). Clone the repository for the data, start `duckdb` in its root:
+
+```sql
+INSTALL anofox_similarity FROM community;
+LOAD anofox_similarity;
+.read examples/coverage_matching/tree_coverage_mini.sql
+```
+
+The community build is the latest release; an example added after it may need a function it
+does not have yet.
+
+**Source build on DuckDB 1.5.6** (`GEN=ninja make release`, see the
+[README](../README.md#installation)). The shell in `build/release/` has the extension linked in,
+so no `LOAD` is needed:
 
 ```bash
 # One file
@@ -49,13 +64,17 @@ paths are relative to it:
 scripts/run_examples.sh
 ```
 
-Set `DATAZOO_DISABLE_TELEMETRY=1` to switch off the load-time telemetry event.
+**Source build on DuckDB 2.0.** The shell does not link the extension; load the file:
 
-With an installed DuckDB, load the extension at the top of a session instead:
-
-```sql
-LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension';
+```bash
+./build/release/duckdb -unsigned \
+  -cmd "LOAD 'build/release/extension/anofox_similarity/anofox_similarity.duckdb_extension'" \
+  < examples/coverage_matching/tree_coverage_mini.sql
 ```
+
+`scripts/run_examples.sh` detects such a shell and loads the extension built next to it
+(`DUCKDB=` selects another shell). Set
+`DATAZOO_DISABLE_TELEMETRY=1` to switch off the load-time telemetry event.
 
 ## Data
 
