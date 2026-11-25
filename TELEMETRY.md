@@ -29,6 +29,11 @@ SET anofox_telemetry_enabled = false;   -- DuckDB setting (per session)
 > per-function event); the environment variable additionally covers the load event. When
 > `DATAZOO_DISABLE_TELEMETRY` is set, nothing leaves the machine at all.
 
+CI runs send nothing by default. When a CI environment is detected (`CI`, `GITHUB_ACTIONS`, `BUILDKITE`,
+`GITLAB_CI`, `JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD`, `CIRCLECI` or `LINUX_CI_IN_DOCKER`),
+no event is captured, queued or sent unless `DATAZOO_TELEMETRY_IN_CI=1` is set. Then events are
+sent and tagged `is_ci: true`.
+
 ## The guarantee: bounded, enumerated, non-PII
 
 Every property we send is **either** a constant drawn from a small,

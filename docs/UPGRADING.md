@@ -4,6 +4,15 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
+## Unreleased: no hang at exit on Windows MinGW with DuckDB 2.0, no telemetry from CI
+
+No action needed. Check these:
+
+| Before | Now |
+|---|---|
+| a MinGW build on DuckDB 2.0 (`windows_amd64_mingw`, for example from R on Windows) could hang for ever when the process exited: the telemetry worker's condition variable was destroyed after Windows had killed the worker. Also with `DATAZOO_DISABLE_TELEMETRY=1` | the process exits. Seen in the test suite as batches stuck after "All tests passed" |
+| CI runs sent telemetry tagged `is_ci: true` | a detected CI environment sends nothing unless `DATAZOO_TELEMETRY_IN_CI=1` (see [TELEMETRY.md](../TELEMETRY.md)) |
+
 ## v2026.11.22: transactional embeddings work again, no name discount without name vectors, SAP language keys in either form, SAP clients in the materials
 
 Transactional embeddings work again and their vectors change: recompute them. Coverage scores rise where attribute names were compared without `name_vectors`; the SAP material readers get a last column. Check these:
