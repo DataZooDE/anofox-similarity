@@ -8,13 +8,13 @@ description: >
   Use when the user asks "classify these items/requirements onto our catalogue", "which wordings
   should a reviewer look at", "export low-confidence items to an LLM", "where do label_table /
   overrides come from", or "calibrate cosine similarity of a small sentence encoder".
-version: 2026.11.22
+version: 2026.11.25
 user-invocable: false
 ---
 
 # Anofox Similarity — Classification & Review Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/14-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/14-classification-and-review.md) (guide: [`docs/guides/06-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/06-classification-and-review.md))
+**Extension:** `anofox_similarity` v2026.11.25 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/14-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/14-classification-and-review.md) (guide: [`docs/guides/06-classification-and-review.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/guides/06-classification-and-review.md))
 
 > Every SQL block here builds its data inline and runs as it stands, without a clone of the
 > repository. Mentions of `test/data/...` name the benchmark files (repository data: clone, or

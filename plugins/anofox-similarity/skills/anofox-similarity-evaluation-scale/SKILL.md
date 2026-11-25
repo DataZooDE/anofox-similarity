@@ -8,13 +8,13 @@ description: >
   Use when asking "how good is my matching", "auto-accept threshold at 95 % precision", "confidence
   interval per customer", "tune label_weight / mu", "is LSH worth it", "merge duplicate records", or
   "deduplicate the customer / supplier / plant master" (cluster scored pairs into entities).
-version: 2026.11.22
+version: 2026.11.25
 user-invocable: false
 ---
 
 # Anofox Similarity — Evaluation, Tuning & Scale Cheat Sheet
 
-**Extension:** `anofox_similarity` v2026.11.22 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/15-evaluation.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/15-evaluation.md), [`docs/api/16-lsh-and-clustering.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/16-lsh-and-clustering.md)
+**Extension:** `anofox_similarity` v2026.11.25 | **DuckDB:** v2.0 / v1.5.6 | **Reference:** [`docs/api/15-evaluation.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/15-evaluation.md), [`docs/api/16-lsh-and-clustering.md`](https://github.com/DataZooDE/anofox-similarity/blob/main/docs/api/16-lsh-and-clustering.md)
 
 > Every SQL block here runs as it stands, without a clone of the repository: the coverage
 > fixture is inline. Only the benchmark mentions (`test/data/coverage/...`) need the repository
