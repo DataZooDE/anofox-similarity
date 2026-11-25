@@ -4,7 +4,7 @@
 
 [API index](API_REFERENCE.md) · [Conventions](api/00-conventions.md)
 
-## Unreleased: no hang at exit on Windows MinGW with DuckDB 2.0, no telemetry from CI
+## v2026.11.25: no hang at exit on Windows MinGW with DuckDB 2.0, no telemetry from CI
 
 No action needed. Check these:
 
